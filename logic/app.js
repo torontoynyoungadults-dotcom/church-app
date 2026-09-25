@@ -534,9 +534,16 @@ function 상세필요_(reason) {
 
 var 셀비번접두 = '셀비번:';
 
-function 셀비번_(cellName) { return 설정값_(셀비번접두 + cellName); }
+/**
+ * 구글 로그인만 쓰기 — 이름 · 전화번호 로그인과 모든 숫자 비밀번호(셀 · 팀 · 새가족 · 마스터 · 관리자 · 회계)를 막습니다.
+ * 급할 때는 설정 시트의 '구글로그인만' 을 OFF 로 바꾸면 예전 방식이 다시 열립니다.
+ */
+function 구글만_() { return String(설정값_('구글로그인만') || 'ON').toUpperCase() !== 'OFF'; }
+var 구글만안내 = '포털에서 구글 계정으로 로그인해 주세요.';
 
-function 마스터비번_() { return 설정값_('마스터비밀번호'); }
+function 셀비번_(cellName) { return 구글만_() ? '' : 설정값_(셀비번접두 + cellName); }
+
+function 마스터비번_() { return 구글만_() ? '' : 설정값_('마스터비밀번호'); }
 
 function 마스터_(token) {
   var m = 마스터비번_();
@@ -614,6 +621,7 @@ function leaderLogin(password) {
       };
     }
   }
+  if (구글만_()) throw new Error(구글만안내);
   throw new Error('비밀번호가 올바르지 않습니다. 양육팀에 문의해주세요.');
 }
 
@@ -625,6 +633,7 @@ function requireCell_(token, cellName) {
     if (포털권한_(token, '셀', cellName)) return;
     throw new Error('이 셀에 대한 권한이 없습니다. 커미티에 문의해주세요.');
   }
+  if (구글만_()) throw new Error(구글만안내);
   if (!셀잠금사용_()) return;
   var pw = 셀비번_(String(cellName || '').trim());
   if (!pw || pw !== String(token || '').trim()) {
@@ -843,6 +852,7 @@ function getCellPasswords(key) {
 
 /** 관리 페이지 로그인 */
 function adminLogin(password) {
+  if (구글만_()) throw new Error(구글만안내);
   var pw = 설정값_('관리자비밀번호');
   if (!pw) throw new Error('비밀번호가 설정되지 않았습니다. 설정 시트를 확인해주세요.');
   if (String(password || '').trim() !== pw) throw new Error('비밀번호가 올바르지 않습니다.');
@@ -860,6 +870,7 @@ function 회계키_() {
 }
 
 function acctLogin(password) {
+  if (구글만_()) throw new Error(구글만안내);
   회계설정_();
   var pw = 설정값_('회계팀비밀번호');
   if (!pw) throw new Error('회계팀 비밀번호가 설정되지 않았습니다. 커미티에 문의해주세요.');
@@ -1024,8 +1035,8 @@ function findCell_(cellName) {
 
 function getLeaderInit() {
   return {
-    locked: 셀잠금사용_(),
-    cells: 셀잠금사용_() ? [] : getCells(),
+    locked: 구글만_() || 셀잠금사용_(),
+    cells: (구글만_() || 셀잠금사용_()) ? [] : getCells(),
     defaultDate: ymd_(이번주기준_()),
     startDate: 설정날짜_('셀시작일', '2026-09-13'),
     today: ymd_(new Date())
@@ -2364,12 +2375,13 @@ function 새가족합치기_(nf, idx) {
 
 /* ---- 새가족팀 로그인 ---- */
 
-function 새가족비번_() { return 설정값_('새가족팀비밀번호'); }
+function 새가족비번_() { return 구글만_() ? '' : 설정값_('새가족팀비밀번호'); }
 
 function newFamilyLogin(password) {
   password = String(password || '').trim();
 
   if (!포털권한_(password, '새가족')) {
+    if (구글만_()) throw new Error(포털해독_(password) ? '새가족 관리 권한이 없습니다. 커미티에 문의해주세요.' : 구글만안내);
     var pw = 새가족비번_();
     if (!pw) throw new Error('새가족팀 비밀번호가 설정되지 않았습니다. 양육팀에 문의해주세요.');
     if (password !== pw) throw new Error('비밀번호가 올바르지 않습니다.');
@@ -2978,9 +2990,9 @@ function findTeam_(name) {
 /* ---- 팀장 로그인 ---- */
 
 var 팀비번접두 = '팀비번:';
-function 팀비번_(teamName) { return 설정값_(팀비번접두 + teamName); }
+function 팀비번_(teamName) { return 구글만_() ? '' : 설정값_(팀비번접두 + teamName); }
 function 사역마스터_(token) {
-  var m = 설정값_('사역팀마스터비밀번호');
+  var m = 구글만_() ? '' : 설정값_('사역팀마스터비밀번호');
   return !!m && String(token || '').trim() === m;
 }
 
@@ -3015,6 +3027,7 @@ function teamLogin(password) {
       };
     }
   }
+  if (구글만_()) throw new Error(구글만안내);
   throw new Error('비밀번호가 올바르지 않습니다. 커미티에 문의해주세요.');
 }
 
@@ -6745,6 +6758,7 @@ function portalGoogleLinkUrl(token) {
 }
 
 function portalLogin(name, phone, postal) {
+  if (구글만_()) throw new Error('구글 계정으로 로그인해 주세요.');
   name = String(name || '').trim();
   var key = 전화키_(phone);
   if (!name) throw new Error('이름을 입력해주세요.');

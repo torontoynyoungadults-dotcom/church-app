@@ -1243,6 +1243,7 @@ header .homelink:active { opacity: .7; }
   background: #fff; border: 1px solid var(--hair-2); border-radius: var(--r-md); padding: 12px 14px;
   text-decoration: none; color: var(--ink-1); font-size: 15px; font-weight: 750; box-shadow: var(--sh-1);
 }
+.yngo-t { text-align: center; font-size: 14px; color: var(--ink-2, #55504A); line-height: 1.7; margin: 0 0 4px; }
 .yngo-n { text-align: center; font-size: 12.5px; color: var(--ink-3); margin: 8px 0 0; line-height: 1.6; }
 .ynrefresh:active { transform: rotate(120deg); }
 </style>
@@ -1272,18 +1273,25 @@ header .homelink:active { opacity: .7; }
   }
   function setup() {
     var home = P()._home;
-    // 비밀번호 화면 — 구글 계정(포털)으로도 들어올 수 있게
+    // 비밀번호 화면 → 구글 계정(포털)으로만 들어오게 합니다
     if (home) Array.prototype.forEach.call(document.querySelectorAll('#lock'), function (lk) {
-      if (!lk.querySelector('.pwbox') || lk.querySelector('.yngo')) return;
+      var pw = lk.querySelector('.pwbox');
+      if (!pw || lk.querySelector('.yngo')) return;
+      var box = pw.parentNode;
+      Array.prototype.forEach.call(box.children, function (c) {
+        if (c.tagName === 'IMG' || c.tagName === 'H1' || c.id === 'pwMsg' || c.id === 'lockTitle') return;
+        c.style.display = 'none';
+      });
+      var n = document.createElement('p');
+      n.className = 'yngo-t';
+      n.innerHTML = '청년1부 페이지는 <b>구글 계정</b>으로 들어옵니다.<br>포털에서 로그인한 뒤 메뉴를 눌러 들어와 주세요.';
+      var msg = box.querySelector('#pwMsg');
+      box.insertBefore(n, msg || null);
       var a = document.createElement('a');
       a.className = 'yngo'; a.href = home; a.target = '_top';
       a.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.3 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.4C.5 8.2 0 10 0 12s.5 3.8 1.4 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>' +
         '<span>구글 계정으로 들어가기</span>';
-      var box = lk.querySelector('.panel') || lk;
-      box.appendChild(a);
-      var n = document.createElement('p');
-      n.className = 'yngo-n'; n.textContent = '포털에 구글로 로그인한 뒤 메뉴에서 들어오시면 비밀번호가 필요 없습니다.';
-      box.appendChild(n);
+      box.insertBefore(a, msg || null);
     });
     // 커미티가 다른 사람으로 들어온 화면 — 맨 위 경고
     if (P()._as && !document.querySelector('.ynas')) {
