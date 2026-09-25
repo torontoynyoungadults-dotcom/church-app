@@ -99,6 +99,37 @@ app.all('/cron/:job', (req, res) => {
   }
 });
 
+/** 찬양 녹음 재생 — 드라이브 파일을 그대로 흘려보냅니다 (앞뒤로 옮기기가 되도록 Range 도 넘깁니다) */
+const bridge = require('./lib/bridge');
+const { Readable } = require('stream');
+const audioOk = new Map();
+app.get('/audio/:id', async (req, res) => {
+  const id = String(req.params.id || '');
+  try {
+    const hit = audioOk.get(id);
+    if (!hit || hit < Date.now()) {
+      const { result } = runtime.run((api) => api.녹음파일허용_(id));
+      if (!result) return res.status(404).send('not found');
+      audioOk.set(id, Date.now() + 10 * 60 * 1000);
+    }
+    const token = bridge.call('token');
+    const headers = { Authorization: 'Bearer ' + token };
+    if (req.headers.range) headers.Range = req.headers.range;
+    const r = await fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) + '?alt=media&supportsAllDrives=true', { headers });
+    if (!r.ok && r.status !== 206) return res.status(r.status).send('drive error');
+    res.status(r.status);
+    ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified'].forEach((h) => {
+      const v = r.headers.get(h); if (v) res.setHeader(h, v);
+    });
+    if (!r.headers.get('accept-ranges')) res.setHeader('accept-ranges', 'bytes');
+    res.setHeader('cache-control', 'private, max-age=3600');
+    Readable.fromWeb(r.body).on('error', () => res.end()).pipe(res);
+  } catch (e) {
+    console.error('[audio]', e.message);
+    if (!res.headersSent) res.status(500).send('error');
+  }
+});
+
 app.get('/healthz', (req, res) => res.send('ok'));
 
 function errorPage(e) {

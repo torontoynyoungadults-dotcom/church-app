@@ -320,6 +320,28 @@
   .prebtns .bulbtn .bt b { font-size: 15px; white-space: nowrap; }
   .prebtns .bulbtn { gap: 10px; }
   .bulbtn.cal .bi { background: #2E2B28; border: 1px solid rgba(255,255,255,.18); }
+  /* 새가족 등록 */
+  .prebtns .bulbtn.nf { grid-column: 1 / -1; background: linear-gradient(135deg, #F26B21, #D2511F); }
+  .prebtns .bulbtn.nf .bi { background: rgba(255,255,255,.18); }
+  .prebtns .bulbtn.nf .bt small { color: rgba(255,255,255,.85); }
+  .prebtns .bulbtn.nf .ba { color: rgba(255,255,255,.8); }
+  .nfwelcome { background: rgba(var(--tone-rgb), .06); border-radius: 14px; padding: 16px 16px 6px; margin: 4px 0 16px; }
+  .nfwelcome p { font-size: 13.5px; line-height: 1.8; color: var(--ink-2); margin: 0 0 12px; word-break: keep-all; }
+  .nfwelcome .nfh { font-size: 16px; font-weight: 800; color: var(--ink-1); letter-spacing: -0.02em; }
+  .nfwelcome .nfnote { font-size: 12.5px; color: var(--ink-3); }
+  .nfacct { font-size: 12.5px; color: var(--ink-3); margin: 0 0 12px; }
+  .nfacct b { color: var(--ink-1); }
+  .nfopts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .nfopts.col { flex-direction: column; }
+  .nfopts button { flex: 1; min-width: 88px; padding: 12px 8px; white-space: nowrap; font-size: 14px; border-radius: 12px; border: 1.5px solid var(--hair-2); background: #fff;
+    font-family: inherit; font-weight: 700; color: var(--ink-2); cursor: pointer; text-align: center; }
+  .nfopts.col button { text-align: left; }
+  .nfopts button.on { border-color: var(--tone); background: rgba(var(--tone-rgb), .08); color: var(--tone); }
+  .nfform textarea { width: 100%; box-sizing: border-box; }
+  .nfok { text-align: center; padding: 10px 4px 4px; }
+  .nfok .ic { width: 54px; height: 54px; border-radius: 50%; margin: 0 auto 12px; background: var(--tone); color: #fff; font-size: 26px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+  .nfok h3 { margin: 0 0 8px; font-size: 19px; letter-spacing: -0.02em; }
+  .nfok p { margin: 0; font-size: 14px; line-height: 1.8; color: var(--ink-2); }
   .gbtn {
     display: flex; align-items: center; justify-content: center; gap: 10px;
     width: 100%; padding: 14px; text-decoration: none;
@@ -377,6 +399,10 @@
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8.5 3.5v3M15.5 3.5v3"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg></span>
         <span class="bt"><b>청년부 일정</b></span><span class="ba">›</span>
       </a>
+      <a class="bulbtn nf" href="#" onclick="startNewcomer();return false;">
+        <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.5" cy="8" r="3.5"/><path d="M3 20c.6-3.6 3.2-5.6 6.5-5.6s5.9 2 6.5 5.6"/><path d="M18.5 8v6M15.5 11h6"/></svg></span>
+        <span class="bt"><b>새가족 등록</b><small>처음 오셨나요? 환영합니다</small></span><span class="ba">›</span>
+      </a>
     </div>
     <div class="panel" id="gbox">
       <span class="chip">토론토영락교회 청년1부 Portal 로그인</span>
@@ -388,6 +414,53 @@
       <p class="msg err" id="gMsg"></p>
     </div>
 
+    <!-- 새가족 등록 -->
+    <div class="panel" id="nfStart" style="display:none;">
+      <span class="chip">새가족 등록</span>
+      <p class="hint">토론토영락교회 청년1부에 오신 것을 환영합니다.<br>먼저 <b>구글 계정</b>으로 로그인(가입)해 주시면 등록 양식이 열립니다.</p>
+      <a class="gbtn" id="nfGbtn" href="#" onclick="goNewcomerGoogle();return false;"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.3 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.4C.5 8.2 0 10 0 12s.5 3.8 1.4 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
+        <span>Google 계정으로 시작하기</span>
+      </a>
+      <p class="msg" id="nfStartMsg"></p>
+      <p class="fnote" style="text-align:center;"><a href="#" onclick="cancelNewcomer();return false;">돌아가기</a></p>
+    </div>
+
+    <div class="panel nfform" id="nfBox" style="display:none;">
+      <span class="chip">새가족 등록</span>
+      <div class="nfwelcome">
+        <p class="nfh">토론토 영락교회 청년 1부에 오신 것을 환영합니다.</p>
+        <p>새가족 등록을 원하시는 분은 아래 내용을 입력해주시기 바랍니다.<br>청년 1부는 만 25세부터(2000년생) 결혼 전까지의 청년들이 모입니다.</p>
+        <p>아래 내용을 기록해 주시면, 담당 교역자와 새가족팀이 연락을 드리겠습니다.<br><span class="nfnote">※ 입력하신 정보는 교적 등록, 교인 관리, 목회 활동에만 사용됩니다.</span></p>
+        <p>토론토 영락교회 청년 1부에 정식으로 등록하기 위해서는 새가족 교육에 참여해야 합니다.<br>새가족 교육은 4주 과정이고, 새가족 교육을 받으시면 셀(소그룹모임)에 참여하실 수 있습니다.</p>
+      </div>
+      <p class="nfacct" id="nfAcct"></p>
+      <div class="f"><label>이름 (한글) <span class="req">*</span></label>
+        <input type="text" id="nfName" class="big" autocomplete="name" placeholder="홍길동" maxlength="40"></div>
+      <div class="f"><label>성별 <span class="req">*</span></label><div class="nfopts" id="nfGender"></div></div>
+      <div class="f"><label>생년월일 <span class="req">*</span></label>
+        <input type="date" id="nfBirth" class="big" autocomplete="bday" max="2015-12-31"></div>
+      <div class="f"><label>연락처 <span class="req">*</span></label>
+        <input type="tel" id="nfPhone" class="big" inputmode="numeric" autocomplete="tel" placeholder="416-000-0000" maxlength="14" oninput="fmtPhone(this)"></div>
+      <div class="f"><label>수세 여부 <span class="req">*</span></label><div class="nfopts" id="nfBapt"></div></div>
+      <div class="f"><label>이전 출석 교회</label>
+        <input type="text" id="nfChurch" placeholder="없으면 비워두세요" maxlength="100"></div>
+      <div class="f"><label>직업</label>
+        <input type="text" id="nfJob" placeholder="예: 학생, 회사원" maxlength="100"></div>
+      <div class="f"><label>청년부 활동 계획 <span class="req">*</span></label><div class="nfopts col" id="nfPlan"></div></div>
+      <div class="f"><label>문의사항</label>
+        <textarea id="nfQ" rows="3" maxlength="2000" placeholder="궁금하신 점이 있으면 적어주세요"></textarea></div>
+      <button class="submit" id="nfSubmit" onclick="submitNewcomer()">등록하기</button>
+      <p class="msg" id="nfMsg"></p>
+    </div>
+
+    <div class="panel" id="nfDone" style="display:none;">
+      <div class="nfok">
+        <div class="ic">✓</div>
+        <h3 id="nfDoneT">등록해 주셔서 감사합니다</h3>
+        <p id="nfDoneP">담당 교역자와 새가족팀이 곧 연락을 드리겠습니다.<br>주일 예배에서 뵙기를 기대합니다!</p>
+      </div>
+      <p class="fnote" style="text-align:center;margin-top:14px;"><a href="#" onclick="editNewcomer();return false;">적은 내용 고치기</a></p>
+    </div>
     <div class="panel" id="linkBox" style="display:none;">
       <span class="chip">처음 한 번만 본인 확인</span>
       <p class="hint">
@@ -631,6 +704,11 @@ function forgetToken() {
    3) 둘 다 아니면 로그인 화면 */
 function boot() {
   // 구글로 로그인했는데 교적에 없는 계정 — 본인 확인(또는 로그인된 분이면 바로 연결)
+  if (PREFILL.link && PREFILL.intent === 'newcomer' && PREFILL.newcomer) {
+    try { history.replaceState(null, '', location.pathname + '?page=portal'); } catch (e) {}
+    showNewcomerForm(PREFILL.newcomer.mine);
+    return;
+  }
   if (PREFILL.link) {
     try { history.replaceState(null, '', location.pathname + '?page=portal'); } catch (e) {}
     var kept = keptToken(), intent = false;
@@ -650,6 +728,11 @@ function boot() {
 
   if (PREFILL.data) {
     onIn(PREFILL.data);
+    if (PREFILL.already) {
+      var gn = el('gNote');
+      if (gn) gn.innerHTML = '<div class="gnote ok"><div class="gt">이 구글 계정은 <b>이미 교적에 등록</b>되어 있어 새가족 등록 대신 포털로 들어왔습니다.</div>' +
+        '<button class="gx" onclick="el(\'gNote\').innerHTML=\'\'" aria-label="닫기">×</button></div>';
+    }
     // 주소창에 남은 구글 code 를 지워 새로고침해도 다시 로그인 과정을 타지 않게 합니다
     try { history.replaceState(null, '', location.pathname + '?page=portal'); } catch (e) {}
     return;
@@ -713,6 +796,8 @@ function toggleManual() {
 function showLock() {
   el('entering').style.display = 'none';
   el('lock').style.display = 'block';
+  lockPanels('gbox');
+  var nfb = document.querySelector('#lock .prebtns .nf'); if (nfb) nfb.style.display = '';
   freshGoogle();
   showGoogle();
   el('manualBox').style.display = 'none';
@@ -774,6 +859,89 @@ function cancelLink() {
   el('linkBox').style.display = 'none';
   showLock();
 }
+
+/* ---------- 새가족 등록 (로그인 전) ---------- */
+
+var NF_OPT = { 성별: ['남', '여'], 수세여부: ['성인세례/입교', '유아세례', '없음'],
+  활동계획: [['새가족 교육(4주) 후 정식 등록', '새가족 교육(4주) 후 정식등록'], ['예배만 참석', '예배만 참석'], ['방문', '방문']] };
+var NF_PICK = {}, NF_MINE = null;
+
+function lockPanels(show) {
+  ['gbox', 'manualBox', 'linkBox', 'nfStart', 'nfBox', 'nfDone'].forEach(function (k) { if (el(k)) el(k).style.display = k === show ? 'block' : 'none'; });
+  var pb = document.querySelector('#lock .prebtns');
+  if (pb) pb.style.display = (show === 'gbox') ? '' : 'none';
+}
+function startNewcomer() {
+  lockPanels('nfStart');
+  say('nfStartMsg', '');
+  window.scrollTo(0, 0);
+}
+function cancelNewcomer() { lockPanels('gbox'); showLock(); }
+function goNewcomerGoogle() {
+  say('nfStartMsg', '구글 로그인으로 이동 중…');
+  callServer('portalGoogleUrl', ['newcomer'], function (u) {
+    if (!u) { say('nfStartMsg', '구글 로그인이 아직 설정되어 있지 않습니다. 커미티에 문의해주세요.', 'err'); return; }
+    location.href = u;
+  }, function (e) { say('nfStartMsg', (e && e.message) || '이동하지 못했습니다.', 'err'); });
+}
+function nfOpts(id, key, list, cur) {
+  NF_PICK[key] = cur || '';
+  el(id).innerHTML = list.map(function (o) {
+    var label = Array.isArray(o) ? o[0] : o, val = Array.isArray(o) ? o[1] : o;
+    return '<button type="button" data-v="' + esc(val) + '" class="' + (val === cur ? 'on' : '') + '">' + esc(label) + '</button>';
+  }).join('');
+  el(id).onclick = function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    NF_PICK[key] = b.getAttribute('data-v');
+    [].slice.call(el(id).children).forEach(function (x) { x.className = x === b ? 'on' : ''; });
+  };
+}
+function showNewcomerForm(mine) {
+  NF_MINE = mine || null;
+  var m = mine || {};
+  el('entering').style.display = 'none';
+  el('lock').style.display = 'block';
+  lockPanels('nfBox');
+  el('nfAcct').innerHTML = '구글 계정 <b>' + esc(PREFILL.email || '') + '</b> 으로 등록합니다.' +
+    (mine ? '<br>이미 등록하신 내용이 있어 불러왔습니다. 고친 뒤 다시 저장할 수 있습니다.' : '');
+  el('nfName').value = m.name || ''; el('nfBirth').value = m.birthday || '';
+  el('nfPhone').value = m.contact || ''; el('nfChurch').value = m.prevChurch || '';
+  el('nfJob').value = m.job || ''; el('nfQ').value = m.question || '';
+  nfOpts('nfGender', 'gender', NF_OPT.성별, m.gender);
+  nfOpts('nfBapt', 'baptized', NF_OPT.수세여부, m.baptized);
+  nfOpts('nfPlan', 'plan', NF_OPT.활동계획, m.plan);
+  el('nfSubmit').textContent = mine ? '고친 내용 저장하기' : '등록하기';
+  say('nfMsg', '');
+}
+function submitNewcomer() {
+  var d = {
+    name: el('nfName').value.trim(), gender: NF_PICK.gender, birthday: el('nfBirth').value,
+    contact: el('nfPhone').value.trim(), baptized: NF_PICK.baptized, prevChurch: el('nfChurch').value.trim(),
+    job: el('nfJob').value.trim(), plan: NF_PICK.plan, question: el('nfQ').value.trim()
+  };
+  var need = function (ok, msg, focus) { if (ok) return false; say('nfMsg', msg, 'err'); if (focus) el(focus).focus(); return true; };
+  if (need(d.name, '이름(한글)을 입력해주세요.', 'nfName')) return;
+  if (need(d.gender, '성별을 골라주세요.')) return;
+  if (need(d.birthday, '생년월일을 입력해주세요.', 'nfBirth')) return;
+  if (need(d.contact.replace(/[^0-9]/g, '').length >= 10, '연락처(전화번호)를 입력해주세요.', 'nfPhone')) return;
+  if (need(d.baptized, '수세 여부를 골라주세요.')) return;
+  if (need(d.plan, '청년부 활동 계획을 골라주세요.')) return;
+  el('nfSubmit').disabled = true;
+  say('nfMsg', '저장하는 중…');
+  callServer('registerNewcomer', [PREFILL.link, d], function (r) {
+    el('nfSubmit').disabled = false;
+    NF_MINE = r.mine;
+    lockPanels('nfDone');
+    el('nfDoneT').textContent = r.isNew ? '등록해 주셔서 감사합니다' : '저장했습니다';
+    el('nfDoneP').innerHTML = esc(r.name) + '님, ' + (r.isNew ? '환영합니다!<br>담당 교역자와 새가족팀이 곧 연락을 드리겠습니다.<br>주일 예배에서 뵙기를 기대합니다.' : '고치신 내용을 새가족팀에 전달했습니다.');
+    var pb = document.querySelector('#lock .prebtns'); if (pb) { pb.style.display = ''; var nfb = pb.querySelector('.nf'); if (nfb) nfb.style.display = 'none'; }
+    window.scrollTo(0, 0);
+  }, function (e) {
+    el('nfSubmit').disabled = false;
+    say('nfMsg', (e && e.message) || '저장하지 못했습니다.', 'err');
+  });
+}
+function editNewcomer() { showNewcomerForm(NF_MINE); window.scrollTo(0, 0); }
 
 /* ---------- 구글 계정 연결 안내 (이름 · 전화번호로 들어온 분께) ---------- */
 

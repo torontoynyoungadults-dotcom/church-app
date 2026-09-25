@@ -420,7 +420,7 @@ function detailHtml(n) {
   var fields = (n.linked ? [
     ['소속 셀', n.cell],
     ['출석률', (n.rate !== undefined && n.rate !== null) ? n.rate + '% (' + n.present + '/' + n.totalMeetings + ')' : ''],
-    ['연락처', n.contact], ['성별', n.gender], ['생년월일', n.birthdayDisplay],
+    ['연락처', n.contact], ['이메일', n.email], ['성별', n.gender], ['생년월일', n.birthdayDisplay],
     ['세례여부', n.baptized], ['제자훈련', n.discipleship],
     ['사역팀', belongText(n.teams)], ['선교팀', belongText(n.missions)],
     ['직업', n.job], ['등록일', n.joinedAt]

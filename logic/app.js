@@ -210,6 +210,7 @@ function 최초설정__원래() {
   createSheet_(ss, SHEET_새가족, ['이름', '성별', '생년월일', '연락처',
     '수세여부', '이전출석교회', '직업', '활동계획', '특징', '전담담당자', '등록일', '상태', '배정셀', '배정일', '사진']);
   ensureColumn_(ss, SHEET_새가족, 15, '사진');
+  ensureColumn_(ss, SHEET_새가족, 16, '이메일');
   createSheet_(ss, SHEET_새가족팀원, ['이름', '기본주차', '순서']);
   createSheet_(ss, SHEET_새가족연락, ['이름', '일자', '담당자', '내용', '작성시각']);
   기본새가족팀원_(ss);
@@ -2041,7 +2042,7 @@ function getDiscipleship(key) {
 /* 새가족 관련 시트는 모두 '이름'을 키로 씁니다 */
 var NF_이름=0, NF_성별=1, NF_생일=2, NF_연락처=3,
     NF_수세=4, NF_이전교회=5, NF_직업=6, NF_활동계획=7, NF_특징=8, NF_담당자=9,
-    NF_등록일=10, NF_상태=11, NF_배정셀=12, NF_배정일=13, NF_사진=14;
+    NF_등록일=10, NF_상태=11, NF_배정셀=12, NF_배정일=13, NF_사진=14, NF_이메일=15;
 
 var NP_이름=0, NP_주차=1, NP_일자=2, NP_담당=3,
     NP_신앙배경=4, NP_이해도=5, NP_성격=6, NP_호응=7, NP_공동체=8, NP_섬김=9, NP_전망=10,
@@ -2060,7 +2061,7 @@ function 새가족선택지() {
   return {
     수세여부: [['성인세례/입교','\u271D\uFE0F'], ['유아세례','\uD83D\uDC76'], ['없음','\u2014']],
     활동계획: [['새가족 교육(4주) 후 정식등록','\uD83C\uDFAF'], ['매주 예배만 참석','\uD83D\uDE4F'],
-              ['가끔 예배만 참석','\uD83C\uDF19'], ['방문','\uD83D\uDC4B']],
+              ['가끔 예배만 참석','\uD83C\uDF19'], ['예배만 참석','\u26EA'], ['방문','\uD83D\uDC4B']],
     상태: [['진행중','\uD83C\uDF31'], ['보류','\u23F8\uFE0F'], ['셀배정완료','\u2705'], ['중단','\uD83D\uDEAB']],
     신앙배경: [['신앙생활 처음','\uD83C\uDF31'], ['오랜만에 다시 시작','\uD83D\uDD04'],
               ['꾸준히 신앙생활','\uD83D\uDD4A\uFE0F'], ['타교회에서 이동','\u26EA']],
@@ -2233,6 +2234,7 @@ function 새가족목록_() {
       status: String(r[NF_상태] || '진행중').trim(),
       cell: String(r[NF_배정셀] || '').trim(),
       assignedAt: 날짜문자열_(r[NF_배정일]),
+      email: String(r[NF_이메일] || '').trim(),
       photo: 사진주소_(String(r[NF_사진] || '').trim(), 240),
       photoLarge: 사진주소_(String(r[NF_사진] || '').trim(), 1400)
     };
@@ -5822,7 +5824,8 @@ function 녹음정리_(r) {
     at: r[WR_시각] instanceof Date ? ymd_(r[WR_시각]) : String(r[WR_시각] || '').slice(0, 10),
     uploaded: !!fileId,
     // 드라이브 파일이면 바로 재생, 아니면 링크로 엽니다
-    play: did ? 'https://drive.google.com/uc?export=download&id=' + did : '',
+    // 서버가 드라이브에서 바로 흘려보냅니다 (/audio/…) — 앞뒤로 옮기기 · 볼륨이 되는 기본 재생기
+    play: did ? '/audio/' + did : '',
     preview: did ? 'https://drive.google.com/file/d/' + did + '/preview' : '',
     url: fileId ? 'https://drive.google.com/file/d/' + fileId + '/view' : link
   };
@@ -5980,7 +5983,7 @@ function 구글표식_() {
 }
 function 구글표식확인_(state) {
   var p = String(state || '').split('.');
-  if (p.length !== 2) return false;
+  if (p.length !== 2 && p.length !== 3) return false;
   if (포털서명_('g:' + p[0]) !== p[1]) return false;
   var age = Math.floor(new Date().getTime() / 1000) - Number(p[0]);
   return age >= 0 && age < 900;          // 15분 안에 돌아와야 합니다
@@ -5989,18 +5992,19 @@ function 구글표식확인_(state) {
 function 포털주소_() { return 앱주소_() + '?page=portal'; }
 
 /** 구글 로그인 화면 주소 */
-function 구글로그인주소_() {
+function 구글로그인주소_(intent) {
   if (!구글준비됨_()) return '';
+  var st = 구글표식_() + (intent === 'newcomer' ? '.nf' : '');
   return 'https://accounts.google.com/o/oauth2/v2/auth' +
     '?client_id=' + encodeURIComponent(구글ID_()) +
     '&redirect_uri=' + encodeURIComponent(포털주소_()) +
     '&response_type=code&scope=' + encodeURIComponent('openid email') +
     '&access_type=online' +
-    '&state=' + encodeURIComponent(구글표식_());
+    '&state=' + encodeURIComponent(st);
 }
 
 /** 로그인 화면에서 쓸 새 구글 로그인 주소 (15분 표식이 지나지 않도록 그때그때 받습니다) */
-function portalGoogleUrl() { return 구글로그인주소_(); }
+function portalGoogleUrl(intent) { return 구글로그인주소_(intent); }
 
 /** 돌아온 code 를 이메일로 바꿉니다 */
 function 구글이메일_(code) {
@@ -6028,6 +6032,7 @@ function 구글이메일_(code) {
 /** 포털을 열 때 부르는 준비 — 자동 로그인 여부와 버튼 주소를 정합니다 */
 function 포털입구_(p) {
   var out = { token: '', googleUrl: '', err: '', email: '' };
+  if (p.state && String(p.state).split('.')[2] === 'nf') out.intent = 'newcomer';
 
   // 1) 구글에서 돌아온 길
   if (p.code) {
@@ -6036,10 +6041,15 @@ function 포털입구_(p) {
       var email = 구글이메일_(p.code);
       out.email = email;
       // 교적에 이 구글 이메일이 없으면 — 한 번만 본인 확인을 받아 교적에 연결합니다
+      // (새가족 등록으로 들어온 분은 등록 양식을 보여줍니다)
       if (!이메일찾기_(email)) {
         out.link = 구글연결표_(email);
+        if (out.intent === 'newcomer') {
+          out.newcomer = { mine: 새가족내등록_(email), options: 새가족등록선택지_() };
+        }
         return out;
       }
+      if (out.intent === 'newcomer') out.already = true;
       out.token = 이메일로토큰_(email);
       try { out.data = 포털자료_(out.token); } catch (e2) {}
       return out;
@@ -6769,7 +6779,7 @@ function 구글연결표_(email) {
   return 연결접두 + Utilities.base64EncodeWebSafe(payload, Utilities.Charset.UTF_8) + '.' + 포털서명_('L:' + payload);
 }
 
-function 구글연결풀기_(link) {
+function 구글연결풀기_(link, maxAge) {
   link = String(link || '').trim();
   var bad = new Error('구글 로그인 확인이 끝났습니다. 구글 계정으로 다시 로그인해주세요.');
   if (link.indexOf(연결접두) !== 0) throw bad;
@@ -6778,7 +6788,7 @@ function 구글연결풀기_(link) {
   var s = Utilities.newBlob(Utilities.base64DecodeWebSafe(rest[0], Utilities.Charset.UTF_8)).getDataAsString('UTF-8');
   if (포털서명_('L:' + s) !== rest[1]) throw bad;
   var p = s.split('\n'), age = Math.floor(Date.now() / 1000) - Number(p[1]);
-  if (!p[0] || !(age >= 0 && age < 1800)) throw bad;
+  if (!p[0] || !(age >= 0 && age < (maxAge || 1800))) throw bad;
   return p[0];
 }
 
@@ -6825,6 +6835,154 @@ function portalLinkGoogle(link, name, phone, birthday, postal, change) {
   var res = 포털자료_(포털토큰_(me.name, key, need));
   res.linked = linked ? email : '';
   return res;
+}
+
+/* =========================================================
+   새가족 스스로 등록 — 로그인 전 포털의 '새가족 등록'
+   ---------------------------------------------------------
+   구글로 로그인(가입)한 뒤 인삿말과 양식을 보여주고,
+   적은 내용은 교적이 아니라 새가족 시트에 (지금 있는 분들과 함께) 들어갑니다.
+   같은 구글 계정으로 다시 오면 적었던 내용을 고칠 수 있습니다.
+   ========================================================= */
+
+function 새가족등록선택지_() {
+  return {
+    성별: ['남', '여'],
+    수세여부: ['성인세례/입교', '유아세례', '없음'],
+    활동계획: [
+      ['새가족 교육(4주) 후 정식 등록', '새가족 교육(4주) 후 정식등록'],
+      ['예배만 참석', '예배만 참석'],
+      ['방문', '방문']
+    ]
+  };
+}
+
+/** 이 구글 계정으로 이미 등록한 내용 (다시 들어왔을 때 고칠 수 있도록) */
+function 새가족내등록_(email) {
+  email = String(email || '').trim().toLowerCase();
+  if (!email) return null;
+  var hit = null;
+  새가족목록_().forEach(function (n) {
+    if (!hit && String(n.email || '').toLowerCase() === email) hit = n;
+  });
+  if (!hit) return null;
+  var memo = String(hit.note || '');
+  var m = /(?:^|\n)\[본인 문의\] ([\s\S]*)$/.exec(memo);
+  return {
+    name: hit.name, gender: hit.gender, birthday: hit.birthday, contact: hit.contact,
+    baptized: hit.baptized, prevChurch: hit.prevChurch, job: hit.job, plan: hit.plan,
+    question: m ? m[1] : '', joinedAt: hit.joinedAt
+  };
+}
+
+function registerNewcomer(link, data) {
+  var email = 구글연결풀기_(link, 3 * 3600);        // 양식을 천천히 적어도 되도록 3시간
+  data = data || {};
+  var opt = 새가족등록선택지_();
+  var t = function (k, max) { return String(data[k] == null ? '' : data[k]).trim().slice(0, max || 200); };
+
+  var name = t('name', 40).replace(/\s+/g, ' ');
+  if (!name) throw new Error('이름(한글)을 입력해주세요.');
+  var gender = t('gender');
+  if (opt.성별.indexOf(gender) === -1) throw new Error('성별을 골라주세요.');
+  var birthday = t('birthday');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday)) throw new Error('생년월일을 입력해주세요.');
+  var contact = t('contact', 40);
+  if (String(contact).replace(/[^0-9]/g, '').length < 10) throw new Error('연락처(전화번호)를 입력해주세요.');
+  var baptized = t('baptized');
+  if (opt.수세여부.indexOf(baptized) === -1) throw new Error('수세 여부를 골라주세요.');
+  var planKey = t('plan'), plan = '';
+  opt.활동계획.forEach(function (x) { if (x[0] === planKey || x[1] === planKey) plan = x[1]; });
+  if (!plan) throw new Error('청년부 활동 계획을 골라주세요.');
+  var prevChurch = t('prevChurch', 100), job = t('job', 100), question = t('question', 2000);
+
+  // 이미 교적에 있는 구글 계정이면 새가족 등록이 필요 없습니다
+  if (이메일찾기_(email)) throw new Error('이미 교적에 등록된 구글 계정입니다. 포털에서 로그인해 주세요.');
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureColumn_(ss, SHEET_새가족, NF_사진 + 1, '사진');
+  ensureColumn_(ss, SHEET_새가족, NF_이메일 + 1, '이메일');
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  var target = 0, isNew = true, finalName = name;
+  try {
+    var sh = sheet_(SHEET_새가족), v = sh.getDataRange().getValues();
+    for (var i = 1; i < v.length; i++) {
+      if (String(v[i][NF_이메일] || '').trim().toLowerCase() === email) { target = i + 1; isNew = false; break; }
+    }
+    // 이름이 새가족 관리의 열쇠라, 다른 분과 겹치면 뒤에 숫자를 붙입니다
+    var taken = function (nm) {
+      for (var j = 1; j < v.length; j++) {
+        if (j + 1 === target) continue;
+        if (String(v[j][NF_이름]).trim() === nm) return true;
+      }
+      return false;
+    };
+    var prevName = target ? String(v[target - 1][NF_이름]).trim() : '';
+    if (!(target && prevName === name)) {
+      var k = 2;
+      while (taken(finalName)) finalName = name + ' (' + (k++) + ')';
+    }
+
+    var memoLine = question ? '[본인 문의] ' + question : '';
+    if (target) {
+      var old = v[target - 1];
+      var note = String(old[NF_특징] || '').replace(/(?:^|\n)\[본인 문의\] [\s\S]*$/, '');
+      note = [note.trim(), memoLine].filter(function (x) { return x; }).join('\n');
+      sh.getRange(target, 1, 1, 9).setValues([[finalName, gender, birthday, contact, baptized, prevChurch, job, plan, note]]);
+      sh.getRange(target, NF_생일 + 1).setNumberFormat('@').setValue(birthday);
+      if (prevName && prevName !== finalName) {
+        renameInColumn_(SHEET_새가족과정, NP_이름, prevName, finalName);
+        renameInColumn_(SHEET_새가족추적, NT_이름, prevName, finalName);
+        renameInColumn_(SHEET_새가족연락, NC_이름, prevName, finalName);
+      }
+    } else {
+      var today = ymd_(new Date());
+      var row = [finalName, gender, birthday, contact, baptized, prevChurch, job, plan, memoLine, '',
+        today, '진행중', '', '', '', email];
+      sh.appendRow(row);
+      target = sh.getLastRow();
+      sh.getRange(target, NF_생일 + 1).setNumberFormat('@').setValue(birthday);
+      sh.getRange(target, NF_등록일 + 1).setNumberFormat('@').setValue(today);
+    }
+  } finally { lock.releaseLock(); }
+  캐시비움_();
+
+  if (isNew) {
+    try { 새가족등록알림_({ name: finalName, gender: gender, birthday: birthday, contact: contact, baptized: baptized,
+      prevChurch: prevChurch, job: job, plan: plan, question: question, email: email }); } catch (e) {}
+  }
+  return { ok: true, isNew: isNew, name: finalName, mine: 새가족내등록_(email) };
+}
+
+/** 새가족팀 · 양육부 · 알림 받는 분께 새 등록을 알립니다 */
+function 새가족등록알림_(n) {
+  var to = [];
+  사역팀목록_().forEach(function (t) {
+    if (t.email && (/새가족/.test(t.name) || t.dept === '양육부')) to.push(t.email);
+  });
+  var admin = String(설정값_('알림받을이메일') || '').trim();
+  if (admin) to.push(admin);
+  to = to.filter(function (x, i) { return x && to.indexOf(x) === i; });
+  if (!to.length) return;
+  var url = (앱주소_() || '') + '?page=newfamily';
+  var rows = [['이름', n.name], ['성별', n.gender], ['생년월일', n.birthday], ['연락처', n.contact], ['구글 계정', n.email],
+    ['수세 여부', n.baptized], ['이전 출석 교회', n.prevChurch], ['직업', n.job], ['활동 계획', n.plan], ['문의사항', n.question]];
+  MailApp.sendEmail({
+    to: to.join(','),
+    subject: '[새가족] ' + n.name + '님이 새가족 등록을 했습니다',
+    name: '토론토영락교회 청년1부',
+    htmlBody: '<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:520px;">' +
+      '<h2 style="color:#D2511F;margin:0 0 6px;">새가족 등록</h2>' +
+      '<p style="color:#555;margin:0 0 14px;">포털의 새가족 등록으로 새로운 분이 등록했습니다. 담당자를 정하고 연락해 주세요.</p>' +
+      '<table style="border-collapse:collapse;width:100%;font-size:14px;">' + rows.map(function (r) {
+        return '<tr><td style="padding:7px 10px;border-bottom:1px solid #eee;color:#888;width:110px;vertical-align:top;">' + r[0] +
+          '</td><td style="padding:7px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;">' + esc_(r[1] || '—') + '</td></tr>';
+      }).join('') + '</table>' +
+      '<p style="margin-top:18px;"><a href="' + url + '" style="background:#F26B21;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:700;">새가족 페이지 열기</a></p></div>',
+    body: rows.map(function (r) { return r[0] + ': ' + (r[1] || '—'); }).join('\n') + '\n\n' + url
+  });
 }
 
 /** 이미 로그인한 분이 '구글 계정 연결하기' 로 구글에 다녀온 경우 — 본인 확인 없이 바로 연결 */
@@ -8872,7 +9030,7 @@ function 주보자동값_(date) {
     var 곡줄 = function (list) {
       return list.sort(function (a, b) { return a.seq - b.seq; })
         .filter(function (s) { return s.title; })
-        .map(function (s) { return s.title + (s.team ? ' - ' + s.team : ''); });
+        .map(function (s) { return s.title; });        // 폰에서 길지 않게 제목만
     };
     var praise = 곡줄(콘티목록_(date, '콘티'));
     var fin = 콘티목록_(date, '결단').filter(function (s) { return s.title; }).map(function (s) { return s.title; });
@@ -9001,6 +9159,21 @@ function saveBulletin(token, data, publish) {
   } finally { lock.releaseLock(); }
   캐시비움_();
   return { ok: true, status: status, list: 주보목록_(), bulletin: 주보풀기_(주보찾기_(date)) };
+}
+
+/** 게시 취소 — 누구나 보던 주보를 다시 임시 상태로 */
+function unpublishBulletin(token, date) {
+  var who = 주보게시권한_(token);
+  var sh = 주보시트_(SHEET_주보, HEAD_주보), v = sh.getDataRange().getValues();
+  for (var r = 1; r < v.length; r++) {
+    if (날짜문자열_(v[r][BU_날짜]) === date) {
+      sh.getRange(r + 1, BU_상태 + 1).setValue('임시');
+      sh.getRange(r + 1, BU_수정자 + 1).setValue(who);
+      sh.getRange(r + 1, BU_시각 + 1).setValue(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'));
+    }
+  }
+  캐시비움_();
+  return 주보목록_();
 }
 
 function deleteBulletin(token, date) {
@@ -9217,4 +9390,14 @@ function getOpenCalendar(ym) {
     events: (r.events || []).map(function (e) {
       return { title: e.title, allDay: e.allDay, date: e.date, time: e.time, endDate: e.endDate, endTime: e.endTime, where: e.where, desc: e.desc };
     }) };
+}
+
+
+/** /audio/<id> 로 흘려보내도 되는 파일인지 — 찬양 녹음에 올라온 파일만 */
+function 녹음파일허용_(id) {
+  id = String(id || '').trim();
+  if (!/^[A-Za-z0-9_-]{10,}$/.test(id)) return false;
+  return rows_(SHEET_찬양녹음).some(function (r) {
+    return String(r[WR_파일] || '').trim() === id || String(r[WR_링크] || '').indexOf(id) !== -1;
+  });
 }

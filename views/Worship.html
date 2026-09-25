@@ -338,7 +338,8 @@
   .rect { flex: 1; min-width: 0; }
   .rect b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; word-break: break-word; }
   .rect span { display: block; font-size: 12px; color: var(--ink-3); margin-top: 1px; }
-  .rec audio { width: 100%; height: 40px; margin-top: 10px; display: block; }
+  .rec audio { width: 100%; height: 44px; margin-top: 10px; display: block; border-radius: 22px; background: #F1EFEB; }
+  .recfail { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); background: var(--sunken); border-radius: 10px; padding: 10px 12px; }
   .rec iframe { width: 100%; height: 110px; border: 0; border-radius: 10px; margin-top: 10px; background: #111; display: block; }
   .recfoot { display: flex; justify-content: flex-end; gap: 12px; margin-top: 6px; }
   .recfoot a, .recfoot button {
@@ -1493,7 +1494,7 @@ function recCard(r, date, compact) {
       '<div class="rect"><b>' + esc(r.title) + '</b><span>' +
         (compact ? '<i class="rkind' + (w ? ' w' : '') + '">' + (w ? '예배' : '연습') + '</i>' : '') + esc(meta) + '</span></div></div>' +
     (r.play
-      ? '<audio controls preload="none" src="' + esc(r.play) + '" data-pv="' + esc(r.preview) + '" onerror="recFallback(this)"></audio>' +
+      ? '<audio controls preload="none" controlslist="nodownload" src="' + esc(r.play) + '" onerror="recFallback(this)"></audio>' +
         '<div class="recfoot"><a href="' + esc(r.url) + '" target="_blank" rel="noopener">드라이브에서 열기 ↗</a>' +
           (canDel ? '<button type="button" class="del" onclick="dropRec(\'' + esc(jsq(r.id)) + '\')">삭제</button>' : '') + '</div>'
       : '<a class="reclink" href="' + esc(r.url) + '" target="_blank" rel="noopener">▶ 링크에서 듣기</a>' +
@@ -1501,13 +1502,14 @@ function recCard(r, date, compact) {
   '</div>';
 }
 
+/** 바로 재생이 안 되는 파일 — 드라이브에서 듣도록 안내 (잘려 보이는 드라이브 창은 넣지 않습니다) */
 function recFallback(a) {
-  var pv = a.getAttribute('data-pv');
-  if (!pv || a.getAttribute('data-fb')) return;
-  var f = document.createElement('iframe');
-  f.src = pv; f.setAttribute('allow', 'autoplay'); f.setAttribute('loading', 'lazy');
+  if (a.getAttribute('data-fb')) return;
   a.setAttribute('data-fb', '1');
-  a.parentNode.replaceChild(f, a);
+  var box = document.createElement('div');
+  box.className = 'recfail';
+  box.innerHTML = '이 파일은 여기서 바로 재생되지 않습니다. 아래 “드라이브에서 열기” 로 들어주세요.';
+  a.parentNode.replaceChild(box, a);
 }
 
 var REC_KIND = '';     // 올릴 녹음 구분 — '' 이면 날짜를 보고 정합니다
@@ -2451,23 +2453,57 @@ function archiveTab() {
     '<div id="arBody">' + arBody() + '</div>';
 }
 
-/** 지금 보이는 기간의 콘티를 엑셀로 */
+/** 필요할 때만 스크립트를 불러옵니다 */
+function needScript(src, ready, done) {
+  if (ready()) return done();
+  var t = document.createElement('script');
+  t.src = src; t.onload = done; t.onerror = function () { say('arMsg', '파일 도구를 불러오지 못했습니다. 새로고침 후 다시 해주세요.', 'err'); };
+  document.head.appendChild(t);
+}
+
+/** 지금 보이는 기간의 콘티를 엑셀로 — 브라우저에서 바로 만듭니다 (서버를 거치지 않아 빠릅니다) */
 function arExport() {
-  var rows = [];
+  var head = ['날짜', '예배', '인도자', '곡 제목', '찬양팀', 'Key', '악보 링크'];
+  var rows = [], links = [];
   arDays().slice().sort(function (a, b) { return a.date.localeCompare(b.date); }).forEach(function (d) {
-    var name = d.event ? d.event.kind + ' · ' + d.event.name : '주일예배';
+    var name = d.event ? d.event.name : '주일예배';
     var songs = d.songs.slice().sort(function (a, b) { return (a.kind === b.kind ? 0 : (a.kind === '결단' ? 1 : -1)) || a.seq - b.seq; });
-    if (!songs.length) rows.push([d.date, name, '', '', '', '', '', '', d.lead.join(', '), '']);
+    var used = {};
+    var fileFor = function (title) {
+      var t = songNorm(title);
+      return d.files.filter(function (f) {
+        var fn = songNorm(f.name.replace(/\.[a-z0-9]+$/i, ''));
+        return fn && (fn.indexOf(t) !== -1 || t.indexOf(fn) !== -1);
+      });
+    };
     songs.forEach(function (x, i) {
-      rows.push([d.date, name, x.kind, i + 1, x.title, x.team, x.key, x.bpm, d.lead.join(', '), x.link]);
+      var fs = fileFor(x.title); fs.forEach(function (f) { used[f.id] = 1; });
+      rows.push([d.date, name + (x.kind === '결단' ? ' (결단)' : ''), d.lead.join(', '), x.title, x.team, x.key, '']);
+      links.push(fs);
     });
+    // 곡 이름과 이어지지 않은 악보는 그날 첫 줄에 붙입니다
+    var rest = d.files.filter(function (f) { return !used[f.id]; });
+    if (!songs.length && (rest.length || d.lead.length)) { rows.push([d.date, name, d.lead.join(', '), '', '', '', '']); links.push(rest); }
+    else if (rest.length) { var at = rows.length - songs.length; links[at] = (links[at] || []).concat(rest); }
   });
   if (!rows.length) { say('arMsg', '내보낼 콘티가 없습니다.', 'err'); return; }
+  rows.forEach(function (r, i) { r[6] = (links[i] || []).map(function (f) { return f.url; }).join('\n'); });
   say('arMsg', '엑셀 파일을 만드는 중…');
-  var label = (AR_RANGES.filter(function (r) { return r[0] === AR.range; })[0] || ['', '전체'])[1];
-  callServer('worshipArchiveExport', [TOKEN, label, rows], function (res) {
-    saveB64(res); say('arMsg', res.name + ' 을 내려받았습니다.', 'ok');
-  }, function (e) { say('arMsg', e.message || '내보내지 못했습니다.', 'err'); });
+  needScript('/vendor/xlsx.mini.min.js', function () { return !!window.XLSX; }, function () {
+    try {
+      var ws = XLSX.utils.aoa_to_sheet([head].concat(rows));
+      rows.forEach(function (r, i) {
+        var f = (links[i] || [])[0];
+        if (f) { var c = ws[XLSX.utils.encode_cell({ r: i + 1, c: 6 })]; if (c) c.l = { Target: f.url }; }
+      });
+      ws['!cols'] = [{ wch: 11 }, { wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 6 }, { wch: 48 }];
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '콘티');
+      var label = (AR_RANGES.filter(function (r) { return r[0] === AR.range; })[0] || ['', '전체'])[1];
+      XLSX.writeFile(wb, '찬양콘티_' + label.replace(/\s/g, '') + '_' + D.today + '.xlsx');
+      say('arMsg', rows.length + '줄을 엑셀로 내려받았습니다.', 'ok');
+    } catch (e) { say('arMsg', '엑셀을 만들지 못했습니다: ' + e.message, 'err'); }
+  });
 }
 
 function arRedraw() { if (el('arBody')) el('arBody').innerHTML = arBody(); }
