@@ -9,6 +9,8 @@
 
   .frow { display: flex; gap: 8px; }
   .frow > div { flex: 1; min-width: 0; }
+  /* 주차 코멘트 — 넉넉하게 적을 수 있도록 */
+  textarea.bignote { min-height: 190px !important; line-height: 1.75; font-size: 15px; padding: 12px 13px; }
   .pwbox { width: 190px; margin: 0 auto; display: block; }
   .pwsubmit { width: 190px !important; margin: 10px auto 0; display: block; }
 
@@ -738,7 +740,8 @@ function openStep(nfId, week) {
     '</div>' +
     fieldsHtml +
     '<div class="f"><label class="fl">코멘트</label>' +
-      '<textarea id="sNote" placeholder="나눈 내용, 기억할 점, 기도제목 등">' + esc(s.note || '') + '</textarea></div>' +
+      '<textarea id="sNote" rows="9" class="bignote" oninput="growNote(this)" ' +
+      'placeholder="나눈 내용, 기억할 점, 기도제목 등 &mdash; 길게 적으셔도 됩니다">' + esc(s.note || '') + '</textarea></div>' +
     '<div style="display:flex;gap:6px;margin-top:12px;">' +
       '<button class="btn" style="flex:1;" onclick="closeForm()">취소</button>' +
       (s.week ? '<button class="btn danger" onclick="delStep(\'' + jsq(nfId) + '\',' + week + ')">삭제</button>' : '') +
@@ -747,7 +750,15 @@ function openStep(nfId, week) {
     '<p class="msg" id="formMsg"></p>';
 
   refreshConditional();
+  growNote(el('sNote'));
   box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/** 코멘트 칸은 적는 만큼 저절로 늘어납니다 */
+function growNote(t) {
+  if (!t) return;
+  t.style.height = 'auto';
+  t.style.height = Math.min(Math.max(t.scrollHeight + 4, 190), 520) + 'px';
 }
 
 function saveStep(nfId, week) {
