@@ -951,6 +951,12 @@ function doGet(e) {
     return render_('NewFamily', '새가족 관리', { t: p.t || '' }, 'newfamily');
   }
 
+  if (page === 'forms') {
+    var fpre = { t: p.t || '', key: isAdmin_(p.key) ? (설정값_('관리자키') || '') : '' };
+    try { if (fpre.t || fpre.key) fpre.init = formAdminInit(fpre.key || fpre.t); } catch (e) { fpre.err = e.message || ''; }
+    return render_('Forms', '신청서 관리', fpre, 'admin');
+  }
+
   if (page === 'team') {
     return render_('Team', '사역 보고서', { t: p.t || '' }, 'team');
   }
@@ -6766,6 +6772,10 @@ function 포털메뉴_(r, token) {
       url: base + '?page=mission&t=' + encodeURIComponent(token),
       note: 선교담당팀_(r.name || '').join(', ') });
   }
+  if (has('팀장') || 커미티) {
+    out.push({ key: 'forms', title: '신청서 관리', desc: '수련회 · 티셔츠 · 인원조사 만들기',
+      url: base + '?page=forms&t=' + encodeURIComponent(token), note: '' });
+  }
   if (주보권한이름_(r.name).edit) {
     out.push({ key: 'bulletinEdit', title: '주보 편집', desc: '예배 순서 · 광고 · 스케줄',
       url: base + '?page=bulletin&edit=1&t=' + encodeURIComponent(token), note: '' });
@@ -6795,6 +6805,7 @@ function 포털관리메뉴_(r) {
     ['cal', '일정 관리', '공개 · 커미티'],
     ['acct', '회계 관리', '지출 · Cheque'],
     ['dir', '교적 관리', '검색 · 수정'],
+    ['push', '알림 관리', '푸시 켜기 · 직접 보내기'],
     ['home', '관리 전체', '관리시스템 첫 화면']
   ].map(function (x) {
     var url = x[0] === 'cells' ? (앱주소_() || '') + '?page=cells&key=' + encodeURIComponent(설정값_('관리자키') || '')
@@ -6982,7 +6993,8 @@ function newcomerHome(token) {
     token: token, name: nf.name, email: nf.email, joinedAt: nf.joinedAt, status: nf.status,
     mine: 새가족내등록_(nf.email),
     cellApp: 셀신청상태_({ kind: 'newcomer', nf: nf, email: nf.email, name: nf.name, allowed: nf.cellApp, committee: false }),
-    myCell: 내셀_(nf.name)
+    myCell: 내셀_(nf.name),
+    forms: myForms(token)
   };
 }
 
@@ -7232,7 +7244,8 @@ function 포털자료_(token) {
     googleReady: 구글준비됨_(),
     cellApp: 셀신청상태_({ kind: 'member', name: me.name, email: me.email, committee: 커미티,
       allowed: 셀신청열림_() || 새가족셀허용_(me.email, me.name) }),
-    myCell: 내셀_(me.name)
+    myCell: 내셀_(me.name),
+    forms: myForms(token)
   };
 }
 
@@ -10371,4 +10384,633 @@ function refreshNow(token) {
   try { HOST.forget(); } catch (e) {}      // 메모리에 들고 있던 시트 값을 버립니다
   캐시비움_();
   return { ok: true, at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm:ss') };
+}
+
+/* =========================================================
+   신청서 — 수련회 · 제자훈련 · 티셔츠 · 바베큐 등 무엇이든
+   ---------------------------------------------------------
+   · 커미티와 팀장이 문항을 직접 만들고 켜고 끕니다.
+   · 로그인한 교인과 새가족이 신청합니다 (이름 · 연락처는 교적에서 자동).
+   · 문항 종류 — 객관식 하나 · 복수선택 · 주관식 · 긴글 · 날짜 · 숫자 · 파일 · 동의 · 안내글
+   ========================================================= */
+
+var SHEET_신청서 = '신청서';
+var HEAD_신청서 = ['ID', '제목', '상태', '담당', '만든이', '만든날', '수정시각', '내용'];
+var FM_ID = 0, FM_제목 = 1, FM_상태 = 2, FM_담당 = 3, FM_만든이 = 4, FM_만든날 = 5, FM_수정 = 6, FM_내용 = 7;
+
+var SHEET_신청답 = '신청내역';
+var HEAD_신청답 = ['신청서ID', '이름', '이메일', '연락처', '성별', '셀', '제출시각', '수정시각', '답변'];
+var FA_폼 = 0, FA_이름 = 1, FA_이메일 = 2, FA_연락 = 3, FA_성별 = 4, FA_셀 = 5, FA_제출 = 6, FA_수정 = 7, FA_답 = 8;
+
+var 신청서조각 = 40000;
+var 신청서상태 = ['준비중', '받는중', '마감', '보관'];
+
+/** 문항 종류 — 화면과 서버가 함께 씁니다 */
+function 문항종류() {
+  return [
+    { key: 'choice', name: '객관식 (하나만)', icon: '◉', opts: true },
+    { key: 'checks', name: '복수선택 (여러 개)', icon: '☑', opts: true },
+    { key: 'text', name: '주관식 (한 줄)', icon: '✎', opts: false },
+    { key: 'long', name: '주관식 (여러 줄)', icon: '≡', opts: false },
+    { key: 'number', name: '숫자 입력', icon: '#', opts: false },
+    { key: 'date', name: '날짜 고르기', icon: '📅', opts: false },
+    { key: 'file', name: '파일 첨부', icon: '📎', opts: false },
+    { key: 'agree', name: '동의합니다', icon: '✔', opts: false },
+    { key: 'section', name: '안내글 (답 없음)', icon: 'ℹ', opts: false }
+  ];
+}
+
+function 신청서시트_() {
+  var sh = 주보시트_(SHEET_신청서, HEAD_신청서);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_신청서.length).setValues([HEAD_신청서]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+function 신청답시트_() {
+  var sh = 주보시트_(SHEET_신청답, HEAD_신청답);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_신청답.length).setValues([HEAD_신청답]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+/** 조각난 JSON 을 다시 붙입니다 (주보와 같은 방식) */
+function 신청서풀기_(r) {
+  if (!r) return null;
+  var parts = [];
+  for (var i = FM_내용; i < r.length; i++) {
+    var s = String(r[i] == null ? '' : r[i]);
+    if (s.charAt(0) === "'") s = s.slice(1);
+    parts.push(s);
+  }
+  var body = {};
+  try { body = JSON.parse(parts.join('')) || {}; } catch (e) { body = {}; }
+  return {
+    id: String(r[FM_ID] || '').trim(),
+    title: String(r[FM_제목] || '').trim(),
+    status: String(r[FM_상태] || '준비중').trim(),
+    team: String(r[FM_담당] || '').trim(),
+    owner: String(r[FM_만든이] || '').trim(),
+    at: 날짜문자열_(r[FM_만든날]),
+    edited: String(r[FM_수정] || ''),
+    desc: String(body.desc || ''),
+    questions: body.questions || [],
+    openAt: String(body.openAt || ''),
+    closeAt: String(body.closeAt || ''),
+    target: String(body.target || '모두'),
+    editable: body.editable !== false,
+    showCount: !!body.showCount,
+    limit: Number(body.limit) || 0,
+    notify: !!body.notify
+  };
+}
+
+function 신청서들_() {
+  return rows_(SHEET_신청서).filter(function (r) { return String(r[FM_ID]).trim(); })
+    .map(신청서풀기_);
+}
+
+function 신청서찾기_(id) {
+  id = String(id || '').trim();
+  var hit = null;
+  신청서들_().forEach(function (f) { if (f.id === id) hit = f; });
+  return hit;
+}
+
+/** 지금 신청을 받고 있는지 (상태 + 기간) */
+function 신청받는중_(f) {
+  if (!f || f.status !== '받는중') return false;
+  var today = ymd_(new Date());
+  if (f.openAt && today < f.openAt) return false;
+  if (f.closeAt && today > f.closeAt) return false;
+  return true;
+}
+
+function 신청마감사유_(f) {
+  if (!f) return '';
+  var today = ymd_(new Date());
+  if (f.status === '마감') return '신청이 마감되었습니다.';
+  if (f.status !== '받는중') return '아직 신청을 받고 있지 않습니다.';
+  if (f.openAt && today < f.openAt) return f.openAt + ' 부터 신청할 수 있습니다.';
+  if (f.closeAt && today > f.closeAt) return f.closeAt + ' 에 신청이 끝났습니다.';
+  return '';
+}
+
+/* ---- 권한 ---- */
+
+/** 신청서를 만들고 결과를 볼 수 있는 분 — 커미티 · 팀장 */
+function 신청서관리자_(token) {
+  if (isAdmin_(token) || 마스터_(token)) {
+    return { name: '커미티', committee: true, teams: 사역팀목록_().map(function (t) { return t.name; }) };
+  }
+  var me = requirePortal_(token);
+  var r = 포털역할_(me.name);
+  var com = r.roles.indexOf('커미티') !== -1;
+  if (!com && r.roles.indexOf('팀장') === -1) throw new Error('신청서는 커미티와 팀장만 만들 수 있습니다.');
+  return { name: me.name, committee: com, teams: com ? 사역팀목록_().map(function (t) { return t.name; }) : r.teams };
+}
+
+function 신청서만질수있나_(who, f) {
+  if (!f) return false;
+  if (who.committee) return true;
+  if (f.owner === who.name) return true;
+  return !!(f.team && who.teams.indexOf(f.team) !== -1);
+}
+
+/** 신청하는 분 — 교적 교인 또는 새가족 */
+function 폼신청자_(token) {
+  if (String(token || '').indexOf(새가족접두) === 0) {
+    var nf = 새가족본인_(token);
+    return { kind: 'newcomer', name: nf.name, email: String(nf.email || ''), phone: String(nf.contact || ''),
+      gender: nf.gender || '', birthday: nf.birthday || '', cell: '새가족' };
+  }
+  var me = requirePortal_(token);
+  var cell = '';
+  rows_(SHEET_셀원명단).forEach(function (x) { if (!cell && String(x[1]).trim() === me.name) cell = String(x[0]).trim(); });
+  return { kind: 'member', name: me.name, email: String(me.email || ''), phone: String(me.phone || ''),
+    gender: me.gender || '', birthday: me.birthday || '', cell: cell };
+}
+
+/* ---- 저장 ---- */
+
+function 답행들_(formId) {
+  formId = String(formId || '').trim();
+  return rows_(SHEET_신청답).filter(function (r) {
+    return String(r[FA_폼]).trim() === formId && String(r[FA_이름]).trim();
+  }).map(function (r) {
+    var a = {};
+    try { a = JSON.parse(String(r[FA_답] || '{}')) || {}; } catch (e) {}
+    return {
+      name: String(r[FA_이름] || '').trim(), email: String(r[FA_이메일] || '').trim(),
+      phone: String(r[FA_연락] || '').trim(), gender: String(r[FA_성별] || '').trim(),
+      cell: String(r[FA_셀] || '').trim(),
+      at: String(r[FA_제출] || ''), edited: String(r[FA_수정] || ''), answers: a
+    };
+  });
+}
+
+function 내답_(formId, name, email) {
+  email = String(email || '').toLowerCase();
+  var hit = null;
+  답행들_(formId).forEach(function (a) {
+    if (a.name === name || (email && a.email.toLowerCase() === email)) hit = a;
+  });
+  return hit;
+}
+
+/* ---- 화면이 부르는 함수 (신청하는 쪽) ---- */
+
+/** 포털 첫 화면 — 지금 신청할 수 있는 신청서 목록 */
+function myForms(token) {
+  var who;
+  try { who = 폼신청자_(token); } catch (e) { return { list: [] }; }
+  var mineAll = {};
+  var out = [];
+  신청서들_().forEach(function (f) {
+    if (f.status === '준비중' || f.status === '보관') return;
+    if (f.target === '교인' && who.kind !== 'member') return;
+    if (f.target === '새가족' && who.kind !== 'newcomer') return;
+    var mine = 내답_(f.id, who.name, who.email);
+    if (f.status === '마감' && !mine) return;              // 마감된 건 낸 사람에게만 보입니다
+    out.push({
+      id: f.id, title: f.title, desc: f.desc, open: 신청받는중_(f),
+      why: 신청마감사유_(f), closeAt: f.closeAt, editable: f.editable,
+      submitted: mine ? { at: mine.at, edited: mine.edited } : null,
+      count: f.showCount ? 답행들_(f.id).length : null
+    });
+  });
+  return { list: out };
+}
+
+/** 신청서 한 장 열기 */
+function formOpen(token, id) {
+  var who = 폼신청자_(token);
+  var f = 신청서찾기_(id);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (f.status === '준비중' || f.status === '보관') throw new Error('아직 열리지 않은 신청서입니다.');
+  if (f.target === '교인' && who.kind !== 'member') throw new Error('교적에 등록된 분만 신청할 수 있습니다.');
+  if (f.target === '새가족' && who.kind !== 'newcomer') throw new Error('새가족만 신청할 수 있는 신청서입니다.');
+  var mine = 내답_(f.id, who.name, who.email);
+  var full = f.limit > 0 && 답행들_(f.id).length >= f.limit && !mine;
+  return {
+    form: { id: f.id, title: f.title, desc: f.desc, questions: f.questions, closeAt: f.closeAt, editable: f.editable },
+    open: 신청받는중_(f) && !full,
+    why: full ? ('신청 인원(' + f.limit + '명)이 다 찼습니다.') : 신청마감사유_(f),
+    me: { name: who.name, email: who.email, phone: who.phone, cell: who.cell, gender: who.gender },
+    mine: mine ? { at: mine.at, edited: mine.edited, answers: mine.answers } : null
+  };
+}
+
+/** 답 하나를 문항 규칙에 맞게 다듬고 확인합니다 */
+function 답정리_(q, v) {
+  var t = q.type;
+  if (t === 'section') return null;
+  var need = !!q.req;
+
+  if (t === 'checks') {
+    var arr = (v && v.length ? v : []).map(function (x) { return String(x).slice(0, 200); }).slice(0, 40);
+    if (need && !arr.length) throw new Error('"' + q.label + '" 을(를) 골라주세요.');
+    if (q.max && arr.length > q.max) throw new Error('"' + q.label + '" 은 ' + q.max + '개까지 고를 수 있습니다.');
+    return arr;
+  }
+  if (t === 'agree') {
+    var ok = !!v;
+    if (need && !ok) throw new Error('"' + q.label + '" 에 동의해주셔야 신청할 수 있습니다.');
+    return ok;
+  }
+  if (t === 'file') {
+    var fs = (v && v.length ? v : []).slice(0, 8).map(function (x) {
+      return { id: String(x.id || '').slice(0, 80), name: String(x.name || '').slice(0, 120) };
+    }).filter(function (x) { return x.id; });
+    if (need && !fs.length) throw new Error('"' + q.label + '" 파일을 올려주세요.');
+    return fs;
+  }
+  if (t === 'number') {
+    var s = String(v == null ? '' : v).trim();
+    if (!s) { if (need) throw new Error('"' + q.label + '" 을(를) 입력해주세요.'); return ''; }
+    var n = Number(s);
+    if (!isFinite(n)) throw new Error('"' + q.label + '" 은 숫자로 입력해주세요.');
+    if (q.min !== '' && q.min != null && n < Number(q.min)) throw new Error('"' + q.label + '" 은 ' + q.min + ' 이상이어야 합니다.');
+    if (q.max !== '' && q.max != null && n > Number(q.max)) throw new Error('"' + q.label + '" 은 ' + q.max + ' 이하여야 합니다.');
+    return n;
+  }
+  if (t === 'date') {
+    var d = String(v || '').trim();
+    if (!d) { if (need) throw new Error('"' + q.label + '" 날짜를 골라주세요.'); return ''; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error('"' + q.label + '" 날짜 형식을 확인해주세요.');
+    return d;
+  }
+  // choice · text · long
+  var str = String(v == null ? '' : v).trim().slice(0, t === 'long' ? 4000 : 500);
+  if (need && !str) throw new Error('"' + q.label + '" 을(를) 입력해주세요.');
+  return str;
+}
+
+function submitForm(token, id, answers) {
+  var who = 폼신청자_(token);
+  var f = 신청서찾기_(id);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (!신청받는중_(f)) throw new Error(신청마감사유_(f) || '지금은 신청을 받지 않습니다.');
+  if (f.target === '교인' && who.kind !== 'member') throw new Error('교적에 등록된 분만 신청할 수 있습니다.');
+  if (f.target === '새가족' && who.kind !== 'newcomer') throw new Error('새가족만 신청할 수 있는 신청서입니다.');
+
+  answers = answers || {};
+  var mine = 내답_(f.id, who.name, who.email);
+  if (mine && !f.editable) throw new Error('이미 신청하셨습니다. 고치시려면 담당자에게 말씀해주세요.');
+  if (!mine && f.limit > 0 && 답행들_(f.id).length >= f.limit) throw new Error('신청 인원(' + f.limit + '명)이 다 찼습니다.');
+
+  var clean = {};
+  (f.questions || []).forEach(function (q) {
+    if (q.type === 'section') return;
+    var v = 답정리_(q, answers[q.id]);
+    if (v !== null) clean[q.id] = v;
+  });
+
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = 신청답시트_(), v2 = sh.getDataRange().getValues(), at = 0;
+    for (var i = 1; i < v2.length; i++) {
+      if (String(v2[i][FA_폼]).trim() !== f.id) continue;
+      var nm = String(v2[i][FA_이름]).trim(), em = String(v2[i][FA_이메일] || '').trim().toLowerCase();
+      if (nm === who.name || (who.email && em === who.email.toLowerCase())) { at = i + 1; break; }
+    }
+    var row = [f.id, who.name, who.email, who.phone, who.gender, who.cell,
+      at ? (String(v2[at - 1][FA_제출] || now)) : now, at ? now : '', JSON.stringify(clean)];
+    if (at) sh.getRange(at, 1, 1, row.length).setValues([row]);
+    else { sh.appendRow(row); at = sh.getLastRow(); }
+    sh.getRange(at, FA_제출 + 1).setNumberFormat('@').setValue(row[FA_제출]);
+  } finally { lock.releaseLock(); }
+  캐시비움_();
+
+  // 담당자에게 알림
+  if (f.notify) {
+    var to = [];
+    if (f.owner && f.owner !== '커미티') to.push(f.owner);
+    if (f.team) {
+      사역팀목록_().forEach(function (t) { if (t.name === f.team && t.leader) to.push(t.leader); });
+    }
+    if (!to.length) to = 역할인사람_('커미티');
+    알림_('공지', to, { title: f.title + ' 신청이 들어왔습니다', body: who.name + '님' + (mine ? ' (고침)' : ''),
+      url: 앱주소_() + '?page=forms', tag: 'form-' + f.id });
+  }
+  return { ok: true, at: now, edited: !!mine };
+}
+
+/** 신청 취소 */
+function cancelForm(token, id) {
+  var who = 폼신청자_(token);
+  var f = 신청서찾기_(id);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (!신청받는중_(f)) throw new Error('지금은 고치거나 취소할 수 없습니다. 담당자에게 말씀해주세요.');
+  var sh = 신청답시트_(), v = sh.getDataRange().getValues(), at = 0;
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][FA_폼]).trim() !== f.id) continue;
+    var nm = String(v[i][FA_이름]).trim(), em = String(v[i][FA_이메일] || '').trim().toLowerCase();
+    if (nm === who.name || (who.email && em === who.email.toLowerCase())) { at = i + 1; break; }
+  }
+  if (at) { sh.deleteRow(at); 캐시비움_(); }
+  return { ok: true };
+}
+
+/** 신청서에 올리는 파일 */
+function formUpload(token, id, fileName, dataUrl) {
+  폼신청자_(token);
+  var f = 신청서찾기_(id);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (!신청받는중_(f)) throw new Error('지금은 신청을 받지 않습니다.');
+  var m = /^data:([a-zA-Z0-9.+\/-]+);base64,(.+)$/.exec(String(dataUrl || ''));
+  if (!m) throw new Error('파일을 읽을 수 없습니다.');
+  if (!/^(application\/pdf|image\/(png|jpe?g|gif|webp|heic))$/.test(m[1])) {
+    throw new Error('사진(JPG · PNG) 또는 PDF 파일만 올릴 수 있습니다.');
+  }
+  var bytes = Utilities.base64Decode(m[2]);
+  if (bytes.length > 10 * 1024 * 1024) throw new Error('파일 한 개는 10MB까지 올릴 수 있습니다.');
+  var safe = String(fileName || 'file').replace(/[\\\/:*?"<>|]/g, '_').slice(0, 80);
+  var file = 신청서폴더_(f).createFile(Utilities.newBlob(bytes, m[1], safe));
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { id: file.getId(), name: safe, url: 'https://drive.google.com/file/d/' + file.getId() + '/view' };
+}
+
+function 신청서폴더_(f) {
+  var id = 설정값_('신청서폴더'), root = null;
+  if (id) { try { root = DriveApp.getFolderById(id); } catch (e) {} }
+  if (!root) { root = DriveApp.createFolder('청년부 신청서 첨부'); 설정저장_('신청서폴더', root.getId()); }
+  var name = (f.title || f.id).replace(/[\\\/:*?"<>|]/g, '_').slice(0, 60);
+  var it = root.getFoldersByName(name);
+  return it.hasNext() ? it.next() : root.createFolder(name);
+}
+
+/* ---- 화면이 부르는 함수 (만드는 쪽 — 커미티 · 팀장) ---- */
+
+function formAdminInit(token) {
+  var who = 신청서관리자_(token);
+  var list = 신청서들_().filter(function (f) { return 신청서만질수있나_(who, f); })
+    .map(function (f) {
+      var rows = 답행들_(f.id);
+      return { id: f.id, title: f.title, status: f.status, team: f.team, owner: f.owner,
+        at: f.at, openAt: f.openAt, closeAt: f.closeAt, target: f.target, limit: f.limit,
+        count: rows.length, live: 신청받는중_(f), why: 신청마감사유_(f), qn: (f.questions || []).length };
+    })
+    .sort(function (a, b) { return (b.at || '').localeCompare(a.at || ''); });
+  return {
+    list: list, me: who.name, committee: who.committee, teams: who.teams,
+    types: 문항종류(), statuses: 신청서상태
+  };
+}
+
+function formGet(token, id) {
+  var who = 신청서관리자_(token);
+  var f = 신청서찾기_(id);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (!신청서만질수있나_(who, f)) throw new Error('이 신청서를 볼 권한이 없습니다.');
+  return { form: f, count: 답행들_(f.id).length };
+}
+
+/** 새로 만들거나 고칩니다 */
+function formSave(token, data) {
+  var who = 신청서관리자_(token);
+  data = data || {};
+  var title = String(data.title || '').trim().slice(0, 80);
+  if (!title) throw new Error('신청서 제목을 입력해주세요.');
+
+  var id = String(data.id || '').trim();
+  var old = id ? 신청서찾기_(id) : null;
+  if (id && !old) throw new Error('없는 신청서입니다.');
+  if (old && !신청서만질수있나_(who, old)) throw new Error('이 신청서를 고칠 권한이 없습니다.');
+  if (!id) id = 'F' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+
+  var seen = {};
+  var qs = (data.questions || []).slice(0, 60).map(function (q, i) {
+    q = q || {};
+    var type = String(q.type || 'text');
+    if (!문항종류().some(function (t) { return t.key === type; })) type = 'text';
+    var qid = String(q.id || '').trim().slice(0, 20) || ('q' + (i + 1));
+    while (seen[qid]) qid = qid + '_';
+    seen[qid] = 1;
+    var opts = (q.opts || []).slice(0, 40).map(function (o) { return String(o).trim().slice(0, 120); })
+      .filter(function (o) { return o; });
+    if ((type === 'choice' || type === 'checks') && !opts.length) opts = ['예', '아니오'];
+    return {
+      id: qid, type: type,
+      label: String(q.label || '').trim().slice(0, 150) || ('문항 ' + (i + 1)),
+      help: String(q.help || '').trim().slice(0, 500),
+      req: !!q.req, opts: opts, other: !!q.other,
+      min: q.min === '' || q.min == null ? '' : Number(q.min),
+      max: q.max === '' || q.max == null ? '' : Number(q.max),
+      unit: String(q.unit || '').trim().slice(0, 12)
+    };
+  });
+
+  var body = {
+    desc: String(data.desc || '').trim().slice(0, 3000),
+    questions: qs,
+    openAt: /^\d{4}-\d{2}-\d{2}$/.test(String(data.openAt || '')) ? data.openAt : '',
+    closeAt: /^\d{4}-\d{2}-\d{2}$/.test(String(data.closeAt || '')) ? data.closeAt : '',
+    target: ['모두', '교인', '새가족'].indexOf(String(data.target)) !== -1 ? String(data.target) : '모두',
+    editable: data.editable !== false,
+    showCount: !!data.showCount,
+    limit: Math.max(0, Math.min(Number(data.limit) || 0, 9999)),
+    notify: !!data.notify
+  };
+  var status = 신청서상태.indexOf(String(data.status)) !== -1 ? String(data.status) : (old ? old.status : '준비중');
+  var team = String(data.team || '').trim().slice(0, 40);
+  if (team && !who.committee && who.teams.indexOf(team) === -1) team = who.teams[0] || '';
+
+  var json = JSON.stringify(body);
+  if (json.length > 신청서조각 * 6) throw new Error('신청서 내용이 너무 깁니다. 문항을 줄여주세요.');
+  var parts = [];
+  for (var i2 = 0; i2 < json.length; i2 += 신청서조각) parts.push("'" + json.slice(i2, i2 + 신청서조각));
+
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = 신청서시트_(), v = sh.getDataRange().getValues(), at = 0;
+    for (var r = 1; r < v.length; r++) if (String(v[r][FM_ID]).trim() === id) { at = r + 1; break; }
+    var row = [id, title, status, team, old ? old.owner : who.name, old ? old.at : ymd_(new Date()), now].concat(parts);
+    var width = Math.max(sh.getLastColumn(), row.length);
+    while (row.length < width) row.push('');
+    if (!at) at = Math.max(sh.getLastRow(), 1) + 1;
+    sh.getRange(at, 1).setNumberFormat('@');
+    sh.getRange(at, 1, 1, row.length).setValues([row]);
+  } finally { lock.releaseLock(); }
+  캐시비움_();
+  return { ok: true, id: id, admin: formAdminInit(token) };
+}
+
+function formSetStatus(token, id, status) {
+  var who = 신청서관리자_(token);
+  var f = 신청서찾기_(id);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (!신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  if (신청서상태.indexOf(String(status)) === -1) throw new Error('알 수 없는 상태입니다.');
+  var sh = 신청서시트_(), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][FM_ID]).trim() === f.id) { sh.getRange(i + 1, FM_상태 + 1).setValue(status); break; }
+  }
+  캐시비움_();
+  return formAdminInit(token);
+}
+
+function formDelete(token, id) {
+  var who = 신청서관리자_(token);
+  var f = 신청서찾기_(id);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (!신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  var sh = 신청서시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][FM_ID]).trim() === f.id) sh.deleteRow(i + 1);
+  var ash = 신청답시트_(), av = ash.getDataRange().getValues();
+  for (var j = av.length - 1; j >= 1; j--) if (String(av[j][FA_폼]).trim() === f.id) ash.deleteRow(j + 1);
+  캐시비움_();
+  return formAdminInit(token);
+}
+
+/** 신청 결과 — 표와 간단한 집계 */
+function formResults(token, id) {
+  var who = 신청서관리자_(token);
+  var f = 신청서찾기_(id);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (!신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  var rows = 답행들_(f.id).sort(function (a, b) { return (a.at || '').localeCompare(b.at || ''); });
+
+  // 객관식 · 복수선택은 몇 명이 골랐는지 세어 줍니다
+  var stats = [];
+  (f.questions || []).forEach(function (q) {
+    if (q.type !== 'choice' && q.type !== 'checks') return;
+    var cnt = {}, none = 0;
+    (q.opts || []).forEach(function (o) { cnt[o] = 0; });
+    rows.forEach(function (a) {
+      var v = a.answers[q.id];
+      if (q.type === 'checks') {
+        if (!v || !v.length) { none++; return; }
+        v.forEach(function (x) { cnt[x] = (cnt[x] || 0) + 1; });
+      } else {
+        if (!v) { none++; return; }
+        cnt[v] = (cnt[v] || 0) + 1;
+      }
+    });
+    stats.push({ id: q.id, label: q.label, type: q.type, none: none,
+      items: Object.keys(cnt).map(function (k) { return { name: k, n: cnt[k] }; }) });
+  });
+
+  // 숫자 문항은 합계도 (티셔츠 몇 장, 인원 몇 명 등)
+  (f.questions || []).forEach(function (q) {
+    if (q.type !== 'number') return;
+    var sum = 0, n = 0;
+    rows.forEach(function (a) {
+      var v = Number(a.answers[q.id]);
+      if (isFinite(v) && a.answers[q.id] !== '') { sum += v; n++; }
+    });
+    stats.push({ id: q.id, label: q.label, type: 'number', sum: sum, n: n, unit: q.unit || '' });
+  });
+
+  return { form: { id: f.id, title: f.title, questions: f.questions, status: f.status, limit: f.limit },
+    rows: rows, stats: stats, count: rows.length };
+}
+
+/** 신청자 한 명 지우기 (잘못 들어온 신청) */
+function formDropAnswer(token, id, name) {
+  var who = 신청서관리자_(token);
+  var f = 신청서찾기_(id);
+  if (!f || !신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  var sh = 신청답시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][FA_폼]).trim() === f.id && String(v[i][FA_이름]).trim() === String(name).trim()) sh.deleteRow(i + 1);
+  }
+  캐시비움_();
+  return formResults(token, id);
+}
+
+/** 결과를 엑셀로 */
+function formExport(token, id) {
+  var who = 신청서관리자_(token);
+  var f = 신청서찾기_(id);
+  if (!f || !신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  var rows = 답행들_(f.id).sort(function (a, b) { return (a.at || '').localeCompare(b.at || ''); });
+  var qs = (f.questions || []).filter(function (q) { return q.type !== 'section'; });
+
+  var H = ['이름', '연락처', '이메일', '성별', '셀', '제출시각'].concat(qs.map(function (q) { return q.label; }));
+  var data = rows.map(function (a) {
+    return [a.name, a.phone, a.email, a.gender, a.cell, a.at].concat(qs.map(function (q) {
+      var v = a.answers[q.id];
+      if (q.type === 'checks') return (v || []).join(', ');
+      if (q.type === 'agree') return v ? '동의' : '';
+      if (q.type === 'file') return (v || []).map(function (x) { return x.name; }).join(', ');
+      return v == null ? '' : String(v);
+    }));
+  });
+
+  var fname = (f.title || '신청서').replace(/[\\\/:*?"<>|]/g, '_').slice(0, 40) + '_' + ymd_(new Date());
+  var tmp = null;
+  try {
+    tmp = SpreadsheetApp.create(fname);
+    var sh = tmp.getSheets()[0];
+    sh.setName('신청 결과');
+    sh.getRange(1, 1, 1, H.length).setValues([H])
+      .setFontWeight('bold').setBackground('#1C1C1C').setFontColor('#FFFFFF');
+    if (data.length) sh.getRange(2, 1, data.length, H.length).setValues(data);
+    sh.setFrozenRows(1);
+    for (var c = 1; c <= H.length; c++) sh.setColumnWidth(c, c <= 6 ? 110 : 180);
+    SpreadsheetApp.flush();
+    var res = UrlFetchApp.fetch(
+      'https://docs.google.com/spreadsheets/d/' + tmp.getId() + '/export?format=xlsx',
+      { headers: { Authorization: 'Bearer ' + HOST.accessToken() }, muteHttpExceptions: true });
+    if (res.getResponseCode() === 200) {
+      return { name: fname + '.xlsx',
+        mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        b64: Utilities.base64Encode(res.getBlob().getBytes()), count: rows.length };
+    }
+  } catch (e) {
+  } finally {
+    if (tmp) { try { DriveApp.getFileById(tmp.getId()).setTrashed(true); } catch (e2) {} }
+  }
+  var csv = [H].concat(data).map(function (r) {
+    return r.map(function (x) { return '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('\r\n');
+  return { name: fname + '.csv', mime: 'text/csv;charset=utf-8',
+    b64: Utilities.base64Encode('﻿' + csv, Utilities.Charset.UTF_8), count: rows.length, fallback: true };
+}
+
+/** 본보기 — 처음 만드실 때 고르실 수 있는 틀 */
+function formTemplates() {
+  return [
+    { key: 'retreat', name: '수련회 신청', icon: '⛺',
+      desc: '참가 여부 · 차량 · 식사 · 입금 확인까지 한 번에',
+      form: { title: '수련회 신청', desc: '', target: '모두', questions: [
+        { type: 'choice', label: '참가 여부', req: true, opts: ['전체 참석', '부분 참석', '참석 어려움'] },
+        { type: 'choice', label: '차량', req: true, opts: ['차량 있음 (같이 탈 수 있음)', '차량 있음 (자리 없음)', '차량 없음 — 태워주세요'] },
+        { type: 'checks', label: '식사 알레르기 · 못 먹는 음식', opts: ['없음', '돼지고기', '소고기', '해산물', '견과류', '유제품'] },
+        { type: 'text', label: '비상 연락처 (이름 · 전화번호)', req: true },
+        { type: 'agree', label: '수련회 기간 중 안내에 따르겠습니다', req: true }
+      ] } },
+    { key: 'tshirt', name: '티셔츠 주문', icon: '👕',
+      desc: '사이즈와 수량을 받고 합계를 자동으로 세어 줍니다',
+      form: { title: '티셔츠 주문', desc: '', target: '모두', questions: [
+        { type: 'choice', label: '사이즈', req: true, opts: ['XS', 'S', 'M', 'L', 'XL', '2XL'] },
+        { type: 'number', label: '수량', req: true, min: 1, max: 10, unit: '장' },
+        { type: 'text', label: '등에 넣을 이름 (영문)' }
+      ] } },
+    { key: 'bbq', name: '바베큐 인원 조사', icon: '🍖',
+      desc: '참석 인원과 준비물을 간단히',
+      form: { title: '바베큐 인원 조사', desc: '', target: '모두', questions: [
+        { type: 'choice', label: '참석하시나요?', req: true, opts: ['네, 갑니다', '아직 모르겠어요', '못 갑니다'] },
+        { type: 'number', label: '함께 오시는 인원 (본인 포함)', req: true, min: 1, max: 10, unit: '명' },
+        { type: 'checks', label: '가져올 수 있는 것', opts: ['고기', '음료', '과일', '간식', '아이스박스', '돗자리'] }
+      ] } },
+    { key: 'training', name: '제자훈련 신청', icon: '📖',
+      desc: '기수 · 요일 · 신앙 배경',
+      form: { title: '제자훈련 신청', desc: '', target: '교인', questions: [
+        { type: 'choice', label: '원하시는 요일', req: true, opts: ['화요일 저녁', '목요일 저녁', '토요일 오전'] },
+        { type: 'long', label: '신청 이유 · 기대하는 점', req: true },
+        { type: 'agree', label: '매주 참석하고 과제를 성실히 하겠습니다', req: true }
+      ] } },
+    { key: 'fund', name: '펀드레이징 인원 조사', icon: '💰',
+      desc: '봉사 가능 시간과 역할',
+      form: { title: '펀드레이징 인원 조사', desc: '', target: '모두', questions: [
+        { type: 'checks', label: '봉사 가능한 시간', req: true, opts: ['토요일 오전', '토요일 오후', '주일 오전', '주일 오후'] },
+        { type: 'checks', label: '맡을 수 있는 일', opts: ['음식 준비', '판매', '정리 · 청소', '홍보 · 사진', '운반'] },
+        { type: 'text', label: '하고 싶은 말' }
+      ] } },
+    { key: 'blank', name: '빈 신청서', icon: '+', desc: '처음부터 직접 만들기',
+      form: { title: '', desc: '', target: '모두', questions: [] } }
+  ];
 }

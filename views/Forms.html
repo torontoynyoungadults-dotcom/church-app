@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --accent: #D2511F; --tone-rgb: 210,81,31; }
+  body .shell { max-width: 960px !important; margin: 0 auto; padding-bottom: 20px; }
+  * { box-sizing: border-box; }
+
+  /* 목록 */
+  .fcard {
+    display: flex; align-items: flex-start; gap: 12px; padding: 14px 15px;
+    border-top: 1px solid var(--hair); cursor: pointer;
+  }
+  .fcard:first-of-type { border-top: none; }
+  .fcard:hover { background: var(--sunken); }
+  .fcard .fb { flex: 1; min-width: 0; }
+  .fcard .ft { font-size: 15.5px; font-weight: 800; letter-spacing: -0.02em; }
+  .fcard .fm { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; }
+  .fcard .fn { flex: none; text-align: center; min-width: 54px; }
+  .fcard .fn b { display: block; font-size: 20px; font-weight: 800; line-height: 1.1; }
+  .fcard .fn span { font-size: 10.5px; color: var(--ink-3); font-weight: 750; }
+
+  .st { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+  .st.준비중 { background: var(--sunken); color: var(--ink-3); }
+  .st.받는중 { background: var(--good-bg); color: var(--good); }
+  .st.마감  { background: #FBE9E2; color: #B24A22; }
+  .st.보관  { background: var(--sunken); color: var(--ink-4); }
+
+  /* 본보기 고르기 */
+  .tpl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  @media (min-width: 620px) { .tpl { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .tpl button {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left;
+    background: #fff; border: 1px solid var(--hair-2); border-radius: 14px; padding: 13px 13px;
+    font-family: inherit; cursor: pointer; color: var(--ink-1);
+  }
+  .tpl button:hover { border-color: var(--tone); }
+  .tpl .i { font-size: 20px; }
+  .tpl .n { font-size: 14px; font-weight: 800; }
+  .tpl .d { font-size: 11.5px; color: var(--ink-3); line-height: 1.45; }
+
+  /* 문항 만들기 */
+  .q { border: 1px solid var(--hair-2); border-radius: 14px; padding: 12px 13px; margin-bottom: 9px; background: #fff; }
+  .q.sel { border-color: var(--tone); box-shadow: 0 0 0 3px rgba(210,81,31,.1); }
+  .qhead { display: flex; align-items: center; gap: 8px; }
+  .qhead .qi { font-size: 15px; width: 26px; text-align: center; flex: none; }
+  .qhead .qn { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qhead .qt { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  .qbtn { border: none; background: none; cursor: pointer; font-size: 15px; color: var(--ink-3); padding: 3px 5px; font-family: inherit; }
+  .qbtn:hover { color: var(--ink-1); }
+  .qbody { margin-top: 10px; border-top: 1px solid var(--hair); padding-top: 11px; }
+  .qrow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .qrow > div { flex: 1; min-width: 120px; }
+  .opts { display: flex; flex-direction: column; gap: 6px; }
+  .optrow { display: flex; gap: 6px; align-items: center; }
+  .optrow input { flex: 1; }
+  .optrow button { flex: none; }
+  .addq { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 4px; }
+  .addq button {
+    background: #fff; border: 1px dashed var(--hair-2); border-radius: 11px; padding: 10px 6px;
+    font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink-2); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .addq button:hover { border-color: var(--tone); color: var(--tone); }
+  .addq .i { font-size: 15px; }
+  .req { color: var(--danger); }
+
+  /* 결과 */
+  .rstat { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .rstat .b { background: #fff; border: 1px solid var(--hair); border-radius: 12px; padding: 9px 13px; font-size: 12px; color: var(--ink-3); }
+  .rstat .b b { display: block; font-size: 19px; color: var(--ink-1); }
+  .fbars { margin-bottom: 14px; }
+  .fbars .bl { font-size: 13.5px; font-weight: 750; margin-bottom: 6px; }
+  .fbar { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; font-size: 12.5px; }
+  .fbar .bn { width: 110px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+  .fbar .bg { flex: 1; height: 16px; background: var(--sunken); border-radius: 5px; overflow: hidden; }
+  .fbar .bg i { display: block; height: 100%; background: var(--tone); border-radius: 5px; }
+  .fbar .bv { width: 40px; flex: none; text-align: right; font-weight: 750; font-variant-numeric: tabular-nums; }
+  .tscroll { overflow-x: auto; border-radius: 12px; border: 1px solid var(--hair); background: #fff; }
+  table.res { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.res th { text-align: left; background: #F7F4EF; color: var(--ink-3); font-weight: 750; font-size: 11.5px; padding: 9px 9px; white-space: nowrap; }
+  table.res td { padding: 9px; border-top: 1px solid var(--hair); vertical-align: top; white-space: nowrap; }
+  table.res td.wrap { white-space: pre-wrap; min-width: 160px; }
+  .drop { border: none; background: none; color: var(--ink-4); cursor: pointer; font-size: 15px; font-family: inherit; }
+  .drop:hover { color: var(--danger); }
+
+  .bar2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .bar2 .sp { flex: 1; }
+  .backb {
+    display: inline-flex; align-items: center; gap: 5px; background: var(--night-2); border: 1px solid var(--hair-night);
+    color: #D6D1C9; border-radius: 99px; padding: 7px 14px 7px 11px; font: 750 13.5px inherit; font-family: inherit; cursor: pointer;
+  }
+  .lnk { font-size: 12.5px; color: var(--ink-3); word-break: break-all; }
+
+  /* 체크 상자 */
+  .lkchg { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.55; cursor: pointer; }
+  .lkchg input[type=checkbox] {
+    -webkit-appearance: checkbox; appearance: auto; width: 18px; height: 18px; min-height: 0;
+    margin: 2px 0 0; padding: 0; border: none; border-radius: 0; box-shadow: none; background: none;
+    flex: none; accent-color: #D2511F;
+  }
+  .lkchg em { display: block; font-style: normal; color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <img src="/logo.png" alt="Youngnak">
+    <h1>신청서 관리</h1>
+    <p class="meta">YNTORONTO &nbsp;·&nbsp; FORMS</p>
+  </header>
+  <div id="root"><div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div></div>
+  <footer></footer>
+</div>
+<!--#include Theme-->
+<script>
+var P = window.__PREFILL__ || {};
+var TOKEN = P.key || P.t || '';
+var D = null;           // 목록 화면 자료
+var F = null;           // 지금 고치고 있는 신청서
+var R = null;           // 지금 보고 있는 결과
+var VIEW = 'list';
+var OPENQ = -1;
+
+function el(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function jsq(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function say(id, t, k) { var m = el(id); if (m) { m.className = 'msg' + (k ? ' ' + k : ''); m.textContent = t || ''; } }
+function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function typeOf(k) { var h = null; (D && D.types || []).forEach(function (t) { if (t.key === k) h = t; }); return h || { key: k, name: k, icon: '?', opts: false }; }
+
+function boot() {
+  if (!TOKEN) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">포털에서 “신청서 관리” 로 들어와 주세요.</p>' +
+      '<a class="btn full" href="?page=portal">포털로 가기</a></div>';
+    return;
+  }
+  if (P.err) { el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(P.err) + '</p>' +
+    '<a class="btn full" href="?page=portal">포털로 가기</a></div>'; return; }
+  if (P.init) { D = P.init; drawList(); } else load();
+}
+
+function load(then) {
+  callServer('formAdminInit', [TOKEN], function (r) { D = r; (then || drawList)(); }, function (e) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message) + '</p>' +
+      '<a class="btn full" href="?page=portal">포털로 가기</a></div>';
+  });
+}
+
+/* ===================== 목록 ===================== */
+
+function drawList() {
+  VIEW = 'list';
+  var live = D.list.filter(function (f) { return f.status === '받는중'; });
+  var rest = D.list.filter(function (f) { return f.status !== '받는중'; });
+  var card = function (f) {
+    return '<div class="fcard" onclick="openForm(\'' + jsq(f.id) + '\')">' +
+      '<div class="fb"><div class="ft">' + esc(f.title) + '</div>' +
+      '<div class="fm"><span class="st ' + esc(f.status) + '">' + esc(f.status) + '</span> &nbsp;' +
+      esc(f.team || f.owner) + ' &middot; 문항 ' + f.qn + '개' +
+      (f.closeAt ? ' &middot; ~' + esc(f.closeAt) : '') +
+      (f.limit ? ' &middot; 정원 ' + f.limit + '명' : '') +
+      (f.status === '받는중' && !f.live ? ' &middot; <b>' + esc(f.why) + '</b>' : '') +
+      '</div></div>' +
+      '<div class="fn"><b>' + f.count + '</b><span>신청</span></div></div>';
+  };
+  el('root').innerHTML =
+    '<div class="panel"><span class="chip">신청서 만들기</span>' +
+      '<p class="hint">본보기를 고르면 문항이 채워진 채로 열립니다. 문항은 얼마든지 고치실 수 있습니다.</p>' +
+      '<div class="tpl" id="tplBox"><i class="skel line" style="width:60%;"></i></div>' +
+    '</div>' +
+    (live.length ? '<div class="panel flush"><div style="padding:16px 15px 4px;"><span class="chip">신청 받는 중</span></div>' +
+      live.map(card).join('') + '</div>' : '') +
+    (rest.length ? '<div class="panel flush"><div style="padding:16px 15px 4px;"><span class="chip">' +
+      (live.length ? '그 밖의 신청서' : '내 신청서') + '</span></div>' + rest.map(card).join('') + '</div>' : '') +
+    (!D.list.length ? '<div class="panel"><p class="empty">아직 만든 신청서가 없습니다. 위에서 본보기를 골라 시작해보세요.</p></div>' : '') +
+    '<div style="text-align:center;padding:6px 12px 10px;"><a class="btn ghost" href="?page=portal">포털로 돌아가기</a></div>';
+  drawTemplates();
+}
+
+function drawTemplates() {
+  callServer('formTemplates', [], function (list) {
+    var b = el('tplBox');
+    if (!b) return;
+    b.innerHTML = list.map(function (t, i) {
+      return '<button type="button" onclick="newFromTemplate(' + i + ')">' +
+        '<span class="i">' + t.icon + '</span><span class="n">' + esc(t.name) + '</span>' +
+        '<span class="d">' + esc(t.desc) + '</span></button>';
+    }).join('');
+    window.__TPL = list;
+  }, function () { var b = el('tplBox'); if (b) b.innerHTML = ''; });
+}
+
+function newFromTemplate(i) {
+  var t = (window.__TPL || [])[i];
+  if (!t) return;
+  var f = JSON.parse(JSON.stringify(t.form));
+  f.id = '';
+  f.status = '준비중';
+  f.questions = (f.questions || []).map(function (q, n) { return normQ(q, n); });
+  f.team = D.committee ? '' : (D.teams[0] || '');
+  f.editable = true; f.notify = true; f.showCount = false; f.limit = 0;
+  f.openAt = ''; f.closeAt = '';
+  F = f;
+  drawEdit();
+}
+
+function normQ(q, i) {
+  return { id: q.id || ('q' + (i + 1) + Math.random().toString(36).slice(2, 5)), type: q.type || 'text',
+    label: q.label || '', help: q.help || '', req: !!q.req, opts: q.opts || [], other: !!q.other,
+    min: q.min == null ? '' : q.min, max: q.max == null ? '' : q.max, unit: q.unit || '' };
+}
+
+function openForm(id) {
+  callServer('formGet', [TOKEN, id], function (r) {
+    F = r.form;
+    F.questions = (F.questions || []).map(function (q, i) { return normQ(q, i); });
+    F.count = r.count;
+    drawEdit();
+  }, function (e) { alert(e.message || '열지 못했습니다.'); });
+}
+
+/* ===================== 만들기 · 고치기 ===================== */
+
+function drawEdit() {
+  VIEW = 'edit';
+  OPENQ = -1;
+  window.scrollTo(0, 0);
+  var teamSel = D.committee
+    ? '<select id="fTeam"><option value="">커미티</option>' + D.teams.map(function (t) {
+        return '<option value="' + esc(t) + '"' + (F.team === t ? ' selected' : '') + '>' + esc(t) + '</option>';
+      }).join('') + '</select>'
+    : '<select id="fTeam">' + D.teams.map(function (t) {
+        return '<option value="' + esc(t) + '"' + (F.team === t ? ' selected' : '') + '>' + esc(t) + '</option>';
+      }).join('') + '</select>';
+
+  el('root').innerHTML =
+    '<div class="bar2" style="margin:0 12px 12px;">' +
+      '<button class="backb" onclick="leaveEdit()">&lsaquo; 목록</button>' +
+      '<span class="sp"></span>' +
+      (F.id ? '<button class="btn mini" onclick="showResults(\'' + jsq(F.id) + '\')">신청 결과 (' + (F.count || 0) + ')</button>' : '') +
+      (F.id ? '<button class="btn mini danger" onclick="removeForm()">삭제</button>' : '') +
+    '</div>' +
+    '<div class="panel">' +
+      '<div class="f"><label class="fl">제목 <span class="req">*</span></label>' +
+        '<input type="text" id="fTitle" maxlength="80" placeholder="예: 2026 여름 수련회 신청" value="' + esc(F.title || '') + '"></div>' +
+      '<div class="f"><label class="fl">안내 글</label>' +
+        '<textarea id="fDesc" rows="4" maxlength="3000" placeholder="신청서 맨 위에 보일 안내입니다. 날짜 · 장소 · 회비 등을 적어주세요.">' + esc(F.desc || '') + '</textarea></div>' +
+      '<div class="frow" style="display:flex;gap:8px;">' +
+        '<div class="f" style="flex:1;"><label class="fl">담당</label>' + teamSel + '</div>' +
+        '<div class="f" style="flex:1;"><label class="fl">신청 대상</label>' +
+          '<select id="fTarget">' +
+            ['모두', '교인', '새가족'].map(function (t) {
+              return '<option value="' + t + '"' + (F.target === t ? ' selected' : '') + '>' +
+                (t === '모두' ? '모두 (교인 · 새가족)' : t === '교인' ? '교적에 등록된 교인만' : '새가족만') + '</option>';
+            }).join('') + '</select></div>' +
+      '</div>' +
+      '<div class="frow" style="display:flex;gap:8px;">' +
+        '<div class="f" style="flex:1;"><label class="fl">여는 날 (비우면 바로)</label>' +
+          '<input type="date" id="fOpen" value="' + esc(F.openAt || '') + '"></div>' +
+        '<div class="f" style="flex:1;"><label class="fl">닫는 날 (비우면 계속)</label>' +
+          '<input type="date" id="fClose" value="' + esc(F.closeAt || '') + '"></div>' +
+      '</div>' +
+      '<div class="f"><label class="fl">정원 (0이면 제한 없음)</label>' +
+        '<input type="number" id="fLimit" min="0" max="9999" value="' + (F.limit || 0) + '"></div>' +
+      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:2px 0 10px;">' +
+        '<input type="checkbox" id="fEdit"' + (F.editable !== false ? ' checked' : '') + '>' +
+        '<span>낸 뒤에도 고칠 수 있게<em style="display:block;color:var(--ink-3);font-size:12px;">끄면 한 번 내면 수정할 수 없습니다</em></span></label>' +
+      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;">' +
+        '<input type="checkbox" id="fCount"' + (F.showCount ? ' checked' : '') + '>' +
+        '<span>신청 인원을 신청자에게도 보여주기</span></label>' +
+      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0;">' +
+        '<input type="checkbox" id="fNotify"' + (F.notify !== false ? ' checked' : '') + '>' +
+        '<span>신청이 들어오면 알림 받기<em style="display:block;color:var(--ink-3);font-size:12px;">담당자 휴대폰으로 알림이 갑니다</em></span></label>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">문항</span>' +
+      '<p class="hint">이름 · 연락처 · 성별 · 셀은 로그인 정보에서 자동으로 채워집니다. 그 밖에 받을 것만 만들어주세요.</p>' +
+      '<div id="qList"></div>' +
+      '<p class="fl" style="margin:14px 0 6px;">문항 더하기</p>' +
+      '<div class="addq" id="addQ"></div>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">저장하고 열기</span>' +
+      '<div class="f"><label class="fl">상태</label>' +
+        '<select id="fStatus">' +
+          ['준비중', '받는중', '마감', '보관'].map(function (s) {
+            return '<option value="' + s + '"' + ((F.status || '준비중') === s ? ' selected' : '') + '>' +
+              (s === '준비중' ? '준비중 — 아직 아무에게도 안 보임' :
+               s === '받는중' ? '받는중 — 포털에 올라가고 신청을 받습니다' :
+               s === '마감' ? '마감 — 새 신청을 받지 않습니다' : '보관 — 목록에서 숨깁니다') + '</option>';
+          }).join('') + '</select></div>' +
+      '<button class="btn accent full" onclick="saveForm()">저장</button>' +
+      '<p class="msg" id="saveMsg"></p>' +
+    '</div>';
+  drawQuestions();
+  drawAddButtons();
+}
+
+function leaveEdit() {
+  if (!confirm('저장하지 않은 내용은 사라집니다. 목록으로 갈까요?')) return;
+  load();
+}
+
+function drawAddButtons() {
+  el('addQ').innerHTML = (D.types || []).map(function (t) {
+    return '<button type="button" onclick="addQ(\'' + t.key + '\')">' +
+      '<span class="i">' + t.icon + '</span><span>' + esc(t.name) + '</span></button>';
+  }).join('');
+}
+
+function addQ(type) {
+  pullForm();
+  var q = normQ({ type: type, label: '', req: false }, F.questions.length);
+  if (type === 'choice' || type === 'checks') q.opts = ['', ''];
+  F.questions.push(q);
+  OPENQ = F.questions.length - 1;
+  drawQuestions();
+  setTimeout(function () { var i = el('ql' + OPENQ); if (i) { i.focus(); i.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }, 40);
+}
+
+/** 화면에 적힌 값을 F 로 옮깁니다 (다시 그리기 전에) */
+function pullForm() {
+  if (!el('fTitle')) return;
+  F.title = el('fTitle').value;
+  F.desc = el('fDesc').value;
+  F.team = el('fTeam') ? el('fTeam').value : '';
+  F.target = el('fTarget').value;
+  F.openAt = el('fOpen').value;
+  F.closeAt = el('fClose').value;
+  F.limit = Number(el('fLimit').value) || 0;
+  F.editable = el('fEdit').checked;
+  F.showCount = el('fCount').checked;
+  F.notify = el('fNotify').checked;
+  F.status = el('fStatus').value;
+  pullQuestions();
+}
+
+function pullQuestions() {
+  F.questions.forEach(function (q, i) {
+    var lb = el('ql' + i); if (lb) q.label = lb.value;
+    var hp = el('qh' + i); if (hp) q.help = hp.value;
+    var rq = el('qr' + i); if (rq) q.req = rq.checked;
+    var mn = el('qmin' + i); if (mn) q.min = mn.value;
+    var mx = el('qmax' + i); if (mx) q.max = mx.value;
+    var un = el('qu' + i); if (un) q.unit = un.value;
+    if (q.opts && q.opts.length) {
+      q.opts = q.opts.map(function (o, j) { var b = el('qo' + i + '_' + j); return b ? b.value : o; });
+    }
+  });
+}
+
+function drawQuestions() {
+  var box = el('qList');
+  if (!F.questions.length) {
+    box.innerHTML = '<p class="empty" style="margin:6px 0 2px;">아래에서 문항을 더해주세요.</p>';
+    return;
+  }
+  box.innerHTML = F.questions.map(function (q, i) {
+    var t = typeOf(q.type);
+    var open = (i === OPENQ);
+    var body = '';
+    if (open) {
+      body = '<div class="qbody">' +
+        '<div class="f"><label class="fl">질문 <span class="req">*</span></label>' +
+          '<input type="text" id="ql' + i + '" maxlength="150" placeholder="' +
+          (q.type === 'section' ? '보여줄 안내 제목' : '예: 참가 여부') + '" value="' + esc(q.label) + '"></div>' +
+        '<div class="f"><label class="fl">도움말 (작게 보입니다)</label>' +
+          '<input type="text" id="qh' + i + '" maxlength="500" value="' + esc(q.help) + '"></div>' +
+        (t.opts ? '<div class="f"><label class="fl">고를 것</label><div class="opts">' +
+            q.opts.map(function (o, j) {
+              return '<div class="optrow"><input type="text" id="qo' + i + '_' + j + '" maxlength="120" ' +
+                'placeholder="선택지 ' + (j + 1) + '" value="' + esc(o) + '">' +
+                '<button class="qbtn" onclick="delOpt(' + i + ',' + j + ')" title="지우기">&times;</button></div>';
+            }).join('') +
+          '</div><button class="btn mini" style="margin-top:7px;" onclick="addOpt(' + i + ')">+ 선택지</button></div>' : '') +
+        (q.type === 'number' || q.type === 'checks' ?
+          '<div class="qrow">' +
+            '<div class="f"><label class="fl">' + (q.type === 'checks' ? '최소 개수' : '가장 작은 값') + '</label>' +
+              '<input type="number" id="qmin' + i + '" value="' + esc(q.min) + '"></div>' +
+            '<div class="f"><label class="fl">' + (q.type === 'checks' ? '최대 개수' : '가장 큰 값') + '</label>' +
+              '<input type="number" id="qmax' + i + '" value="' + esc(q.max) + '"></div>' +
+            (q.type === 'number' ? '<div class="f"><label class="fl">단위</label>' +
+              '<input type="text" id="qu' + i + '" maxlength="12" placeholder="장 · 명 · 개" value="' + esc(q.unit) + '"></div>' : '') +
+          '</div>' : '') +
+        (q.type === 'section' ? '' :
+          '<label class="lkchg" style="display:flex;gap:9px;align-items:center;margin:2px 0 0;">' +
+            '<input type="checkbox" id="qr' + i + '"' + (q.req ? ' checked' : '') + '>' +
+            '<span>꼭 답해야 하는 문항</span></label>') +
+        '</div>';
+    }
+    return '<div class="q' + (open ? ' sel' : '') + '">' +
+      '<div class="qhead" onclick="toggleQ(' + i + ')">' +
+        '<span class="qi">' + t.icon + '</span>' +
+        '<span class="qn">' + (q.label ? esc(q.label) : '<span style="color:var(--ink-4);">제목 없는 문항</span>') +
+          (q.req ? ' <span class="req">*</span>' : '') + '</span>' +
+        '<span class="qt">' + esc(t.name) + '</span>' +
+        '<button class="qbtn" onclick="event.stopPropagation();moveQ(' + i + ',-1)" title="위로">&uarr;</button>' +
+        '<button class="qbtn" onclick="event.stopPropagation();moveQ(' + i + ',1)" title="아래로">&darr;</button>' +
+        '<button class="qbtn" onclick="event.stopPropagation();delQ(' + i + ')" title="지우기">&times;</button>' +
+      '</div>' + body + '</div>';
+  }).join('');
+}
+
+function toggleQ(i) { pullQuestions(); OPENQ = (OPENQ === i) ? -1 : i; drawQuestions(); }
+function delQ(i) { pullQuestions(); if (!confirm('이 문항을 지울까요?')) return; F.questions.splice(i, 1); OPENQ = -1; drawQuestions(); }
+function moveQ(i, d) {
+  pullQuestions();
+  var j = i + d;
+  if (j < 0 || j >= F.questions.length) return;
+  var t = F.questions[i]; F.questions[i] = F.questions[j]; F.questions[j] = t;
+  if (OPENQ === i) OPENQ = j; else if (OPENQ === j) OPENQ = i;
+  drawQuestions();
+}
+function addOpt(i) { pullQuestions(); F.questions[i].opts.push(''); drawQuestions(); }
+function delOpt(i, j) { pullQuestions(); F.questions[i].opts.splice(j, 1); drawQuestions(); }
+
+function saveForm() {
+  pullForm();
+  if (!String(F.title || '').trim()) { say('saveMsg', '제목을 입력해주세요.', 'err'); el('fTitle').focus(); return; }
+  var bad = '';
+  F.questions.forEach(function (q, i) {
+    if (!String(q.label || '').trim()) bad = bad || ((i + 1) + '번 문항의 질문을 적어주세요.');
+    if ((q.type === 'choice' || q.type === 'checks') &&
+        !(q.opts || []).filter(function (o) { return String(o).trim(); }).length) {
+      bad = bad || ('"' + (q.label || (i + 1) + '번 문항') + '" 의 선택지를 적어주세요.');
+    }
+  });
+  if (bad) { say('saveMsg', bad, 'err'); return; }
+  say('saveMsg', '저장하는 중…');
+  callServer('formSave', [TOKEN, F], function (r) {
+    D = r.admin;
+    say('saveMsg', '저장했습니다.', 'ok');
+    setTimeout(drawList, 350);
+  }, function (e) { say('saveMsg', e.message || '저장하지 못했습니다.', 'err'); });
+}
+
+function removeForm() {
+  if (!confirm('이 신청서와 들어온 신청 내용까지 모두 지웁니다. 계속할까요?')) return;
+  callServer('formDelete', [TOKEN, F.id], function (r) { D = r; drawList(); },
+    function (e) { alert(e.message || '지우지 못했습니다.'); });
+}
+
+/* ===================== 결과 ===================== */
+
+function showResults(id) {
+  window.scrollTo(0, 0);
+  el('root').innerHTML = '<div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div>';
+  callServer('formResults', [TOKEN, id], drawResults, function (e) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message) + '</p></div>';
+  });
+}
+
+function drawResults(r) {
+  R = r; VIEW = 'res';
+  var f = r.form;
+  var qs = (f.questions || []).filter(function (q) { return q.type !== 'section'; });
+  var link = location.origin + location.pathname + '?page=portal';
+
+  var bars = r.stats.map(function (s) {
+    if (s.type === 'number') {
+      return '<div class="fbars"><div class="bl">' + esc(s.label) + '</div>' +
+        '<div style="font-size:22px;font-weight:800;">' + s.sum + (s.unit ? ' ' + esc(s.unit) : '') +
+        ' <span style="font-size:12.5px;font-weight:600;color:var(--ink-3);">(' + s.n + '명 합계)</span></div></div>';
+    }
+    var max = 1;
+    s.items.forEach(function (x) { if (x.n > max) max = x.n; });
+    return '<div class="fbars"><div class="bl">' + esc(s.label) + '</div>' +
+      s.items.map(function (x) {
+        return '<div class="fbar"><span class="bn">' + esc(x.name) + '</span>' +
+          '<span class="bg"><i style="width:' + Math.round(x.n / max * 100) + '%;"></i></span>' +
+          '<span class="bv">' + x.n + '</span></div>';
+      }).join('') +
+      (s.none ? '<div class="fbar"><span class="bn" style="color:var(--ink-4);">답 없음</span>' +
+        '<span class="bg"></span><span class="bv">' + s.none + '</span></div>' : '') +
+      '</div>';
+  }).join('');
+
+  var head = ['이름', '연락처', '셀', '제출'].concat(qs.map(function (q) { return q.label; }));
+  var body = r.rows.map(function (a) {
+    var cells = [esc(a.name), esc(a.phone), esc(a.cell), esc((a.at || '').slice(5))]
+      .concat(qs.map(function (q) {
+        var v = a.answers[q.id];
+        if (q.type === 'checks') return esc((v || []).join(', '));
+        if (q.type === 'agree') return v ? '✔' : '';
+        if (q.type === 'file') return (v || []).map(function (x) {
+          return '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name) + '</a>';
+        }).join('<br>');
+        return esc(v == null ? '' : String(v));
+      }));
+    return '<tr>' + cells.map(function (c, i) {
+      return '<td' + (i >= 4 ? ' class="wrap"' : '') + '>' + c + '</td>';
+    }).join('') + '<td><button class="drop" title="이 신청 지우기" onclick="dropAnswer(\'' + jsq(a.name) + '\')">&times;</button></td></tr>';
+  }).join('');
+
+  el('root').innerHTML =
+    '<div class="bar2" style="margin:0 12px 12px;">' +
+      '<button class="backb" onclick="openForm(\'' + jsq(f.id) + '\')">&lsaquo; 신청서</button>' +
+      '<span class="sp"></span>' +
+      '<button class="btn mini" onclick="exportResults()">엑셀로 받기</button>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">' + esc(f.title) + '</span>' +
+      '<div class="rstat">' +
+        '<div class="b"><b>' + r.count + '</b>신청</div>' +
+        (f.limit ? '<div class="b"><b>' + Math.max(0, f.limit - r.count) + '</b>남은 자리</div>' : '') +
+        '<div class="b"><b>' + esc(f.status) + '</b>상태</div>' +
+      '</div>' +
+      '<p class="hint" style="margin-bottom:0;">신청하는 분은 포털 첫 화면에서 이 신청서를 보게 됩니다. ' +
+      '<span class="lnk">' + esc(link) + '</span></p>' +
+    '</div>' +
+    (bars ? '<div class="panel"><span class="chip">한눈에 보기</span>' + bars + '</div>' : '') +
+    '<div class="panel"><span class="chip">신청한 분들</span>' +
+      (r.rows.length
+        ? '<div class="tscroll"><table class="res"><thead><tr>' +
+            head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '<th></th></tr></thead>' +
+            '<tbody>' + body + '</tbody></table></div>'
+        : '<p class="empty">아직 신청한 분이 없습니다.</p>') +
+      '<p class="msg" id="resMsg"></p>' +
+    '</div>';
+}
+
+function dropAnswer(name) {
+  if (!confirm(name + '님의 신청을 지울까요?')) return;
+  callServer('formDropAnswer', [TOKEN, R.form.id, name], drawResults,
+    function (e) { say('resMsg', e.message || '지우지 못했습니다.', 'err'); });
+}
+
+function exportResults() {
+  say('resMsg', '만드는 중…');
+  callServer('formExport', [TOKEN, R.form.id], function (res) {
+    say('resMsg', res.count + '명 내려받았습니다.' + (res.fallback ? ' (CSV)' : ''), 'ok');
+    saveB64(res);
+  }, function (e) { say('resMsg', e.message || '내보내지 못했습니다.', 'err'); });
+}
+
+boot();
+</script>
+</body>
+</html>

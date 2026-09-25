@@ -126,6 +126,7 @@
   .tile.acct      { --mc: #A8751F; --mc-soft: rgba(168,117,31,.15); }
   .tile.bulletin  { --mc: #E1601C; --mc-soft: rgba(225,96,28,.13); }
   .tile.bulletinEdit { --mc: #8A5A2B; --mc-soft: rgba(138,90,43,.14); }
+  .tile.forms     { --mc: #2F6E93; --mc-soft: rgba(47,110,147,.13); }
   /* 커미티 칸은 어두운 바탕 — 한눈에 구분되게 */
   .tiles.adm .tile { background: var(--night-2); border-color: var(--hair-night); color: var(--night-ink); box-shadow: none; }
   .tiles.adm .tile .td { color: var(--night-sub); }
@@ -138,8 +139,69 @@
   .tile.a-acct { --mc: #E0B25A; --mc-soft: rgba(224,178,90,.16); }
   .tile.a-dir  { --mc: #8E96F2; --mc-soft: rgba(142,150,242,.17); }
   .tile.a-home { --mc: #D8D2C8; --mc-soft: rgba(216,210,200,.12); }
+  .tile.a-cells { --mc: #FFB37A; --mc-soft: rgba(255,179,122,.16); }
+  .tile.a-push  { --mc: #F0A3B4; --mc-soft: rgba(240,163,180,.16); }
   .seclabel.adm { display: flex; align-items: center; gap: 6px; margin-top: 26px; }
   .seclabel.adm svg { width: 17px; height: 17px; color: #B592F0; }
+
+  /* ---------------------------------------------------------
+     유리 느낌 — 첫 화면 카드는 배경이 비치는 반투명으로
+     (배경 사진 위에 얹혀 보이도록. 지원 안 하는 브라우저는 그냥 진한 바탕)
+     --------------------------------------------------------- */
+  #dash .tile {
+    background: rgba(255,255,255,.075);
+    border-color: rgba(255,255,255,.15);
+    color: var(--night-ink);
+    box-shadow: 0 6px 22px rgba(0,0,0,.26);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    backdrop-filter: blur(18px) saturate(150%);
+  }
+  #dash .tile:hover { background: rgba(255,255,255,.11); box-shadow: 0 8px 26px rgba(0,0,0,.34); }
+  #dash .tile .td { color: var(--night-sub); }
+  #dash .tiles.adm .tile { background: rgba(255,255,255,.045); border-color: rgba(255,255,255,.1); box-shadow: 0 4px 18px rgba(0,0,0,.22); }
+  #dash .tiles.adm .tile:hover { background: rgba(255,255,255,.085); }
+  /* 어두운 유리 위에서는 아이콘 색을 한 단계 밝게 */
+  #dash .tile.leader       { --mc: #F0855C; --mc-soft: rgba(240,133,92,.16); }
+  #dash .tile.team         { --mc: #5CC77A; --mc-soft: rgba(92,199,122,.16); }
+  #dash .tile.expense      { --mc: #E0B25A; --mc-soft: rgba(224,178,90,.16); }
+  #dash .tile.newfamily    { --mc: #4FC1C9; --mc-soft: rgba(79,193,201,.16); }
+  #dash .tile.mission      { --mc: #5FC4A8; --mc-soft: rgba(95,196,168,.16); }
+  #dash .tile.worship      { --mc: #B49BFF; --mc-soft: rgba(180,155,255,.17); }
+  #dash .tile.acct         { --mc: #E0B25A; --mc-soft: rgba(224,178,90,.16); }
+  #dash .tile.bulletin     { --mc: #F58A4B; --mc-soft: rgba(245,138,75,.16); }
+  #dash .tile.bulletinEdit { --mc: #D9A46C; --mc-soft: rgba(217,164,108,.16); }
+  #dash .tile.forms        { --mc: #7FC4E8; --mc-soft: rgba(127,196,232,.16); }
+
+  /* 청년부 일정 — 달력도 같은 유리 위에 */
+  #calWrap .panel {
+    background: rgba(255,255,255,.07) !important;
+    border-color: rgba(255,255,255,.14);
+    color: var(--night-ink);
+    box-shadow: 0 8px 26px rgba(0,0,0,.28);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    backdrop-filter: blur(18px) saturate(150%);
+  }
+  #calWrap .yc-grid { background: rgba(255,255,255,.03); border-color: rgba(255,255,255,.12); }
+  #calWrap .yc-wd { color: #A8A29A; border-bottom-color: rgba(255,255,255,.12); }
+  #calWrap .yc-wd.sun { color: #F08A6A; }
+  #calWrap .yc-wd.sat { color: #8FAAEC; }
+  #calWrap .yc-d { border-right-color: rgba(255,255,255,.07); border-bottom-color: rgba(255,255,255,.1); }
+  #calWrap .yc-d:hover { background: rgba(255,255,255,.055); }
+  #calWrap .yc-d.out { background: rgba(0,0,0,.16); }
+  #calWrap .yc-n i { color: #E2DDD5; }
+  #calWrap .yc-d.sun .yc-n i { color: #F08A6A; }
+  #calWrap .yc-d.sat .yc-n i { color: #8FAAEC; }
+  #calWrap .yc-d.out .yc-n i { color: #6B665F; }
+  #calWrap .yc-e.yc-tm { background: rgba(var(--tone-rgb), .26); color: #F5A97C; }
+  #calWrap .yc-more, #calWrap .yc-cap, #calWrap .yc-li .mt { color: #948E86; }
+  #calWrap .yc-li { border-top-color: rgba(255,255,255,.1); }
+  #calWrap .yc-li .tt { color: var(--night-ink); }
+  #calWrap .yc-li .go { color: #6B665F; }
+  #calWrap .yc-li .dd { background: rgba(var(--tone-rgb), .22); color: #F5A97C; }
+  #calWrap .yc-all { border-top-color: rgba(255,255,255,.1); color: #F5A97C; }
+  #calWrap .empty, #calWrap .hint, #calWrap .sub { color: #948E86 !important; }
+  #calWrap .yc-leg { color: #C7C1B9; }
+  #calWrap .calym { color: var(--night-ink); }
 
   /* 청년부 일정 — 접어 두고 필요할 때 펼칩니다 */
   .calhead { display: flex; align-items: center; gap: 10px; margin: 26px 0 11px; padding: 0 18px; }
@@ -315,19 +377,70 @@
   .bulbtn .ba { font-size: 22px; color: #8E8880; }
   .bulbtn.in { margin: 0 16px 14px; }
 
-  /* 알림 켜기 카드 */
+  /* 신청서 — 포털 첫 화면 버튼 */
+  .fmbtn { display: flex; align-items: center; gap: 12px; margin: 0 16px 12px; padding: 13px 15px;
+    text-decoration: none; border-radius: var(--r-md);
+    background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.15);
+    box-shadow: 0 6px 22px rgba(0,0,0,.24); color: var(--night-ink);
+    -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); }
+  .fmbtn:active { transform: translateY(.5px); }
+  .fmbtn .fi { width: 36px; height: 36px; border-radius: 11px; flex: none; font-size: 17px;
+    background: rgba(242,107,33,.18); display: flex; align-items: center; justify-content: center; }
+  .fmbtn.done .fi { background: rgba(92,199,122,.2); color: #8DDCA6; }
+  .fmbtn.shut { opacity: .6; }
+  .fmbtn .ft { flex: 1; min-width: 0; }
+  .fmbtn .ft b { display: block; font-size: 15px; }
+  .fmbtn .ft small { display: block; font-size: 12.5px; color: var(--night-sub); margin-top: 1px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fmbtn .fa { font-size: 22px; color: #8E8880; flex: none; }
+
+  /* 신청서 — 채우는 화면 */
+  #fmWrap .cabar { display: flex; align-items: center; gap: 10px; padding: 0 14px 12px; }
+  #fmWrap .cabar span { font-size: 17px; font-weight: 800; color: #F3EFE8; letter-spacing: -0.02em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fmdesc { white-space: pre-wrap; font-size: 14.5px; line-height: 1.75; color: var(--ink-2); }
+  .fmme { font-size: 15px; font-weight: 750; color: var(--ink-1); }
+  .fmq { display: block; font-size: 14.5px; font-weight: 750; color: var(--ink-1); margin-bottom: 7px; letter-spacing: -0.01em; }
+  .fmhelp { font-size: 12.5px; color: var(--ink-3); margin: -3px 0 8px; line-height: 1.55; }
+  .fmf { margin-bottom: 20px; }
+  .fmf:last-child { margin-bottom: 0; }
+  .fmsec { margin: 4px 0 18px; padding: 12px 14px; background: var(--sunken); border-radius: 12px; }
+  .fmsec b { display: block; font-size: 14.5px; }
+  .fmsec .fmhelp { margin: 4px 0 0; }
+  .fmopts { display: flex; flex-wrap: wrap; gap: 7px; }
+  .fmopts button { flex: 0 1 auto; min-width: 84px; background: #fff; border: 1px solid var(--hair-2);
+    border-radius: 11px; padding: 11px 14px; font: 700 14px inherit; font-family: inherit;
+    color: var(--ink-2); cursor: pointer; text-align: center; }
+  .fmopts button.on { background: var(--tone); border-color: var(--tone); color: #fff; }
+  .fmopts.multi button.on:before { content: "\2713 "; }
+  .fmnum { display: flex; align-items: center; gap: 9px; }
+  .fmnum input { flex: 1; }
+  .fmnum span { font-size: 14px; color: var(--ink-3); font-weight: 700; flex: none; }
+  .fmagree { align-items: flex-start; }
+  .fmagree em { display: block; font-style: normal; color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+  .fmfile { display: inline-block; margin-top: 4px; }
+  .fmfl { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .fmfl span { display: inline-flex; align-items: center; gap: 5px; background: var(--sunken);
+    border-radius: 8px; padding: 6px 9px; font-size: 12.5px; color: var(--ink-2); }
+  .fmfl button { border: none; background: none; color: var(--ink-3); cursor: pointer; font-size: 15px; padding: 0 1px; }
+  .lockedform { opacity: .6; pointer-events: none; }
+
+  /* 알림 켜기 카드 — 유리 느낌 */
   .pushcard { display: flex; align-items: center; gap: 12px; margin: 0 16px 12px; padding: 13px 15px;
-    background: #fff; border: 1px solid var(--hair-2); border-radius: var(--r-md); box-shadow: var(--sh-1); }
-  .pushcard.on { background: #F4FAF6; border-color: #CFE7D8; }
-  .pushcard .pi { width: 36px; height: 36px; border-radius: 11px; background: #FBEFE7; flex: none;
+    background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.15); border-radius: var(--r-md);
+    box-shadow: 0 6px 22px rgba(0,0,0,.24);
+    -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); }
+  .pushcard.on { background: rgba(92,199,122,.13); border-color: rgba(120,215,155,.28); }
+  .pushcard .pi { width: 36px; height: 36px; border-radius: 11px; background: rgba(255,255,255,.1); flex: none;
     display: flex; align-items: center; justify-content: center; font-size: 18px; }
-  .pushcard.on .pi { background: #DFF1E5; }
+  .pushcard.on .pi { background: rgba(120,215,155,.18); }
   .pushcard .pt { flex: 1; min-width: 0; }
-  .pushcard .pt b { display: block; font-size: 14.5px; color: var(--ink-1); }
-  .pushcard .pt small { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 2px; line-height: 1.5; }
-  .pushcard .pb { flex: none; background: var(--ink-1); color: #fff; border: none; border-radius: 9px;
+  .pushcard .pt b { display: block; font-size: 14.5px; color: var(--night-ink); }
+  .pushcard .pt small { display: block; font-size: 12.5px; color: var(--night-sub); margin-top: 2px; line-height: 1.5; }
+  .pushcard .pb { flex: none; background: #F3EFE8; color: #1C1C1C; border: none; border-radius: 9px;
     padding: 9px 14px; font-size: 13px; font-weight: 750; cursor: pointer; }
-  .pushcard.on .pb { background: #fff; color: var(--ink-2); border: 1px solid var(--hair-2); }
+  .pushcard.on .pb { background: rgba(255,255,255,.12); color: #E8E4DE; border: 1px solid rgba(255,255,255,.2); }
+  #pushBox .msg { color: #A8A29A; }
   .prebtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 16px 12px; }
   .prebtns .bulbtn { margin: 0; padding: 13px 14px; }
   .prebtns .bulbtn .bi { width: 34px; height: 34px; }
@@ -603,6 +716,7 @@
       <span class="bt"><b>이번 주 주보 보기</b><small>예배 순서 · 말씀 · 셀 나눔 · 광고</small></span><span class="ba">›</span>
     </a>
     <div id="cellAppBox"></div>
+    <div id="formsBox"></div>
     <div id="pushBox"></div>
 
     <div id="calWrap" style="display:none;">
@@ -655,6 +769,9 @@
   <!-- ============ 셀 신청 및 교적확인 ============ -->
   <div id="caWrap" style="display:none;"></div>
 
+  <!-- ============ 신청서 ============ -->
+  <div id="fmWrap" style="display:none;"></div>
+
   <footer>
     해외한인장로회 토론토영락교회 &nbsp;|&nbsp; 담임목사 : 전대혁 &nbsp;|&nbsp; 청년1부 목사: 강산<br>
     650 McNicoll Ave. Toronto, ON M2H 2E1 &nbsp;|&nbsp; www.ynchurch.com
@@ -677,6 +794,11 @@ function say(id, text, kind) {
   m.className = 'msg' + (kind ? ' ' + kind : '');
   m.textContent = text || '';
 }
+/** onclick="..(\'값\')" 안에 안전하게 넣기 */
+function jsq(s) {
+  return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    .replace(/</g, '\\u003c').replace(/\r?\n/g, ' ');
+}
 /** 이름에 이미 직분이 들어 있으면 "강산 목사님" 처럼 그대로 씁니다 */
 var TITLED = /(목사|전도사|강도사|사모|선교사|장로|권사|집사)$/;
 function honor(name, gender) {
@@ -695,6 +817,7 @@ var MENU_ICON = {
   mission: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.6 3.6 5.5 3.6 8.5s-1.2 5.9-3.6 8.5c-2.4-2.6-3.6-5.5-3.6-8.5s1.2-5.9 3.6-8.5z"/>',
   worship: '<path d="M9.5 18V6.2l9-1.8V16"/><circle cx="7" cy="18" r="2.5"/><circle cx="16" cy="16" r="2.5"/><path d="M9.5 9.6l9-1.8"/>',
   acct: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 14.5h4"/><path d="M16.5 14.5h.8"/>',
+  forms: '<rect x="4.5" y="3" width="15" height="18" rx="2.4"/><path d="M8.5 8.5h7M8.5 12.5h7M8.5 16.5h4"/>',
   admin: '<path d="M4 20V9.5l8-5.5 8 5.5V20z"/><path d="M9.5 20v-6h5v6"/>',
   bulletin: '<path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/>',
   bulletinEdit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
@@ -706,6 +829,8 @@ var MENU_ICON = {
   'a-cal': '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8.5 3.5v3M15.5 3.5v3"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor" stroke="none"/>',
   'a-acct': '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 14.5h4"/><path d="M16.5 14.5h.8"/>',
   'a-dir': '<rect x="4" y="3.5" width="16" height="17" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M7.6 17c.7-2.1 2.4-3.3 4.4-3.3s3.7 1.2 4.4 3.3"/>',
+  'a-cells': '<circle cx="8" cy="8.5" r="2.8"/><circle cx="16" cy="8.5" r="2.8"/><path d="M2.8 19c0-2.9 2.3-4.8 5.2-4.8s5.2 1.9 5.2 4.8"/><path d="M15 14.3c3 0 6.2 1.6 6.2 4.7"/>',
+  'a-push': '<path d="M18 8.5a6 6 0 10-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5z"/><path d="M13.7 19a2 2 0 01-3.4 0"/>',
   'a-home': '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>'
 };
 function menuIcon(key) {
@@ -1090,8 +1215,10 @@ function renderNfHome(h) {
     '<div class="st">새가족 등록일 ' + esc(h.joinedAt || '') + ' · ' + esc(h.status || '진행중') + '<br>새가족 교육(4주)을 마치면 셀(소그룹)에 참여하실 수 있습니다.</div></div>' +
     (ca.state === 'open' ? cellAppBtn(ca) : '') +
     (h.myCell ? myCellHtml(h.myCell) : '') +
+    '<div id="formsBoxNf"></div>' +
     '<div class="panel"><button class="btn full" onclick="editNewcomer()">내 등록 정보 고치기</button>' +
     '<p class="fnote" style="text-align:center;margin-top:12px;"><a href="#" onclick="nfLogout();return false;">로그아웃</a></p></div>';
+  try { renderForms(h, 'formsBoxNf'); } catch (e) {}
 }
 function nfLogout() { forgetToken(); NF_TOKEN = ''; NF_HOME = null; PREFILL.link = ''; showLock(); }
 
@@ -1119,6 +1246,244 @@ function renderCellApp(res) {
   if (VIEW || !res) { box.innerHTML = ''; return; }
   var ca = res.cellApp || {};
   box.innerHTML = (ca.state === 'open' || ca.state === 'locked' ? cellAppBtn(ca) : '') + (res.myCell ? myCellHtml(res.myCell) : '');
+}
+
+/* ---------- 신청서 ---------- */
+
+var FORMS = [], FM = null, FM_FROM = 'main', FM_ANS = {}, FM_BUSY = 0;
+
+function renderForms(res, boxId) {
+  var box = el(boxId || 'formsBox');
+  if (!box) return;
+  if (!boxId && VIEW) { box.innerHTML = ''; return; }
+  var list = (res && res.forms && res.forms.list) || [];
+  FORMS = list;
+  if (!list.length) { box.innerHTML = ''; return; }
+  box.innerHTML = list.map(function (f) {
+    var done = !!f.submitted;
+    var sub = done
+      ? ('신청 완료' + (f.editable && f.open ? ' · 눌러서 고치기' : ''))
+      : (f.open ? (f.desc ? f.desc.split('\n')[0].slice(0, 40) : '눌러서 신청하기') : f.why);
+    return '<a class="fmbtn' + (done ? ' done' : '') + (f.open ? '' : ' shut') + '" href="#" ' +
+      'onclick="openFormPage(\'' + jsq(f.id) + '\');return false;">' +
+      '<span class="fi">' + (done ? '✔' : '📝') + '</span>' +
+      '<span class="ft"><b>' + esc(f.title) + '</b><small>' + esc(sub) +
+      (f.count != null ? ' · ' + f.count + '명 신청' : '') +
+      (f.closeAt && f.open ? ' · ~' + esc(f.closeAt) : '') + '</small></span>' +
+      '<span class="fa">›</span></a>';
+  }).join('');
+}
+
+function fmToken() { return NF_TOKEN && !TOKEN ? NF_TOKEN : TOKEN; }
+
+function openFormPage(id) {
+  FM_FROM = el('main').style.display !== 'none' ? 'main' : 'lock';
+  el('main').style.display = 'none'; el('lock').style.display = 'none';
+  var w = el('fmWrap');
+  w.style.display = 'block';
+  w.innerHTML = '<div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div>';
+  window.scrollTo(0, 0);
+  callServer('formOpen', [fmToken(), id], function (r) { FM = r; FM_ANS = {}; paintForm(); }, function (e) {
+    w.innerHTML = '<div class="panel"><p class="msg err">' + esc((e && e.message) || '열 수 없습니다.') + '</p>' +
+      '<button class="btn full" onclick="closeFormPage()">돌아가기</button></div>';
+  });
+}
+
+function closeFormPage() {
+  el('fmWrap').style.display = 'none';
+  el('fmWrap').innerHTML = '';
+  FM = null;
+  if (FM_FROM === 'main') el('main').style.display = 'block'; else el('lock').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+
+function paintForm() {
+  var f = FM.form, mine = FM.mine;
+  FM_ANS = {};
+  (f.questions || []).forEach(function (q) {
+    var v = mine && mine.answers ? mine.answers[q.id] : undefined;
+    if (q.type === 'checks') FM_ANS[q.id] = (v && v.length) ? v.slice() : [];
+    else if (q.type === 'file') FM_ANS[q.id] = (v && v.length) ? v.slice() : [];
+    else if (q.type === 'agree') FM_ANS[q.id] = !!v;
+    else FM_ANS[q.id] = v == null ? '' : v;
+  });
+
+  var body = (f.questions || []).map(fmQuestion).join('');
+  var me = FM.me;
+  el('fmWrap').innerHTML =
+    '<div class="capage">' +
+      '<div class="cabar"><button class="pvback" onclick="closeFormPage()">&lsaquo; 돌아가기</button>' +
+        '<span>' + esc(f.title) + '</span></div>' +
+      (f.desc ? '<div class="panel"><div class="fmdesc">' + esc(f.desc) + '</div></div>' : '') +
+      '<div class="panel">' +
+        '<span class="chip">신청하는 분</span>' +
+        '<div class="fmme">' + esc(me.name) +
+          (me.cell ? ' &middot; ' + esc(me.cell) : '') +
+          (me.phone ? ' &middot; ' + esc(me.phone) : '') + '</div>' +
+        '<p class="hint" style="margin:6px 0 0;">교적에 있는 정보로 자동으로 들어갑니다. 바꾸시려면 내 정보 관리에서 고쳐주세요.</p>' +
+      '</div>' +
+      (mine ? '<div class="panel"><p class="msg ok" style="margin:0;">' + esc(mine.at) + ' 에 신청하셨습니다.' +
+        (f.editable && FM.open ? ' 아래에서 고치고 다시 저장할 수 있습니다.' : '') + '</p></div>' : '') +
+      (FM.open ? '' : '<div class="panel"><p class="msg err" style="margin:0;">' + esc(FM.why || '지금은 신청할 수 없습니다.') + '</p></div>') +
+      '<div class="panel' + (FM.open ? '' : ' lockedform') + '">' + (body || '<p class="empty">문항이 없습니다.</p>') + '</div>' +
+      (FM.open ?
+        '<div class="panel">' +
+          '<button class="submit" id="fmSubmit" onclick="submitFormNow()">' + (mine ? '고친 내용 저장하기' : '신청하기') + '</button>' +
+          (mine && f.editable ? '<button class="btn danger full" style="margin-top:8px;" onclick="cancelFormNow()">신청 취소</button>' : '') +
+          '<p class="msg" id="fmMsg"></p>' +
+        '</div>' : '') +
+    '</div>';
+}
+
+function fmQuestion(q, i) {
+  var id = 'fq_' + q.id;
+  var req = q.req ? ' <span class="req">*</span>' : '';
+  var help = q.help ? '<p class="fmhelp">' + esc(q.help) + '</p>' : '';
+  var v = FM_ANS[q.id];
+
+  if (q.type === 'section') {
+    return '<div class="fmsec"><b>' + esc(q.label) + '</b>' + help + '</div>';
+  }
+  var head = '<label class="fmq">' + esc(q.label) + req + '</label>' + help;
+
+  if (q.type === 'choice') {
+    return '<div class="f fmf">' + head + '<div class="fmopts">' +
+      (q.opts || []).map(function (o, j) {
+        return '<button type="button" class="' + (v === o ? 'on' : '') + '" ' +
+          'onclick="fmPick(\'' + jsq(q.id) + '\',\'' + jsq(o) + '\')">' + esc(o) + '</button>';
+      }).join('') + '</div></div>';
+  }
+  if (q.type === 'checks') {
+    return '<div class="f fmf">' + head + '<div class="fmopts multi">' +
+      (q.opts || []).map(function (o) {
+        var on = (v || []).indexOf(o) !== -1;
+        return '<button type="button" class="' + (on ? 'on' : '') + '" ' +
+          'onclick="fmCheck(\'' + jsq(q.id) + '\',\'' + jsq(o) + '\')">' + esc(o) + '</button>';
+      }).join('') + '</div></div>';
+  }
+  if (q.type === 'agree') {
+    return '<div class="f fmf"><label class="lkchg fmagree">' +
+      '<input type="checkbox" id="' + id + '"' + (v ? ' checked' : '') + ' onchange="FM_ANS[\'' + jsq(q.id) + '\']=this.checked">' +
+      '<span>' + esc(q.label) + req + (q.help ? '<em>' + esc(q.help) + '</em>' : '') + '</span></label></div>';
+  }
+  if (q.type === 'long') {
+    return '<div class="f fmf">' + head +
+      '<textarea id="' + id + '" rows="4" maxlength="4000" oninput="FM_ANS[\'' + jsq(q.id) + '\']=this.value">' + esc(v) + '</textarea></div>';
+  }
+  if (q.type === 'number') {
+    return '<div class="f fmf">' + head +
+      '<div class="fmnum"><input type="number" id="' + id + '" inputmode="numeric" value="' + esc(v) + '"' +
+      (q.min !== '' && q.min != null ? ' min="' + esc(q.min) + '"' : '') +
+      (q.max !== '' && q.max != null ? ' max="' + esc(q.max) + '"' : '') +
+      ' oninput="FM_ANS[\'' + jsq(q.id) + '\']=this.value">' +
+      (q.unit ? '<span>' + esc(q.unit) + '</span>' : '') + '</div></div>';
+  }
+  if (q.type === 'date') {
+    return '<div class="f fmf">' + head +
+      '<input type="date" id="' + id + '" value="' + esc(v) + '" oninput="FM_ANS[\'' + jsq(q.id) + '\']=this.value"></div>';
+  }
+  if (q.type === 'file') {
+    return '<div class="f fmf">' + head +
+      '<div id="fl_' + esc(q.id) + '">' + fmFiles(q.id) + '</div>' +
+      '<label class="btn mini fmfile">파일 고르기' +
+        '<input type="file" accept="image/*,application/pdf" style="display:none;" ' +
+        'onchange="fmUpload(\'' + jsq(q.id) + '\', this)"></label></div>';
+  }
+  return '<div class="f fmf">' + head +
+    '<input type="text" id="' + id + '" maxlength="500" value="' + esc(v) + '" ' +
+    'oninput="FM_ANS[\'' + jsq(q.id) + '\']=this.value"></div>';
+}
+
+function fmFiles(qid) {
+  var list = FM_ANS[qid] || [];
+  if (!list.length) return '';
+  return '<div class="fmfl">' + list.map(function (x, i) {
+    return '<span>' + esc(x.name) +
+      '<button onclick="fmDropFile(\'' + jsq(qid) + '\',' + i + ')">&times;</button></span>';
+  }).join('') + '</div>';
+}
+function fmDropFile(qid, i) { FM_ANS[qid].splice(i, 1); el('fl_' + qid).innerHTML = fmFiles(qid); }
+
+function fmUpload(qid, input) {
+  var file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { say('fmMsg', '파일 한 개는 10MB까지 올릴 수 있습니다.', 'err'); return; }
+  say('fmMsg', '파일을 올리는 중…');
+  FM_BUSY++;
+  var rd = new FileReader();
+  rd.onload = function () {
+    callServer('formUpload', [fmToken(), FM.form.id, file.name, rd.result], function (r) {
+      FM_BUSY--;
+      (FM_ANS[qid] = FM_ANS[qid] || []).push({ id: r.id, name: r.name });
+      el('fl_' + qid).innerHTML = fmFiles(qid);
+      say('fmMsg', '올렸습니다.', 'ok');
+    }, function (e) { FM_BUSY--; say('fmMsg', (e && e.message) || '올리지 못했습니다.', 'err'); });
+  };
+  rd.onerror = function () { FM_BUSY--; say('fmMsg', '파일을 읽지 못했습니다.', 'err'); };
+  rd.readAsDataURL(file);
+}
+
+function fmPick(qid, val) {
+  FM_ANS[qid] = (FM_ANS[qid] === val) ? '' : val;
+  paintFormOpts();
+}
+function fmCheck(qid, val) {
+  var a = FM_ANS[qid] = FM_ANS[qid] || [];
+  var i = a.indexOf(val);
+  if (i === -1) a.push(val); else a.splice(i, 1);
+  paintFormOpts();
+}
+/** 고른 것만 다시 칠합니다 (입력한 글이 날아가지 않게) */
+function paintFormOpts() {
+  (FM.form.questions || []).forEach(function (q) {
+    if (q.type !== 'choice' && q.type !== 'checks') return;
+    var box = document.querySelectorAll('.fmopts');
+    // 각 버튼을 이름으로 다시 칠합니다
+  });
+  var all = document.querySelectorAll('#fmWrap .fmopts button');
+  for (var i = 0; i < all.length; i++) {
+    var b = all[i], on = b.getAttribute('onclick') || '';
+    var m = /fm(Pick|Check)\('([^']*)','([\s\S]*)'\)/.exec(on);
+    if (!m) continue;
+    var qid = m[2].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+    var val = m[3].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+    var v = FM_ANS[qid];
+    var sel = (m[1] === 'Pick') ? (v === val) : ((v || []).indexOf(val) !== -1);
+    b.className = sel ? 'on' : '';
+  }
+}
+
+function submitFormNow() {
+  if (FM_BUSY > 0) { say('fmMsg', '파일을 올리는 중입니다. 잠시만 기다려주세요.', 'err'); return; }
+  var btn = el('fmSubmit');
+  btn.disabled = true;
+  say('fmMsg', '보내는 중…');
+  callServer('submitForm', [fmToken(), FM.form.id, FM_ANS], function (r) {
+    btn.disabled = false;
+    el('fmWrap').innerHTML =
+      '<div class="capage"><div class="panel"><div class="nfok">' +
+        '<div class="ic">✓</div><h3>' + (r.edited ? '고친 내용을 저장했습니다' : '신청이 접수되었습니다') + '</h3>' +
+        '<p>' + esc(FM.form.title) + '<br>' + esc(r.at) + '</p></div>' +
+        '<button class="submit" style="margin-top:16px;" onclick="afterForm()">포털로 돌아가기</button>' +
+      '</div></div>';
+    window.scrollTo(0, 0);
+  }, function (e) {
+    btn.disabled = false;
+    say('fmMsg', (e && e.message) || '보내지 못했습니다.', 'err');
+  });
+}
+
+function cancelFormNow() {
+  if (!confirm('신청을 취소할까요?')) return;
+  callServer('cancelForm', [fmToken(), FM.form.id], function () { afterForm(); },
+    function (e) { say('fmMsg', (e && e.message) || '취소하지 못했습니다.', 'err'); });
+}
+
+function afterForm() {
+  closeFormPage();
+  if (TOKEN) callServer('getMyProfile', [TOKEN], function (res) { onIn(res); }, null);
+  else if (NF_TOKEN) openNfHome();
 }
 
 /* ---------- 알림(푸시) 켜기 ---------- */
@@ -1354,6 +1719,7 @@ function paint(res) {
   renderHero();
   renderMenus();
   renderCellApp(res);
+  try { renderForms(res); } catch (e) {}
   try { renderPush(); } catch (e) {}
   if (!VIEW) renderProfile();
   el('meBtn').style.display = VIEW ? 'none' : '';
