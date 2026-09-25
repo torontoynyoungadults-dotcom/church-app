@@ -593,6 +593,58 @@
   .sttools select { flex: 1 1 150px; font-size: 14.5px; padding: 9px 30px 9px 12px; }
   .sttools .rangesel { font-weight: 750; }
   .sttools .hlsel { max-width: none; width: 100%; }
+  .wkbar { display: flex; align-items: stretch; gap: 0; }
+  .wkbar .weeks { flex: 1; min-width: 0; padding-right: 6px; }
+  .wkcal { flex: none; width: 52px; margin: 0 12px 12px 0; border-radius: var(--r-lg); border: 1px solid var(--hair-night); background: var(--night-2); color: var(--night-ink); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .wkcal svg { width: 22px; height: 22px; }
+  .wkcal:active { transform: scale(.97); }
+  .dpk { padding: 2px 2px 6px; }
+  .dpk .nav { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
+  .dpk .nav b { font-size: 17px; font-weight: 800; }
+  .dpk .nav button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--hair-2); background: #fff; font-size: 18px; cursor: pointer; }
+  .dpk .gr { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .dpk .wh { text-align: center; font-size: 11.5px; font-weight: 800; color: var(--ink-3); padding: 2px 0 4px; }
+  .dpk .wh.sun { color: var(--tone); }
+  .dpk .d { position: relative; height: 42px; border-radius: 10px; border: none; background: none; font: 700 14px inherit; font-family: inherit; color: var(--ink-2); cursor: pointer; }
+  .dpk .d.sun { color: var(--tone); background: rgba(var(--tone-rgb), .07); }
+  .dpk .d.today { box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+  .dpk .d.on { background: var(--tone); color: #fff; }
+  .dpk .d.ev:after { content: ''; position: absolute; left: 50%; bottom: 5px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: #7A4FB5; }
+  .dpk .d.out { visibility: hidden; }
+  .dpk .d .fl { position: absolute; top: 3px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--good, #1D7A56); }
+  .dpk .leg { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; color: var(--ink-3); }
+  .dpk .leg i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; }
+
+  /* 콘티 올리기 — 한꺼번에 · 하나하나 */
+  .upmode { display: flex; gap: 6px; margin: 8px 0 10px; background: var(--sunken); border-radius: 12px; padding: 4px; }
+  .upmode button { flex: 1; border: none; background: none; border-radius: 9px; padding: 9px 6px; font: 800 13.5px inherit; font-family: inherit; color: var(--ink-3); cursor: pointer; }
+  .upmode button.on { background: #fff; color: var(--tone); box-shadow: var(--sh-1); }
+  .bk2 { border: 1px solid var(--hair-2); border-radius: 12px; padding: 9px; margin-bottom: 8px; background: #fff; }
+  .bk2.open { border-color: var(--tone); }
+  .bk2 .r1 { display: grid; grid-template-columns: 22px 1fr auto; gap: 6px; align-items: center; }
+  .bk2 .r2 { display: grid; grid-template-columns: 1fr 64px; gap: 6px; margin-top: 6px; }
+  .bk2 .r3 { margin-top: 6px; }
+  .bk2 .bn { font-size: 12px; font-weight: 800; color: var(--ink-4); text-align: center; }
+  .bk2 .more { border: 1px solid var(--hair-2); background: var(--canvas); border-radius: 9px; padding: 8px 9px; font: 800 12px inherit; font-family: inherit; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+  .bk2.open .more { background: var(--tone); border-color: var(--tone); color: #fff; }
+  .bk2 .det { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--hair-2); }
+  .bk2 .det .two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  .bk2 .det label { display: block; font-size: 11px; font-weight: 800; color: var(--ink-3); margin: 0 0 3px; }
+  .bk2 .det textarea { min-height: 54px; }
+  .bk2 .solorow { display: grid; grid-template-columns: 1fr 1.2fr auto; gap: 6px; margin-bottom: 6px; }
+
+  /* 스케줄 카드 — 얼굴 · 포지션 아이콘 */
+  .stch .sat { font-size: 13px; font-weight: 750; color: var(--ink-3); }
+  .stcc .pl { display: flex !important; align-items: center; gap: 4px; }
+  .stcc .pl .pi { width: 15px; height: 15px; color: var(--tone); display: inline-flex; flex: none; }
+  .stcc .pl .pi svg { width: 15px; height: 15px; }
+  .stcc .tp { display: flex; align-items: center; gap: 5px; padding: 2px 4px 2px 2px; margin: 2px -3px; border-radius: 99px; font-size: 13px; font-weight: 700; min-width: 0; }
+  .stcc .tp .fc { width: 24px; height: 24px; border-radius: 50%; flex: none; object-fit: cover; background: #F4F1EC; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--tone); border: 1px solid var(--hair); }
+  .stcc .tp .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .stcc .tp.off { color: var(--bad); background: var(--bad-bg); } .stcc .tp.off .fc { border-color: #E6C9C5; }
+  .stcc .tp.hl { background: rgba(var(--tone-rgb), .14); color: var(--tone); }
+  .stcc .tp.guest .t { font-style: italic; color: var(--ink-3); }
+  .st td.dc .sd { display: block; font-size: 10px; font-weight: 750; color: var(--ink-3); }
   .stmon { font-size: 12px; font-weight: 800; color: var(--ink-3); letter-spacing: .1em; margin: 16px 4px 7px; }
   .stmon:first-child { margin-top: 2px; }
   .stc {
@@ -688,7 +740,10 @@
   </div>
 
   <div id="app" style="display:none;">
-    <div class="weeks" id="weeks"></div>
+    <div class="wkbar"><div class="weeks" id="weeks"></div>
+      <button type="button" class="wkcal" onclick="openDatePick()" aria-label="달력에서 날짜 고르기" title="달력에서 고르기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8.5 3.5v3M15.5 3.5v3"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg>
+      </button></div>
     <div id="mgbar"></div>
     <div class="tabs" id="tabs"></div>
     <div id="body"></div>
@@ -778,6 +833,53 @@ function start(d) {
   renderWeeks(); renderTabs(); render();
 }
 
+/* ---------- 달력에서 날짜 고르기 ---------- */
+var DPK_YM = '';
+function openDatePick() {
+  var cur = String(DATE || D.today || '').split('~')[0];
+  var ev = (D.events || []).filter(function (e) { return e.key === cur; })[0];
+  var d = ev ? ev.date : cur;
+  DPK_YM = /^\d{4}-\d{2}/.test(d) ? d.slice(0, 7) : ymdOf(new Date()).slice(0, 7);
+  YC.sheet('<div class="dpk" id="dpk"></div>', {});
+  drawDatePick();
+}
+function dpkMove(n) {
+  var p = DPK_YM.split('-'), x = new Date(Number(p[0]), Number(p[1]) - 1 + n, 1);
+  DPK_YM = x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2);
+  drawDatePick();
+}
+/** 그 날짜가 들어 있는 행사 */
+function dpkEvent(ymd) { return (D.events || []).filter(function (e) { return e.date <= ymd && ymd <= (e.endDate || e.date); })[0]; }
+function drawDatePick() {
+  var p = DPK_YM.split('-'), y = Number(p[0]), m = Number(p[1]) - 1;
+  var first = new Date(y, m, 1), days = new Date(y, m + 1, 0).getDate();
+  var cur = String(DATE || '').split('~')[0], curEv = (D.events || []).filter(function (e) { return e.key === cur; })[0];
+  var filled = {};
+  (D.weeks || []).forEach(function (w) { if (w.filled) filled[w.date] = 1; });
+  var today = D.today || ymdOf(new Date());
+  var h = '<div class="nav"><button type="button" onclick="dpkMove(-1)">‹</button><b>' + y + '년 ' + (m + 1) + '월</b><button type="button" onclick="dpkMove(1)">›</button></div><div class="gr">' +
+    WD.map(function (w, i) { return '<div class="wh' + (i === 0 ? ' sun' : '') + '">' + w + '</div>'; }).join('');
+  for (var i = 0; i < first.getDay(); i++) h += '<button type="button" class="d out" disabled></button>';
+  for (var dd = 1; dd <= days; dd++) {
+    var ymd = y + '-' + ('0' + (m + 1)).slice(-2) + '-' + ('0' + dd).slice(-2);
+    var dow = new Date(y, m, dd).getDay(), ev = dpkEvent(ymd);
+    var on = (curEv && ev && curEv.key === ev.key) || (!curEv && ymd === cur);
+    h += '<button type="button" class="d' + (dow === 0 ? ' sun' : '') + (ev ? ' ev' : '') + (ymd === today ? ' today' : '') + (on ? ' on' : '') + '"' +
+      ' onclick="dpkGo(\'' + ymd + '\')" title="' + (ev ? esc(ev.name) : '') + '">' + dd + (filled[ymd] ? '<span class="fl"></span>' : '') + '</button>';
+  }
+  h += '</div><div class="leg"><span><i style="background:var(--tone);"></i>주일</span><span><i style="background:#7A4FB5;"></i>행사</span>' +
+    '<span>다른 요일을 누르면 그 주 주일로 갑니다</span></div>';
+  el('dpk').innerHTML = h;
+}
+function dpkGo(ymd) {
+  var ev = dpkEvent(ymd);
+  YC.close();
+  if (ev) { goWeek(ev.key); return; }
+  var d = dt(ymd), add = d.getDay() === 0 ? 0 : 7 - d.getDay();   // 토요일이면 다음 날 주일, 주중이면 그 주 주일
+  d.setDate(d.getDate() + add);
+  goWeek(ymdOf(d));
+}
+
 /** 이미 받아둔 주면 곧바로, 아니면 한 번만 불러옵니다 */
 function goWeek(date) {
   // 세션이 있는 행사는 세션으로 바로 들어갑니다 (오늘 이후 첫 세션, 없으면 첫 세션)
@@ -829,7 +931,7 @@ function renderTabs() {
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9.2 5 2.2 5 5.4"/></svg>' +
         '팀원 관리</button>'
     : '';
-  el('weeks').style.display = (TAB === 'plan') ? '' : 'none';
+  el('weeks').parentNode.style.display = (TAB === 'plan') ? '' : 'none';
 }
 
 /* ---------- 주차 줄 (행사도 날짜 순서로 끼워 있습니다) ---------- */
@@ -890,6 +992,8 @@ function shortAt(v) {
   return m ? (Number(m[2]) + '/' + Number(m[3]) + ' ' + m[4]) : String(v || '');
 }
 function md(d) { var p = String(d).split('-'); return Number(p[1]) + '/' + Number(p[2]); }
+/** 주일 전날(토요일) 날짜 — 9/27 → 9/26 */
+function satOf(d) { var x = dt(d); x.setDate(x.getDate() - 1); return (x.getMonth() + 1) + '/' + x.getDate(); }
 
 function offMap(list) {
   var o = {};
@@ -1264,15 +1368,19 @@ function songList(kind, list) {
   }).join('') : '<p class="empty">아직 등록된 곡이 없습니다.</p>';
 
   var adding = (songEdit === kind + ':0');
-  // 빈 콘티는 처음부터 '여러 곡 한 번에' 칸을 펼쳐 둡니다
+  // 빈 콘티는 처음부터 '한꺼번에 올리기' 칸을 펼쳐 둡니다
   var bulk = (songEdit === kind + ':bulk') || (D.canEdit && !list.length && songEdit === null && kind === '콘티');
+  var mode = function (on) {
+    return '<div class="upmode"><button type="button" class="' + (on === 'bulk' ? 'on' : '') + '" onclick="openBulk(\'' + kind + '\')">한꺼번에 올리기</button>' +
+      '<button type="button" class="' + (on === 'one' ? 'on' : '') + '" onclick="songEdit=\'' + kind + ':0\';render();">하나하나 올리기</button></div>';
+  };
   return (list.length || !bulk ? rows : '') +
     (D.canEdit
-      ? (adding ? songForm(kind, { seq: 0, title: '', team: '', key: '', link: '', note: '', bpm: '', form: '', solo: [] })
-         : bulk ? bulkForm(kind)
+      ? (adding ? mode('one') + songForm(kind, { seq: 0, title: '', team: '', key: '', link: '', note: '', bpm: '', form: '', solo: [] })
+         : bulk ? mode('bulk') + bulkForm(kind)
          : '<div class="addrow" style="margin-top:6px;">' +
-             '<button class="btn accent" style="flex:2;" onclick="openBulk(\'' + kind + '\')">＋ 여러 곡 한 번에</button>' +
-             '<button class="btn" style="flex:1;" onclick="songEdit=\'' + kind + ':0\';render();">＋ 한 곡 (자세히)</button></div>')
+             '<button class="btn accent" style="flex:1;" onclick="openBulk(\'' + kind + '\')">＋ 한꺼번에 올리기</button>' +
+             '<button class="btn" style="flex:1;" onclick="songEdit=\'' + kind + ':0\';render();">＋ 하나하나 올리기</button></div>')
       : '') +
     '<p class="msg" id="songMsg_' + kind + '"></p>';
 }
@@ -1287,20 +1395,44 @@ function openBulk(kind) {
 }
 function bulkForm(kind) {
   var rows = BULK[kind] || (BULK[kind] = [{}, {}, {}, {}, {}]);
-  return '<div class="bulk card" style="border-color:var(--tone);">' +
-    '<p class="hint" style="margin:0 0 8px;">제목만 적어도 됩니다. 한 칸에 여러 줄을 붙여 넣으면 줄마다 한 곡으로 나뉩니다 ' +
-      '(예: <b>곡 제목 - 원곡팀 - Key</b>). BPM · 송폼 · 솔로는 저장한 뒤 각 곡의 "수정"에서 넣으세요.</p>' +
-    '<div class="bkh"><span>#</span><span>찬양 제목</span><span>원곡팀</span><span>Key</span></div>' +
+  var K = 'BULK[\'' + kind + '\']';
+  return '<div class="bulk">' +
+    '<p class="hint" style="margin:0 0 8px;">찬양 제목 · 원곡팀 · Key · 유튜브 링크를 바로 적고, BPM · 송폼 · 설명 · 솔로는 <b>자세히</b>를 눌러 넣으세요. ' +
+      '제목 칸에 여러 줄을 붙여 넣으면 줄마다 한 곡으로 나뉩니다 (예: <b>곡 제목 - 원곡팀 - Key</b>). 다 적은 뒤 <b>한 번에 저장</b>.</p>' +
     rows.map(function (r, i) {
-      return '<div class="bkr"><span class="bn">' + (i + 1) + '</span>' +
-        '<input type="text" value="' + esc(r.title || '') + '" placeholder="찬양 제목" oninput="BULK[\'' + kind + '\'][' + i + '].title=this.value" onpaste="bulkPaste(event,\'' + kind + '\',' + i + ')">' +
-        '<input type="text" value="' + esc(r.team || '') + '" placeholder="원곡팀" oninput="BULK[\'' + kind + '\'][' + i + '].team=this.value">' +
-        '<input type="text" value="' + esc(r.key || '') + '" placeholder="Key" oninput="BULK[\'' + kind + '\'][' + i + '].key=this.value"></div>';
+      var R = K + '[' + i + ']';
+      var inp = function (f, ph, extra) {
+        return '<input type="text" value="' + esc(r[f] || '') + '" placeholder="' + ph + '" oninput="' + R + '.' + f + '=this.value"' + (extra || '') + '>';
+      };
+      return '<div class="bk2' + (r.open ? ' open' : '') + '">' +
+        '<div class="r1"><span class="bn">' + (i + 1) + '</span>' +
+          '<input type="text" value="' + esc(r.title || '') + '" placeholder="찬양 제목" oninput="' + R + '.title=this.value" onpaste="bulkPaste(event,\'' + kind + '\',' + i + ')">' +
+          '<button type="button" class="more" onclick="' + R + '.open=!' + R + '.open;render();">' + (r.open ? '접기 ▴' : '자세히 ▾') + '</button></div>' +
+        '<div class="r2">' + inp('team', '원곡팀') + inp('key', 'Key') + '</div>' +
+        '<div class="r3">' + inp('link', '유튜브 링크 https://youtu.be/…', ' inputmode="url"') + '</div>' +
+        (r.open ? '<div class="det">' +
+          '<div class="two"><div><label>BPM</label>' + inp('bpm', '예: 72', ' inputmode="numeric"') + '</div>' +
+            '<div><label>송폼</label>' + inp('form', 'V1-C-V2-C-B-C') + '</div></div>' +
+          '<label>설명</label><textarea placeholder="간주 · 전조 · 반복 등" oninput="' + R + '.note=this.value">' + esc(r.note || '') + '</textarea>' +
+          '<label style="margin-top:6px;">솔로</label>' + (r.solo || []).map(function (x, j) { return bulkSoloRow(kind, i, j, x); }).join('') +
+          '<button type="button" class="btn mini" onclick="(' + R + '.solo=' + R + '.solo||[]).push({name:\'\',part:\'\'});render();">＋ 솔로 추가</button>' +
+        '</div>' : '') +
+      '</div>';
     }).join('') +
-    '<button type="button" class="btn mini" onclick="BULK[\'' + kind + '\'].push({});render();">＋ 줄 추가</button>' +
+    '<button type="button" class="btn mini" onclick="' + K + '.push({});render();">＋ 곡 추가</button>' +
     '<div class="addrow" style="margin-top:10px;">' +
-      '<button class="btn" style="flex:1;" onclick="BULK[\'' + kind + '\']=null;songEdit=null;render();">취소</button>' +
+      '<button class="btn" style="flex:1;" onclick="' + K + '=null;songEdit=null;render();">취소</button>' +
       '<button class="btn accent" style="flex:2;" onclick="saveBulk(\'' + kind + '\')">한 번에 저장</button></div></div>';
+}
+function bulkSoloRow(kind, i, j, x) {
+  var ppl = soloPeople(), P = 'BULK[\'' + kind + '\'][' + i + '].solo[' + j + ']';
+  var has = x.name && ppl.first.indexOf(x.name) === -1 && ppl.rest.indexOf(x.name) === -1;
+  function opt(n) { return '<option value="' + esc(n) + '"' + (n === x.name ? ' selected' : '') + '>' + esc(n) + '</option>'; }
+  return '<div class="solorow"><select onchange="' + P + '.name=this.value"><option value="">누가</option>' +
+      (ppl.first.length ? '<optgroup label="이번 편성 싱어">' + ppl.first.map(opt).join('') + '</optgroup>' : '') +
+      '<optgroup label="그 외">' + ppl.rest.map(opt).join('') + (has ? opt(x.name) : '') + '</optgroup></select>' +
+    '<input type="text" value="' + esc(x.part || '') + '" placeholder="어디 — 예: 1절" maxlength="40" oninput="' + P + '.part=this.value">' +
+    '<button type="button" class="btn mini" onclick="BULK[\'' + kind + '\'][' + i + '].solo.splice(' + j + ',1);render();">&times;</button></div>';
 }
 /** 여러 줄을 붙여 넣으면 줄마다 한 곡 — "제목 - 팀 - Key" */
 function bulkPaste(ev, kind, i) {
@@ -1311,12 +1443,15 @@ function bulkPaste(ev, kind, i) {
   var rows = BULK[kind];
   lines.forEach(function (ln, k) {
     var p = ln.replace(/^\d+[.)]\s*/, '').split(/\s+[-–|]\s+|\t/);
-    rows[i + k] = { title: (p[0] || '').trim(), team: (p[1] || '').trim(), key: (p[2] || '').trim() };
+    rows[i + k] = { title: (p[0] || '').trim(), team: (p[1] || '').trim(), key: (p[2] || '').trim(), link: (/https?:\/\//.test(p[3] || '') ? p[3].trim() : '') };
   });
   render();
 }
 function saveBulk(kind) {
-  var songs = (BULK[kind] || []).filter(function (r) { return String(r.title || '').trim(); });
+  var songs = (BULK[kind] || []).filter(function (r) { return String(r.title || '').trim(); }).map(function (r) {
+    return { title: r.title, team: r.team || '', key: r.key || '', link: r.link || '', bpm: r.bpm || '', form: r.form || '', note: r.note || '',
+      solo: (r.solo || []).filter(function (x) { return x.name; }) };
+  });
   if (!songs.length) { say('songMsg_' + kind, '찬양 제목을 입력해주세요.', 'err'); return; }
   say('songMsg_' + kind, songs.length + '곡을 저장하는 중…');
   callServer('saveWorshipSongs', [TOKEN, DATE, kind, songs], function (w) {
@@ -1796,8 +1931,8 @@ function dropEvent() {
 /* ===================== 스케줄표 — 앞으로 6개월 ===================== */
 
 var ST = { rows: null, mine: [], hl: '', pick: null, cell: null, range: 'next6',
-  // 기본은 테이블, 폰에서 옆으로 넘기기 어려우면 카드로 바꿔 볼 수 있습니다
-  view: 'table' };
+  // 기본은 카드, 한눈에 넓게 보려면 테이블로 바꿔 볼 수 있습니다
+  view: 'card' };
 
 /* 표의 칸 순서 (시트에서 쓰던 순서 그대로) */
 var ST_GROUPS = [
@@ -1883,14 +2018,14 @@ function schedTab() {
     var dateCell = '<td class="dc' + (r.event ? ' ev' : '') + (sel ? ' sel' : '') + (mineOff ? ' mineoff' : '') +
       '" onclick="' + (picking ? 'stPickDay' : 'stDay') + '(\'' + r.key + '\')">' +
       (picking ? '<span class="ck">' + (sel ? '✓' : '') + '</span>' : '') +
-      '<b>' + md(r.date) + '</b>' +
-      '<span>' + (r.event ? esc(r.event.kind) : (mineOff ? '나 불가' : '주일')) + '</span></td>';
+      (r.event ? '<b>' + md(r.date) + '</b>' : '<span class="sd">토 ' + satOf(r.date) + '</span><b>일 ' + md(r.date) + '</b>') +
+      '<span>' + (r.event ? esc(r.event.kind) : (mineOff ? '나 불가' : '')) + '</span></td>';
 
     var cells = cols.map(function (p) {
       var names = r.slots[p.key] || [];
       var inner = names.length ? names.map(function (n) {
         var cls = 'tn' + (off[n] ? ' off' : '') + (n === ST.hl ? ' hl' : '') + (kn[n] ? '' : ' guest');
-        return '<span class="' + cls + '"' + (off[n] ? ' title="' + esc(off[n]) + '"' : '') + '>' + esc(n) + '</span>';
+        return '<span class="' + cls + '" title="' + esc(n + (off[n] ? ' — ' + off[n] : '')) + '">' + esc(shortName(n)) + '</span>';
       }).join('') : '<span class="tn none">·</span>';
       var edit = D.canEdit && !picking;
       return '<td class="c' + (edit ? ' ed' : '') + '"' +
@@ -1898,7 +2033,7 @@ function schedTab() {
     }).join('');
 
     var offCell = '<td class="offc" onclick="stDay(\'' + r.key + '\')">' + (r.off.length
-      ? r.off.map(function (x) { return '<span class="tn off' + (x.name === ST.hl ? ' hl' : '') + '" title="' + esc(x.reason) + '">' + esc(x.name) + '</span>'; }).join('')
+      ? r.off.map(function (x) { return '<span class="tn off' + (x.name === ST.hl ? ' hl' : '') + '" title="' + esc(x.name + ' — ' + x.reason) + '">' + esc(shortName(x.name)) + '</span>'; }).join('')
       : '') + '</td>';
 
     body += '<tr class="r' + (r.event ? ' evr' : '') + '">' + dateCell + cells + offCell + '</tr>';
@@ -1934,7 +2069,7 @@ function schedTab() {
         '<p class="msg" id="offMsg" style="margin:6px 0 0;min-height:0;"></p></div></div>'
     : '';
 
-  var viewSeg = '<div class="seg stseg">' + [['table', '테이블'], ['card', '카드']].map(function (v) {
+  var viewSeg = '<div class="seg stseg">' + [['card', '카드'], ['table', '테이블']].map(function (v) {
     return '<button type="button" class="' + (ST.view === v[0] ? 'on' : '') + '" onclick="ST.view=\'' + v[0] + '\';render();">' + v[1] + '</button>';
   }).join('') + '</div>';
 
@@ -1968,7 +2103,8 @@ function stCards(groups, kn, picking, mineSet) {
     out += '<div class="stc' + (r.event ? ' ev' : '') + (sel ? ' sel' : '') + '">' +
       '<button type="button" class="stch" onclick="' + (picking ? 'stPickDay' : 'stDay') + '(\'' + r.key + '\')">' +
         (picking ? '<span class="ck">' + (sel ? '✓' : '') + '</span>' : '') +
-        '<b>' + md(r.date) + '</b><span class="wd">' + WD[d.getDay()] + '</span>' +
+        (r.event ? '<b>' + md(r.date) + '</b><span class="wd">' + WD[d.getDay()] + '</span>'
+                 : '<span class="sat">' + satOf(r.date) + '(토) –</span><b>' + md(r.date) + '</b><span class="wd">(주일)</span>') +
         (r.event ? '<span class="evtag">' + esc(r.event.kind) + '</span><span class="evn">' + esc(r.event.name) + '</span>' : '') +
         '<span class="sp"></span>' +
         (mineOff ? '<span class="mo">나 불가</span>' : '') +
@@ -1979,10 +2115,10 @@ function stCards(groups, kn, picking, mineSet) {
           var names = r.slots[p.key] || [];
           return '<div class="stcc' + (edit ? ' ed' : '') + (names.length ? '' : ' vac') + '"' +
             (edit ? ' onclick="stCell(\'' + r.key + '\',\'' + p.key + '\')"' : '') + '>' +
-            '<span class="pl">' + esc(ST_SHORT[p.key] || p.label) + '</span>' +
+            '<span class="pl">' + ico(p.icon, 'pi') + esc(ST_SHORT[p.key] || p.label) + '</span>' +
             (names.length ? names.map(function (n) {
-              var cls = 'tn' + (off[n] ? ' off' : '') + (n === ST.hl ? ' hl' : '') + (kn[n] ? '' : ' guest');
-              return '<span class="' + cls + '">' + esc(n) + '</span>';
+              var cls = 'tp' + (off[n] ? ' off' : '') + (n === ST.hl ? ' hl' : '') + (kn[n] ? '' : ' guest');
+              return '<span class="' + cls + '" title="' + esc(n + (off[n] ? ' — 불가: ' + off[n] : '')) + '">' + face(n) + '<span class="t">' + esc(shortName(n)) + '</span></span>';
             }).join('') : '<span class="tn none">—</span>') + '</div>';
         }).join('') + '</div>';
       }).join('') +

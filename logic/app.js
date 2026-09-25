@@ -9446,14 +9446,16 @@ function saveWorshipSongs(token, date, kind, songs) {
   date = 날짜문자열_(date);
   kind = 구분정리_(kind);
   var list = (songs || []).map(function (s) {
-    return { title: String(s && s.title || '').trim(), team: String(s && s.team || '').trim(),
-      key: String(s && s.key || '').trim(), link: String(s && s.link || '').trim() };
+    s = s || {};
+    return { title: String(s.title || '').trim(), team: String(s.team || '').trim(),
+      key: String(s.key || '').trim(), link: String(s.link || '').trim(), note: String(s.note || '').trim(),
+      bpm: String(s.bpm || '').trim().slice(0, 10), form: String(s.form || '').trim().slice(0, 120), solo: s.solo || [] };
   }).filter(function (s) { return s.title; }).slice(0, 30);
   if (!list.length) throw new Error('찬양 제목을 하나 이상 입력해주세요.');
   var max = 0;
   콘티목록_(date, kind).forEach(function (s) { max = Math.max(max, s.seq); });
   var rows = list.map(function (s, i) {
-    return [date, max + i + 1, s.title, s.team, s.key, s.link, '', kind, '', '', 솔로쓰기_([])];
+    return [date, max + i + 1, s.title, s.team, s.key, s.link, s.note, kind, s.bpm, s.form, 솔로쓰기_(s.solo)];
   });
   시트치환_(SHEET_찬양콘티, HEAD_찬양콘티, function () { return false; }, rows);
   return 한주_(date);
