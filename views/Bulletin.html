@@ -222,45 +222,46 @@
   .rule { display: flex; align-items: center; gap: 10px; justify-content: center; margin: 0 0 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .26em; color: #9C958C; }
   .rule:before, .rule:after { content: ''; flex: 1; height: 1px; background: #DDD7CE; }
 
-  /* 예배 순서 — 가운데 정렬 */
-  .orow { text-align: center; padding: 11px 4px; border-bottom: 1px solid #E9E4DC; }
+  /* 예배 순서 — 두 열 (항목 | 내용), 설교말씀만 가운데 */
+  .orow { display: grid; grid-template-columns: 36% 1fr; gap: 12px; align-items: baseline; padding: 12px 4px; border-bottom: 1px solid #E9E4DC; }
   .orow:last-of-type { border-bottom: none; }
-  .orow .l { font-size: 12px; font-weight: 600; color: #9A948B; letter-spacing: .06em; display: flex; align-items: center; justify-content: center; }
-  .orow .v { margin-top: 3px; font-size: 15.5px; font-weight: 500; color: #1F1D1B; white-space: pre-line; line-height: 1.55; word-break: keep-all; letter-spacing: -.2px; }
-  .orow .v:empty { display: none; }
+  .orow .l { font-size: 14px; font-weight: 600; color: #8A847C; letter-spacing: -.1px; display: flex; align-items: center; word-break: keep-all; }
+  .orow .v { font-size: 16.5px; font-weight: 600; color: #1F1D1B; white-space: pre-line; line-height: 1.55; word-break: keep-all; letter-spacing: -.3px; }
+  .orow .v:empty:after { content: '—'; color: #C9C3BA; font-weight: 400; }
   .orow .dot, .stand .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--orange); margin-right: 6px; flex: none; }
-  .sermon { margin: 4px -4px; padding: 16px 14px 15px; background: rgba(242,107,33,.07); border-radius: 12px; border-bottom: none; }
-  .sermon .l { color: var(--orange-2); }
-  .sermon .t { margin-top: 5px; font-size: 21px; font-weight: 700; color: var(--orange-2); line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
-  .sermon .p { margin-top: 4px; font-size: 14px; color: #5E5953; font-weight: 500; white-space: pre-line; }
-  .stand { font-size: 11.5px; color: #9A948B; margin: 12px 0 0; display: flex; align-items: center; justify-content: center; }
+  .sermon { display: block; text-align: center; margin: 4px -4px; padding: 17px 14px 16px; background: rgba(242,107,33,.07); border-radius: 12px; border-bottom: none; }
+  .sermon .l { justify-content: center; color: var(--orange-2); font-size: 13px; }
+  .sermon .t { margin-top: 5px; font-size: 23px; font-weight: 700; color: var(--orange-2); line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
+  .sermon .p { margin-top: 4px; font-size: 15px; color: #5E5953; font-weight: 500; white-space: pre-line; }
+  .stand { font-size: 12.5px; color: #9A948B; margin: 12px 2px 0; display: flex; align-items: center; justify-content: flex-end; }
   .cleanup { margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
-  .cleanup .cb { background: var(--orange); color: #fff; border-radius: 8px; padding: 5px 11px; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; }
-  .cleanup b { color: #1F1D1B; font-weight: 600; font-size: 14.5px; }
+  .cleanup .cb { background: var(--orange); color: #fff; border-radius: 8px; padding: 5px 11px; font-size: 13.5px; font-weight: 700; letter-spacing: .02em; }
+  .cleanup b { color: #1F1D1B; font-weight: 600; font-size: 16px; }
 
   /* 성경 본문 */
   .vhead { text-align: center; margin: 2px 0 18px; }
-  .vhead .t { font-size: 20px; font-weight: 700; color: #1F1D1B; line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
-  .vhead .te { margin-top: 3px; font-size: 14px; font-weight: 500; color: #8A847C; letter-spacing: -.1px; }
-  .vhead .r { display: inline-block; margin-top: 10px; font-size: 12.5px; font-weight: 600; color: var(--orange-2); background: rgba(242,107,33,.09); border-radius: 20px; padding: 4px 12px; }
+  .vhead .t { font-size: 21.5px; font-weight: 700; color: #1F1D1B; line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
+  .vhead .te { margin-top: 3px; font-size: 15px; font-weight: 500; color: #8A847C; letter-spacing: -.1px; }
+  .vhead .r { display: inline-block; margin-top: 10px; font-size: 13.5px; font-weight: 600; color: var(--orange-2); background: rgba(242,107,33,.09); border-radius: 20px; padding: 4px 12px; }
   .vhead .ver { font-size: 10.5px; color: #A39D95; margin-top: 7px; letter-spacing: .14em; }
-  .verses p.ko { font-size: 15px; line-height: 1.85; color: #262422; margin: 0; letter-spacing: -.2px; }
+  .verses p.ko { font-size: 16.5px; line-height: 1.85; color: #262422; margin: 0; letter-spacing: -.2px; }
   .verses .n { font-size: 11px; font-weight: 700; color: var(--orange-2); vertical-align: 3px; margin-right: 5px; }
-  .verses p.en { font-style: normal; font-size: 13.5px; line-height: 1.6; color: #8A847C; margin: 2px 0 12px; }
+  .verses p.en { font-style: normal; font-size: 14.5px; line-height: 1.6; color: #8A847C; margin: 2px 0 12px; }
 
   /* 셀모임 */
   .stitle { text-align: center; margin: 2px 0 14px; }
-  .stitle .t { font-size: 21px; font-weight: 700; color: var(--orange-2); letter-spacing: -.5px; }
+  .stitle .t { font-size: 22.5px; font-weight: 700; color: var(--orange-2); letter-spacing: -.5px; }
   .stitle .r { font-size: 12.5px; color: #8A847C; margin-top: 4px; }
   .ssec { margin: 20px 0 8px; display: flex; align-items: center; gap: 10px; }
-  .ssec span { background: none; color: var(--orange-2); font-size: 13px; font-weight: 700; padding: 0; letter-spacing: .02em; }
+  .ssec span { background: none; color: var(--orange-2); font-size: 14px; font-weight: 700; padding: 0; letter-spacing: .02em; }
   .ssec i { flex: 1; height: 1px; background: #DDD7CE; }
-  .sbody { font-size: 14.5px; line-height: 1.85; color: #2B2926; }
+  .sbody { font-size: 15.5px; line-height: 1.85; color: #2B2926; }
 
   /* 소식 */
   .ann { gap: 12px; padding: 13px 0; border-bottom: 1px solid #E9E4DC; }
   .ann .no { flex: none; width: 22px; height: 22px; border-radius: 7px; background: var(--orange); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
-  .ann .tx b { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .ann .tx { font-size: 15px; }
+  .ann .tx b { font-size: 16.5px; font-weight: 700; margin-bottom: 2px; }
   .ann .qr { padding: 4px; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); width: auto; }
   .ann .qr img, .ann .qr svg { width: 84px; height: 84px; }
   .em-b { font-weight: 700; color: #1F1D1B; }
@@ -268,17 +269,19 @@
   .em-o { color: var(--orange-2); font-weight: 600; }
   .em-b .em-o, .em-o .em-b { font-weight: 800; }
   .box { background: #fff; border-radius: 12px; padding: 12px 12px 10px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-  .box h4 { border: none; background: none; padding: 0 0 6px; margin: 0 0 8px; border-bottom: 1px solid #EFE9E1; text-align: left; font-size: 12.5px; letter-spacing: .02em; color: var(--orange-2); border-radius: 0; }
+  .box .ls, .box ol { font-size: 14px !important; }
+  .nfbox p { font-size: 14.5px !important; }
+  .box h4 { border: none; background: none; padding: 0 0 6px; margin: 0 0 8px; border-bottom: 1px solid #EFE9E1; text-align: left; font-size: 13.5px; letter-spacing: .02em; color: var(--orange-2); border-radius: 0; }
   .boxes.one { grid-template-columns: 1fr; }
   .nfbox { background: rgba(242,107,33,.07); border: none; border-radius: 12px; }
 
   /* 섬김이 */
-  .grp .pill { background: none; color: #1F1D1B; padding: 0; font-size: 16.5px; font-weight: 700; margin-bottom: 8px; display: block; letter-spacing: -.3px; }
+  .grp .pill { background: none; color: #1F1D1B; padding: 0; font-size: 18px; font-weight: 700; margin-bottom: 8px; display: block; letter-spacing: -.3px; }
   .grp .pill .en { display: block; font-family: 'Montserrat', sans-serif; color: var(--orange); font-size: 10px; font-weight: 700; letter-spacing: .24em; margin: 3px 0 0; }
-  .grp .ln, .grp .inline { font-size: 14px; color: #5E5953; line-height: 1.85; word-break: keep-all; }
+  .grp .ln, .grp .inline { font-size: 15px; color: #5E5953; line-height: 1.85; word-break: keep-all; }
   .grp .nm { white-space: nowrap; }
   .grp + .grp { border-top: 1px solid #E9E4DC; padding-top: 18px; }
-  .note { border-top: 1px solid #E9E4DC; }
+  .note { border-top: 1px solid #E9E4DC; font-size: 14.5px !important; }
 
   /* 편집기 — 강조 도구 */
   .emtool { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: #FFF6EF; border: 1px solid #F6C9AC; border-radius: 12px; padding: 8px 10px; margin-bottom: 12px; font-size: 12px; color: #7A5A45; }

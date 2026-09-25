@@ -9599,6 +9599,17 @@ function 셀년도_() {
   var d = new Date(), Y = d.getFullYear();
   return d.getMonth() >= 5 ? Y + '-' + (Y + 1) : (Y - 1) + '-' + Y;
 }
+/** 지금 운영 중인 셀년도 (9월에 새 셀년도가 시작됩니다) */
+function 운영셀년도_() {
+  var d = new Date(), Y = d.getFullYear();
+  return d.getMonth() >= 8 ? Y + '-' + (Y + 1) : (Y - 1) + '-' + Y;
+}
+/** 지금 셀목록 · 셀원명단 그대로의 편성 (셀장은 셀원 목록에서 뺍니다) */
+function 지금편성_() {
+  return getCells().map(function (c) {
+    return { name: c.name, leader: c.leader, members: c.members.filter(function (m) { return m !== c.leader; }) };
+  });
+}
 function 셀신청열림_() { return String(설정값_('셀신청오픈') || 'OFF').toUpperCase() === 'ON'; }
 
 /** 새가족 시트에서 셀 신청이 허용된 분인지 (이메일 또는 이름) */
@@ -9661,7 +9672,7 @@ function 셀신청상태_(who) {
 
 /** 공개된 셀 편성에서 내 셀 */
 function 내셀_(name) {
-  var plans = 셀편성들_().filter(function (p) { return p.status === '공개' || p.status === '전환완료'; })
+  var plans = 셀편성들_().filter(function (p) { return p.status === '공개'; })
     .sort(function (a, b) { return b.year.localeCompare(a.year); });
   if (!plans.length) return null;
   var p = plans[0], hit = null;
@@ -9897,8 +9908,14 @@ function cellAdminInit(key, year) {
     return { name: a.name, email: a.email, at: a.at, join: a.join, residency: a.residency, parents: a.parents,
       question: a.question, kind: a.kind, data: a.data };
   });
-  var plan = 셀편성_(year);
+  var plan = 셀편성_(year), live = false;
+  // 지금 운영 중인 셀년도 — 실제 셀목록 · 셀원명단을 그대로 보여주고, 고치면 바로 반영합니다
+  if (year === 운영셀년도_() && (!plan || plan.status === '전환완료')) {
+    live = true;
+    plan = { status: '운영중', by: '', at: '', plan: { cells: 지금편성_(), extra: [] } };
+  }
   var years = 셀편성들_().map(function (p) { return p.year; });
+  if (years.indexOf(운영셀년도_()) === -1) years.push(운영셀년도_());
   if (years.indexOf(year) === -1) years.push(year);
   if (years.indexOf(셀년도_()) === -1) years.push(셀년도_());
   years.sort();
@@ -9908,6 +9925,7 @@ function cellAdminInit(key, year) {
     people: Object.keys(people).map(function (k) { return people[k]; }),
     apps: apps,
     plan: plan ? { status: plan.status, by: plan.by, at: plan.at, cells: plan.plan.cells || [], extra: plan.plan.extra || [] } : null,
+    live: live, liveYear: 운영셀년도_(),
     flags: 요주목록_(),
     cellsNow: getCells().map(function (c) { return { name: c.name, leader: c.leader, members: c.members }; })
   };
@@ -9927,9 +9945,11 @@ function setCellAppOpen(key, on, year) {
 function saveCellPlan(key, year, cells, status, extra) {
   requireAdmin_(key);
   if (!/^\d{4}-\d{4}$/.test(String(year || ''))) throw new Error('셀년도를 확인해주세요.');
-  status = ['작성중', '확정', '공개'].indexOf(status) !== -1 ? status : '작성중';
+  status = ['작성중', '확정', '공개', '운영중'].indexOf(status) !== -1 ? status : '작성중';
   var cur = 셀편성_(year);
-  if (cur && cur.status === '전환완료') throw new Error('이미 새 셀년도로 전환한 편성입니다.');
+  var isLive = year === 운영셀년도_() && (!cur || cur.status === '전환완료');
+  if (status === '운영중' && !isLive) throw new Error('지금 운영 중인 셀년도만 바로 반영할 수 있습니다.');
+  if (cur && cur.status === '전환완료' && !isLive) throw new Error('이미 새 셀년도로 전환한 편성입니다.');
   var seen = {}, names = {};
   cells = (cells || []).map(function (c) {
     var nm = String(c.name || '').trim();
@@ -9945,6 +9965,11 @@ function saveCellPlan(key, year, cells, status, extra) {
   });
   cells.forEach(function (c) { if (c.leader && seen[c.leader]) throw new Error(c.leader + '님이 셀장이면서 다른 셀의 셀원으로 들어가 있습니다.'); });
   extra = (extra || []).map(function (m) { return String(m || '').trim(); }).filter(function (m) { return m && !seen[m]; });
+  if (status === '운영중') {
+    if (!cells.length) throw new Error('셀이 없습니다.');
+    셀명단바꾸기_(year, cells, '셀 편성 관리에서 수정');
+    return cellAdminInit(key, year);
+  }
   셀편성저장_(year, { cells: cells, extra: extra }, status, whoami_());
   return cellAdminInit(key, year);
 }
@@ -9982,11 +10007,22 @@ function applyCellPlan(key, year) {
   if (p.status !== '공개') throw new Error('공개한 편성만 새 셀년도로 전환할 수 있습니다.');
   var cells = p.plan.cells || [];
   if (!cells.length) throw new Error('셀이 없습니다.');
+  셀명단바꾸기_(year, cells, year + ' 새 셀년도 시작');
+  셀편성저장_(year, p.plan, '전환완료', whoami_());
+  캐시비움_();
+  return cellAdminInit(key, year);
+}
+
+/**
+ * 셀목록 · 셀원명단을 이 편성으로 바꿉니다.
+ * 바꾸기 전 명단은 '셀명단보관' 에, 달라진 셀원은 '명단변경기록' 에 남깁니다.
+ * (셀장은 지금처럼 셀원명단에도 함께 넣습니다)
+ */
+function 셀명단바꾸기_(year, cells, why) {
   var 교적 = 교적맵_();
   var 이전 = getCells();
   var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-
-  var bk = 주보시트_(SHEET_셀이전명단, ['보관시각', '전환한셀년도', '셀이름', '셀장', '셀원이름']);
+  var bk = 주보시트_(SHEET_셀이전명단, ['보관시각', '셀년도', '셀이름', '셀장', '셀원이름']);
   var keep = [];
   이전.forEach(function (c) {
     if (!c.members.length) keep.push([stamp, year, c.name, c.leader, '']);
@@ -9994,22 +10030,24 @@ function applyCellPlan(key, year) {
   });
   if (keep.length) bk.getRange(bk.getLastRow() + 1, 1, keep.length, 5).setValues(keep);
 
-  var rooms = {};
-  이전.forEach(function (c) { rooms[c.name] = c.room || ''; });
+  var rooms = {}, before = {}, after = {};
+  이전.forEach(function (c) { rooms[c.name] = c.room || ''; c.members.forEach(function (m) { before[c.name + '||' + m] = 1; }); });
   var 목록 = sheet_(SHEET_셀목록), 명단 = sheet_(SHEET_셀원명단);
   if (목록.getLastRow() > 1) 목록.getRange(2, 1, 목록.getLastRow() - 1, Math.max(4, 목록.getLastColumn())).clearContent();
   if (명단.getLastRow() > 1) 명단.getRange(2, 1, 명단.getLastRow() - 1, Math.max(2, 명단.getLastColumn())).clearContent();
   var rows1 = cells.map(function (c) { return [c.name, c.leader, ((교적[c.leader] || {}).email || ''), rooms[c.name] || '']; });
-  목록.getRange(2, 1, rows1.length, 4).setValues(rows1);
-  // 지금 명단에 셀장이 셀원으로도 들어 있으면 새 명단에도 똑같이 넣습니다
-  var withLeader = 이전.filter(function (c) { return c.leader && c.members.indexOf(c.leader) !== -1; }).length > 이전.length / 2;
+  if (rows1.length) 목록.getRange(2, 1, rows1.length, 4).setValues(rows1);
   var rows2 = [];
   cells.forEach(function (c) {
-    if (withLeader && c.leader) rows2.push([c.name, c.leader]);
-    c.members.forEach(function (m) { rows2.push([c.name, m]); });
+    if (c.leader) { rows2.push([c.name, c.leader]); after[c.name + '||' + c.leader] = 1; }
+    c.members.forEach(function (m) { rows2.push([c.name, m]); after[c.name + '||' + m] = 1; });
   });
   if (rows2.length) 명단.getRange(2, 1, rows2.length, 2).setValues(rows2);
-  셀편성저장_(year, p.plan, '전환완료', whoami_());
+
+  var log = [], now = new Date();
+  Object.keys(before).forEach(function (k) { if (!after[k]) { var x = k.split('||'); log.push([now, x[0], x[1], '제거', why, whoami_()]); } });
+  Object.keys(after).forEach(function (k) { if (!before[k]) { var x = k.split('||'); log.push([now, x[0], x[1], '추가', why, whoami_()]); } });
+  var lg = sheet_(SHEET_명단변경);
+  if (lg && log.length) lg.getRange(lg.getLastRow() + 1, 1, log.length, 6).setValues(log);
   캐시비움_();
-  return cellAdminInit(key, year);
 }

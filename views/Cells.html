@@ -97,7 +97,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
 function jsq(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 function say(msg, err) { var m = el('msg'); if (m) { m.className = 'msg' + (err ? ' err' : ' ok'); m.textContent = msg || ''; } }
 
-var STATUS = { '작성중': 's0', '확정': 's1', '공개': 's2', '전환완료': 's3' };
+var STATUS = { '작성중': 's0', '확정': 's1', '공개': 's2', '전환완료': 's3', '운영중': 's2' };
 
 function start(year) {
   if (!KEY) { el('root').innerHTML = '<div class="panel"><p class="msg err">커미티만 들어올 수 있습니다. 포털의 관리 메뉴에서 “셀 신청 · 편성” 으로 들어와 주세요.</p><a class="btn full" href="?page=portal">포털로 가기</a></div>'; return; }
@@ -115,7 +115,7 @@ function load(r) {
   paint();
 }
 function person(n) { return D.byName[n] || { name: n, gender: '', age: null, rate: null }; }
-function locked() { return PLAN.status !== '작성중'; }
+function locked() { return PLAN.status !== '작성중' && PLAN.status !== '운영중'; }
 
 function paint() {
   var h = '<div class="panel"><div class="toprow"><label style="font-weight:800;">셀년도</label><select onchange="if(!DIRTY||confirm(\'저장하지 않은 편성이 있습니다. 다른 해로 옮길까요?\'))start(this.value);else this.value=D.year">' +
@@ -254,6 +254,14 @@ function panePlan() {
     (PLAN.at ? '<span class="fnote" style="margin:0;">' + esc(PLAN.by || '') + ' · ' + esc(PLAN.at) + '</span>' : '') +
     (DIRTY ? '<b style="color:var(--bad);font-size:12.5px;">저장하지 않은 변경</b>' : '') + '</div>';
   if (st === '전환완료') h += '<p class="hint">이 편성으로 새 셀년도를 시작했습니다. (셀목록 · 셀원명단이 이 편성으로 바뀌었습니다)</p>';
+  if (st === '운영중') {
+    h += '<p class="hint" style="margin:0 0 10px;"><b>' + esc(D.year) + ' 지금 운영 중인 셀</b>입니다 (셀목록 · 셀원명단 그대로). 옮기거나 셀을 개설한 뒤 <b>“저장 — 지금 셀에 반영”</b> 을 누르면 셀보고서 명단과 포털에도 바로 반영됩니다. ' +
+      '셀 이름을 바꾸면 지난 셀보고서와 이어지지 않으니 조심해 주세요.</p>' +
+      '<div class="ctl"><button class="btn mini" onclick="addCell()">＋ 셀 개설</button>' +
+      '<button class="btn mini" onclick="auto(false)">미배정만 자동 배정</button>' +
+      '<button class="btn accent mini" onclick="savePlan(\'운영중\')">저장 — 지금 셀에 반영</button>' +
+      (DIRTY ? '<button class="btn mini" onclick="start(D.year)">변경 취소</button>' : '') + '</div>';
+  } else
   h += '<div class="ctl">' + (!lk ? '<button class="btn mini" onclick="addCell()">＋ 셀 개설</button>' +
       '<button class="btn mini" onclick="fromNow()">지금 셀 이름 · 셀장으로 틀 만들기</button>' +
       '<button class="btn mini" onclick="auto(false)">미배정만 자동 배정</button>' +
@@ -261,8 +269,8 @@ function panePlan() {
       '<button class="btn accent mini" onclick="savePlan(\'작성중\')">저장</button>' +
       '<button class="btn dark mini" onclick="savePlan(\'확정\')">확정</button>' : '') +
     (st === '확정' ? '<button class="btn mini" onclick="savePlan(\'작성중\')">다시 수정</button><button class="btn accent mini" onclick="publish()">공개</button>' : '') +
-    (st === '공개' ? '<button class="btn mini" onclick="savePlan(\'확정\')">공개 취소</button><button class="btn dark mini" onclick="applyPlan()">새 셀년도 시작 (셀목록 · 셀원명단 교체)</button>' : '') + '</div>' +
-    '<div class="cstats"><div class="cst"><b>' + PLAN.cells.length + '</b>셀</div><div class="cst"><b>' + g.n + '</b>배정 (셀장 포함)</div>' +
+    (st === '공개' ? '<button class="btn mini" onclick="savePlan(\'확정\')">공개 취소</button><button class="btn dark mini" onclick="applyPlan()">새 셀년도 시작 (셀목록 · 셀원명단 교체)</button>' : '') + '</div>';
+  h += '<div class="cstats"><div class="cst"><b>' + PLAN.cells.length + '</b>셀</div><div class="cst"><b>' + g.n + '</b>배정 (셀장 포함)</div>' +
       '<div class="cst"><b>' + pool.length + '</b>미배정</div><div class="cst"><b>' + g.m + ' · ' + g.f + '</b>남 · 여</div>' +
       '<div class="cst"><b>' + (g.age == null ? '—' : g.age) + '</b>평균 나이</div><div class="cst"><b>' + (g.rate == null ? '—' : g.rate + '%') + '</b>평균 출석률</div></div>' +
     '<div class="legend"><span><i style="background:#3E7BD6;"></i>남</span><span><i style="background:#E0578A;"></i>여</span>' +
@@ -384,12 +392,13 @@ function auto(all) {
 }
 
 function savePlan(status) {
-  var msg = { '확정': '편성을 확정할까요?\n확정하면 수정이 잠깁니다. (공개 전까지는 커미티만 봅니다)', '작성중': '' }[status];
+  var msg = { '확정': '편성을 확정할까요?\n확정하면 수정이 잠깁니다. (공개 전까지는 커미티만 봅니다)', '작성중': '',
+    '운영중': '지금 운영 중인 셀에 바로 반영할까요?\n셀목록 · 셀원명단(셀보고서 명단)이 바뀌고, 바뀐 셀원은 명단변경기록에 남습니다.' }[status];
   if (msg && !confirm(msg)) return;
   if (PLAN.status === '공개' && status === '확정' && !confirm('공개를 취소할까요? 포털에서 “내 셀” 이 다시 보이지 않게 됩니다.')) return;
   callServer('saveCellPlan', [KEY, D.year, PLAN.cells, status, PLAN.extra || []], function (r) {
     load(r);
-    say({ '작성중': '저장했습니다.', '확정': '확정했습니다.', '공개': '공개했습니다.' }[status] || '저장했습니다.');
+    say({ '작성중': '저장했습니다.', '확정': '확정했습니다.', '공개': '공개했습니다.', '운영중': '지금 셀에 반영했습니다.' }[status] || '저장했습니다.');
   }, function (e) { say(e.message, true); });
 }
 function publish() {
