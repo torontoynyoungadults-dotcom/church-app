@@ -219,11 +219,11 @@
   .rule { display: flex; align-items: center; gap: 10px; justify-content: center; margin: 0 0 12px; font-family: 'Montserrat', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .26em; color: #9C958C; }
   .rule:before, .rule:after { content: ''; flex: 1; height: 1px; background: #DDD7CE; }
 
-  /* 예배 순서 — 항목 | 내용 (내용은 가운데) */
+  /* 예배 순서 — 항목 | 내용 (내용은 오른쪽, 같은 크기) */
   .orow { display: flex; gap: 10px; align-items: center; padding: 12px 2px; border-bottom: 1px solid #E6E1D9; }
   .orow:last-of-type { border-bottom: none; }
-  .orow .l { flex: none; width: 34%; font-size: 13.5px; font-weight: 500; color: #8A847C; display: flex; align-items: center; word-break: keep-all; }
-  .orow .v { flex: 1; min-width: 0; text-align: center; font-size: 16px; font-weight: 500; color: #1F1D1B; white-space: pre-line; line-height: 1.6; word-break: keep-all; letter-spacing: -.2px; }
+  .orow .l { flex: none; width: 34%; font-size: 14.5px; font-weight: 500; color: #8A847C; display: flex; align-items: center; word-break: keep-all; }
+  .orow .v { flex: 1; min-width: 0; text-align: right; font-size: 14.5px; font-weight: 500; color: #1F1D1B; white-space: pre-line; line-height: 1.6; word-break: keep-all; letter-spacing: -.2px; }
   .orow .v:empty:after { content: '—'; color: #C2BCB3; font-weight: 400; }
   .orow .dot, .stand .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--orange); margin-right: 7px; flex: none; }
   .sermon { display: block; margin: 4px -4px; padding: 16px 14px 14px; background: linear-gradient(180deg, rgba(242,107,33,.09), rgba(242,107,33,.03)); border-radius: 12px; text-align: center; border-bottom: none; }
