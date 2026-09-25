@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,700;0,800;1,700&family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@500;700;900&family=Cormorant+Garamond:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,700;0,800;1,700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <script src="/vendor/qrcode.js"></script>
 <style>
   :root {
@@ -209,67 +210,81 @@
   .stat { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 10px; padding: 1px 8px; margin-left: 6px; vertical-align: 1px; }
   .stat.pub { background: #E3F2EA; color: #1D7A56; } .stat.tmp { background: #FBEADF; color: #A8420F; } .stat.new { background: #EDEBE7; color: #55504A; }
 
-  /* ================= 주보 — 다듬은 본문 디자인 ================= */
-  .serif { font-family: 'Noto Serif KR', 'Nanum Myeongjo', serif; }
-  .card { background: #F8F6F2; border-radius: 16px; padding: 22px 18px 20px; box-shadow: 0 18px 40px rgba(0,0,0,.38), inset 0 0 0 1px rgba(255,255,255,.6); }
-  .eyebrow { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 11.5px; letter-spacing: .28em; color: var(--orange); margin-bottom: 6px; }
-  .shead h2 .ko { font-family: 'Noto Serif KR', serif; font-weight: 900; color: #fff; font-size: 30px; letter-spacing: -.5px; }
-  .shead h2 .en { display: block; margin: 6px 0 0; font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 600; font-size: 21px; color: #F7B58E; letter-spacing: .02em; }
-  .shead h2.big { font-size: 36px; letter-spacing: .01em; }
-  .rule { display: flex; align-items: center; gap: 10px; justify-content: center; margin: 0 0 12px; font-family: 'Montserrat', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .26em; color: #9C958C; }
+  /* ================= 주보 — 본문 디자인 (Pretendard 고딕) ================= */
+  .viewer, .pv, .pdfpage { font-family: 'Pretendard Variable', Pretendard, 'Noto Sans KR', -apple-system, sans-serif; }
+  .viewer *, .pv *, .pdfpage * { font-family: inherit; }
+  .viewer .shead h2.big, .pv .shead h2.big, .pdfpage .shead h2.big, .eyebrow, .rule, .ynfoot .cw, .ynfoot .cp { font-family: 'Montserrat', 'Pretendard Variable', sans-serif !important; }
+  .card { background: #F8F6F2; border-radius: 16px; padding: 22px 18px 20px; box-shadow: 0 18px 40px rgba(0,0,0,.38); }
+  .eyebrow { font-weight: 700; font-size: 11.5px; letter-spacing: .28em; color: var(--orange); margin-bottom: 6px; }
+  .shead h2 .ko { font-weight: 700; color: #fff; font-size: 28px; letter-spacing: -.6px; }
+  .shead h2 .en { display: block; margin: 6px 0 0; font-weight: 500; font-style: normal; font-size: 14px; color: #F7B58E; letter-spacing: .04em; }
+  .shead h2.big { font-size: 34px; font-weight: 800; letter-spacing: .01em; }
+  .rule { display: flex; align-items: center; gap: 10px; justify-content: center; margin: 0 0 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .26em; color: #9C958C; }
   .rule:before, .rule:after { content: ''; flex: 1; height: 1px; background: #DDD7CE; }
-  .rule b { font-family: 'Noto Sans KR', sans-serif; letter-spacing: .12em; color: #6E6A65; font-weight: 700; }
 
-  /* 예배 순서 — 목록형 */
-  .orow { display: flex; gap: 12px; align-items: baseline; padding: 11px 2px; border-bottom: 1px solid #E6E1D9; }
+  /* 예배 순서 — 가운데 정렬 */
+  .orow { text-align: center; padding: 11px 4px; border-bottom: 1px solid #E9E4DC; }
   .orow:last-of-type { border-bottom: none; }
-  .orow .l { flex: none; width: 36%; font-size: 13px; font-weight: 700; color: #8A847C; letter-spacing: .01em; display: flex; align-items: center; }
-  .orow .v { flex: 1; min-width: 0; text-align: right; font-size: 15px; font-weight: 600; color: #1F1D1B; white-space: pre-line; line-height: 1.55; word-break: keep-all; }
-  .orow .v:empty:after { content: '—'; color: #C2BCB3; font-weight: 400; }
-  .orow .dot, .stand .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--orange); margin-right: 7px; flex: none; }
-  .sermon { display: block; margin: 4px -4px; padding: 16px 14px 14px; background: linear-gradient(180deg, rgba(242,107,33,.09), rgba(242,107,33,.03)); border-radius: 12px; text-align: center; border-bottom: none; }
-  .sermon .l { display: block; width: auto; font-size: 11px; letter-spacing: .22em; color: var(--orange-2); margin-bottom: 6px; font-family: 'Montserrat', 'Noto Sans KR', sans-serif; }
-  .sermon .t { font-family: 'Noto Serif KR', serif; font-size: 21px; font-weight: 900; color: var(--orange-2); line-height: 1.4; letter-spacing: -.3px; word-break: keep-all; }
-  .sermon .p { margin-top: 5px; font-size: 13.5px; color: #6E6A65; font-weight: 600; white-space: pre-line; }
-  .stand { text-align: right; font-size: 12px; color: #8A847C; margin: 10px 2px 0; display: flex; align-items: center; justify-content: flex-end; }
-  .cleanup { margin-top: 14px; padding-top: 12px; border-top: 1px solid #E6E1D9; text-align: center; font-size: 13px; color: #6E6A65; }
-  .cleanup b { color: #1F1D1B; font-weight: 700; }
+  .orow .l { font-size: 12px; font-weight: 600; color: #9A948B; letter-spacing: .06em; display: flex; align-items: center; justify-content: center; }
+  .orow .v { margin-top: 3px; font-size: 15.5px; font-weight: 500; color: #1F1D1B; white-space: pre-line; line-height: 1.55; word-break: keep-all; letter-spacing: -.2px; }
+  .orow .v:empty { display: none; }
+  .orow .dot, .stand .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--orange); margin-right: 6px; flex: none; }
+  .sermon { margin: 4px -4px; padding: 16px 14px 15px; background: rgba(242,107,33,.07); border-radius: 12px; border-bottom: none; }
+  .sermon .l { color: var(--orange-2); }
+  .sermon .t { margin-top: 5px; font-size: 21px; font-weight: 700; color: var(--orange-2); line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
+  .sermon .p { margin-top: 4px; font-size: 14px; color: #5E5953; font-weight: 500; white-space: pre-line; }
+  .stand { font-size: 11.5px; color: #9A948B; margin: 12px 0 0; display: flex; align-items: center; justify-content: center; }
+  .cleanup { margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .cleanup .cb { background: var(--orange); color: #fff; border-radius: 8px; padding: 5px 11px; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; }
+  .cleanup b { color: #1F1D1B; font-weight: 600; font-size: 14.5px; }
 
   /* 성경 본문 */
-  .vhead { text-align: center; margin: 2px 0 16px; }
-  .vhead .t { font-family: 'Noto Serif KR', serif; font-size: 21px; font-weight: 900; color: #1F1D1B; line-height: 1.4; word-break: keep-all; }
-  .vhead .r { display: inline-block; margin-top: 7px; font-size: 12.5px; font-weight: 700; color: var(--orange-2); letter-spacing: .06em; border-top: 1px solid rgba(210,81,31,.35); border-bottom: 1px solid rgba(210,81,31,.35); padding: 3px 12px; }
+  .vhead { text-align: center; margin: 2px 0 18px; }
+  .vhead .t { font-size: 20px; font-weight: 700; color: #1F1D1B; line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
+  .vhead .te { margin-top: 3px; font-size: 14px; font-weight: 500; color: #8A847C; letter-spacing: -.1px; }
+  .vhead .r { display: inline-block; margin-top: 10px; font-size: 12.5px; font-weight: 600; color: var(--orange-2); background: rgba(242,107,33,.09); border-radius: 20px; padding: 4px 12px; }
   .vhead .ver { font-size: 10.5px; color: #A39D95; margin-top: 7px; letter-spacing: .14em; }
-  .verses p.ko { font-size: 15.5px; line-height: 1.9; color: #262422; margin: 0; }
-  .verses .n { font-family: 'Montserrat', sans-serif; font-size: 10.5px; font-weight: 700; color: var(--orange-2); vertical-align: 4px; margin-right: 5px; }
-  .verses p.en { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 16.5px; line-height: 1.5; color: #7A746C; margin: 1px 0 12px; }
+  .verses p.ko { font-size: 15px; line-height: 1.85; color: #262422; margin: 0; letter-spacing: -.2px; }
+  .verses .n { font-size: 11px; font-weight: 700; color: var(--orange-2); vertical-align: 3px; margin-right: 5px; }
+  .verses p.en { font-style: normal; font-size: 13.5px; line-height: 1.6; color: #8A847C; margin: 2px 0 12px; }
 
   /* 셀모임 */
   .stitle { text-align: center; margin: 2px 0 14px; }
-  .stitle .t { font-family: 'Noto Serif KR', serif; font-size: 22px; font-weight: 900; color: var(--orange-2); }
-  .stitle .r { font-size: 12.5px; color: #8A847C; margin-top: 4px; letter-spacing: .04em; }
+  .stitle .t { font-size: 21px; font-weight: 700; color: var(--orange-2); letter-spacing: -.5px; }
+  .stitle .r { font-size: 12.5px; color: #8A847C; margin-top: 4px; }
   .ssec { margin: 20px 0 8px; display: flex; align-items: center; gap: 10px; }
-  .ssec span { background: none; color: var(--orange-2); font-size: 12.5px; font-weight: 800; padding: 0; letter-spacing: .08em; }
+  .ssec span { background: none; color: var(--orange-2); font-size: 13px; font-weight: 700; padding: 0; letter-spacing: .02em; }
   .ssec i { flex: 1; height: 1px; background: #DDD7CE; }
-  .sbody { font-size: 14.5px; line-height: 1.9; color: #2B2926; }
+  .sbody { font-size: 14.5px; line-height: 1.85; color: #2B2926; }
 
   /* 소식 */
-  .ann { gap: 12px; padding: 13px 0; border-bottom: 1px solid #E6E1D9; }
-  .ann .no { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--orange); color: #fff; font: 700 12px 'Montserrat', sans-serif; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
-  .ann .tx b { font-size: 15px; margin-bottom: 2px; }
+  .ann { gap: 12px; padding: 13px 0; border-bottom: 1px solid #E9E4DC; }
+  .ann .no { flex: none; width: 22px; height: 22px; border-radius: 7px; background: var(--orange); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .ann .tx b { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
   .ann .qr { padding: 4px; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); width: auto; }
   .ann .qr img, .ann .qr svg { width: 84px; height: 84px; }
+  .em-b { font-weight: 700; color: #1F1D1B; }
+  .ann .tx .em-b, .ann .tx .em-o { display: inline; margin: 0; font-size: inherit; }
+  .em-o { color: var(--orange-2); font-weight: 600; }
+  .em-b .em-o, .em-o .em-b { font-weight: 800; }
   .box { background: #fff; border-radius: 12px; padding: 12px 12px 10px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-  .box h4 { border: none; background: none; padding: 0 0 6px; margin: 0 0 8px; border-bottom: 1px solid #EFE9E1; text-align: left; font-size: 12.5px; letter-spacing: .06em; color: var(--orange-2); border-radius: 0; }
-  .nfbox { background: linear-gradient(180deg, rgba(242,107,33,.09), rgba(242,107,33,.03)); border: none; border-radius: 12px; }
-  .nfbox h4 { letter-spacing: .06em; font-size: 12.5px; }
+  .box h4 { border: none; background: none; padding: 0 0 6px; margin: 0 0 8px; border-bottom: 1px solid #EFE9E1; text-align: left; font-size: 12.5px; letter-spacing: .02em; color: var(--orange-2); border-radius: 0; }
+  .boxes.one { grid-template-columns: 1fr; }
+  .nfbox { background: rgba(242,107,33,.07); border: none; border-radius: 12px; }
 
   /* 섬김이 */
-  .grp .pill { background: none; color: #1F1D1B; padding: 0; font-family: 'Noto Serif KR', serif; font-size: 17px; font-weight: 900; margin-bottom: 8px; display: block; }
-  .grp .pill .en { display: block; font-family: 'Montserrat', sans-serif; color: var(--orange); font-size: 10.5px; letter-spacing: .24em; margin: 3px 0 0; }
-  .grp .ln, .grp .inline { font-size: 14px; color: #5E5953; line-height: 1.85; }
-  .grp + .grp { border-top: 1px solid #E6E1D9; padding-top: 18px; }
-  .note { border-top: 1px solid #E6E1D9; }
+  .grp .pill { background: none; color: #1F1D1B; padding: 0; font-size: 16.5px; font-weight: 700; margin-bottom: 8px; display: block; letter-spacing: -.3px; }
+  .grp .pill .en { display: block; font-family: 'Montserrat', sans-serif; color: var(--orange); font-size: 10px; font-weight: 700; letter-spacing: .24em; margin: 3px 0 0; }
+  .grp .ln, .grp .inline { font-size: 14px; color: #5E5953; line-height: 1.85; word-break: keep-all; }
+  .grp .nm { white-space: nowrap; }
+  .grp + .grp { border-top: 1px solid #E9E4DC; padding-top: 18px; }
+  .note { border-top: 1px solid #E9E4DC; }
+
+  /* 편집기 — 강조 도구 */
+  .emtool { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: #FFF6EF; border: 1px solid #F6C9AC; border-radius: 12px; padding: 8px 10px; margin-bottom: 12px; font-size: 12px; color: #7A5A45; }
+  .emtool button { border: 1px solid #E6CDBA; background: #fff; border-radius: 8px; padding: 5px 10px; font: 700 12.5px 'Noto Sans KR', sans-serif; cursor: pointer; }
+  .emtool button.o { color: #D2511F; }
+  .emtool span { flex: 1 1 100%; }
 
   .eacts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .eacts:empty { display: none; }
@@ -338,6 +353,21 @@ function newsEvents(b) {
     .map(function (x, i) { return { x: x, i: i }; })
     .sort(function (a, c) { return (evKey(a.x, b.date) - evKey(c.x, b.date)) || a.i - c.i; })
     .map(function (y) { return y.x; });
+}
+/** 강조 표시 — **굵게**, ==주황== */
+function emf(s) {
+  return esc(s).replace(/\*\*([\s\S]+?)\*\*/g, '<b class="em-b">$1</b>').replace(/==([\s\S]+?)==/g, '<span class="em-o">$1</span>');
+}
+/** 한글 성경 구절 → 영어 (사사기 6:1-10 → Judges 6:1-10) */
+function engRef(ref) {
+  var q = String(ref || '').trim();
+  if (typeof BOOKS === 'undefined') return q;
+  var best = null;
+  for (var i = 0; i < BOOKS.length; i++) {
+    var k = BOOKS[i].split(' ')[0];
+    if (q.indexOf(k) === 0 && (!best || k.length > best[0].length)) best = [k, BOOKS[i].slice(k.length + 1)];
+  }
+  return best ? best[1] + ' ' + q.slice(best[0].length).trim() : q;
 }
 function hasNewFamily(b) { var f = (b.news || {}).newfamily; return !!(f && (f.first || (f.assigned || []).some(function (a) { return a.name; }))); }
 
@@ -430,7 +460,7 @@ function renderBulletin(b, idp) {
       return '<div class="orow"><div class="l">' + (o.stand ? '<span class="dot"></span>' : '') + esc(o.label) + '</div><div class="v">' + esc(v) + '</div></div>';
     }).join('') +
     (order.some(function (o) { return o.stand; }) ? '<div class="stand"><span class="dot"></span>일어서서</div>' : '') +
-    (b.cleanup ? '<div class="cleanup">예배 후 뒷정리 &nbsp;<b>' + esc(b.cleanup) + '</b></div>' : '') +
+    (b.cleanup ? '<div class="cleanup"><span class="cb">예배 후 뒷정리</span><b>' + esc(b.cleanup) + '</b></div>' : '') +
     '</div></section>';
 
   /* 2. 성경 본문 */
@@ -443,7 +473,9 @@ function renderBulletin(b, idp) {
     });
     h += '<section class="sheet" id="' + idp + 'bible"><div class="shead"><div class="eyebrow">BIBLE VERSE</div><h2><span class="ko">성경본문</span></h2></div>' +
       '<div class="card">' +
-      (b.bible.title || b.bible.ref ? '<div class="vhead"><div class="t">' + esc(b.bible.title) + '</div>' + (b.bible.ref ? '<div class="r">' + esc(b.bible.ref) + '</div>' : '') +
+      (b.bible.title || b.bible.ref ? '<div class="vhead"><div class="t">' + esc(b.bible.title) + '</div>' +
+        (b.bible.titleEn ? '<div class="te">' + esc(b.bible.titleEn) + '</div>' : '') +
+        (b.bible.ref ? '<div class="r">' + esc(b.bible.ref) + (engRef(b.bible.ref) !== b.bible.ref ? ' · ' + esc(engRef(b.bible.ref)) : '') + '</div>' : '') +
         (b.bible.textEn ? '<div class="ver">개역개정 · NIV</div>' : '') + '</div>' : '') +
       '<div class="verses">' + lines.map(function (ln) {
         var m = /^\s*(\d+)\s+(.*)$/.exec(ln);
@@ -485,7 +517,7 @@ function renderBulletin(b, idp) {
         var qr = '';
         if (a.qr === 'image' && a.qrImage && a.qrImage.id) qr = '<img alt="QR" crossorigin="anonymous" src="' + esc(a.qrImage.image || ('https://lh3.googleusercontent.com/d/' + a.qrImage.id + '=w400')) + '">';
         else if (a.qr !== 'none' && a.link) qr = qrSvg(safeUrl(a.link));
-        return '<div class="ann"><span class="no">' + (i + 1) + '</span><div class="tx"><b>' + esc(a.title) + '</b><p>' + esc(a.body) + '</p>' +
+        return '<div class="ann"><span class="no">' + (i + 1) + '</span><div class="tx"><b>' + emf(a.title) + '</b><p>' + emf(a.body) + '</p>' +
           (a.link ? '<a class="lk" target="_blank" rel="noopener" href="' + esc(safeUrl(a.link)) + '">바로가기 →</a>' : '') + '</div>' +
           (qr ? '<div class="qr">' + qr + '</div>' : '') + '</div>';
       }).join('') +
@@ -497,10 +529,10 @@ function renderBulletin(b, idp) {
             f.assigned.filter(function (a) { return a.name; }).map(function (a) { return esc(a.name) + ' → ' + esc(a.cell); }).join('<br>') + '</p>' : '') +
           '</div>';
       })() : '') +
-      ((newsEvents(b).length || prs.length) ? '<div class="boxes">' +
-        '<div class="box"><h4>' + esc(n.scheduleTitle || mdTitle(b.date)) + '</h4><div class="ls">' +
-          newsEvents(b).map(function (x) { return (x.date ? '<b class="evd">' + esc(String(x.date).replace(/\//g, '.')) + '</b> ' : '') + esc(x.name); }).join('<br>') + '</div></div>' +
-        '<div class="box"><h4>공동체 기도제목</h4>' + (prs.length ? '<ol>' + prs.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol>' : '') + '</div>' +
+      ((newsEvents(b).length || prs.length) ? '<div class="boxes' + (newsEvents(b).length && prs.length ? '' : ' one') + '">' +
+        (newsEvents(b).length ? '<div class="box"><h4>' + esc(n.scheduleTitle || mdTitle(b.date)) + '</h4><div class="ls">' +
+          newsEvents(b).map(function (x) { return (x.date ? '<b class="evd">' + esc(String(x.date).replace(/\//g, '.')) + '</b> ' : '') + emf(x.name); }).join('<br>') + '</div></div>' : '') +
+        (prs.length ? '<div class="box"><h4>공동체 기도제목</h4><ol>' + prs.map(function (x) { return '<li>' + emf(x) + '</li>'; }).join('') + '</ol></div>' : '') +
       '</div>' : '') +
       '</div></section>';
   }
@@ -514,10 +546,10 @@ function renderBulletin(b, idp) {
       var who = function (p) { return p.name + (p.title ? ' ' + p.title : ''); };
       return '<div class="grp"><span class="pill">' + esc(g.ko) + (g.en ? '<span class="en">' + esc(g.en) + '</span>' : '') + '</span>' +
         (simple
-          ? '<div class="inline">' + esc(items.map(who).join(', ')) + '</div>'
+          ? '<div class="inline">' + items.map(function (p, k) { return '<span class="nm">' + esc(who(p)) + (k < items.length - 1 ? ',' : '') + '</span>'; }).join(' ') + '</div>'
           : items.map(function (p) {
               var extra = [p.part, p.contact].filter(function (x) { return x; }).join(' / ');
-              return '<div class="ln">' + esc(who(p)) + (extra ? ' <span style="color:#A39D95;">(' + esc(extra) + ')</span>' : '') + '</div>';
+              return '<div class="ln"><span class="nm">' + esc(who(p)) + '</span>' + (extra ? ' <span style="color:#A39D95;">(' + esc(extra) + ')</span>' : '') + '</div>';
             }).join('')) + '</div>';
     }).join('') +
     (sv.newcomer ? '<div class="note"><b>새가족 안내</b>' + esc(sv.newcomer) + '</div>' : '') +
@@ -735,7 +767,13 @@ function layoutPdf(stage, b) {
   var tmp = document.createElement('div');
   tmp.innerHTML = renderBulletin(b, 'pdf-');
   var avail = PH - PTOP - PBOT, pages = [];
+  var st = b.study || {};
   [].slice.call(tmp.querySelectorAll('.sheet')).forEach(function (sec) {
+    // 셀 교재를 PDF 로 올렸으면 그 PDF 의 페이지를 그대로 넣습니다 (그리는 건 buildPdf 에서)
+    if (/study$/.test(sec.id) && st.mode === 'pdf' && st.file && st.file.id) {
+      pages.push({ pdf: st.file.id, head: sec.querySelector('.shead').outerHTML, title: st.title || '' });
+      return;
+    }
     // PDF 안에서는 iframe 을 그릴 수 없어 안내 문구로 바꿉니다
     [].slice.call(sec.querySelectorAll('.pdfbox')).forEach(function (x) {
       var p = document.createElement('p'); p.className = 'center'; p.style.cssText = 'color:#6E6A65;font-size:13px;margin:10px 0;';
@@ -792,11 +830,53 @@ function layoutPdf(stage, b) {
   pages.push(last);
   // 넘치는 장은 살짝 줄입니다
   pages.forEach(function (pg) {
+    if (pg.pdf) return;
     var pin = pg.querySelector('.pin');
     var hgt = pin.scrollHeight;
     if (hgt > avail) pin.style.transform = 'scale(' + (avail / hgt).toFixed(3) + ')';
   });
   return pages;
+}
+/** 셀 교재 PDF 의 각 페이지를 주보 배경 위 카드에 얹은 장들로 만듭니다 */
+function studyPdfPages(stage, b, it) {
+  var fallback = function () {
+    var pg = pdfPageShell(stage, b);
+    pg.querySelector('.pin').innerHTML = '<section class="sheet">' + it.head + '<div class="card"><p class="center" style="color:#6E6A65;font-size:13px;margin:10px 0;">' +
+      (it.title ? '<b style="display:block;font-size:17px;color:#D2511F;margin-bottom:6px;">' + esc(it.title) + '</b>' : '') +
+      '셀 교재는 온라인 주보에서 PDF로 보실 수 있습니다.</p></div></section>';
+    return [pg];
+  };
+  return new Promise(function (res) {
+    loadJs('/vendor/pdfjs/pdf.min.js', function () { return !!window.pdfjsLib; }, function (err) {
+      if (err) return res(fallback());
+      try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js'; } catch (e) {}
+      window.pdfjsLib.getDocument({ url: '/bfile/' + encodeURIComponent(it.pdf) }).promise.then(function (doc) {
+        var out = [], k = 1;
+        var one = function () {
+          if (k > doc.numPages) return Promise.resolve(out);
+          return doc.getPage(k).then(function (page) {
+            var vp1 = page.getViewport({ scale: 1 });
+            var scale = 1500 / vp1.width;
+            var vp = page.getViewport({ scale: scale });
+            var cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+            var ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+            return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function () {
+              var pg = pdfPageShell(stage, b);
+              var availW = PW - 44 - 20, availH = PH - PTOP - PBOT - (k === 1 ? 110 : 60) - 20;
+              var w = availW, h = w * cv.height / cv.width;
+              if (h > availH) { h = availH; w = h * cv.width / cv.height; }
+              var head = k === 1 ? it.head : it.head.replace('</h2>', '<span style="display:block;font-size:12px;color:#BDB8B1;margin-top:6px;letter-spacing:.1em;">(계속)</span></h2>');
+              pg.querySelector('.pin').innerHTML = '<section class="sheet">' + head + '<div class="card" style="padding:10px;text-align:center;">' +
+                '<img alt="" style="width:' + Math.round(w) + 'px;height:' + Math.round(h) + 'px;display:block;margin:0 auto;border-radius:6px;" src="' + cv.toDataURL('image/jpeg', 0.92) + '"></div></section>';
+              out.push(pg); k++;
+              return one();
+            });
+          });
+        };
+        return one();
+      }).then(function (els) { res(els && els.length ? els : fallback()); }, function () { res(fallback()); });
+    });
+  });
 }
 function buildPdf(b) {
   var stage = document.createElement('div');
@@ -807,7 +887,15 @@ function buildPdf(b) {
   var ready = Promise.all(imgs.map(function (im) { return im.complete ? 0 : new Promise(function (r) { im.onload = im.onerror = r; }); }));
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [265.9, 483.4], compress: true });
-  var i = 0;
+  var i = 0, n = 0;
+  var shot = function (el) {
+    return window.html2canvas(el, { scale: 2.8, useCORS: true, backgroundColor: '#0B0B0B', logging: false, width: PW, height: PH, scrollX: 0, scrollY: 0, windowWidth: 1200 })
+      .then(function (cv) {
+        if (n) doc.addPage([265.9, 483.4], 'portrait');
+        doc.addImage(cv.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 265.9, 483.4, undefined, 'FAST');
+        n++;
+      });
+  };
   var next = function () {
     if (i >= pages.length) {
       stage.remove();
@@ -815,13 +903,11 @@ function buildPdf(b) {
       return;
     }
     pdfToast('PDF 만드는 중… (' + (i + 1) + '/' + pages.length + ')');
-    return window.html2canvas(pages[i], { scale: 2.8, useCORS: true, backgroundColor: '#0B0B0B', logging: false, width: PW, height: PH, scrollX: 0, scrollY: 0, windowWidth: 1200 })
-      .then(function (cv) {
-        if (i) doc.addPage([265.9, 483.4], 'portrait');
-        doc.addImage(cv.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 265.9, 483.4, undefined, 'FAST');
-        i++;
-        return next();
-      });
+    var it = pages[i++];
+    if (it.pdf) return studyPdfPages(stage, b, it).then(function (els) {
+      return els.reduce(function (p, el) { return p.then(function () { return shot(el); }); }, Promise.resolve());
+    }).then(next);
+    return shot(it).then(next);
   };
   return ready.then(next).catch(function (e) { stage.remove(); throw e; });
 }
@@ -961,6 +1047,7 @@ function paneBible() {
   return '<div class="ecard"><h3>성경 본문 <span class="s">비워두면 주보에서 이 쪽이 빠집니다</span></h3>' +
     '<div class="two"><div class="ef"><label>설교 제목</label>' + inp(b.title, 'B.bible.title=this.value', '예: 베드로 (1) 부르시는 주님') + '</div>' +
     '<div class="ef"><label>본문</label>' + inp(b.ref, 'B.bible.ref=this.value', '예: 누가복음 5:1-11') + '</div></div>' +
+    '<div class="ef"><label>영어 제목 <span style="font-weight:400;color:var(--ink-3);">(선택 — 설교 제목 아래에 작게 나옵니다. 본문 구절의 영어 이름은 저절로 붙습니다)</span></label>' + inp(b.titleEn, 'B.bible.titleEn=this.value', '예: The Lord Who Calls') + '</div>' +
     '<div class="rowbtns" style="margin-bottom:12px;"><button class="b" onclick="copySermon()">설교말씀 · 성경교독 칸에서 가져오기</button>' +
       (b.ref ? '<a class="b" style="text-decoration:none;" target="_blank" rel="noopener" href="' + esc(korUrl(b.ref)) + '">개역개정 본문 열기 ↗</a>' +
         '<a class="b" style="text-decoration:none;" target="_blank" rel="noopener" href="' + esc(gatewayUrl(b.ref, 'NIV')) + '">NIV 본문 열기 ↗</a>' : '') + '</div>' +
@@ -1061,7 +1148,12 @@ function paneNews() {
   var n = B.news || (B.news = {});
   n.announcements = n.announcements || []; n.prayers = n.prayers || [];
   if (!n.events) { n.events = newsEvents(B); delete n.schedule; }
-  return '<div class="ecard"><h3>주간 광고</h3>' +
+  return '<div class="emtool"><b>강조</b>' +
+      '<button type="button" onmousedown="event.preventDefault()" onclick="emWrap(\'**\')"><b>굵게</b></button>' +
+      '<button type="button" class="o" onmousedown="event.preventDefault()" onclick="emWrap(\'==\')">주황</button>' +
+      '<button type="button" class="o" onmousedown="event.preventDefault()" onclick="emWrap(\'**==\')"><b>굵게+주황</b></button>' +
+      '<span>광고 · 일정 · 기도제목 칸에서 강조할 글자를 드래그해 고른 뒤 누르세요. (**굵게**, ==주황== 으로 들어갑니다)</span></div>' +
+    '<div class="ecard"><h3>주간 광고</h3>' +
     n.announcements.map(function (a, i) {
       var q = a.qr || 'auto';
       var qrPrev = '';
@@ -1104,6 +1196,30 @@ function paneNews() {
         '<button class="b ic del" onclick="B.news.prayers.splice(' + i + ',1);markDirty();paintPane()">✕</button></div>';
     }).join('') +
     '<div class="rowbtns"><button class="b" onclick="B.news.prayers.push(\'\');markDirty();paintPane()">＋ 기도제목 추가</button></div></div>';
+}
+
+var EM_LAST = null;
+document.addEventListener('focusin', function (e) {
+  var t = e.target;
+  if (t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type === 'text')) && t.closest && t.closest('#ePane')) EM_LAST = t;
+});
+function emWrap(mark) {
+  var t = EM_LAST;
+  if (!t || !document.body.contains(t)) { alert('먼저 강조할 칸에서 글자를 드래그해 골라주세요.'); return; }
+  var a = t.selectionStart, z = t.selectionEnd;
+  if (a == null || a === z) { alert('강조할 글자를 드래그해 골라주세요.'); t.focus(); return; }
+  var open = mark === '**==' ? '**==' : mark, close = mark === '**==' ? '==**' : mark;
+  var v = t.value, sel = v.slice(a, z);
+  // 이미 같은 표시로 감싸져 있으면 풀어줍니다
+  if (v.slice(a - open.length, a) === open && v.slice(z, z + close.length) === close) {
+    t.value = v.slice(0, a - open.length) + sel + v.slice(z + close.length);
+    t.setSelectionRange(a - open.length, z - open.length);
+  } else {
+    t.value = v.slice(0, a) + open + sel + close + v.slice(z);
+    t.setSelectionRange(a + open.length, z + open.length);
+  }
+  t.dispatchEvent(new Event('input', { bubbles: true }));
+  t.focus();
 }
 
 /* 새가족 소식 */

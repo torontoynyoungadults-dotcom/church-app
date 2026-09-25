@@ -129,6 +129,10 @@
   #lightbox .lbclose {
     position: absolute; top: 14px; right: 20px; color: #fff; font-size: 34px; line-height: 1; cursor: pointer;
   }
+  .cellok { display: flex; gap: 10px; align-items: flex-start; background: #FFF6EF; border: 1px solid #F6D2BA; border-radius: 12px; padding: 11px 12px; cursor: pointer; }
+  .cellok input { margin-top: 3px; width: 18px; height: 18px; accent-color: #D2511F; flex: none; }
+  .cellok b { display: block; font-size: 14px; }
+  .cellok em { display: block; font-style: normal; font-size: 12px; color: var(--ink-3); margin-top: 2px; line-height: 1.6; }
 </style>
 <!--#include Theme-->
 </head>
@@ -151,6 +155,7 @@
   </div>
 
   <div id="main" style="display:none;">
+    <div id="notifyBox"></div>
     <div class="panel">
       <button class="btn dark full" onclick="openForm()">+ 새가족 등록</button>
       <div id="formBox" style="display:none;margin-top:12px;"></div>
@@ -261,6 +266,7 @@ function tryLogin(pw, silent) {
       el('main').style.display = 'block';
       // 로그인 응답에 목록이 함께 오므로 바로 그립니다
       DATA = res.list; STAFF = res.staff; STAGES = res.stages; OPT = res.options; CELLS = res.cells || []; WEEKS = res.weeks || {};
+      renderNotify(res);
       renderList();
     }, function (e) {
       try { sessionStorage.removeItem('ynNfToken'); } catch (e2) {}
@@ -274,6 +280,7 @@ function tryLogin(pw, silent) {
 function load() {
   callServer('getNewFamilies', [TOKEN], function (res) {
       DATA = res.list; STAFF = res.staff; STAGES = res.stages; OPT = res.options; CELLS = res.cells || []; WEEKS = res.weeks || {};
+      renderNotify(res);
       renderList();
     }, function (e) { el('list').innerHTML = '<p class="empty">' + esc(e.message) + '</p>'; });
 }
@@ -375,6 +382,30 @@ function setOwner(name, owner) {
   callServer('setNewFamilyOwner', [TOKEN, name, owner], function () { load(); }, function (e) { alert(e.message || '변경 실패'); });
 }
 
+function setCellApp(name, box) {
+  box.disabled = true;
+  callServer('setNewcomerCellApp', [TOKEN, name, box.checked], function () { box.disabled = false; openId = name; load(); },
+    function (e) { box.disabled = false; box.checked = !box.checked; alert(e.message || '바꾸지 못했습니다.'); });
+}
+
+/* 새가족 등록 알림 이메일 (커미티) */
+function renderNotify(res) {
+  var box = el('notifyBox');
+  if (!box) return;
+  if (!res || !res.canNotify) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="panel"><span class="chip">새가족 등록 알림 이메일</span>' +
+    '<p class="hint">포털에서 새가족이 스스로 등록하면 이 주소로 메일이 갑니다. 여러 개는 쉼표로 나눠 주세요. (커미티만 보입니다)</p>' +
+    '<div class="frow"><div><input type="text" id="nfNotify" value="' + esc(res.notifyEmails || '') + '" placeholder="newfamily@example.com, pastor@example.com"></div>' +
+    '<button class="btn accent" onclick="saveNotify()">저장</button></div>' +
+    (res.notifySet ? '' : '<p class="hint" style="margin:6px 0 0;">아직 따로 정하지 않아, 새가족팀 · 양육부 팀 이메일과 알림 이메일로 보내고 있습니다.</p>') +
+    '<p class="msg" id="nfNotifyMsg"></p></div>';
+}
+function saveNotify() {
+  var m = el('nfNotifyMsg'); m.className = 'msg'; m.textContent = '저장 중…';
+  callServer('saveNewcomerNotify', [TOKEN, el('nfNotify').value], function (v) { el('nfNotify').value = v; m.className = 'msg ok'; m.textContent = '저장했습니다.'; },
+    function (e) { m.className = 'msg err'; m.textContent = e.message || '저장하지 못했습니다.'; });
+}
+
 function setStatus(name, status) {
   if (status === '중단' && !confirm(name + '님을 중단 처리할까요?')) return;
   callServer('setNewFamilyStatus', [TOKEN, name, status], function () { openId = name; load(); }, function (e) { alert(e.message || '변경 실패'); });
@@ -425,7 +456,7 @@ function detailHtml(n) {
     ['사역팀', belongText(n.teams)], ['선교팀', belongText(n.missions)],
     ['직업', n.job], ['등록일', n.joinedAt]
   ] : [
-    ['연락처', n.contact], ['성별', n.gender], ['생년월일', n.birthdayDisplay],
+    ['연락처', n.contact], ['카카오톡', n.kakao], ['구글 계정', n.email], ['성별', n.gender], ['생년월일', n.birthdayDisplay],
     ['수세여부', n.baptized], ['이전 출석교회', n.prevChurch], ['직업', n.job],
     ['활동계획', n.plan], ['등록일', n.joinedAt], ['배정 셀', n.cell]
   ]).map(function (f) {
@@ -477,6 +508,9 @@ function detailHtml(n) {
       '<button class="btn accent" onclick="addLog(\'' + jsq(n.id) + '\')">기록</button>' +
     '</div>' +
     '<p class="msg" id="lm' + cssId(n.id) + '"></p>' +
+    '<div class="sect">셀 신청</div>' +
+    '<label class="cellok"><input type="checkbox"' + (n.cellApp ? ' checked' : '') + ' onchange="setCellApp(\'' + jsq(n.id) + '\', this)">' +
+      '<span><b>셀 신청 허용</b><em>새가족 교육을 마친 분 — 체크하면 셀 신청 기간이 아니어도 포털에서 셀을 신청할 수 있습니다.</em></span></label>' +
     '<div class="sect">상태</div>' +
     '<div class="frow">' +
       '<div><select onchange="setStatus(\'' + jsq(n.id) + '\', this.value)">' +

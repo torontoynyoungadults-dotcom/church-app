@@ -68,7 +68,7 @@ var HEAD_출결 = ['보고서ID', '타임스탬프', '모임날짜', '셀이름'
 
 var HEAD_교적 = ['이름', '전화번호', '카카오톡', '이메일', '생년월일', '세례여부', '섬기는사역',
                  '성별', '제자훈련', '사진', '제자훈련출석',
-                 '영문이름', '주소', '등록일', '멤버십등록일', '헌금번호', '역할', '셀상태'];
+                 '영문이름', '주소', '등록일', '멤버십등록일', '헌금번호', '역할', '셀상태', '체류신분', '부모님성함'];
 
 var HEAD_지출 = ['신청번호', '제출시각', '상태', '이메일', '신청자', '연락처', '부서/팀',
                  '지출일', '지출내역', '세전금액', 'HST/GST', '총액', 'Payable To',
@@ -211,6 +211,8 @@ function 최초설정__원래() {
     '수세여부', '이전출석교회', '직업', '활동계획', '특징', '전담담당자', '등록일', '상태', '배정셀', '배정일', '사진']);
   ensureColumn_(ss, SHEET_새가족, 15, '사진');
   ensureColumn_(ss, SHEET_새가족, 16, '이메일');
+  ensureColumn_(ss, SHEET_새가족, 17, '셀신청허용');
+  ensureColumn_(ss, SHEET_새가족, 18, '카카오톡');
   createSheet_(ss, SHEET_새가족팀원, ['이름', '기본주차', '순서']);
   createSheet_(ss, SHEET_새가족연락, ['이름', '일자', '담당자', '내용', '작성시각']);
   기본새가족팀원_(ss);
@@ -941,6 +943,10 @@ function doGet(e) {
       { key: key, scope: scope }, 'admin');
   }
 
+  if (page === 'cells') {
+    return render_('Cells', '셀 신청 · 편성', { key: isAdmin_(p.key) ? (설정값_('관리자키') || '') : '' }, 'admin');
+  }
+
   if (page === 'newfamily') {
     return render_('NewFamily', '새가족 관리', { t: p.t || '' }, 'newfamily');
   }
@@ -1186,7 +1192,8 @@ function deleteRowsWhere_(sheetName, col, value) {
 
 var D_이름 = 0, D_전화 = 1, D_카카오 = 2, D_이메일 = 3, D_생일 = 4, D_세례 = 5, D_사역 = 6,
     D_성별 = 7, D_제자훈련 = 8, D_사진 = 9, D_훈련출석 = 10,
-    D_영문 = 11, D_주소 = 12, D_등록일 = 13, D_멤버십 = 14, D_헌금번호 = 15, D_역할 = 16, D_셀상태 = 17;
+    D_영문 = 11, D_주소 = 12, D_등록일 = 13, D_멤버십 = 14, D_헌금번호 = 15, D_역할 = 16, D_셀상태 = 17,
+    D_체류 = 18, D_부모 = 19;
 
 /**
  * 커미티만 보는 칸 — 셀장 · 팀장 화면으로는 나가지 않습니다.
@@ -1276,6 +1283,8 @@ function 교적맵_() {
       envelopeNo: String(r[D_헌금번호] || '').trim(),
       roleTags: String(r[D_역할] || '').trim(),
       cellStatus: String(r[D_셀상태] || '').trim(),
+      residency: String(r[D_체류] || '').trim(),
+      parents: String(r[D_부모] || '').trim(),
       photo: 사진주소_(String(r[D_사진] || '').trim(), 240),
       photoLarge: 사진주소_(String(r[D_사진] || '').trim(), 1400)
     };
@@ -1426,7 +1435,7 @@ function 교적저장_(name, info) {
    [D_성별, 'gender', 0], [D_제자훈련, 'discipleship', 0],
    [D_영문, 'engName', 0], [D_주소, 'address', 0], [D_등록일, 'joinedAt', 1],
    [D_멤버십, 'memberSince', 1], [D_헌금번호, 'envelopeNo', 0], [D_역할, 'roleTags', 0],
-   [D_셀상태, 'cellStatus', 0]
+   [D_셀상태, 'cellStatus', 0], [D_체류, 'residency', 0], [D_부모, 'parents', 0]
   ].forEach(function (f) {
     if (!info.hasOwnProperty(f[1])) return;
     var val = String(info[f[1]] == null ? '' : info[f[1]]).trim();
@@ -2042,7 +2051,7 @@ function getDiscipleship(key) {
 /* 새가족 관련 시트는 모두 '이름'을 키로 씁니다 */
 var NF_이름=0, NF_성별=1, NF_생일=2, NF_연락처=3,
     NF_수세=4, NF_이전교회=5, NF_직업=6, NF_활동계획=7, NF_특징=8, NF_담당자=9,
-    NF_등록일=10, NF_상태=11, NF_배정셀=12, NF_배정일=13, NF_사진=14, NF_이메일=15;
+    NF_등록일=10, NF_상태=11, NF_배정셀=12, NF_배정일=13, NF_사진=14, NF_이메일=15, NF_셀신청=16, NF_카카오=17;
 
 var NP_이름=0, NP_주차=1, NP_일자=2, NP_담당=3,
     NP_신앙배경=4, NP_이해도=5, NP_성격=6, NP_호응=7, NP_공동체=8, NP_섬김=9, NP_전망=10,
@@ -2235,6 +2244,8 @@ function 새가족목록_() {
       cell: String(r[NF_배정셀] || '').trim(),
       assignedAt: 날짜문자열_(r[NF_배정일]),
       email: String(r[NF_이메일] || '').trim(),
+      kakao: String(r[NF_카카오] || '').trim(),
+      cellApp: 참_(r[NF_셀신청]),
       photo: 사진주소_(String(r[NF_사진] || '').trim(), 240),
       photoLarge: 사진주소_(String(r[NF_사진] || '').trim(), 1400)
     };
@@ -2428,7 +2439,10 @@ function getNewFamilies(token) {
     stages: 단계순서,
     options: 새가족선택지(),
     weeks: 주차문항(),
-    cells: getCells().map(function (c) { return c.name; })
+    cells: getCells().map(function (c) { return c.name; }),
+    canNotify: 커미티토큰_(token),
+    notifyEmails: 새가족알림주소_().join(', '),
+    notifySet: !!String(설정값_('새가족등록알림이메일') || '').trim()
   };
 }
 
@@ -6044,8 +6058,14 @@ function 포털입구_(p) {
       // (새가족 등록으로 들어온 분은 등록 양식을 보여줍니다)
       if (!이메일찾기_(email)) {
         out.link = 구글연결표_(email);
+        var 등록 = 새가족찾기_(email);
         if (out.intent === 'newcomer') {
           out.newcomer = { mine: 새가족내등록_(email), options: 새가족등록선택지_() };
+          if (등록) out.nfToken = 새가족토큰_(email);
+        } else if (등록) {
+          // 새가족으로 등록한 분 — 새가족 포털로 들어갑니다
+          out.nfToken = 새가족토큰_(email);
+          try { out.nfHome = newcomerHome(out.nfToken); } catch (e3) {}
         }
         return out;
       }
@@ -6752,11 +6772,16 @@ function 포털관리메뉴_(r) {
     ['team', '사역팀 관리', '팀 보고서 · 팀원'],
     ['tr', '제자훈련 관리', '출석 · 수료'],
     ['mis', '선교팀 관리', '서류 · 항공'],
+    ['cells', '셀 신청 · 편성', '신청 현황 · 배정 · 공개'],
     ['cal', '일정 관리', '공개 · 커미티'],
     ['acct', '회계 관리', '지출 · Cheque'],
     ['dir', '교적 관리', '검색 · 수정'],
     ['home', '관리 전체', '관리시스템 첫 화면']
-  ].map(function (x) { return { key: x[0], title: x[1], desc: x[2], url: base + (x[0] === 'home' ? '' : '#' + x[0]) }; });
+  ].map(function (x) {
+    var url = x[0] === 'cells' ? (앱주소_() || '') + '?page=cells&key=' + encodeURIComponent(설정값_('관리자키') || '')
+      : base + (x[0] === 'home' ? '' : '#' + x[0]);
+    return { key: x[0], title: x[1], desc: x[2], url: url };
+  });
 }
 
 /* ---- 본인 확인 ---- */
@@ -6869,14 +6894,125 @@ function 새가족내등록_(email) {
   var memo = String(hit.note || '');
   var m = /(?:^|\n)\[본인 문의\] ([\s\S]*)$/.exec(memo);
   return {
-    name: hit.name, gender: hit.gender, birthday: hit.birthday, contact: hit.contact,
+    name: hit.name, gender: hit.gender, birthday: hit.birthday, contact: hit.contact, kakao: hit.kakao,
     baptized: hit.baptized, prevChurch: hit.prevChurch, job: hit.job, plan: hit.plan,
     question: m ? m[1] : '', joinedAt: hit.joinedAt
   };
 }
 
+function 참_(v) {
+  if (v === true) return true;
+  var s = String(v == null ? '' : v).trim().toUpperCase();
+  return s === 'Y' || s === 'YES' || s === 'TRUE' || s === 'ON' || s === '허용' || s === 'O';
+}
+
+/** 전화번호 모양 — 0 으로 시작하면(한국) 000-0000-0000, 아니면 000-000-0000 */
+function 전화모양_(v) {
+  var d = String(v == null ? '' : v).replace(/[^0-9]/g, '');
+  if (!d) return '';
+  if (d.charAt(0) === '0') {
+    if (d.length !== 11) throw new Error('0 으로 시작하는 전화번호는 11자리로 입력해주세요. 예: 010-1234-5678');
+    return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+  }
+  if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);   // +1 캐나다 국가번호
+  if (d.length !== 10) throw new Error('전화번호는 10자리로 입력해주세요. 예: 416-000-0000');
+  return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+}
+
+/* ---------- 새가족 포털 (교적 등록 전) ---------- */
+
+var 새가족접두 = 'YNN1.';
+function 새가족토큰_(email) {
+  email = String(email || '').trim().toLowerCase();
+  return 새가족접두 + Utilities.base64EncodeWebSafe(email, Utilities.Charset.UTF_8) + '.' + 포털서명_('N:' + email);
+}
+function 새가족토큰풀기_(t) {
+  t = String(t || '').trim();
+  if (t.indexOf(새가족접두) !== 0) return '';
+  var rest = t.slice(새가족접두.length).split('.');
+  if (rest.length !== 2) return '';
+  try {
+    var email = Utilities.newBlob(Utilities.base64DecodeWebSafe(rest[0], Utilities.Charset.UTF_8)).getDataAsString('UTF-8');
+    return 포털서명_('N:' + email) === rest[1] ? email : '';
+  } catch (e) { return ''; }
+}
+function 새가족찾기_(email) {
+  email = String(email || '').trim().toLowerCase();
+  if (!email) return null;
+  return 새가족목록_().filter(function (n) { return String(n.email || '').toLowerCase() === email; })[0] || null;
+}
+/** 새가족 토큰 → 새가족 정보 (교적에 올라가면 더는 새가족 포털이 아닙니다) */
+function 새가족본인_(t) {
+  var email = 새가족토큰풀기_(t);
+  if (!email) throw new Error('다시 로그인해주세요.');
+  if (이메일찾기_(email)) throw new Error('교적에 등록되었습니다. 다시 로그인해주세요.');
+  var nf = 새가족찾기_(email);
+  if (!nf) throw new Error('새가족 등록 정보를 찾지 못했습니다. 다시 등록해주세요.');
+  return nf;
+}
+/** 링크(구글 로그인 직후) 또는 새가족 토큰에서 이메일 */
+function 새가족이메일_(linkOrToken) {
+  var t = String(linkOrToken || '');
+  if (t.indexOf(새가족접두) === 0) { var e = 새가족토큰풀기_(t); if (!e) throw new Error('다시 로그인해주세요.'); return e; }
+  return 구글연결풀기_(t, 3 * 3600);
+}
+
+function newcomerHome(token) {
+  var nf = 새가족본인_(token);
+  return {
+    token: token, name: nf.name, email: nf.email, joinedAt: nf.joinedAt, status: nf.status,
+    mine: 새가족내등록_(nf.email),
+    cellApp: 셀신청상태_({ kind: 'newcomer', nf: nf, email: nf.email, name: nf.name, allowed: nf.cellApp, committee: false }),
+    myCell: 내셀_(nf.name)
+  };
+}
+
+/** 새가족 등록 알림을 받을 주소 (새가족 관리에서 커미티가 적습니다) */
+function 새가족알림주소_() {
+  var set = String(설정값_('새가족등록알림이메일') || '').split(/[,;\s]+/).filter(function (x) { return /@/.test(x); });
+  if (set.length) return set;
+  var to = [];
+  사역팀목록_().forEach(function (t) {
+    if (t.email && (/새가족/.test(t.name) || t.dept === '양육부')) to.push(t.email);
+  });
+  var admin = String(설정값_('알림받을이메일') || '').trim();
+  if (admin) to.push(admin);
+  return to.filter(function (x, i) { return x && to.indexOf(x) === i; });
+}
+
+function 커미티토큰_(token) {
+  if (isAdmin_(token) || 마스터_(token)) return true;
+  var me = 포털본인_(token);
+  return !!(me && 포털역할_(me.name).roles.indexOf('커미티') !== -1);
+}
+
+function saveNewcomerNotify(token, emails) {
+  requireNewFamily_(token);
+  if (!커미티토큰_(token)) throw new Error('알림 받을 이메일은 커미티만 바꿀 수 있습니다.');
+  var list = String(emails || '').split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+  list.forEach(function (x) { if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)) throw new Error('이메일 형식을 확인해주세요: ' + x); });
+  설정저장_('새가족등록알림이메일', list.join(', '));
+  return list.join(', ');
+}
+
+/** 새가족팀 — 이 분의 셀 신청을 열어 줍니다 (새가족 교육을 마친 분) */
+function setNewcomerCellApp(token, name, on) {
+  requireNewFamily_(token);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureColumn_(ss, SHEET_새가족, NF_셀신청 + 1, '셀신청허용');
+  var sh = sheet_(SHEET_새가족), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][NF_이름]).trim() === String(name || '').trim()) {
+      sh.getRange(i + 1, NF_셀신청 + 1).setValue(on ? 'Y' : '');
+      캐시비움_();
+      return 새가족하나_(String(name).trim());
+    }
+  }
+  throw new Error('새가족을 찾지 못했습니다.');
+}
+
 function registerNewcomer(link, data) {
-  var email = 구글연결풀기_(link, 3 * 3600);        // 양식을 천천히 적어도 되도록 3시간
+  var email = 새가족이메일_(link);
   data = data || {};
   var opt = 새가족등록선택지_();
   var t = function (k, max) { return String(data[k] == null ? '' : data[k]).trim().slice(0, max || 200); };
@@ -6887,8 +7023,9 @@ function registerNewcomer(link, data) {
   if (opt.성별.indexOf(gender) === -1) throw new Error('성별을 골라주세요.');
   var birthday = t('birthday');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday)) throw new Error('생년월일을 입력해주세요.');
-  var contact = t('contact', 40);
-  if (String(contact).replace(/[^0-9]/g, '').length < 10) throw new Error('연락처(전화번호)를 입력해주세요.');
+  var contact = 전화모양_(t('contact', 40));
+  var kakao = t('kakao', 60);
+  if (!contact && !kakao) throw new Error('전화번호 또는 카카오톡 아이디 중 하나는 꼭 입력해주세요.');
   var baptized = t('baptized');
   if (opt.수세여부.indexOf(baptized) === -1) throw new Error('수세 여부를 골라주세요.');
   var planKey = t('plan'), plan = '';
@@ -6896,12 +7033,13 @@ function registerNewcomer(link, data) {
   if (!plan) throw new Error('청년부 활동 계획을 골라주세요.');
   var prevChurch = t('prevChurch', 100), job = t('job', 100), question = t('question', 2000);
 
-  // 이미 교적에 있는 구글 계정이면 새가족 등록이 필요 없습니다
   if (이메일찾기_(email)) throw new Error('이미 교적에 등록된 구글 계정입니다. 포털에서 로그인해 주세요.');
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureColumn_(ss, SHEET_새가족, NF_사진 + 1, '사진');
   ensureColumn_(ss, SHEET_새가족, NF_이메일 + 1, '이메일');
+  ensureColumn_(ss, SHEET_새가족, NF_셀신청 + 1, '셀신청허용');
+  ensureColumn_(ss, SHEET_새가족, NF_카카오 + 1, '카카오톡');
 
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -6911,7 +7049,6 @@ function registerNewcomer(link, data) {
     for (var i = 1; i < v.length; i++) {
       if (String(v[i][NF_이메일] || '').trim().toLowerCase() === email) { target = i + 1; isNew = false; break; }
     }
-    // 이름이 새가족 관리의 열쇠라, 다른 분과 겹치면 뒤에 숫자를 붙입니다
     var taken = function (nm) {
       for (var j = 1; j < v.length; j++) {
         if (j + 1 === target) continue;
@@ -6932,6 +7069,7 @@ function registerNewcomer(link, data) {
       note = [note.trim(), memoLine].filter(function (x) { return x; }).join('\n');
       sh.getRange(target, 1, 1, 9).setValues([[finalName, gender, birthday, contact, baptized, prevChurch, job, plan, note]]);
       sh.getRange(target, NF_생일 + 1).setNumberFormat('@').setValue(birthday);
+      sh.getRange(target, NF_카카오 + 1).setValue(kakao);
       if (prevName && prevName !== finalName) {
         renameInColumn_(SHEET_새가족과정, NP_이름, prevName, finalName);
         renameInColumn_(SHEET_새가족추적, NT_이름, prevName, finalName);
@@ -6940,7 +7078,7 @@ function registerNewcomer(link, data) {
     } else {
       var today = ymd_(new Date());
       var row = [finalName, gender, birthday, contact, baptized, prevChurch, job, plan, memoLine, '',
-        today, '진행중', '', '', '', email];
+        today, '진행중', '', '', '', email, '', kakao];
       sh.appendRow(row);
       target = sh.getLastRow();
       sh.getRange(target, NF_생일 + 1).setNumberFormat('@').setValue(birthday);
@@ -6949,33 +7087,28 @@ function registerNewcomer(link, data) {
   } finally { lock.releaseLock(); }
   캐시비움_();
 
-  if (isNew) {
-    try { 새가족등록알림_({ name: finalName, gender: gender, birthday: birthday, contact: contact, baptized: baptized,
-      prevChurch: prevChurch, job: job, plan: plan, question: question, email: email }); } catch (e) {}
-  }
-  return { ok: true, isNew: isNew, name: finalName, mine: 새가족내등록_(email) };
+  try {
+    새가족등록알림_({ name: finalName, gender: gender, birthday: birthday, contact: contact, kakao: kakao, baptized: baptized,
+      prevChurch: prevChurch, job: job, plan: plan, question: question, email: email }, isNew);
+  } catch (e) {}
+  return { ok: true, isNew: isNew, name: finalName, mine: 새가족내등록_(email), nfToken: 새가족토큰_(email) };
 }
 
-/** 새가족팀 · 양육부 · 알림 받는 분께 새 등록을 알립니다 */
-function 새가족등록알림_(n) {
-  var to = [];
-  사역팀목록_().forEach(function (t) {
-    if (t.email && (/새가족/.test(t.name) || t.dept === '양육부')) to.push(t.email);
-  });
-  var admin = String(설정값_('알림받을이메일') || '').trim();
-  if (admin) to.push(admin);
-  to = to.filter(function (x, i) { return x && to.indexOf(x) === i; });
+/** 새가족 등록 · 수정을 알립니다 */
+function 새가족등록알림_(n, isNew) {
+  var to = 새가족알림주소_();
   if (!to.length) return;
   var url = (앱주소_() || '') + '?page=newfamily';
-  var rows = [['이름', n.name], ['성별', n.gender], ['생년월일', n.birthday], ['연락처', n.contact], ['구글 계정', n.email],
-    ['수세 여부', n.baptized], ['이전 출석 교회', n.prevChurch], ['직업', n.job], ['활동 계획', n.plan], ['문의사항', n.question]];
+  var rows = [['이름', n.name], ['성별', n.gender], ['생년월일', n.birthday], ['전화번호', n.contact], ['카카오톡', n.kakao],
+    ['구글 계정', n.email], ['수세 여부', n.baptized], ['이전 출석 교회', n.prevChurch], ['직업', n.job],
+    ['활동 계획', n.plan], ['문의사항', n.question]];
   MailApp.sendEmail({
     to: to.join(','),
-    subject: '[새가족] ' + n.name + '님이 새가족 등록을 했습니다',
+    subject: '[새가족] ' + n.name + '님이 새가족 ' + (isNew ? '등록을 했습니다' : '등록 내용을 고쳤습니다'),
     name: '토론토영락교회 청년1부',
     htmlBody: '<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:520px;">' +
-      '<h2 style="color:#D2511F;margin:0 0 6px;">새가족 등록</h2>' +
-      '<p style="color:#555;margin:0 0 14px;">포털의 새가족 등록으로 새로운 분이 등록했습니다. 담당자를 정하고 연락해 주세요.</p>' +
+      '<h2 style="color:#D2511F;margin:0 0 6px;">새가족 ' + (isNew ? '등록' : '등록 내용 수정') + '</h2>' +
+      '<p style="color:#555;margin:0 0 14px;">' + (isNew ? '포털의 새가족 등록으로 새로운 분이 등록했습니다. 담당자를 정하고 연락해 주세요.' : '등록하신 분이 내용을 고쳤습니다.') + '</p>' +
       '<table style="border-collapse:collapse;width:100%;font-size:14px;">' + rows.map(function (r) {
         return '<tr><td style="padding:7px 10px;border-bottom:1px solid #eee;color:#888;width:110px;vertical-align:top;">' + r[0] +
           '</td><td style="padding:7px 10px;border-bottom:1px solid #eee;white-space:pre-wrap;">' + esc_(r[1] || '—') + '</td></tr>';
@@ -7071,7 +7204,10 @@ function 포털자료_(token) {
     admin: 포털관리메뉴_(r),
     leader: 볼캘린더_(r.roles).리더,
     hasCalendar: 달력있나_(r.roles),
-    googleReady: 구글준비됨_()
+    googleReady: 구글준비됨_(),
+    cellApp: 셀신청상태_({ kind: 'member', name: me.name, email: me.email, committee: 커미티,
+      allowed: 셀신청열림_() || 새가족셀허용_(me.email, me.name) }),
+    myCell: 내셀_(me.name)
   };
 }
 
@@ -9393,6 +9529,13 @@ function getOpenCalendar(ym) {
 }
 
 
+/** /bfile/<id> — 주보에 올라간 파일만 */
+function 주보파일허용_(id) {
+  id = String(id || '').trim();
+  if (!/^[A-Za-z0-9_-]{10,}$/.test(id)) return false;
+  return 주보행들_().some(function (r) { return r.json.indexOf('"' + id + '"') !== -1; });
+}
+
 /** /audio/<id> 로 흘려보내도 되는 파일인지 — 찬양 녹음에 올라온 파일만 */
 function 녹음파일허용_(id) {
   id = String(id || '').trim();
@@ -9400,4 +9543,473 @@ function 녹음파일허용_(id) {
   return rows_(SHEET_찬양녹음).some(function (r) {
     return String(r[WR_파일] || '').trim() === id || String(r[WR_링크] || '').indexOf(id) !== -1;
   });
+}
+
+/* =========================================================
+   20. 셀 신청 · 셀 편성
+   ---------------------------------------------------------
+   · 포털 '셀 신청 및 교적확인' — 커미티가 셀 신청을 열면 모두에게,
+     새가족팀이 '셀 신청 허용' 한 새가족에게는 언제든 열립니다.
+     제출하면 교적에 바로 반영됩니다 (새가족은 교적에 새로 올라갑니다).
+   · 셀 신청 관리 (커미티) — 셀년도 · 셀 개설 · 신청 현황 · 요주인물 ·
+     자동 배정 · 드래그로 조정 · 확정 · 공개 · 새 셀년도 시작(셀목록 · 셀원명단 교체)
+     공개 전에는 커미티 외에는 아무도 볼 수 없습니다.
+   ========================================================= */
+
+var SHEET_셀신청 = '셀신청';
+var HEAD_셀신청 = ['셀년도', '이름', '이메일', '제출시각', '셀참여', '체류신분', '부모님성함', '문의', '구분', '자료', '수정시각'];
+var CA_년도 = 0, CA_이름 = 1, CA_이메일 = 2, CA_시각 = 3, CA_참여 = 4, CA_체류 = 5, CA_부모 = 6, CA_문의 = 7,
+    CA_구분 = 8, CA_자료 = 9, CA_수정 = 10;
+var SHEET_셀편성 = '셀편성';
+var HEAD_셀편성 = ['셀년도', '상태', '수정자', '수정시각', '자료'];
+var CP_년도 = 0, CP_상태 = 1, CP_수정자 = 2, CP_시각 = 3, CP_자료 = 4;
+var SHEET_셀요주 = '셀요주인물';
+var HEAD_셀요주 = ['이름', '메모', '작성자', '시각'];
+var SHEET_셀이전명단 = '셀명단보관';
+
+var 체류신분목록 = ['시민권', '영주권', '비자', '방문자'];
+var 세례목록 = ['성인세례', '유아세례 + 성인입교', '유아세례', '카톨릭 세례', '카톨릭 세례 + 입교', '없음'];
+
+function 셀신청안내(year) {
+  var y = String(year || 셀년도_()).split('-');
+  return y[0] + '-' + y[1] + ' 셀 모임은 ' + y[0] + '년 9월부터 ' + y[1] + '년 8월까지 진행됩니다.\n\n' +
+    '자율 모임 기간: 1월, 2월, 7월, 8월에는 자율적으로 또래 모임, 특별 프로그램, 양육 훈련 등이 운영됩니다.\n\n' +
+    '참여 대상: 새가족 교육을 마치고 토론토 영락교회 청년1부 예배에 참여 중인 모든 분\n\n' +
+    '셀 모임은 말씀과 기도 안에서 서로의 삶과 공동체를 굳건히 세워가는 데 중점을 두고 있습니다.\n' +
+    '단순한 친목이나 멤버 관리를 넘어, 신실하게 공동체에 헌신하고자 하는 분들을 환영합니다.';
+}
+function 셀원약속() {
+  return {
+    intro: '셀 모임을 신청하는 모든 분은 아래 내용을 성실하게 이행해 주시기를 부탁드립니다.',
+    items: [
+      ['예배와 셀 참여', '매주 주일 예배와 셀 모임에 꾸준히 참석해야 합니다. (한 달 기준, 절반 이상 참여가 어려운 경우 셀 신청이 제한될 수 있습니다. 직업적 특성으로 인해 어려움이 있다면 담당 목회자와 상의해 주시기 바랍니다.)'],
+      ['사전 고지', '예배나 셀 참여가 어려운 상황이 발생하면, 사전에 셀 리더에게 미리 알려주세요.'],
+      ['모임 방향 존중', '성경 공부를 중심으로 하는 셀 모임의 방향성을 존중하고 적극적으로 참여해 주세요.'],
+      ['운영 원칙 준수', '각 셀에서 정한 운영 원칙(단체 채팅방, 아웃팅 등)을 지켜주세요.'],
+      ['진솔한 나눔', '한 달에 한 번 진행되는 삶과 기도 제목 나눔에 진솔하게 참여해 주세요.']
+    ],
+    outro: '이러한 방향성에 동의하고 함께 성장해 나갈 모든 청년들을 셀 모임에 초대합니다.'
+  };
+}
+
+/** 셀년도 이름 — 설정의 '셀신청년도', 없으면 날짜로 (6월부터는 다음 해 시작) */
+function 셀년도_() {
+  var y = String(설정값_('셀신청년도') || '').trim();
+  if (/^\d{4}-\d{4}$/.test(y)) return y;
+  var d = new Date(), Y = d.getFullYear();
+  return d.getMonth() >= 5 ? Y + '-' + (Y + 1) : (Y - 1) + '-' + Y;
+}
+function 셀신청열림_() { return String(설정값_('셀신청오픈') || 'OFF').toUpperCase() === 'ON'; }
+
+/** 새가족 시트에서 셀 신청이 허용된 분인지 (이메일 또는 이름) */
+function 새가족셀허용_(email, name) {
+  email = String(email || '').trim().toLowerCase(); name = String(name || '').trim();
+  return 새가족목록_().some(function (n) {
+    return n.cellApp && ((email && String(n.email || '').toLowerCase() === email) || (name && n.name === name));
+  });
+}
+function 새가족인가_(name, email) {
+  email = String(email || '').trim().toLowerCase();
+  return 새가족목록_().some(function (n) {
+    return n.status !== '중단' && n.status !== '셀배정완료' && (n.name === name || (email && String(n.email || '').toLowerCase() === email));
+  });
+}
+
+/** 토큰 → 신청하는 분 */
+function 셀신청자_(token) {
+  if (String(token || '').indexOf(새가족접두) === 0) {
+    var nf = 새가족본인_(token);
+    return { kind: 'newcomer', nf: nf, name: nf.name, email: nf.email, allowed: nf.cellApp, committee: false };
+  }
+  var me = requirePortal_(token);
+  var com = 포털역할_(me.name).roles.indexOf('커미티') !== -1;
+  return { kind: 'member', me: me, name: me.name, email: me.email, committee: com,
+    allowed: 셀신청열림_() || 새가족셀허용_(me.email, me.name) };
+}
+
+function 셀신청행들_() {
+  return rows_(SHEET_셀신청).filter(function (r) { return String(r[CA_이름]).trim(); }).map(function (r) {
+    var d = {};
+    try { d = JSON.parse(String(r[CA_자료] || '{}')); } catch (e) {}
+    return {
+      year: String(r[CA_년도]).trim(), name: String(r[CA_이름]).trim(), email: String(r[CA_이메일] || '').trim().toLowerCase(),
+      at: r[CA_시각] instanceof Date ? Utilities.formatDate(r[CA_시각], Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : String(r[CA_시각] || ''),
+      join: String(r[CA_참여] || '').trim(), residency: String(r[CA_체류] || '').trim(), parents: String(r[CA_부모] || '').trim(),
+      question: String(r[CA_문의] || '').trim(), kind: String(r[CA_구분] || '').trim(), data: d
+    };
+  });
+}
+function 내셀신청_(year, name, email) {
+  email = String(email || '').toLowerCase();
+  var hit = null;
+  셀신청행들_().forEach(function (a) {
+    if (a.year === year && (a.name === name || (email && a.email === email))) hit = a;
+  });
+  return hit;
+}
+
+/** 포털 버튼 상태 — open(누구나) · locked(커미티에게만 흐리게) · hidden */
+function 셀신청상태_(who) {
+  var year = 셀년도_();
+  var mine = 내셀신청_(year, who.name, who.email);
+  return {
+    state: who.allowed ? 'open' : (who.committee ? 'locked' : 'hidden'),
+    year: year,
+    submitted: mine ? { at: mine.at, join: mine.join } : null
+  };
+}
+
+/** 공개된 셀 편성에서 내 셀 */
+function 내셀_(name) {
+  var plans = 셀편성들_().filter(function (p) { return p.status === '공개' || p.status === '전환완료'; })
+    .sort(function (a, b) { return b.year.localeCompare(a.year); });
+  if (!plans.length) return null;
+  var p = plans[0], hit = null;
+  (p.plan.cells || []).forEach(function (c) {
+    if (c.leader === name || (c.members || []).indexOf(name) !== -1) hit = c;
+  });
+  if (!hit) return null;
+  var 교적 = 교적맵_();
+  return { year: p.year, cell: hit.name, leader: hit.leader,
+    members: (hit.members || []).filter(function (m) { return m !== hit.leader; }).map(function (m) {
+      return { name: m, gender: (교적[m] || {}).gender || '' };
+    }) };
+}
+
+/* 주소 한 줄 ↔ 칸 나누기 */
+function 주소합치기_(a) {
+  var street = String(a.street || '').trim(), unit = String(a.unit || '').trim(), city = String(a.city || '').trim();
+  var postal = 우편입력_(a.postal);
+  if (postal.length === 6) postal = postal.slice(0, 3) + ' ' + postal.slice(3);
+  return [street + (unit ? ' #' + unit.replace(/^#/, '') : ''), city, postal].filter(function (x) { return x; }).join(', ');
+}
+function 주소나누기_(s) {
+  s = String(s || '').trim();
+  var out = { street: '', unit: '', city: '', postal: '' };
+  if (!s) return out;
+  var m = /([A-Za-z]\d[A-Za-z])\s*(\d[A-Za-z]\d)/.exec(s);
+  if (m) { out.postal = (m[1] + ' ' + m[2]).toUpperCase(); s = (s.slice(0, m.index) + s.slice(m.index + m[0].length)).trim(); }
+  s = s.replace(/[,\s]*(ON|Ontario)\s*$/i, '').replace(/[,\s]+$/, '');
+  var parts = s.split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+  if (parts.length) {
+    var st = parts[0], u = /\s#\s*([\w-]+)$/.exec(st) || /^(?:Unit|Suite|Apt\.?)\s*([\w-]+)[,\s]+/i.exec(st);
+    if (u) { out.unit = u[1]; st = st.replace(u[0], ' ').trim(); }
+    out.street = st;
+    if (parts.length > 1) out.city = parts[parts.length - 1];
+  }
+  return out;
+}
+
+/** 신청서 첫 화면 */
+function cellAppInit(token) {
+  var who = 셀신청자_(token);
+  if (!who.allowed) throw new Error('지금은 셀 신청 기간이 아닙니다.');
+  var year = 셀년도_();
+  var prev = 내셀신청_(year, who.name, who.email);
+  var pd = (prev && prev.data) || {};
+  var f;
+  if (who.kind === 'newcomer') {
+    var nf = who.nf;
+    var bap = { '없음': '없음', '유아세례': '유아세례' }[nf.baptized] || '';
+    f = { name: nf.name, gender: nf.gender, birthday: nf.birthday, phone: nf.contact, kakao: nf.kakao, email: nf.email,
+      address: { street: '', unit: '', city: '', postal: '' }, cell: '새가족', baptized: bap, parents: '', residency: '',
+      joinedAt: ymd_(new Date()), engFirst: '', engLast: '', envelopeNo: '', envelopeRequest: null };
+  } else {
+    var me = who.me;
+    var cell = '';
+    rows_(SHEET_셀원명단).forEach(function (x) { if (!cell && String(x[1]).trim() === me.name) cell = String(x[0]).trim(); });
+    if (!cell && 새가족인가_(me.name, me.email)) cell = '새가족';
+    var eng = String(me.engName || '').trim().split(/\s+/);
+    f = { name: me.name, gender: me.gender, birthday: me.birthday, phone: me.phone, kakao: me.kakao, email: me.email,
+      address: 주소나누기_(me.address), cell: cell || '셀 없음', baptized: me.baptized, parents: me.parents, residency: me.residency,
+      joinedAt: me.joinedAt, engFirst: eng.length > 1 ? eng.slice(0, -1).join(' ') : (eng[0] || ''), engLast: eng.length > 1 ? eng[eng.length - 1] : '',
+      envelopeNo: me.envelopeNo, envelopeRequest: 헌금신청상태_(me.name) };
+  }
+  if (pd.engFirst) { f.engFirst = pd.engFirst; f.engLast = pd.engLast; }
+  if (pd.address && who.kind === 'newcomer') f.address = pd.address;
+  return {
+    year: year, form: f, prev: prev ? { at: prev.at, join: prev.join, question: prev.question } : null,
+    options: { residency: 체류신분목록, baptized: 세례목록 },
+    notice: 셀신청안내(year), promise: 셀원약속(), envelopeRules: 헌금조건(),
+    kind: who.kind
+  };
+}
+
+function submitCellApp(token, d) {
+  var who = 셀신청자_(token);
+  if (!who.allowed) throw new Error('지금은 셀 신청 기간이 아닙니다.');
+  d = d || {};
+  var t = function (k, max) { return String(d[k] == null ? '' : d[k]).trim().slice(0, max || 200); };
+  var engFirst = t('engFirst', 60), engLast = t('engLast', 60);
+  if (!engFirst || !engLast) throw new Error('영문 이름(First Name, Last Name)을 입력해주세요.');
+  if (!/^[A-Za-z][A-Za-z .'\-]*$/.test(engFirst + ' ' + engLast)) throw new Error('영문 이름은 여권에 적힌 대로 영어로 입력해주세요.');
+  var phone = 전화모양_(t('phone', 30));
+  if (!phone) throw new Error('전화번호를 입력해주세요. (교적에 등록할 때 꼭 필요합니다)');
+  var kakao = t('kakao', 60);
+  var a = d.address || {};
+  var addr = { street: String(a.street || '').trim().slice(0, 120), unit: String(a.unit || '').trim().slice(0, 20),
+    city: String(a.city || '').trim().slice(0, 60), postal: 우편입력_(a.postal) };
+  if (!addr.street || !addr.city) throw new Error('주소(Street, City)를 입력해주세요.');
+  if (!/^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(addr.postal)) throw new Error('Postal Code 를 확인해주세요. 예: M2H 2E1');
+  var residency = t('residency');
+  if (체류신분목록.indexOf(residency) === -1) throw new Error('캐나다 체류 신분을 골라주세요.');
+  var baptized = t('baptized');
+  if (세례목록.indexOf(baptized) === -1) throw new Error('세례 여부를 골라주세요.');
+  var parents = t('parents', 80), question = t('question', 2000);
+  var join = t('join');
+  if (join !== 'Yes' && join !== 'No') throw new Error('셀 참여 여부(Yes / No)를 골라주세요.');
+  var address = 주소합치기_(addr);
+  var engName = engFirst + ' ' + engLast;
+  var year = 셀년도_();
+
+  var name = who.name, email = who.email, newToken = '';
+  if (who.kind === 'newcomer') {
+    var 기존 = 교적맵_()[name];
+    if (기존 && String(기존.email || '').toLowerCase() !== String(email).toLowerCase()) {
+      throw new Error('교적에 같은 이름(' + name + ')이 이미 있습니다. 커미티에 문의해주세요.');
+    }
+    var nf = who.nf;
+    교적저장_(name, { phone: phone, kakao: kakao, email: email, birthday: nf.birthday, gender: nf.gender, baptized: baptized,
+      engName: engName, address: address, joinedAt: ymd_(new Date()), residency: residency, parents: parents });
+  } else {
+    교적저장_(name, { phone: phone, kakao: kakao, baptized: baptized, engName: engName, address: address,
+      residency: residency, parents: parents });
+  }
+  캐시비움_();
+  newToken = 포털토큰_(name, 전화키_(phone), 우편확인사용_() ? 우편키_(address) : '');
+
+  // 신청서 저장 (같은 해 · 같은 분이면 고칩니다)
+  var sh = 주보시트_(SHEET_셀신청, HEAD_셀신청);
+  var data = { engFirst: engFirst, engLast: engLast, phone: phone, kakao: kakao, address: addr, residency: residency,
+    baptized: baptized, parents: parents, join: join, question: question, cell: t('cell', 40) };
+  var now = new Date();
+  var row = [year, name, String(email || '').toLowerCase(), now, join, residency, parents, question,
+    who.kind === 'newcomer' ? '새가족' : '교적', JSON.stringify(data), now];
+  var v = sh.getDataRange().getValues(), at = 0;
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][CA_년도]).trim() === year && (String(v[i][CA_이름]).trim() === name ||
+        (email && String(v[i][CA_이메일] || '').toLowerCase() === String(email).toLowerCase()))) { at = i + 1; break; }
+  }
+  if (at) { row[CA_시각] = v[at - 1][CA_시각] || now; sh.getRange(at, 1, 1, row.length).setValues([row]); }
+  else sh.appendRow(row);
+  캐시비움_();
+
+  // 헌금봉투번호 신청 (없는 분만)
+  var envMsg = '';
+  if (d.envelope) {
+    try { requestEnvelope(newToken, !!d.envelopeAgree); envMsg = '헌금봉투번호 신청을 회계팀에 보냈습니다.'; }
+    catch (e) { envMsg = e.message || ''; }
+  }
+  return { ok: true, token: newToken, join: join, year: year, envelope: envMsg, becameMember: who.kind === 'newcomer' };
+}
+
+/* ---------------- 커미티 — 셀 신청 관리 ---------------- */
+
+function 셀편성들_() {
+  return rows_(SHEET_셀편성).filter(function (r) { return String(r[CP_년도]).trim(); }).map(function (r) {
+    var json = '';
+    for (var i = CP_자료; i < r.length; i++) {
+      var part = String(r[i] == null ? '' : r[i]);
+      if (part.charAt(0) === "'") part = part.slice(1);
+      json += part;
+    }
+    var plan = { cells: [] };
+    try { plan = JSON.parse(json || '{"cells":[]}'); } catch (e) {}
+    return { year: String(r[CP_년도]).trim(), status: String(r[CP_상태] || '작성중').trim(), by: String(r[CP_수정자] || ''),
+      at: r[CP_시각] instanceof Date ? Utilities.formatDate(r[CP_시각], Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : String(r[CP_시각] || ''),
+      plan: plan };
+  });
+}
+function 셀편성_(year) { return 셀편성들_().filter(function (p) { return p.year === year; })[0] || null; }
+function 셀편성저장_(year, plan, status, by) {
+  var sh = 주보시트_(SHEET_셀편성, HEAD_셀편성);
+  var json = JSON.stringify(plan || { cells: [] });
+  var parts = [];
+  for (var i = 0; i < json.length; i += 주보조각) parts.push("'" + json.slice(i, i + 주보조각));
+  var row = [year, status, by || '', new Date()].concat(parts);
+  var v = sh.getDataRange().getValues(), at = 0;
+  for (var r = 1; r < v.length; r++) if (String(v[r][CP_년도]).trim() === year) { at = r + 1; break; }
+  if (!at) { sh.appendRow([year]); at = sh.getLastRow(); }
+  var width = Math.max(row.length, v.length ? v[0].length : row.length);
+  while (row.length < width) row.push('');
+  if (sh.getMaxColumns() < row.length) sh.insertColumnsAfter(sh.getMaxColumns(), row.length - sh.getMaxColumns());
+  sh.getRange(at, 1).setNumberFormat('@');
+  sh.getRange(at, 1, 1, row.length).setValues([row]);
+  캐시비움_();
+}
+
+function 요주목록_() {
+  return rows_(SHEET_셀요주).filter(function (r) { return String(r[0]).trim(); }).map(function (r) {
+    return { name: String(r[0]).trim(), memo: String(r[1] || '').trim(), by: String(r[2] || '').trim() };
+  });
+}
+
+/** 셀년도 'A-B' 의 바로 앞 셀년도(작년 9월 ~ 올해 8월) 셀 출석률 — 이름별 */
+function 지난셀출석_(year) {
+  var a = Number(String(year).split('-')[0]) || new Date().getFullYear();
+  var from = (a - 1) + '-09-01', to = a + '-08-31';
+  var stat = {};
+  rows_(SHEET_출결기록).forEach(function (r) {
+    var d = 날짜문자열_(r[A_DATE]);
+    if (!d || d < from || d > to) return;
+    var n = String(r[A_NAME]).trim();
+    if (!n) return;
+    var s = stat[n] || (stat[n] = { present: 0, total: 0 });
+    s.total++;
+    if (출석인정_(r[A_STATUS], r[A_REASON])) s.present++;
+  });
+  Object.keys(stat).forEach(function (n) { stat[n].rate = stat[n].total ? Math.round(stat[n].present / stat[n].total * 100) : null; });
+  return { from: from, to: to, stat: stat };
+}
+
+function 만나이_(birthday) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(birthday || ''));
+  if (!m) return null;
+  var t = new Date(), age = t.getFullYear() - Number(m[1]);
+  if (t.getMonth() + 1 < Number(m[2]) || (t.getMonth() + 1 === Number(m[2]) && t.getDate() < Number(m[3]))) age--;
+  return age >= 0 && age < 120 ? age : null;
+}
+
+function cellAdminInit(key, year) {
+  requireAdmin_(key);
+  year = /^\d{4}-\d{4}$/.test(String(year || '')) ? String(year) : 셀년도_();
+  var 교적 = 교적맵_();
+  var att = 지난셀출석_(year);
+  var curCell = {};
+  rows_(SHEET_셀원명단).forEach(function (x) { var n = String(x[1]).trim(); if (n && !curCell[n]) curCell[n] = String(x[0]).trim(); });
+  var nfs = 새가족목록_();
+  var people = {};
+  var person = function (name) {
+    if (people[name]) return people[name];
+    var p = 교적[name] || {}, nf = nfs.filter(function (n) { return n.name === name; })[0];
+    var st = att.stat[name];
+    return (people[name] = {
+      name: name, gender: p.gender || (nf && nf.gender) || '', age: 만나이_(p.birthday || (nf && nf.birthday)),
+      birthday: p.birthday || (nf && nf.birthday) || '', cell: curCell[name] || '',
+      newcomer: !!(nf && nf.status !== '중단' && nf.status !== '셀배정완료'),
+      rate: st ? st.rate : null, present: st ? st.present : 0, total: st ? st.total : 0,
+      inDirectory: !!교적[name], phone: p.phone || (nf && nf.contact) || '', email: p.email || (nf && nf.email) || ''
+    });
+  };
+  Object.keys(교적).forEach(person);
+  var apps = 셀신청행들_().filter(function (a) { return a.year === year; }).map(function (a) {
+    var p = person(a.name);
+    return { name: a.name, email: a.email, at: a.at, join: a.join, residency: a.residency, parents: a.parents,
+      question: a.question, kind: a.kind, data: a.data };
+  });
+  var plan = 셀편성_(year);
+  var years = 셀편성들_().map(function (p) { return p.year; });
+  if (years.indexOf(year) === -1) years.push(year);
+  if (years.indexOf(셀년도_()) === -1) years.push(셀년도_());
+  years.sort();
+  return {
+    year: year, years: years, open: 셀신청열림_(), openYear: 셀년도_(),
+    attendanceRange: [att.from, att.to],
+    people: Object.keys(people).map(function (k) { return people[k]; }),
+    apps: apps,
+    plan: plan ? { status: plan.status, by: plan.by, at: plan.at, cells: plan.plan.cells || [], extra: plan.plan.extra || [] } : null,
+    flags: 요주목록_(),
+    cellsNow: getCells().map(function (c) { return { name: c.name, leader: c.leader, members: c.members }; })
+  };
+}
+
+function setCellAppOpen(key, on, year) {
+  requireAdmin_(key);
+  if (year) {
+    if (!/^\d{4}-\d{4}$/.test(String(year))) throw new Error('셀년도는 2026-2027 처럼 적어주세요.');
+    설정저장_('셀신청년도', String(year));
+  }
+  설정저장_('셀신청오픈', on ? 'ON' : 'OFF');
+  return { open: 셀신청열림_(), openYear: 셀년도_() };
+}
+
+/** status: 작성중 · 확정 · 공개 */
+function saveCellPlan(key, year, cells, status, extra) {
+  requireAdmin_(key);
+  if (!/^\d{4}-\d{4}$/.test(String(year || ''))) throw new Error('셀년도를 확인해주세요.');
+  status = ['작성중', '확정', '공개'].indexOf(status) !== -1 ? status : '작성중';
+  var cur = 셀편성_(year);
+  if (cur && cur.status === '전환완료') throw new Error('이미 새 셀년도로 전환한 편성입니다.');
+  var seen = {}, names = {};
+  cells = (cells || []).map(function (c) {
+    var nm = String(c.name || '').trim();
+    if (!nm) throw new Error('이름 없는 셀이 있습니다.');
+    if (names[nm]) throw new Error('셀 이름이 겹칩니다: ' + nm);
+    names[nm] = 1;
+    var leader = String(c.leader || '').trim();
+    var members = (c.members || []).map(function (m) { return String(m || '').trim(); }).filter(function (m) {
+      if (!m || m === leader || seen[m]) return false;
+      seen[m] = 1; return true;
+    });
+    return { name: nm, leader: leader, members: members };
+  });
+  cells.forEach(function (c) { if (c.leader && seen[c.leader]) throw new Error(c.leader + '님이 셀장이면서 다른 셀의 셀원으로 들어가 있습니다.'); });
+  extra = (extra || []).map(function (m) { return String(m || '').trim(); }).filter(function (m) { return m && !seen[m]; });
+  셀편성저장_(year, { cells: cells, extra: extra }, status, whoami_());
+  return cellAdminInit(key, year);
+}
+
+function setCellFlag(key, name, on, memo) {
+  requireAdmin_(key);
+  name = String(name || '').trim();
+  if (!name) throw new Error('이름이 없습니다.');
+  var sh = 주보시트_(SHEET_셀요주, HEAD_셀요주), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][0]).trim() === name) sh.deleteRow(i + 1);
+  if (on) sh.appendRow([name, String(memo || '').trim().slice(0, 500), whoami_(), new Date()]);
+  캐시비움_();
+  return 요주목록_();
+}
+
+/** 신청을 커미티가 지웁니다 (잘못 들어간 경우) */
+function deleteCellApp(key, year, name) {
+  requireAdmin_(key);
+  var sh = 주보시트_(SHEET_셀신청, HEAD_셀신청), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][CA_년도]).trim() === year && String(v[i][CA_이름]).trim() === name) sh.deleteRow(i + 1);
+  }
+  캐시비움_();
+  return cellAdminInit(key, year);
+}
+
+/**
+ * 새 셀년도 시작 — 공개한 편성으로 셀목록 · 셀원명단을 바꿉니다.
+ * 바꾸기 전 명단은 '셀명단보관' 시트에 그대로 남겨 둡니다.
+ */
+function applyCellPlan(key, year) {
+  requireAdmin_(key);
+  var p = 셀편성_(year);
+  if (!p) throw new Error('편성이 없습니다.');
+  if (p.status !== '공개') throw new Error('공개한 편성만 새 셀년도로 전환할 수 있습니다.');
+  var cells = p.plan.cells || [];
+  if (!cells.length) throw new Error('셀이 없습니다.');
+  var 교적 = 교적맵_();
+  var 이전 = getCells();
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+
+  var bk = 주보시트_(SHEET_셀이전명단, ['보관시각', '전환한셀년도', '셀이름', '셀장', '셀원이름']);
+  var keep = [];
+  이전.forEach(function (c) {
+    if (!c.members.length) keep.push([stamp, year, c.name, c.leader, '']);
+    c.members.forEach(function (m) { keep.push([stamp, year, c.name, c.leader, m]); });
+  });
+  if (keep.length) bk.getRange(bk.getLastRow() + 1, 1, keep.length, 5).setValues(keep);
+
+  var rooms = {};
+  이전.forEach(function (c) { rooms[c.name] = c.room || ''; });
+  var 목록 = sheet_(SHEET_셀목록), 명단 = sheet_(SHEET_셀원명단);
+  if (목록.getLastRow() > 1) 목록.getRange(2, 1, 목록.getLastRow() - 1, Math.max(4, 목록.getLastColumn())).clearContent();
+  if (명단.getLastRow() > 1) 명단.getRange(2, 1, 명단.getLastRow() - 1, Math.max(2, 명단.getLastColumn())).clearContent();
+  var rows1 = cells.map(function (c) { return [c.name, c.leader, ((교적[c.leader] || {}).email || ''), rooms[c.name] || '']; });
+  목록.getRange(2, 1, rows1.length, 4).setValues(rows1);
+  // 지금 명단에 셀장이 셀원으로도 들어 있으면 새 명단에도 똑같이 넣습니다
+  var withLeader = 이전.filter(function (c) { return c.leader && c.members.indexOf(c.leader) !== -1; }).length > 이전.length / 2;
+  var rows2 = [];
+  cells.forEach(function (c) {
+    if (withLeader && c.leader) rows2.push([c.name, c.leader]);
+    c.members.forEach(function (m) { rows2.push([c.name, m]); });
+  });
+  if (rows2.length) 명단.getRange(2, 1, rows2.length, 2).setValues(rows2);
+  셀편성저장_(year, p.plan, '전환완료', whoami_());
+  캐시비움_();
+  return cellAdminInit(key, year);
 }
