@@ -9,7 +9,7 @@ const ok = (m) => console.log('  ✓ ' + m);
 const bad = (m) => { console.log('  ✗ ' + m); process.exitCode = 1; };
 
 console.log('\n[환경 변수]');
-['SPREADSHEET_ID', 'GMAIL_USER', 'GMAIL_APP_PASSWORD', 'CRON_SECRET'].forEach((k) =>
+['SPREADSHEET_ID', 'GMAIL_USER', 'CRON_SECRET'].forEach((k) =>
   (process.env[k] ? ok(k) : bad(k + ' 가 없습니다')));
 if (process.env.GOOGLE_REFRESH_TOKEN) ok('구글 인증: 청년부 계정 (리프레시 토큰)');
 else if (process.env.GOOGLE_SERVICE_ACCOUNT) ok('구글 인증: 서비스 계정 (파일 올리기는 막힐 수 있습니다 — README 참고)');
