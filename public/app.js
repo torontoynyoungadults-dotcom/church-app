@@ -6012,7 +6012,8 @@ function 구글표식확인_(state) {
   if (p.length !== 2 && p.length !== 3) return false;
   if (포털서명_('g:' + p[0]) !== p[1]) return false;
   var age = Math.floor(new Date().getTime() / 1000) - Number(p[0]);
-  return age >= 0 && age < 900;          // 15분 안에 돌아와야 합니다
+  // 30분 안에 돌아와야 합니다 (시크릿 모드에서는 구글 계정 로그인부터 해야 해서 넉넉히 둡니다)
+  return age >= 0 && age < 1800;
 }
 
 function 포털주소_() { return 앱주소_() + '?page=portal'; }
