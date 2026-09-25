@@ -5939,6 +5939,11 @@ function 포털입구_(p) {
       if (!구글표식확인_(p.state)) throw new Error('로그인 시간이 지났습니다. 다시 시도해주세요.');
       var email = 구글이메일_(p.code);
       out.email = email;
+      // 교적에 이 구글 이메일이 없으면 — 한 번만 본인 확인을 받아 교적에 연결합니다
+      if (!이메일찾기_(email)) {
+        out.link = 구글연결표_(email);
+        return out;
+      }
       out.token = 이메일로토큰_(email);
       try { out.data = 포털자료_(out.token); } catch (e2) {}
       return out;
@@ -6650,6 +6655,95 @@ function 포털관리메뉴_(r) {
  * 이름 · 전화번호 · 우편번호를 한 번에 받아 확인합니다.
  * 주소에 우편번호가 적혀 있는 분은 우편번호까지 맞아야 들어옵니다.
  */
+/* ---------- 교적에 없는 구글 계정 연결 ----------
+   구글로 로그인했는데 그 이메일이 교적에 없으면, 이름 · 전화번호 · 생년월일 · Postal Code 로
+   한 번 본인 확인을 받고 교적 이메일을 그 구글 계정으로 바꿔 둡니다.
+   다음부터는 구글 로그인만으로 들어옵니다.
+   ------------------------------------------------ */
+
+var 연결접두 = 'YNL1.';
+
+/** 구글이 확인해 준 이메일을 30분 동안만 쓸 수 있는 표로 싸 둡니다 (위조 방지 서명) */
+function 구글연결표_(email) {
+  var payload = String(email).trim().toLowerCase() + '\n' + Math.floor(Date.now() / 1000);
+  return 연결접두 + Utilities.base64EncodeWebSafe(payload, Utilities.Charset.UTF_8) + '.' + 포털서명_('L:' + payload);
+}
+
+function 구글연결풀기_(link) {
+  link = String(link || '').trim();
+  var bad = new Error('구글 로그인 확인이 끝났습니다. 구글 계정으로 다시 로그인해주세요.');
+  if (link.indexOf(연결접두) !== 0) throw bad;
+  var rest = link.slice(연결접두.length).split('.');
+  if (rest.length !== 2) throw bad;
+  var s = Utilities.newBlob(Utilities.base64DecodeWebSafe(rest[0], Utilities.Charset.UTF_8)).getDataAsString('UTF-8');
+  if (포털서명_('L:' + s) !== rest[1]) throw bad;
+  var p = s.split('\n'), age = Math.floor(Date.now() / 1000) - Number(p[1]);
+  if (!p[0] || !(age >= 0 && age < 1800)) throw bad;
+  return p[0];
+}
+
+/** 교적 이메일을 구글 계정으로 바꿉니다 (다른 분이 이미 쓰고 있으면 막습니다) */
+function 구글이메일저장_(name, email) {
+  var 기존 = 이메일찾기_(email);
+  if (기존 && 기존.name !== name) {
+    throw new Error(email + ' 은 교적에서 ' + 기존.name + '님 이메일로 쓰이고 있습니다. 커미티에 문의해주세요.');
+  }
+  var at = 교적행_(name);
+  at.sh.getRange(at.row, D_이메일 + 1).setValue(email);
+  캐시비움_();
+}
+
+/**
+ * 처음 구글로 들어온 분 — 본인 확인 후 연결
+ * change: true 면 교적 이메일을 이 구글 계정으로 바꿉니다
+ */
+function portalLinkGoogle(link, name, phone, birthday, postal, change) {
+  var email = 구글연결풀기_(link);
+  name = String(name || '').trim();
+  var key = 전화키_(phone);
+  birthday = String(birthday || '').trim();
+  if (!name) throw new Error('이름을 입력해주세요.');
+  if (!key) throw new Error('전화번호 10자리를 입력해주세요.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday)) throw new Error('생년월일을 골라주세요.');
+
+  var 안맞음 = '입력하신 정보가 교적과 맞지 않습니다. 띄어쓰기까지 교적에 적힌 그대로 입력해주시고, ' +
+    '그래도 안 되면 커미티에 문의해주세요.';
+  var me = 교적찾기_(name, key);
+  if (!me) throw new Error(안맞음);
+  // 교적에 생년월일이 있으면 같아야 합니다
+  if (me.birthday && /^\d{4}-\d{2}-\d{2}$/.test(me.birthday) && me.birthday !== birthday) throw new Error(안맞음);
+
+  var need = 우편확인사용_() ? 우편키_(me.address) : '';
+  if (need) {
+    var got = 우편입력_(postal);
+    if (!got) throw new Error('Postal Code 를 입력해주세요. 예: M2H 2E1');
+    if (got !== need) throw new Error(안맞음);
+  }
+
+  var linked = false;
+  if (change) { 구글이메일저장_(me.name, email); linked = true; }
+  var res = 포털자료_(포털토큰_(me.name, key, need));
+  res.linked = linked ? email : '';
+  return res;
+}
+
+/** 이미 로그인한 분이 '구글 계정 연결하기' 로 구글에 다녀온 경우 — 본인 확인 없이 바로 연결 */
+function portalLinkGoogleWithToken(link, token) {
+  var email = 구글연결풀기_(link);
+  var me = requirePortal_(token);
+  구글이메일저장_(me.name, email);
+  var d = 포털해독_(token);
+  var res = 포털자료_(포털토큰_(me.name, d.phone, d.postal));
+  res.linked = email;
+  return res;
+}
+
+/** 구글 로그인 버튼 주소 — 포털 안에서 '구글 계정 연결하기' 를 누를 때 */
+function portalGoogleLinkUrl(token) {
+  requirePortal_(token);
+  return 구글로그인주소_();
+}
+
 function portalLogin(name, phone, postal) {
   name = String(name || '').trim();
   var key = 전화키_(phone);
@@ -6717,7 +6811,8 @@ function 포털자료_(token) {
     menus: 포털메뉴_(r, token),
     admin: 포털관리메뉴_(r),
     leader: 볼캘린더_(r.roles).리더,
-    hasCalendar: 달력있나_(r.roles)
+    hasCalendar: 달력있나_(r.roles),
+    googleReady: 구글준비됨_()
   };
 }
 
