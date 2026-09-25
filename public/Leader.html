@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* 셀모임 보고서 — 구조만 정의합니다. 색·여백·버튼은 Theme 이 맡습니다 */
+  :root { --accent: #C4431A; --tone-rgb: 196,67,26; --orange: #C4431A; }
+  * { box-sizing: border-box; }
+
+  /* 출결 */
+  .member { padding: 11px 13px; margin-bottom: 7px; }
+  .member.pending { border-color: var(--tone-line) !important; }
+  .member-top { display: flex; align-items: center; gap: 9px; }
+  .member-name { font-size: 14.5px; font-weight: 700; flex: 1; min-width: 0; }
+  .toggle { display: flex; gap: 5px; }
+  .toggle button {
+    font-size: 12.5px; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--hair-2);
+    background: #fff; color: var(--ink-3); cursor: pointer; font-family: inherit; font-weight: 650;
+    transition: background .13s, border-color .13s, color .13s;
+  }
+  .toggle button.on-present { background: var(--good-bg); border-color: var(--good); color: var(--good); font-weight: 800; }
+  .toggle button.on-absent { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); font-weight: 800; }
+  .kill { border: none; background: none; color: var(--ink-4); font-size: 17px; cursor: pointer; padding: 0 2px; line-height: 1; font-family: inherit; }
+  .rdesc { font-size: 11.5px; color: var(--ink-3); margin: 5px 2px 0; line-height: 1.55; }
+  .reason { margin-top: 9px; display: none; }
+  .reason.show { display: block; }
+  .reason input { margin-top: 7px; display: none; }
+  .reason input.show { display: block; }
+  .roster-tools { display: flex; gap: 6px; margin-top: 10px; }
+  .roster-tools input { flex: 1; }
+  .summary { font-size: 12px; color: var(--ink-3); margin: -3px 0 10px; font-weight: 650; }
+
+  /* 셀 이름 · 셀방 */
+  .cellbar { display: flex; align-items: stretch; gap: 7px; }
+  #cellFixed {
+    flex: 1 1 0; min-width: 0; background: #fff; border: 1px solid var(--hair-2);
+    border-radius: var(--r-sm); box-shadow: var(--sh-1);
+    padding: 11px 13px; font-size: 15px; font-weight: 750;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  #roomBox {
+    flex: 0 0 auto; max-width: 46%; background: #fff; border: 1px solid var(--hair-2);
+    border-radius: var(--r-sm); box-shadow: var(--sh-1); padding: 8px 13px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  #roomBox .roomlabel {
+    font-size: 9.5px; font-weight: 800; color: var(--ink-3);
+    letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.4;
+  }
+  #roomBox #roomValue {
+    font-size: 14.5px; font-weight: 750; line-height: 1.35;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .linkbar { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+  .linkspacer { flex: 1; }
+  .dirbtn {
+    width: auto !important; background: var(--ink-1) !important; color: #fff;
+    border-radius: var(--r-sm) !important; font-size: 13px !important; padding: 9px 16px !important;
+    display: inline-flex; align-items: center; gap: 7px; box-shadow: var(--sh-1) !important;
+  }
+  .dirbtn:before { content: "\1F464"; font-size: 12.5px; }
+  .dirbtn.on { background: var(--tone) !important; }
+
+  /* 셀원 정보 카드 */
+  .dcard { padding: 12px 13px; margin-bottom: 8px; }
+  .dcard .dhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+  .dcard .dwho { display: flex; align-items: center; gap: 10px; }
+  .dcard .photorow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: -2px 0 10px 56px; }
+  .dcard .photorow label { cursor: pointer; color: var(--tone) !important; font-weight: 750; font-size: 12.5px; }
+  .dcard .photorow .msg { margin: 0; font-size: 12px; }
+  .dcard .dname { font-size: 14.5px; font-weight: 800; }
+  .dcard .empty-info { font-size: 12px; padding: 4px 0; text-align: left; }
+  .editbox { border-top: 1px solid var(--hair); margin-top: 10px; padding-top: 10px; }
+  .editbox .efield { margin-bottom: 8px; }
+  .editbox .efield label {
+    display: block; font-size: 10.5px; color: var(--ink-3); font-weight: 800;
+    letter-spacing: .05em; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .editbox input, .editbox select { padding: 9px 11px; font-size: 13px; }
+
+  /* 비밀번호 */
+  .pwbox { width: 190px; margin: 0 auto; display: block; }
+  .pwbox::placeholder { letter-spacing: 0.32em; color: var(--ink-4); font-weight: 500; }
+  .pwsubmit { width: 190px !important; margin: 10px auto 0; display: block; }
+
+  /* 마무리 */
+  .closing {
+    text-align: center; padding: 4px 8px 2px;
+    font-size: 12.5px; color: var(--ink-2); line-height: 1.85;
+  }
+  .closing b { display: block; font-size: 14.5px; color: var(--ink-1); margin-bottom: 6px; letter-spacing: -0.018em; }
+
+  .choices { display: flex; gap: 7px; }
+  .choices button {
+    flex: 1; background: #fff; border: 1px solid var(--hair-2); border-radius: var(--r-md);
+    padding: 13px 4px; cursor: pointer; font-family: inherit; color: var(--ink-1);
+    display: flex; flex-direction: column; align-items: center; gap: 5px; box-shadow: var(--sh-1);
+  }
+  .choices button .emo { font-size: 22px; line-height: 1; }
+  .choices button .txt { font-size: 12.5px; font-weight: 650; }
+  .choices button.picked {
+    border-color: var(--tone); background: rgba(var(--tone-rgb), .055);
+    box-shadow: 0 0 0 1px var(--tone) inset; font-weight: 800;
+  }
+
+  .done { text-align: center; padding: 38px 20px; }
+  .done .mark { font-size: 38px; }
+  .done h2 { font-size: 20px; font-weight: 800; margin: 14px 0 6px; color: var(--tone); }
+  .done p { color: var(--ink-3); font-size: 13.5px; margin: 0 0 20px; }
+  .done .acts { display: flex; gap: 7px; justify-content: center; }
+
+  .banner .acts { display: flex; gap: 7px; margin-top: 10px; }
+
+  /* 대리 작성자 */
+  body.dgmode .kill, body.dgmode .dgnone { display: none !important; }
+  .dgbanner {
+    display: none; background: linear-gradient(135deg, #C4431A 0%, #8E2B0E 100%); color: #fff;
+    border-radius: var(--r-xl, 22px); padding: 18px 20px; margin: 0 12px 12px;
+    box-shadow: 0 10px 28px rgba(196,67,26,.28), inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  .dgbanner .k { font-size: 10.5px; letter-spacing: .16em; font-weight: 800; color: rgba(255,255,255,.7); margin: 0 0 5px; }
+  .dgbanner .t { font-size: 16px; font-weight: 800; margin: 0 0 4px; }
+  .dgbanner .d { font-size: 12.5px; line-height: 1.7; word-break: keep-all; color: rgba(255,255,255,.86); margin: 0; }
+  .dgline {
+    display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px;
+    padding: 9px 12px; border-radius: var(--r-sm); background: rgba(var(--tone-rgb), .06);
+    border: 1px solid rgba(var(--tone-rgb), .18); font-size: 12.5px; color: var(--ink-2);
+  }
+  .dgline b { color: var(--tone); font-weight: 800; }
+  .dgline .dgk { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: var(--ink-3); }
+  #dgForm { margin-top: 10px; }
+  .dgrow { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 7px;
+    background: #fff; border: 1px solid var(--hair-2); border-radius: var(--r-sm); box-shadow: var(--sh-1); }
+  .dgrow .n { flex: 1; min-width: 0; font-weight: 750; font-size: 14px; }
+  .dgrow .u { font-size: 12px; color: var(--ink-3); font-weight: 650; }
+  .dgpick { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+  .dgpick button {
+    font-size: 12.5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--hair-2);
+    background: #fff; color: var(--ink-2); cursor: pointer; font-family: inherit; font-weight: 650;
+  }
+  .dgpick button.on { border-color: var(--tone); color: var(--tone); background: rgba(var(--tone-rgb), .07); font-weight: 800; }
+  .dgset { display: flex; gap: 6px; }
+  .dgset input[type=text] { flex: 1.3; min-width: 0; }
+  .dgset input[type=date] { flex: 1; min-width: 0; }
+  .dglabel { font-size: 11px; font-weight: 800; color: var(--ink-3); letter-spacing: .06em; margin: 12px 0 6px; }
+  .skel.row { height: 46px; margin-bottom: 8px; }
+</style>
+<?!= include('Theme') ?>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <img src="<?!= include('Logo') ?>" alt="Youngnak Young Adults">
+    <h1>셀모임 보고서</h1>
+    <p class="meta">YNTORONTO &nbsp;·&nbsp; CELL REPORT</p>
+  </header>
+
+  <div class="panel" id="lock" style="display:none;">
+    <div style="text-align:center;padding:14px 4px 8px;">
+      <p style="font-size:14px;color:var(--muted);margin:0 0 18px;line-height:1.7;">
+        셀장님께 안내된 <b style="color:var(--ink);">숫자 비밀번호</b>를 입력해주세요.<br>
+        본인 셀의 보고서만 작성·조회할 수 있습니다.</p>
+      <input type="password" id="cellPw" class="pwbox" placeholder="••••"
+        inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"
+        maxlength="8" oninput="onlyDigits(this)">
+      <button class="submit pwsubmit" onclick="doCellLogin()">들어가기</button>
+      <p id="pwMsg" class="msg err" style="min-height:20px;"></p>
+      <p class="hint" style="margin:6px 0 0;">비밀번호를 모르시면 양육팀에 문의해주세요.</p>
+    </div>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="dgbanner" id="dgBanner"></div>
+    <div class="panel">
+      <div id="editBanner" class="banner" style="display:none;"></div>
+
+      <div class="notice" style="margin-bottom:0 !important;">
+        <p class="lead">이번 주도 공동체 섬김으로 수고 많으셨습니다</p>
+        <p>보고서를 자세히 작성해 주실수록 양육팀이 셀장님들을 돕고, 목사님께서 목양하시는 데 큰 도움이 됩니다.
+          도움이 필요하거나 기도 제목이 있다면 양육팀에 언제든 편하게 공유해 주세요!</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="chip">모임 날짜<span class="req">*</span></span>
+      <select id="meetingDate"></select>
+    </div>
+
+    <div class="panel">
+      <span class="chip">셀 이름</span>
+      <span id="masterTag" style="display:none;background:#1C1C1C;color:#fff;font-size:11px;
+        font-weight:700;padding:4px 10px;border-radius:6px;margin-left:6px;">양육팀 · 전체 셀</span>
+      <div class="cellbar">
+        <div id="cellFixed"></div>
+        <div id="roomBox" style="display:none;"><span class="roomlabel">셀방</span><span id="roomValue"></span></div>
+      </div>
+      <select id="cellSelect" style="display:none;"></select>
+      <div class="linkbar">
+        <button type="button" class="dirbtn" id="dirToggle" onclick="toggleDirectory()">셀원 정보 보기</button>
+        <span class="linkspacer"></span>
+        <button type="button" class="pwlink" id="dgToggle" onclick="toggleDgForm()" style="display:none;">대리 작성자</button>
+        <button type="button" class="pwlink" id="mailToggle" onclick="toggleMailForm()">이메일</button>
+        <button type="button" class="pwlink" id="pwToggle" onclick="togglePwForm()">비밀번호</button>
+      </div>
+
+      <div class="dgline" id="dgLine"></div>
+
+      <div id="dgForm" style="display:none;">
+        <p class="hint" style="margin:0 0 8px;">셀모임에 못 나오시는 주에 셀원 한 분께 보고서를 부탁할 수 있습니다.
+          지정된 분은 <b>본인 구글 로그인</b>으로 포털에 들어가면 정한 날짜까지 이 셀 보고서만 쓸 수 있고,
+          셀원 연락처 · 비밀번호 같은 건 볼 수 없습니다. 날짜가 지나면 저절로 풀립니다.</p>
+        <div id="dgList"></div>
+        <div class="dglabel">누구에게 부탁할까요</div>
+        <div class="dgpick" id="dgPick"></div>
+        <div class="dgset">
+          <input type="text" id="dgName" list="dgNames" placeholder="이름 (교적에 있는 이름)" maxlength="30" oninput="dgPickSync()">
+          <input type="date" id="dgUntil" title="이 날짜까지">
+        </div>
+        <datalist id="dgNames"></datalist>
+        <div style="display:flex;gap:6px;margin-top:7px;">
+          <button type="button" class="btn" style="flex:1;" onclick="toggleDgForm()">닫기</button>
+          <button type="button" class="btn orange" style="flex:2;" id="dgSave" onclick="doSetDelegate()">대리 작성자 지정</button>
+        </div>
+        <p class="msg" id="dgMsg" style="min-height:18px;font-size:12.5px;"></p>
+      </div>
+
+      <div id="dirPanel" style="display:none;">
+        <p class="hint" style="margin:10px 0 7px;">본인 셀원들의 연락처와 사역 정보입니다.</p>
+        <div id="dirList"></div>
+      </div>
+
+      <div id="mailForm" style="display:none;">
+        <p class="hint" style="margin:10px 0 7px;">보고서 제출 확인과 미제출 리마인더를 받을 주소입니다.</p>
+        <input type="email" id="cellEmail" inputmode="email" autocomplete="email"
+          placeholder="name@example.com" oninput="clearMailMsg()">
+        <div style="display:flex;gap:6px;margin-top:7px;">
+          <button type="button" class="btn" style="flex:1;" onclick="toggleMailForm()">취소</button>
+          <button type="button" class="btn orange" style="flex:1;" onclick="doChangeEmail()">저장</button>
+        </div>
+        <p class="msg" id="mailMsg" style="min-height:18px;font-size:12.5px;"></p>
+      </div>
+
+      <div id="pwForm" style="display:none;">
+        <p class="hint" style="margin:10px 0 7px;">숫자 4자리 이상으로 새 비밀번호를 정해주세요.</p>
+        <input type="password" id="newPw" inputmode="numeric" maxlength="8"
+          placeholder="새 비밀번호" oninput="onlyDigits2(this)">
+        <input type="password" id="newPw2" inputmode="numeric" maxlength="8"
+          placeholder="새 비밀번호 확인" style="margin-top:6px;" oninput="onlyDigits2(this)">
+        <div style="display:flex;gap:6px;margin-top:7px;">
+          <button type="button" class="btn" style="flex:1;" onclick="togglePwForm()">취소</button>
+          <button type="button" class="btn orange" style="flex:1;" onclick="doChangePw()">변경하기</button>
+        </div>
+        <p class="msg" id="pwFormMsg" style="min-height:18px;font-size:12.5px;"></p>
+      </div>
+    </div>
+
+    <div class="panel" id="attendanceField" style="display:none;">
+      <span class="chip">출결 체크<span class="req">*</span></span>
+      <p class="subnotice">불참한 셀원의 사유는 최대한 정확하게 작성 부탁드립니다.
+        혹시 연락이 닿지 않은 셀원이 있다면, 주중에 꼭 개별적으로 안부를 물어봐 주세요.
+        도움이 필요한 부분이 있다면 언제든 양육팀에 편하게 말씀해 주세요!</p>
+      <p class="summary" id="attSummary"></p>
+      <div id="memberList"></div>
+      <div class="roster-tools">
+        <input type="text" id="newMember" placeholder="셀원 추가">
+        <button class="btn" onclick="doAddMember()">추가</button>
+      </div>
+
+    </div>
+
+    <div class="panel">
+      <span class="chip">본인의 컨디션 · 영적상태<span class="req">*</span></span>
+      <div class="picklist" id="condRow"></div>
+    </div>
+
+    <div class="panel">
+      <span class="chip">셀모임 분위기<span class="req">*</span></span>
+      <div class="picklist" id="moodRow"></div>
+    </div>
+
+    <div class="panel">
+      <span class="chip">기도제목 · 특이사항</span>
+      <textarea id="notes" style="min-height:104px;" placeholder="공유하고 싶으신 부분이 있다면 자유롭게 작성해 주세요.&#10;&#10;- 셀원 또는 본인의 중보기도 제목&#10;- 양육팀/목사님 심방이나 상담이 필요한 사항&#10;- 기타 셀 운영 관련 특이사항"></textarea>
+    </div>
+
+    <div class="panel">
+      <span class="chip">작성자<span class="req">*</span></span>
+      <p class="hint" id="submitterHint">기본값은 셀장 이름입니다. 다른 분이 대신 작성한다면 이름을 바꿔주세요.</p>
+      <input type="text" id="submitter" placeholder="작성자 이름">
+    </div>
+
+    <div class="panel">
+      <div class="closing">
+        <b>💙 수고하셨습니다! 💙</b>
+        셀장님의 작은 섬김과 기록이 우리 공동체를 더 건강하게 세워갑니다.<br>
+        &ldquo;보고서 제출&rdquo; 버튼을 누르시면 보고서 작성이 완료됩니다.
+      </div>
+      <button class="submit" id="submitBtn" style="margin-top:14px;">보고서 제출</button>
+      <p class="msg" id="msg" style="text-align:center;"></p>
+    </div>
+  </div>
+
+  <footer>
+    해외한인장로회 토론토영락교회 &nbsp;|&nbsp; 담임목사 : 전대혁 &nbsp;|&nbsp; 청년1부 목사: 강산<br>
+    650 McNicoll Ave. Toronto, ON M2H 2E1 &nbsp;|&nbsp; www.ynchurch.com
+  </footer>
+</div>
+
+<script>
+var CONDITIONS = [
+  ['충만함', '🕊️', '은혜가 넘치고 섬김이 기쁨'],
+  ['평안함', '🌿', '큰 어려움 없이 안정적인 상태'],
+  ['지침/지체됨', '🌧️', '육체적·마음적 피로가 누적됨'],
+  ['SOS/기도 필요', '🆘', '지쳐있거나 개인적인 어려움으로 도움이 필요함']
+];
+var MOODS = [
+  ['깊고 진솔', '✨', '서로의 삶과 기도를 깊이 나눔'],
+  ['소소하고 평안', '🌱', '일상 나눔 위주의 친목과 교제'],
+  ['수동적', '💬', '리더 중심의 나눔, 셀원들의 반응이 적음'],
+  ['무거움/어려움', '🌧️', '나눔 참여가 저조하거나 서먹함']
+];
+var REASONS = [
+  ['개인일정', '여행, 타지역 방문, 가족·개인 일정'],
+  ['직장/학업', '주말 근무, 출장, 시험, 학업 일정'],
+  ['건강', '몸이 좋지 않거나 회복이 필요한 상태'],
+  ['선교중', '선교 사역 참여 · 출석으로 인정됩니다'],
+  ['기타', '위 항목에 해당하지 않는 경우']
+];
+function reasonDesc(r) {
+  for (var i = 0; i < REASONS.length; i++) if (REASONS[i][0] === r) return REASONS[i][1];
+  return '';
+}
+function needsDetail(r) { return !!r && r !== '선교중'; }
+
+var PREFILL = <?!= prefill ?>;
+
+var cells = [];
+var att = {};              // 셀원 이름 -> {status, reason, reasonOther}
+var picked = { condition: null, mood: null };
+var editingId = null;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+function showMsg(t, type) {
+  var m = document.getElementById('msg');
+  m.textContent = t || '';
+  m.className = 'msg ' + (type || '');
+}
+function currentCell() {
+  var i = document.getElementById('cellSelect').value;
+  return i === '' ? null : cells[i];
+}
+function el(id) { return document.getElementById(id); }
+
+/** 소속 목록을 "팀 · 역할, 팀2" 형태의 한 줄로 */
+function belongText(list) {
+  if (!list || !list.length) return '';
+  return list.map(function (x) {
+    var t = (typeof x === 'string') ? x : x.team;
+    var r = (typeof x === 'string') ? '' : x.role;
+    return t + (r ? ' · ' + r : '');
+  }).join(', ');
+}
+
+
+/* ---------- 초기 로드 ---------- */
+
+var TOKEN = '';
+var IS_MASTER = false;
+var ME = '';            // 포털로 들어온 본인 이름
+var DELEGATE = {};      // 대리 작성자로 맡은 셀 → 까지(yyyy-MM-dd)
+
+el('cellSelect').onchange = onContextChange;
+el('meetingDate').onchange = onContextChange;
+
+/* 저장된 비밀번호가 있으면 로그인 한 번으로 끝냅니다 (초기 조회 호출을 건너뜀) */
+(function boot() {
+  // 포털에서 넘어왔으면 본인 확인이 끝났으니 비밀번호를 묻지 않습니다
+  if (PREFILL.t) { tryLogin(PREFILL.t, true); return; }
+  var saved = '';
+  try { saved = sessionStorage.getItem('ynCellToken') || ''; } catch (e) {}
+  if (!saved && window.YN_KEPT) saved = YN_KEPT();     // 포털 구글 로그인이 남아 있으면 그대로
+  if (saved) { tryLogin(saved, true); return; }
+  loadInit();
+})();
+
+function loadInit() {
+  google.script.run.withSuccessHandler(function (init) {
+    buildSundays(init.defaultDate, init.startDate, PREFILL.date || init.defaultDate);
+    if (init.locked) {
+      el('lock').style.display = 'block';
+      el('cellPw').focus();
+      el('cellPw').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') doCellLogin(); });
+    } else {
+      cells = init.cells;
+      startForm();
+    }
+  }).withFailureHandler(function () {
+    el('lock').style.display = 'block';
+    document.getElementById('pwMsg').textContent = '불러오지 못했습니다. 새로고침해주세요.';
+  }).getLeaderInit();
+}
+
+function toDate(ymd) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '').trim());
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
+function fmtYmd(d) {
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) +
+         '-' + ('0' + d.getDate()).slice(-2);
+}
+
+/* 셀모임 시작 주일부터 가장 가까운 주일까지, 주일만 목록에 표시 */
+function buildSundays(latest, start, selected) {
+  var d = toDate(latest);
+  if (!d) { el('meetingDate').innerHTML = '<option value="">날짜를 불러오지 못했습니다</option>'; return; }
+
+  var floor = toDate(start) || new Date(d.getTime());
+  if (floor > d) floor = new Date(d.getTime());
+
+  // 오늘이 그 주일 당일이면 '이번 주일', 이미 지났으면 '지난 주일'
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var topLabel = (fmtYmd(today) === fmtYmd(d)) ? ' · 이번 주일' : ' · 지난 주일';
+
+  var opts = [], first = true;
+
+  while (d >= floor && opts.length < 60) {
+    var ymd = fmtYmd(d);
+    var label = (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (주일)' + (first ? topLabel : '');
+    opts.push('<option value="' + ymd + '"' + (ymd === selected ? ' selected' : '') + '>' + label + '</option>');
+    first = false;
+    d.setDate(d.getDate() - 7);
+  }
+
+  if (!opts.length) {
+    opts.push('<option value="' + fmtYmd(floor) + '">' +
+      (floor.getMonth() + 1) + '월 ' + floor.getDate() + '일 (주일)</option>');
+  }
+  el('meetingDate').innerHTML = opts.join('');
+}
+
+function toggleDirectory() {
+  var f = el('dirPanel'), open = f.style.display === 'block';
+  if (!open) {
+    if (el('mailForm').style.display === 'block') toggleMailForm();
+    if (el('pwForm').style.display === 'block') togglePwForm();
+    loadDirectory();
+  }
+  f.style.display = open ? 'none' : 'block';
+  el('dirToggle').textContent = open ? '셀원 정보 보기' : '닫기';
+  el('dirToggle').className = open ? 'dirbtn' : 'dirbtn on';
+}
+
+var GENDERS = ['남', '여'];
+var BAPTISM = ['성인세례', '유아세례 + 성인입교', '카톨릭 세례', '카톨릭 세례 + 입교', '없음'];
+var DISCIPLESHIP = ['수료', '진행중', '미이수'];
+
+function selectHtml(id, options, current) {
+  return '<select id="' + id + '">' +
+    [''].concat(options).map(function (v) {
+      return '<option value="' + esc(v) + '"' + (current === v ? ' selected' : '') + '>' +
+        (v ? esc(v) : '선택 안 함') + '</option>';
+    }).join('') + '</select>';
+}
+
+function attendBadge(m) {
+  if (m.rate === null || m.rate === undefined) return '';
+  var color = m.rate >= 80 ? 'var(--good)' : m.rate >= 60 ? 'var(--absent)' : 'var(--danger)';
+  var bg = m.rate >= 80 ? 'var(--good-bg)' : m.rate >= 60 ? 'var(--absent-bg)' : '#FBE9E6';
+  return '<span class="ratebadge" style="background:' + bg + ';color:' + color + ';">' +
+    m.rate + '% · ' + m.present + '/' + m.totalMeetings + '</span>';
+}
+
+var directoryData = [];
+
+function loadDirectory() {
+  var cell = currentCell();
+  if (!cell) return;
+  el('dirList').innerHTML = '<p class="hint">불러오는 중…</p>';
+
+  google.script.run
+    .withSuccessHandler(function (list) {
+      directoryData = list;
+      mergePhotos(list);
+      renderDirectory();
+    })
+    .withFailureHandler(function (e) {
+      el('dirList').innerHTML = '<p class="hint">' + (e.message || '불러오지 못했습니다.') + '</p>';
+    })
+    .getMyDirectory(TOKEN, cell.name);
+}
+
+function renderDirectory() {
+  if (!directoryData.length) { el('dirList').innerHTML = '<p class="hint">등록된 셀원이 없습니다.</p>'; return; }
+
+  el('dirList').innerHTML = directoryData.map(function (m, i) {
+    var fields = [
+      ['전화번호', m.phone], ['카카오톡', m.kakao], ['이메일', m.email],
+      ['생년월일', m.birthdayDisplay], ['성별', m.gender], ['세례여부', m.baptized],
+      ['제자훈련', m.discipleship],
+      ['사역팀', belongText(m.teams)], ['선교팀', belongText(m.missions)]
+    ];
+    var grid = fields.map(function (f) {
+      return '<div class="field"><div class="fk">' + f[0] + '</div>' +
+        '<div class="fv">' + (f[1] ? esc(f[1]) : '&mdash;') + '</div></div>';
+    }).join('');
+
+    return '<div class="dcard">' +
+      '<div class="dhead"><span class="dwho">' + pav(m.name, 'lg') + '<span class="dname">' + esc(m.name) + '</span></span>' +
+      attendBadge(m) +
+      '<button type="button" class="pwlink" style="margin-left:auto;" onclick="toggleEdit(' + i + ')">수정</button></div>' +
+      (m.notFound ? '<p class="empty-info">교적 시트에 등록된 정보가 없습니다.</p>' : '') +
+      '<div class="photorow">' +
+        '<label class="pwlink">' + (m.photo ? '사진 바꾸기' : '사진 올리기') +
+          '<input type="file" accept="image/*" style="display:none;" onchange="uploadMemberPhoto(' + i + ', this)"></label>' +
+        (m.photo ? '<button type="button" class="pwlink" onclick="removeMemberPhoto(' + i + ')">사진 삭제</button>' : '') +
+        '<span class="msg" id="phMsg' + i + '"></span>' +
+      '</div>' +
+      '<div class="grid">' + grid + '</div>' +
+      '<div class="editbox" id="edit' + i + '" style="display:none;">' +
+        '<div class="efield"><label>전화번호</label><input type="text" id="ep' + i + '" value="' + esc(m.phone) + '"></div>' +
+        '<div class="efield"><label>카카오톡</label><input type="text" id="ek' + i + '" value="' + esc(m.kakao) + '"></div>' +
+        '<div class="efield"><label>이메일</label><input type="email" id="ee' + i + '" value="' + esc(m.email) + '"></div>' +
+        '<div class="efield"><label>생년월일</label><input type="date" id="eb' + i + '" value="' + esc(m.birthday) + '"></div>' +
+        '<div class="efield"><label>성별</label>' + selectHtml('eg' + i, GENDERS, m.gender) + '</div>' +
+        '<div class="efield"><label>세례여부</label>' + selectHtml('ez' + i, BAPTISM, m.baptized) + '</div>' +
+        '<div class="efield"><label>제자훈련</label>' + selectHtml('ed' + i, DISCIPLESHIP, m.discipleship) + '</div>' +
+        '<div style="display:flex;gap:6px;margin-top:8px;">' +
+          '<button type="button" class="btn" style="flex:1;" onclick="toggleEdit(' + i + ')">취소</button>' +
+          '<button type="button" class="btn orange" style="flex:1;" onclick="doSaveMemberInfo(' + i + ')">저장</button>' +
+        '</div>' +
+        '<p class="msg" id="editMsg' + i + '" style="min-height:16px;font-size:12px;"></p>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/* ---------- 셀원 사진 ---------- */
+
+function afterPhoto(i, updated) {
+  directoryData[i] = updated;
+  mergePhotos([updated]);
+  renderDirectory();
+  renderMembers();
+}
+
+function uploadMemberPhoto(i, input) {
+  var cell = currentCell(), m = directoryData[i], file = input.files && input.files[0];
+  if (!cell || !m || !file) return;
+  var msg = el('phMsg' + i);
+  msg.className = 'msg'; msg.textContent = '사진 준비 중…';
+  cropImage(file, function (dataUrl) {
+    input.value = '';
+    if (dataUrl === false) { msg.textContent = ''; return; }
+    if (!dataUrl) { msg.className = 'msg err'; msg.textContent = '사진을 읽지 못했습니다.'; return; }
+    msg.textContent = '올리는 중…';
+    google.script.run
+      .withSuccessHandler(function (u) { afterPhoto(i, u); })
+      .withFailureHandler(function (e) { msg.className = 'msg err'; msg.textContent = e.message || '업로드 실패'; })
+      .uploadCellMemberPhoto(TOKEN, cell.name, m.name, dataUrl);
+  });
+}
+
+function removeMemberPhoto(i) {
+  var cell = currentCell(), m = directoryData[i];
+  if (!cell || !m || !confirm(m.name + '님 사진을 삭제할까요?')) return;
+  google.script.run
+    .withSuccessHandler(function (u) { afterPhoto(i, u); })
+    .withFailureHandler(function (e) { alert(e.message || '삭제 실패'); })
+    .deleteCellMemberPhoto(TOKEN, cell.name, m.name);
+}
+
+function toggleEdit(i) {
+  var box = el('edit' + i);
+  box.style.display = box.style.display === 'block' ? 'none' : 'block';
+}
+
+function doSaveMemberInfo(i) {
+  var cell = currentCell(), m = directoryData[i];
+  if (!cell || !m) return;
+  var msg = el('editMsg' + i);
+  msg.className = 'msg'; msg.textContent = '저장하는 중…';
+
+  var info = {
+    phone: el('ep' + i).value.trim(),
+    kakao: el('ek' + i).value.trim(),
+    email: el('ee' + i).value.trim(),
+    birthday: el('eb' + i).value.trim(),
+    gender: el('eg' + i).value,
+    baptized: el('ez' + i).value,
+    discipleship: el('ed' + i).value
+  };
+
+  google.script.run
+    .withSuccessHandler(function (updated) {
+      directoryData[i] = updated;
+      renderDirectory();
+    })
+    .withFailureHandler(function (e) {
+      msg.className = 'msg err';
+      msg.textContent = e.message || '저장에 실패했습니다.';
+    })
+    .saveMemberInfo(TOKEN, cell.name, m.name, info);
+}
+
+function toggleMailForm() {
+  var f = el('mailForm'), open = f.style.display === 'block';
+  if (!open) {
+    if (el('pwForm').style.display === 'block') togglePwForm();
+    if (el('dirPanel').style.display === 'block') toggleDirectory();
+  }
+  f.style.display = open ? 'none' : 'block';
+  el('mailToggle').textContent = open ? '이메일' : '닫기';
+  el('mailMsg').textContent = '';
+  if (!open) {
+    var cell = currentCell();
+    el('cellEmail').value = cell ? (cell.email || '') : '';
+    el('cellEmail').focus();
+  }
+}
+
+function clearMailMsg() { el('mailMsg').textContent = ''; }
+
+function doChangeEmail() {
+  var cell = currentCell(), msg = el('mailMsg');
+  if (!cell) { msg.className = 'msg err'; msg.textContent = '셀 정보를 찾을 수 없습니다.'; return; }
+
+  var email = el('cellEmail').value.trim();
+  msg.className = 'msg';
+  msg.textContent = '저장하는 중…';
+
+  google.script.run
+    .withSuccessHandler(function (res) {
+      cells.forEach(function (c) { if (c.name === cell.name) c.email = res.email; });
+      msg.className = 'msg ok';
+      msg.textContent = res.email ? '저장됐습니다.' : '이메일을 비웠습니다. 알림이 발송되지 않습니다.';
+      setTimeout(function () {
+        if (el('mailForm').style.display === 'block') toggleMailForm();
+      }, 1500);
+    })
+    .withFailureHandler(function (e) {
+      msg.className = 'msg err';
+      msg.textContent = e.message || '저장에 실패했습니다.';
+    })
+    .changeCellEmail(TOKEN, cell.name, email);
+}
+
+function togglePwForm() {
+  var f = el('pwForm'), open = f.style.display === 'block';
+  if (!open) {
+    if (el('mailForm').style.display === 'block') toggleMailForm();
+    if (el('dirPanel').style.display === 'block') toggleDirectory();
+  }
+  f.style.display = open ? 'none' : 'block';
+  el('pwToggle').textContent = open ? '비밀번호 변경' : '닫기';
+  el('pwFormMsg').textContent = '';
+  el('newPw').value = '';
+  el('newPw2').value = '';
+  if (!open) el('newPw').focus();
+}
+
+function onlyDigits2(box) {
+  var v = box.value.replace(/\D/g, '');
+  if (v !== box.value) box.value = v;
+  el('pwFormMsg').textContent = '';
+}
+
+function doChangePw() {
+  var a = el('newPw').value.trim(), b = el('newPw2').value.trim();
+  var msg = el('pwFormMsg');
+  msg.className = 'msg err';
+
+  if (a.length < 4) { msg.textContent = '숫자 4자리 이상으로 정해주세요.'; return; }
+  if (a !== b) { msg.textContent = '두 번 입력한 비밀번호가 다릅니다.'; return; }
+
+  var cell = currentCell();
+  if (!cell) { msg.textContent = '셀 정보를 찾을 수 없습니다.'; return; }
+
+  msg.className = 'msg';
+  msg.textContent = '변경하는 중…';
+
+  google.script.run
+    .withSuccessHandler(function (res) {
+      TOKEN = res.token;
+      try { sessionStorage.setItem('ynCellToken', res.token); } catch (e) {}
+      msg.className = 'msg ok';
+      msg.textContent = '비밀번호가 변경됐습니다.';
+      setTimeout(function () {
+        if (el('pwForm').style.display === 'block') togglePwForm();
+      }, 1400);
+    })
+    .withFailureHandler(function (e) {
+      msg.className = 'msg err';
+      msg.textContent = e.message || '변경에 실패했습니다.';
+    })
+    .changeCellPassword(TOKEN, cell.name, a);
+}
+
+function onlyDigits(box) {
+  var v = box.value.replace(/\D/g, '');
+  if (v !== box.value) box.value = v;
+  el('pwMsg').textContent = '';
+}
+
+function doCellLogin() { tryLogin(el('cellPw').value.trim(), false); }
+
+function tryLogin(pw, silent) {
+  if (!pw) { el('pwMsg').textContent = '비밀번호를 입력해주세요.'; return; }
+  if (!silent) el('pwMsg').textContent = '확인 중…';
+  google.script.run
+    .withSuccessHandler(function (res) {
+      TOKEN = res.token;
+      IS_MASTER = !!res.master;
+      ME = res.me || '';
+      DELEGATE = res.delegate || {};
+      cells = res.cells || (res.cell ? [res.cell] : []);
+      try { sessionStorage.setItem('ynCellToken', res.token); } catch (e) {}
+      if (res.defaultDate) {
+        buildSundays(res.defaultDate, res.startDate, PREFILL.date || res.defaultDate);
+      }
+      YN_PHOTOS = res.photos || {};
+      el('lock').style.display = 'none';
+      startForm();
+    })
+    .withFailureHandler(function (e) {
+      try { sessionStorage.removeItem('ynCellToken'); } catch (e2) {}
+      if (silent) { loadInit(); return; }
+      el('lock').style.display = 'block';
+      el('pwMsg').textContent = e.message || '로그인에 실패했습니다.';
+      el('cellPw').select();
+    })
+    .leaderLogin(pw);
+}
+
+function startForm() {
+  el('app').style.display = 'block';
+
+  var single = cells.length === 1;
+  el('cellFixed').style.display = single ? 'block' : 'none';
+  el('cellSelect').style.display = single ? 'none' : 'block';
+  el('pwToggle').style.display = (TOKEN && !IS_MASTER) ? 'block' : 'none';
+  el('mailToggle').style.display = (TOKEN && single) ? 'block' : 'none';
+  el('dirToggle').style.display = TOKEN ? 'inline-flex' : 'none';
+
+  if (IS_MASTER) el('masterTag').style.display = 'inline-block';
+
+  if (TOKEN && single && !cells[0].email) {
+    el('mailToggle').textContent = '이메일 등록';
+    el('mailToggle').style.color = 'var(--orange)';
+  }
+
+  fillCellSelect(single ? cells[0].name : (PREFILL.cell || ''));
+  el('cellFixed').textContent = single ? cells[0].name : '';
+  showRoomLine();
+  onContextChange();
+}
+
+/* ---------- 대리 작성자 ---------- */
+
+function isDg(cell) { return !!(cell && DELEGATE[cell.name]); }
+function md(ymd) { var p = String(ymd || '').split('-'); return p.length === 3 ? Number(p[1]) + '/' + Number(p[2]) : ymd; }
+
+/** 고른 셀이 '대리로 맡은 셀' 인지에 따라 화면을 바꿉니다 */
+function applyCellMode() {
+  var cell = currentCell(), dg = isDg(cell), single = cells.length === 1;
+  document.body.classList.toggle('dgmode', dg);
+
+  var b = el('dgBanner');
+  if (dg) {
+    var mine = (cell.delegates || []).filter(function (d) { return d.name === ME; })[0] || {};
+    b.innerHTML = '<p class="k">대리 작성</p><p class="t">' + esc(cell.name) + ' 보고서를 부탁받으셨어요</p>' +
+      '<p class="d">' + esc(mine.by || cell.leader || '셀장') + '님이 <b style="color:#fff;">' + esc(md(DELEGATE[cell.name])) +
+      '</b>까지 맡기셨습니다. 작성자에는 ' + esc(ME) + '님 이름이 (대리)로 남습니다.</p>';
+    b.style.display = 'block';
+  } else b.style.display = 'none';
+
+  if (dg) {
+    if (el('dirPanel').style.display === 'block') toggleDirectory();
+    if (el('mailForm').style.display === 'block') toggleMailForm();
+    if (el('pwForm').style.display === 'block') togglePwForm();
+    if (el('dgForm').style.display === 'block') toggleDgForm();
+  }
+  el('pwToggle').style.display = (TOKEN && !IS_MASTER && !dg) ? 'block' : 'none';
+  el('mailToggle').style.display = (TOKEN && single && !dg) ? 'block' : 'none';
+  el('dirToggle').style.display = (TOKEN && !dg) ? 'inline-flex' : 'none';
+  el('dgToggle').style.display = (TOKEN && cell && !dg) ? 'block' : 'none';
+  renderDgLine();
+  if (el('dgForm').style.display === 'block') renderDgForm();
+}
+
+/** 셀장 화면 — 지금 지정된 대리 작성자 한 줄 */
+function renderDgLine() {
+  var cell = currentCell(), line = el('dgLine');
+  var list = (cell && !isDg(cell)) ? (cell.delegates || []) : [];
+  if (!list.length || el('dgForm').style.display === 'block') { line.style.display = 'none'; return; }
+  line.innerHTML = '<span class="dgk">대리 작성자</span>' + list.map(function (d) {
+    return '<span><b>' + esc(d.name) + '</b> · ' + esc(md(d.until)) + '까지</span>';
+  }).join('<span style="color:var(--ink-4);">|</span>');
+  line.style.display = 'flex';
+}
+
+/** 다가오는 모임 주일 (오늘이 주일이면 오늘) */
+function nextSunday() {
+  var d = new Date(); d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+  return fmtYmd(d);
+}
+
+function toggleDgForm() {
+  var f = el('dgForm'), open = f.style.display === 'block';
+  if (!open) {
+    if (el('mailForm').style.display === 'block') toggleMailForm();
+    if (el('pwForm').style.display === 'block') togglePwForm();
+    if (el('dirPanel').style.display === 'block') toggleDirectory();
+  }
+  f.style.display = open ? 'none' : 'block';
+  el('dgToggle').textContent = open ? '대리 작성자' : '닫기';
+  el('dgMsg').textContent = '';
+  if (!open) {
+    el('dgName').value = '';
+    var sel = el('meetingDate').value, today = fmtYmd(new Date());
+    el('dgUntil').value = (sel && sel >= today) ? sel : nextSunday();
+    el('dgUntil').min = today;
+    var mx = new Date(); mx.setDate(mx.getDate() + 60); el('dgUntil').max = fmtYmd(mx);
+    renderDgForm();
+  }
+  renderDgLine();
+}
+
+function renderDgForm() {
+  var cell = currentCell();
+  if (!cell) return;
+  var list = cell.delegates || [];
+  el('dgList').innerHTML = list.length ? list.map(function (d, i) {
+    return '<div class="dgrow">' +
+      '<span class="n">' + esc(d.name) + '</span><span class="u">' + esc(md(d.until)) + '까지</span>' +
+      '<button type="button" class="btn mini danger" onclick="doRemoveDelegate(' + i + ')">해제</button></div>';
+  }).join('') : '';
+  var others = cell.members.filter(function (n) { return n !== cell.leader; });
+  el('dgPick').innerHTML = others.length ? others.map(function (n, i) {
+    return '<button type="button" data-n="' + esc(n) + '" onclick="dgChoose(' + i + ')">' + esc(n) + '</button>';
+  }).join('') : '<span class="hint">셀원 명단이 비어 있어요. 이름을 직접 적어주세요.</span>';
+  el('dgNames').innerHTML = others.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+  dgPickSync();
+}
+
+function dgChoose(i) {
+  var cell = currentCell();
+  var others = cell.members.filter(function (n) { return n !== cell.leader; });
+  el('dgName').value = others[i] || '';
+  dgPickSync();
+}
+
+function dgPickSync() {
+  var v = el('dgName').value.trim();
+  Array.prototype.forEach.call(el('dgPick').querySelectorAll('button'), function (b) {
+    b.className = b.getAttribute('data-n') === v ? 'on' : '';
+  });
+  el('dgMsg').textContent = '';
+}
+
+/** 서버가 돌려준 전체 셀 목록에서 대리 목록만 갈아 끼웁니다 */
+function applyDelegates(all) {
+  (all || []).forEach(function (c) {
+    cells.forEach(function (x) { if (x.name === c.name) x.delegates = c.delegates || []; });
+  });
+  renderDgForm();
+  renderDgLine();
+}
+
+function doSetDelegate() {
+  var cell = currentCell(), name = el('dgName').value.trim(), until = el('dgUntil').value, msg = el('dgMsg');
+  msg.className = 'msg err';
+  if (!cell) { msg.textContent = '셀을 먼저 골라주세요.'; return; }
+  if (!name) { msg.textContent = '누구에게 부탁할지 골라주세요.'; return; }
+  if (!until) { msg.textContent = '언제까지인지 날짜를 골라주세요.'; return; }
+  msg.className = 'msg'; msg.textContent = '지정하는 중…';
+  el('dgSave').disabled = true;
+  google.script.run
+    .withSuccessHandler(function (all) {
+      el('dgSave').disabled = false;
+      el('dgName').value = '';
+      applyDelegates(all);
+      msg.className = 'msg ok';
+      msg.textContent = name + '님이 ' + md(until) + '까지 이 셀 보고서를 쓸 수 있습니다. 포털에서 본인 구글 로그인으로 들어오시면 됩니다.';
+    })
+    .withFailureHandler(function (e) {
+      el('dgSave').disabled = false;
+      msg.className = 'msg err'; msg.textContent = e.message || '지정하지 못했습니다.';
+    })
+    .setCellDelegate(TOKEN, cell.name, name, until);
+}
+
+function doRemoveDelegate(i) {
+  var cell = currentCell();
+  var name = cell && cell.delegates && cell.delegates[i] ? cell.delegates[i].name : '';
+  if (!name) return;
+  if (!cell || !confirm(name + '님의 대리 작성 권한을 지금 해제할까요?')) return;
+  var msg = el('dgMsg');
+  msg.className = 'msg'; msg.textContent = '해제하는 중…';
+  google.script.run
+    .withSuccessHandler(function (all) { applyDelegates(all); msg.className = 'msg ok'; msg.textContent = name + '님의 대리 권한을 해제했습니다.'; })
+    .withFailureHandler(function (e) { msg.className = 'msg err'; msg.textContent = e.message || '해제하지 못했습니다.'; })
+    .removeCellDelegate(TOKEN, cell.name, name);
+}
+
+function showRoomLine() {
+  var cell = currentCell();
+  var box = el('roomBox');
+  if (cell && cell.room) {
+    el('roomValue').textContent = cell.room;
+    box.style.display = 'flex';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+function fillCellSelect(keep) {
+  el('cellSelect').innerHTML = '<option value="">선택해주세요</option>' +
+    cells.map(function (c, i) {
+      return '<option value="' + i + '"' + (c.name === keep ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+    }).join('');
+}
+
+/* 셀 또는 날짜가 바뀌면 기존 보고서가 있는지 확인 */
+function onContextChange() {
+  var cell = currentCell(), date = el('meetingDate').value;
+  resetForm();
+  applyCellMode();
+  syncSubmitter();
+  showRoomLine();
+  if (IS_MASTER && el('dirPanel').style.display === 'block') loadDirectory();
+  if (IS_MASTER && el('mailForm').style.display === 'block') toggleMailForm();
+  if (!cell || !date) { renderMembers(); return; }
+  renderMembers();
+  google.script.run.withSuccessHandler(function (rep) {
+    if (rep) loadExisting(rep); else clearBanner();
+  }).getExistingReport(TOKEN, cell.name, date);
+}
+
+/* 작성자 기본값 = 셀장 이름 (사용자가 직접 고친 값은 건드리지 않음) */
+var submitterTouched = false;
+function syncSubmitter() {
+  var box = el('submitter'), cell = currentCell();
+  box.oninput = function () { submitterTouched = true; };
+  var dg = isDg(cell);
+  box.readOnly = dg;
+  el('submitterHint').textContent = dg
+    ? '대리 작성자 이름이 그대로 남습니다.'
+    : '기본값은 셀장 이름입니다. 다른 분이 대신 작성한다면 이름을 바꿔주세요.';
+  if (dg) { box.value = ME + ' (대리)'; return; }
+  if (submitterTouched) return;
+  box.value = cell ? cell.leader : '';
+  box.placeholder = cell ? cell.leader : '작성자 이름';
+}
+
+function resetForm() {
+  att = {};
+  picked = { condition: null, mood: null };
+  editingId = null;
+  el('notes').value = '';
+  submitterTouched = false;
+  renderChoices('condRow', CONDITIONS, 'condition');
+  renderChoices('moodRow', MOODS, 'mood');
+  showMsg('', '');
+}
+
+function clearBanner() { el('editBanner').style.display = 'none'; }
+
+function loadExisting(rep) {
+  editingId = rep.reportId;
+  rep.attendance.forEach(function (a) {
+    att[a.name] = { status: a.status, reason: a.reason, reasonOther: a.reasonOther };
+  });
+  picked.condition = rep.condition;
+  picked.mood = rep.mood;
+  el('notes').value = rep.notes;
+  if (rep.submitter && !isDg(currentCell())) { el('submitter').value = rep.submitter; submitterTouched = true; }
+  renderChoices('condRow', CONDITIONS, 'condition');
+  renderChoices('moodRow', MOODS, 'mood');
+  renderMembers();
+
+  if (PREFILL.action === 'delete') {
+    PREFILL.action = '';
+    setTimeout(doDeleteReport, 300);
+  }
+
+  var b = el('editBanner');
+  b.style.display = 'block';
+  b.innerHTML = '<b>이미 제출된 보고서입니다.</b> 아래 내용을 고치고 다시 제출하면 덮어씁니다.' +
+    (isDg(currentCell()) ? '' : '<div class="acts"><button class="btn danger" onclick="doDeleteReport()">이 보고서 삭제</button></div>');
+  el('submitBtn').textContent = '수정 내용 저장';
+}
+
+/* ---------- 셀원 / 출결 ---------- */
+
+function renderMembers() {
+  var cell = currentCell(), field = el('attendanceField'), list = el('memberList');
+  if (!cell) { field.style.display = 'none'; return; }
+  field.style.display = 'block';
+
+  if (!cell.members.length) {
+    list.innerHTML = '<p class="hint" style="margin:0;">등록된 셀원이 없습니다. 아래에서 추가해주세요.</p>';
+    el('attSummary').textContent = '';
+    return;
+  }
+
+  list.innerHTML = cell.members.map(function (name, i) {
+    var a = att[name] || {};
+    var isOther = needsDetail(a.reason);
+    return '<div class="member' + (a.status ? '' : ' pending') + '">' +
+      '<div class="member-top">' +
+        pav(name) + '<span class="member-name">' + esc(name) + '</span>' +
+        '<div class="toggle">' +
+          '<button type="button" class="' + (a.status === '출석' ? 'on-present' : '') + '" onclick="setAtt(' + i + ',\'출석\')">출석</button>' +
+          '<button type="button" class="' + (a.status === '불참' ? 'on-absent' : '') + '" onclick="setAtt(' + i + ',\'불참\')">불참</button>' +
+        '</div>' +
+        '<button type="button" class="kill" title="명단에서 제거" onclick="doRemoveMember(' + i + ')">×</button>' +
+      '</div>' +
+      '<div class="reason' + (a.status === '불참' ? ' show' : '') + '">' +
+        '<select onchange="setReason(' + i + ', this.value)">' +
+          REASONS.map(function (r) {
+            return '<option value="' + r[0] + '"' + (a.reason === r[0] ? ' selected' : '') + '>' +
+              r[0] + '</option>';
+          }).join('') +
+        '</select>' +
+        '<p class="rdesc">' + esc(reasonDesc(a.reason)) + '</p>' +
+        '<input type="text" class="' + (isOther ? 'show' : '') + '" placeholder="간략한 설명을 적어주세요" ' +
+          'value="' + esc(a.reasonOther || '') + '" oninput="setOther(' + i + ', this.value)">' +
+      '</div></div>';
+  }).join('');
+  updateSummary();
+}
+
+function memberAt(i) { return currentCell().members[i]; }
+
+function setAtt(i, status) {
+  var name = memberAt(i);
+  var prev = att[name] || {};
+  att[name] = { status: status, reason: status === '불참' ? (prev.reason || REASONS[0][0]) : '', reasonOther: prev.reasonOther || '' };
+  renderMembers();
+  showMsg('', '');
+}
+function setReason(i, v) {
+  var name = memberAt(i);
+  att[name].reason = v;
+  if (!needsDetail(v)) att[name].reasonOther = '';
+  renderMembers();
+}
+function setOther(i, v) { att[memberAt(i)].reasonOther = v; }
+
+function updateSummary() {
+  var cell = currentCell();
+  if (!cell) return;
+  var total = cell.members.length;
+  var done = cell.members.filter(function (n) { return att[n] && att[n].status; }).length;
+  var present = cell.members.filter(function (n) {
+    return att[n] && (att[n].status === '출석' || att[n].reason === '선교중');
+  }).length;
+  el('attSummary').textContent = done < total
+    ? (done + ' / ' + total + '명 체크됨 · 전원 체크가 필요합니다')
+    : ('출석 ' + present + '명 · 불참 ' + (total - present) + '명');
+}
+
+function renderChoices(id, items, key) {
+  el(id).innerHTML = items.map(function (it, i) {
+    var on = picked[key] === it[0] ? ' class="picked"' : '';
+    return '<button type="button"' + on + ' onclick="pick(\'' + id + '\',\'' + key + '\',' + i + ')">' +
+      '<span class="emo">' + it[1] + '</span>' +
+      '<span class="t"><b>' + it[0] + '</b><span>' + it[2] + '</span></span></button>';
+  }).join('');
+}
+function pick(id, key, idx) {
+  var items = key === 'condition' ? CONDITIONS : MOODS;
+  picked[key] = items[idx][0];
+  renderChoices(id, items, key);
+  showMsg('', '');
+}
+renderChoices('condRow', CONDITIONS, 'condition');
+renderChoices('moodRow', MOODS, 'mood');
+
+/* ---------- 명단 추가 / 제거 (즉시 반영) ---------- */
+
+function applyCells(updated, keepName) {
+  if (IS_MASTER) {
+    cells = updated;
+  } else {
+    cells = updated.filter(function (c) { return c.name === keepName; });
+    if (!cells.length) cells = updated;
+  }
+  fillCellSelect(keepName);
+  if (cells.length === 1) el('cellFixed').textContent = keepName;
+  renderMembers();
+}
+
+function doAddMember() {
+  var cell = currentCell();
+  if (!cell) return showMsg('셀을 먼저 선택해주세요.', 'err');
+  var input = el('newMember'), name = input.value.trim();
+  if (!name) return showMsg('추가할 이름을 입력해주세요.', 'err');
+
+  google.script.run
+    .withSuccessHandler(function (d) {
+      input.value = '';
+      applyCells(d, cell.name);
+      showMsg(name + '님을 명단에 추가했습니다.', 'ok');
+    })
+    .withFailureHandler(function (e) { showMsg(e.message || '추가에 실패했습니다.', 'err'); })
+    .addMember(TOKEN, cell.name, name);
+}
+
+function doRemoveMember(i) {
+  var cell = currentCell();
+  if (!cell) return;
+  var name = cell.members[i];
+  var reason = prompt(name + '님을 명단에서 제거합니다.\n사유를 적어주세요. (예: 타 셀로 이동, 이사, 교회 이동)');
+  if (reason === null) return;
+  if (!reason.trim()) return showMsg('제거 사유를 적어주세요.', 'err');
+
+  google.script.run
+    .withSuccessHandler(function (d) {
+      delete att[name];
+      applyCells(d, cell.name);
+      showMsg(name + '님을 명단에서 제거했습니다.', 'ok');
+    })
+    .withFailureHandler(function (e) { showMsg(e.message || '제거에 실패했습니다.', 'err'); })
+    .removeMember(TOKEN, cell.name, name, reason.trim());
+}
+
+/* ---------- 제출 / 수정 / 삭제 ---------- */
+
+function collect() {
+  var cell = currentCell();
+  var out = [];
+  for (var i = 0; i < cell.members.length; i++) {
+    var name = cell.members[i], a = att[name];
+    if (!a || !a.status) throw new Error(name + '님의 출결을 체크해주세요.');
+    var row = { name: name, status: a.status };
+    if (a.status === '불참') {
+      row.reason = a.reason || '';
+      if (!row.reason) throw new Error(name + '님의 불참 사유를 선택해주세요.');
+      if (needsDetail(row.reason)) {
+        row.reasonOther = (a.reasonOther || '').trim();
+        if (!row.reasonOther) throw new Error(name + '님의 ' + row.reason + ' 내용을 간략히 적어주세요.');
+      }
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+el('submitBtn').onclick = function () {
+  var date = el('meetingDate').value;
+  if (!date) return showMsg('모임 날짜를 선택해주세요.', 'err');
+  var cell = currentCell();
+  if (!cell) return showMsg('셀을 먼저 선택해주세요.', 'err');
+  if (!cell.members.length) return showMsg('셀원을 먼저 추가해주세요.', 'err');
+
+  var attendance;
+  try { attendance = collect(); } catch (e) { return showMsg(e.message, 'err'); }
+  if (!picked.condition) return showMsg('본인의 컨디션을 선택해주세요.', 'err');
+  if (!picked.mood) return showMsg('셀모임 분위기를 선택해주세요.', 'err');
+  var submitter = el('submitter').value.trim() || cell.leader;
+  if (!submitter) return showMsg('작성자 이름을 입력해주세요.', 'err');
+
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = '저장하는 중…';
+  showMsg('', '');
+
+  google.script.run
+    .withSuccessHandler(function (res) { showDone(cell.name, date, res.reportId, !!editingId); })
+    .withFailureHandler(function (e) {
+      btn.disabled = false;
+      btn.textContent = editingId ? '수정 내용 저장' : '보고서 제출';
+      showMsg(e.message || '제출에 실패했습니다.', 'err');
+    })
+    .submitReport(TOKEN, {
+      reportId: editingId, meetingDate: date, cell: cell.name, submitter: submitter,
+      attendance: attendance, condition: picked.condition, mood: picked.mood,
+      notes: el('notes').value.trim()
+    });
+};
+
+function showDone(cellName, date, id, wasEdit) {
+  editingId = id;
+  el('app').innerHTML =
+    '<div class="panel"><div class="done"><div class="mark">🕊️</div>' +
+    '<h2>보고서가 ' + (wasEdit ? '수정' : '제출') + '됐습니다</h2>' +
+    '<p>' + esc(cellName) + ' · ' + esc(date) + '<br>수고하셨습니다.</p>' +
+    '<div class="acts">' +
+      '<button class="btn" onclick="location.reload()">다시 열어 수정</button>' +
+      (document.body.classList.contains('dgmode') ? '' : '<button class="btn danger" onclick="doDeleteReport()">이 보고서 삭제</button>') +
+    '</div></div></div>';
+}
+
+function doDeleteReport() {
+  if (!editingId) return;
+  if (!confirm('이 보고서를 삭제합니다. 출결 기록도 함께 지워집니다.\n계속할까요?')) return;
+  google.script.run
+    .withSuccessHandler(function () {
+      el('app').innerHTML = '<div class="panel"><div class="done"><div class="mark">🗑️</div>' +
+        '<h2>보고서를 삭제했습니다</h2><p>새로 작성하려면 아래를 눌러주세요.</p>' +
+        '<div class="acts"><button class="btn accent" onclick="location.reload()">새 보고서 작성</button></div></div></div>';
+    })
+    .withFailureHandler(function (e) { alert(e.message || '삭제에 실패했습니다.'); })
+    .deleteReport(TOKEN, editingId);
+}
+</script>
+</body>
+</html>

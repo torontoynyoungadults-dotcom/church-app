@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* 선교팀 관리 — 구조만 정의합니다. 색·여백·버튼은 Theme 이 맡습니다 */
+  :root { --accent: #2E7D6B; --tone-rgb: 46,125,107; }
+  * { box-sizing: border-box; }
+
+  /* 팀 선택 */
+  .tabs {
+    display: flex; gap: 6px; padding: 0 12px 14px; overflow-x: auto; scrollbar-width: none;
+    background: none !important; border: none !important; margin: 0 !important;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button {
+    flex: 0 0 auto; padding: 9px 16px !important; font-size: 12.5px !important;
+    background: var(--night-2) !important; border: 1px solid var(--hair-night) !important;
+    border-radius: 99px !important; color: var(--night-sub) !important; box-shadow: none !important;
+  }
+  .tabs button.on { background: var(--tone) !important; border-color: var(--tone) !important; color: #fff !important; }
+
+  /* 팀 머리말 */
+  .hero {
+    background:
+      radial-gradient(120% 90% at 0% 0%, rgba(var(--tone-rgb), .22) 0%, rgba(var(--tone-rgb), 0) 60%),
+      linear-gradient(160deg, #1A1A19 0%, #131312 100%) !important;
+  }
+  .hero .country { font-size: 10.5px; color: var(--night-sub); font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+  .hero h2 { font-size: 23px; font-weight: 800; margin: 8px 0 0; color: #F6F4F0; letter-spacing: -0.035em; }
+  .hero .when { font-size: 12.5px; color: var(--night-sub); margin-top: 7px; }
+  .hero .dday {
+    display: inline-block; margin-top: 12px; font-size: 11.5px; font-weight: 800;
+    padding: 5px 14px; border-radius: 99px;
+    background: rgba(var(--tone-rgb), .18); color: #6FD3BB; border: 1px solid rgba(var(--tone-rgb), .34);
+  }
+  .hero .dday.done { background: var(--night-3); color: var(--night-sub); border-color: #2E2D2B; }
+  .prog { margin-top: 16px; }
+  .progbar { height: 6px; background: var(--night-3); border-radius: 99px; overflow: hidden; }
+  .progbar i { display: block; height: 100%; background: var(--tone); border-radius: 99px; }
+  .progtxt { font-size: 11.5px; color: var(--night-sub); margin-top: 8px; display: flex; justify-content: space-between; }
+  .warnrow {
+    margin-top: 13px; background: rgba(168,47,22,.14); border: 1px solid rgba(168,47,22,.3);
+    border-radius: var(--r-sm); padding: 10px 13px; font-size: 12.5px; color: #F0A28B; line-height: 1.7;
+  }
+
+  /* 체크리스트 */
+  .ck { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-top: 1px solid var(--hair); cursor: pointer; }
+  .ck:first-of-type { border-top: none; }
+  .ck input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .ck .box {
+    width: 24px; height: 24px; flex: none; border-radius: 8px;
+    border: 2px solid #C7C1B7; background: #fff; position: relative;
+    transition: background .15s, border-color .15s;
+  }
+  .ck .box:after {
+    content: ""; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px;
+    border: solid #fff; border-width: 0 2.6px 2.6px 0; transform: rotate(45deg) scale(.4);
+    opacity: 0; transition: opacity .15s, transform .15s;
+  }
+  .ck.on .box { background: var(--tone); border-color: var(--tone); }
+  .ck.on .box:after { opacity: 1; transform: rotate(45deg) scale(1); }
+  .ck .lbl {
+    flex: 1; font-size: 14px !important; font-weight: 750; color: var(--ink-1) !important;
+    letter-spacing: 0 !important; text-transform: none !important; margin: 0 !important;
+  }
+  .ck .by {
+    font-size: 10px; font-weight: 800; color: var(--ink-3); background: var(--sunken);
+    border-radius: 6px; padding: 3px 9px; white-space: nowrap;
+    letter-spacing: .05em; text-transform: uppercase;
+  }
+
+  /* 제출 자료 */
+  .ckitem { border-top: 1px solid var(--hair); }
+  .ckitem:first-of-type { border-top: none; }
+  .ckitem .ck { border-top: none; }
+  .ck .fc { font-size: 11.5px; font-weight: 800; color: #fff; background: var(--tone); border-radius: 99px; padding: 1px 8px; }
+  .xfiles { margin: -2px 0 12px 36px; padding: 11px 12px; background: #fff; border: 1px solid var(--hair-2); border-radius: var(--r-md); }
+  .xf { display: flex; align-items: center; gap: 6px; padding: 5px 0; }
+  .xf a { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink-1); font-size: 14px; font-weight: 700; }
+  .xf .ic {
+    flex: none; min-width: 36px; height: 24px; border-radius: 6px; background: var(--tone-soft); color: var(--tone);
+    font-size: 9.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 4px;
+  }
+  .xf .ic.lk { background: #E6F2EC; color: #1D7A56; }
+  .xf .fn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xf em { font-style: normal; flex: none; font-size: 11.5px; font-weight: 800; color: #9A5B00; background: #FFF3DA; border-radius: 6px; padding: 1px 7px; }
+  .xf .xx { flex: none; width: 28px; height: 28px; border: none; background: none; color: var(--ink-4); font-size: 20px; cursor: pointer; }
+  .xf .xx:hover { color: var(--bad); }
+  .xnone { font-size: 13px; color: var(--ink-3); margin: 0 0 4px; }
+  .xbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .xlink { margin-top: 10px; display: grid; gap: 7px; }
+
+  /* 팀원 */
+  .mrow {
+    border: none !important; border-top: 1px solid var(--hair) !important; border-radius: 0 !important;
+    background: none !important; box-shadow: none !important; padding: 14px 0;
+  }
+  .mrow:first-child { border-top: none !important; }
+  .mhead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 9px; }
+  .mhead .nm { font-size: 15px; font-weight: 800; }
+  .msub { font-size: 12px; color: var(--ink-3); line-height: 1.72; margin: -3px 0 9px; }
+  .msub b { color: var(--ink-1); font-weight: 750; }
+  .rolepill { background: var(--sunken) !important; color: var(--ink-2) !important; border-radius: 99px !important; }
+  .rolepill.key { background: var(--tone) !important; color: #fff !important; }
+  .docs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .doc {
+    flex: 1 1 auto; min-width: 74px; padding: 9px 4px; border-radius: var(--r-sm); cursor: pointer;
+    background: #fff; border: 1px solid var(--hair-2); text-align: center; box-shadow: var(--sh-1);
+    font-size: 11.5px; font-weight: 750; color: var(--ink-3);
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .doc.on { background: var(--tone-soft); border-color: var(--tone); color: var(--tone); }
+  .doc i { display: block; font-style: normal; font-size: 9.5px; font-weight: 750; margin-top: 3px; opacity: .85; }
+  .doc.miss i { color: var(--bad); }
+  .doc.fit i { color: var(--good); }
+
+  /* 항공 */
+  .fl { display: flex; align-items: flex-start; gap: 11px; padding: 12px 0; border-top: 1px solid var(--hair); }
+  .fl:first-child { border-top: none; }
+  .fl .k {
+    font-size: 10px; font-weight: 800; color: #fff; background: var(--ink-1);
+    padding: 4px 10px; border-radius: 99px; white-space: nowrap; margin-top: 2px;
+    letter-spacing: .04em;
+  }
+  .fl .b { flex: 1; min-width: 0; }
+  .fl .at { font-size: 14px; font-weight: 750; }
+  .fl .sub2 { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+</style>
+<?!= include('Theme') ?>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <img src="<?!= include('Logo') ?>" alt="Youngnak">
+    <h1>선교팀 관리</h1>
+    <p class="meta">YNTORONTO &nbsp;·&nbsp; MISSION</p>
+  </header>
+
+  <div id="lock" style="display:none;">
+    <div class="panel">
+      <p class="hint" id="lockMsg" style="margin:0;">불러오는 중…</p>
+    </div>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="tabs" id="teamTabs"></div>
+    <div id="body"></div>
+  </div>
+
+  <input type="file" id="mfile" accept="application/pdf,.pdf,image/*,.xlsx,.xls,.docx,.doc,.csv"
+    style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" onchange="onMissionFile(this)">
+
+  <footer>
+    해외한인장로회 토론토영락교회 &nbsp;|&nbsp; 청년1부 선교팀<br>
+    650 McNicoll Ave. Toronto, ON M2H 2E1
+  </footer>
+</div>
+
+<script>
+var PREFILL = <?!= prefill ?>;
+var TOKEN = PREFILL.key || PREFILL.t || '';
+var D = null, TEAM = null, editing = '';
+
+function el(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+function jsq(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function say(id, t, k) { var m = el(id); if (!m) return; m.className = 'msg' + (k ? ' ' + k : ''); m.textContent = t || ''; }
+function fail(e) { alert(e && e.message ? e.message : '처리에 실패했습니다.'); }
+
+/* ---------- 불러오기 ---------- */
+
+if (!TOKEN) { showLock('포털에서 다시 들어와 주세요.'); } else load();
+
+function showLock(msg) {
+  el('lock').style.display = 'block';
+  el('app').style.display = 'none';
+  el('lockMsg').textContent = msg;
+}
+
+function load(keep) {
+  google.script.run
+    .withSuccessHandler(function (d) {
+      D = d;
+      if (!D.list.length) { showLock('등록된 선교팀이 없습니다. 커미티에 문의해주세요.'); return; }
+      el('lock').style.display = 'none';
+      el('app').style.display = 'block';
+      var name = keep || (TEAM && TEAM.name) || PREFILL.team || D.list[0].name;
+      TEAM = D.list.filter(function (t) { return t.name === name; })[0] || D.list[0];
+      renderTabs(); renderTeam();
+    })
+    .withFailureHandler(function (e) { showLock((e && e.message) ? e.message : '불러오지 못했습니다.'); })
+    .missionLogin(TOKEN);
+}
+
+/** 한 팀만 서버에서 다시 받아 화면을 갱신합니다 (전체를 다시 읽지 않습니다) */
+function applyTeam(t) {
+  TEAM = t;
+  D.list = D.list.map(function (x) { return x.name === t.name ? t : x; });
+  renderTeam();
+}
+
+function renderTabs() {
+  el('teamTabs').style.display = D.list.length > 1 ? 'flex' : 'none';
+  el('teamTabs').innerHTML = D.list.map(function (t) {
+    return '<button type="button" class="' + (TEAM.name === t.name ? 'on' : '') +
+      '" onclick="pickTeam(\'' + esc(jsq(t.name)) + '\')">' + esc(t.name) + '</button>';
+  }).join('');
+}
+
+function pickTeam(n) {
+  TEAM = D.list.filter(function (t) { return t.name === n; })[0];
+  editing = '';
+  renderTabs(); renderTeam();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- 화면 ---------- */
+
+function dday(t) {
+  if (!t.start || !D.today) return '';
+  var a = new Date(D.today), b = new Date(t.start);
+  var n = Math.round((b - a) / 86400000);
+  if (t.end && D.today > t.end) return '<span class="dday done">일정 종료</span>';
+  if (n > 0) return '<span class="dday">출발 D-' + n + '</span>';
+  if (n === 0) return '<span class="dday">오늘 출발</span>';
+  return '<span class="dday">진행 중</span>';
+}
+
+function renderTeam() {
+  var t = TEAM;
+  var done = t.checkDone, total = t.checkTotal;
+  var 서류총 = t.members.length * 4;
+  var 서류한 = t.members.reduce(function (s, m) {
+    return s + (m.waiver ? 1 : 0) + (m.passport ? 1 : 0) + (m.cellOk ? 1 : 0) + (m.baptismOk ? 1 : 0);
+  }, 0);
+  var pct = total ? Math.round((done / total) * 100) : 0;
+
+  var hero =
+    '<div class="hero">' +
+      '<div class="country">' + esc(t.country || '—') + '</div>' +
+      '<h2>' + esc(t.name) + '</h2>' +
+      '<div class="when">' + esc(t.start || '기간 미정') +
+        (t.end ? ' — ' + esc(t.end) : '') + ' &nbsp;·&nbsp; ' + esc(t.status) + '</div>' +
+      dday(t) +
+      '<div class="prog">' +
+        '<div class="progbar"><i style="width:' + pct + '%;"></i></div>' +
+        '<div class="progtxt"><span>제출 현황 ' + done + ' / ' + total + '</span>' +
+          '<span>팀원 ' + t.members.length + '명 · 서류 ' + 서류한 + ' / ' + 서류총 + '</span></div>' +
+      '</div>' +
+      (t.missingRoles.length
+        ? '<div class="warnrow">필수 역할이 비어 있습니다 — <b>' + esc(t.missingRoles.join(' · ')) +
+          '</b><br>아래 팀원 명단에서 역할을 지정해 주세요.</div>' : '') +
+    '</div>';
+
+  var checks =
+    '<div class="panel"><span class="chip">제출 현황</span>' +
+      D.checks.map(function (c) {
+        var on = !!t.checks[c.key];
+        var files = (t.files || {})[c.key] || [];
+        return '<div class="ckitem">' +
+          '<label class="ck' + (on ? ' on' : '') + '">' +
+          '<input type="checkbox"' + (on ? ' checked' : '') +
+            ' onchange="toggleCheck(\'' + c.key + '\', this.checked)">' +
+          '<span class="box"></span><span class="lbl">' + esc(c.label) + '</span>' +
+          (files.length ? '<span class="fc">' + files.length + '</span>' : '') +
+          '<span class="by">' + esc(c.by) + '</span></label>' +
+          ((on || files.length) ? filesBox(c, files) : '') +
+        '</div>';
+      }).join('') +
+      '<div class="f" style="margin:14px 0 0;"><label>진행 상태</label>' +
+        '<select onchange="setStatus(this.value)">' +
+          D.statuses.map(function (s) {
+            return '<option' + (s === t.status ? ' selected' : '') + '>' + esc(s) + '</option>';
+          }).join('') + '</select></div>' +
+      '<p class="msg" id="ckMsg"></p>' +
+    '</div>';
+
+  el('body').innerHTML = hero + checks + membersPanel(t) + flightsPanel(t) + notePanel(t);
+}
+
+/* ---------- 제출 자료 (파일 · 구글시트 링크) ---------- */
+
+var UP = null, LINKING = '';
+
+/** 티케팅은 스케줄표 · 항공권, 나머지는 파일이나 구글시트 링크 */
+function filesBox(c, files) {
+  var list = files.map(function (f) {
+    var link = f.kind === 'link', pdf = /\.pdf$/i.test(f.name);
+    return '<div class="xf"><a href="' + esc(f.url) + '" target="_blank" rel="noopener">' +
+      '<span class="ic' + (link ? ' lk' : '') + '">' + (link ? (/spreadsheets/.test(f.url) ? 'SHEET' : 'LINK') : (pdf ? 'PDF' : 'FILE')) + '</span>' +
+      '<span class="fn">' + esc(f.name) + '</span>' + (f.label ? '<em>' + esc(f.label) + '</em>' : '') + '</a>' +
+      '<button type="button" class="xx" title="지우기" onclick="dropFile(\'' + esc(jsq(f.id)) + '\')">&times;</button></div>';
+  }).join('');
+  var btns = c.key === 'ticket'
+    ? '<button type="button" class="btn mini" onclick="pickFile(\'ticket\',\'스케줄표\')">＋ 스케줄표</button>' +
+      '<button type="button" class="btn mini" onclick="pickFile(\'ticket\',\'항공권\')">＋ 항공권</button>' +
+      '<button type="button" class="btn mini" onclick="LINKING=\'ticket\';renderTeam();">＋ 링크</button>'
+    : '<button type="button" class="btn mini" onclick="pickFile(\'' + c.key + '\',\'\')">＋ 파일 올리기</button>' +
+      '<button type="button" class="btn mini" onclick="LINKING=\'' + c.key + '\';renderTeam();">＋ 구글시트 · 링크</button>';
+  var linkForm = LINKING === c.key
+    ? '<div class="xlink"><input type="url" id="lk_' + c.key + '" placeholder="https://docs.google.com/spreadsheets/..." >' +
+        '<input type="text" id="lkn_' + c.key + '" placeholder="이름 (선택) — 예: 예산안 v2">' +
+        '<div class="addrow"><button class="btn" onclick="LINKING=\'\';renderTeam();">취소</button>' +
+        '<button class="btn accent" style="flex:1;" onclick="addLink(\'' + c.key + '\')">링크 붙이기</button></div></div>'
+    : '';
+  return '<div class="xfiles">' + (list || '<p class="xnone">' + (c.key === 'ticket' ? '스케줄표와 항공권을 올려주세요.' : '파일을 올리거나 구글시트 링크를 붙여주세요.') + '</p>') +
+    '<div class="xbtns">' + btns + '</div>' + linkForm + '<p class="msg" id="xMsg_' + c.key + '" style="min-height:0;margin:6px 0 0;"></p></div>';
+}
+
+function pickFile(key, label) { UP = { key: key, label: label }; el('mfile').click(); }
+
+function onMissionFile(input) {
+  var f = input.files && input.files[0];
+  input.value = '';
+  if (!f || !UP) return;
+  var up = UP;
+  if (f.size > 20 * 1024 * 1024) { say('xMsg_' + up.key, '파일은 20MB까지 올릴 수 있습니다.', 'err'); return; }
+  say('xMsg_' + up.key, f.name + ' 올리는 중…');
+  var rd = new FileReader();
+  rd.onload = function () {
+    google.script.run
+      .withSuccessHandler(function (t) { applyTeam(t); say('xMsg_' + up.key, '올렸습니다.', 'ok'); })
+      .withFailureHandler(function (e) { say('xMsg_' + up.key, e.message || '올리지 못했습니다.', 'err'); })
+      .uploadMissionFile(TOKEN, TEAM.name, up.key, f.name, rd.result, up.label);
+  };
+  rd.onerror = function () { say('xMsg_' + up.key, '파일을 읽지 못했습니다.', 'err'); };
+  rd.readAsDataURL(f);
+}
+
+function addLink(key) {
+  var url = el('lk_' + key).value.trim();
+  if (!url) { say('xMsg_' + key, '링크를 붙여넣어 주세요.', 'err'); return; }
+  say('xMsg_' + key, '저장하는 중…');
+  google.script.run
+    .withSuccessHandler(function (t) { LINKING = ''; applyTeam(t); })
+    .withFailureHandler(function (e) { say('xMsg_' + key, e.message || '저장하지 못했습니다.', 'err'); })
+    .addMissionLink(TOKEN, TEAM.name, key, url, el('lkn_' + key).value.trim(), key === 'ticket' ? '링크' : '');
+}
+
+function dropFile(id) {
+  if (!confirm('이 자료를 지울까요?')) return;
+  google.script.run.withSuccessHandler(applyTeam).withFailureHandler(fail)
+    .removeMissionFile(TOKEN, TEAM.name, id);
+}
+
+/* ---------- 팀원 ---------- */
+
+function membersPanel(t) {
+  var rows = t.members.length ? t.members.map(memberRow).join('')
+    : '<p class="empty">아직 팀원이 없습니다.</p>';
+
+  return '<div class="panel"><span class="chip">팀원 · 서류</span>' +
+    '<p class="hint">각 칸을 눌러 제출 여부를 표시합니다. 작은 글씨와 회색 줄은 교적에서 자동으로 확인한 값입니다.<br>' +
+      '셀 소속이 있으면 참가 조건을 충족합니다.</p>' +
+    rows +
+    '<div class="addrow" style="margin-top:14px;">' +
+      '<input list="dirNames" id="newMember" placeholder="팀원 이름" style="flex:2;">' +
+      '<button class="btn accent" onclick="addMember()">추가</button>' +
+    '</div>' +
+    '<datalist id="dirNames">' +
+      D.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') +
+    '</datalist>' +
+    '<p class="msg" id="mMsg"></p></div>';
+}
+
+function memberRow(m) {
+  var a = m.auto;
+  var open = editing === 'm:' + m.name;
+
+  var doc = function (k, label, on, note, cls) {
+    return '<div class="doc' + (on ? ' on' : '') + (cls ? ' ' + cls : '') +
+      '" onclick="toggleDoc(\'' + esc(jsq(m.name)) + '\',\'' + k + '\')">' +
+      esc(label) + (note ? '<i>' + note + '</i>' : '') + '</div>';
+  };
+
+  var 셀메모 = a.cell
+    ? (a.rate === null ? '소속 ✓' : a.rate + '% ✓')
+    : '셀 없음 ✕';
+  var 세례메모 = a.notFound ? '교적 없음'
+    : (a.baptized ? (a.baptismOk ? '충족 ✓' : '미충족 ✕') : '미등록');
+
+  var 소속줄 = '<div class="msub">' +
+    (a.cell
+      ? '소속 셀 <b>' + esc(a.cell) + '</b>' +
+        (a.rate === null ? '' : ' · 출석률 <b>' + a.rate + '%</b> (' + a.present + '/' + a.meetings + '회)')
+      : '<span style="color:var(--danger);font-weight:700;">소속 셀 없음</span>') +
+    (a.baptized ? ' · 세례 ' + esc(a.baptized) : '') + '</div>';
+
+  return '<div class="mrow">' +
+    '<div class="mhead"><span class="nm">' + esc(m.name) + '</span>' +
+      m.roles.map(function (r) {
+        var key = ['팀장', '회계', '서기'].indexOf(r) !== -1;
+        return '<span class="rolepill' + (key ? ' key' : '') + '">' + esc(r) + '</span>';
+      }).join('') +
+      '<span style="flex:1;"></span>' +
+      '<button class="btn mini" onclick="editMember(\'' + esc(jsq(m.name)) + '\')">' +
+        (open ? '닫기' : '역할') + '</button>' +
+    '</div>' + 소속줄 +
+    '<div class="docs">' +
+      doc('waiver', 'Waiver', m.waiver, '', '') +
+      doc('passport', '여권사본', m.passport, '', '') +
+      doc('cellOk', '셀 소속', m.cellOk, 셀메모, a.cellOk ? 'fit' : 'miss') +
+      doc('baptismOk', '세례 · 입교', m.baptismOk, 세례메모, a.baptismOk ? 'fit' : 'miss') +
+    '</div>' +
+    (open ? memberEdit(m) : '') +
+    '</div>';
+}
+
+function memberEdit(m) {
+  return '<div style="margin-top:11px;background:#fff;border:1px solid var(--line);' +
+      'border-radius:12px;padding:13px;">' +
+    '<div class="f"><label>역할 (복수 선택 가능)</label><div class="docs">' +
+      D.roles.map(function (r) {
+        var on = m.roles.indexOf(r) !== -1;
+        return '<div class="doc' + (on ? ' on' : '') + '" data-r="' + esc(r) + '" ' +
+          'onclick="this.className=this.className.indexOf(\'on\')>=0?\'doc\':\'doc on\'">' + esc(r) + '</div>';
+      }).join('') +
+    '</div></div>' +
+    '<div class="f"><label>그 외 역할 (쉼표로)</label>' +
+      '<input type="text" id="mExtra" value="' + esc(m.roles.filter(function (r) {
+        return D.roles.indexOf(r) === -1;
+      }).join(', ')) + '" placeholder="예: 운전, 회계보조"></div>' +
+    '<div class="f"><label>메모</label><input type="text" id="mMemo" value="' + esc(m.memo) + '"></div>' +
+    '<div class="addrow">' +
+      '<button class="btn danger" onclick="dropMember(\'' + esc(jsq(m.name)) + '\')">팀에서 제외</button>' +
+      '<button class="btn accent" style="flex:1;" onclick="saveRoles(\'' + esc(jsq(m.name)) + '\')">저장</button>' +
+    '</div></div>';
+}
+
+function editMember(n) { editing = (editing === 'm:' + n) ? '' : 'm:' + n; renderTeam(); }
+
+function findMember(n) {
+  for (var i = 0; i < TEAM.members.length; i++) if (TEAM.members[i].name === n) return TEAM.members[i];
+  return null;
+}
+
+function toggleDoc(n, k) {
+  var m = findMember(n);
+  if (!m) return;
+  m[k] = !m[k];
+  renderTeam();
+  push(m);
+}
+
+function saveRoles(n) {
+  var m = findMember(n);
+  if (!m) return;
+  var picked = [];
+  var boxes = el('body').querySelectorAll('.doc[data-r]');
+  for (var i = 0; i < boxes.length; i++) {
+    if (boxes[i].className.indexOf('on') >= 0) picked.push(boxes[i].getAttribute('data-r'));
+  }
+  String(el('mExtra').value || '').split(',').forEach(function (x) {
+    if (x.trim()) picked.push(x.trim());
+  });
+  m.roles = picked;
+  m.memo = el('mMemo').value.trim();
+  editing = '';
+  push(m, '저장했습니다.');
+}
+
+function push(m, okMsg) {
+  say('mMsg', okMsg ? '저장하는 중…' : '');
+  google.script.run
+    .withSuccessHandler(function (t) { applyTeam(t); if (okMsg) say('mMsg', okMsg, 'ok'); })
+    .withFailureHandler(function (e) { say('mMsg', e.message || '저장하지 못했습니다.', 'err'); load(TEAM.name); })
+    .saveMissionMember(TOKEN, TEAM.name, {
+      name: m.name, oldName: m.name, roles: m.roles,
+      waiver: m.waiver, passport: m.passport, cellOk: m.cellOk, baptismOk: m.baptismOk,
+      memo: m.memo
+    });
+}
+
+function addMember() {
+  var n = el('newMember').value.trim();
+  if (!n) { say('mMsg', '이름을 입력해주세요.', 'err'); return; }
+  say('mMsg', '추가하는 중…');
+  google.script.run
+    .withSuccessHandler(function (t) { el('newMember').value = ''; applyTeam(t); say('mMsg', ''); })
+    .withFailureHandler(function (e) { say('mMsg', e.message || '추가하지 못했습니다.', 'err'); })
+    .saveMissionMember(TOKEN, TEAM.name, { name: n, roles: ['팀원'] });
+}
+
+function dropMember(n) {
+  if (!confirm(n + '님을 이 선교팀에서 제외할까요?')) return;
+  editing = '';
+  google.script.run
+    .withSuccessHandler(applyTeam).withFailureHandler(fail)
+    .removeMissionMember(TOKEN, TEAM.name, n);
+}
+
+/* ---------- 항공 일정 ---------- */
+
+function flightsPanel(t) {
+  var rows = t.flights.length
+    ? t.flights.map(function (f) {
+        return '<div class="fl"><span class="k">' + esc(f.kind) + '</span>' +
+          '<div class="b"><div class="at">' + esc(f.at) + '</div>' +
+            (f.flight || f.memo
+              ? '<div class="sub2">' + esc([f.flight, f.memo].filter(function (x) { return x; }).join(' · ')) + '</div>'
+              : '') +
+          '</div>' +
+          '<button class="btn mini danger" onclick="dropFlight(\'' + esc(jsq(f.kind)) + '\',\'' +
+            esc(jsq(f.at)) + '\')">삭제</button></div>';
+      }).join('')
+    : '<p class="empty">등록된 항공 일정이 없습니다.</p>';
+
+  return '<div class="panel"><span class="chip">항공 일정</span>' + rows +
+    '<div style="margin-top:14px;">' +
+      '<div class="two">' +
+        '<div class="f"><label>구분</label><select id="fKind">' +
+          D.kinds.map(function (k) { return '<option>' + esc(k) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="f"><label>일시</label><input type="datetime-local" id="fAt"></div>' +
+      '</div>' +
+      '<div class="two">' +
+        '<div class="f"><label>편명</label><input type="text" id="fNo" placeholder="AC 001"></div>' +
+        '<div class="f"><label>메모</label><input type="text" id="fMemo" placeholder="터미널 · 경유 등"></div>' +
+      '</div>' +
+      '<button class="btn accent full" onclick="addFlight()">일정 추가</button>' +
+      '<p class="msg" id="fMsg"></p>' +
+    '</div></div>';
+}
+
+function addFlight() {
+  var at = el('fAt').value.trim();
+  if (!at) { say('fMsg', '일시를 선택해주세요.', 'err'); return; }
+  say('fMsg', '추가하는 중…');
+  google.script.run
+    .withSuccessHandler(function (t) { applyTeam(t); say('fMsg', ''); })
+    .withFailureHandler(function (e) { say('fMsg', e.message || '추가하지 못했습니다.', 'err'); })
+    .saveMissionFlight(TOKEN, TEAM.name, {
+      kind: el('fKind').value, at: at.replace('T', ' '),
+      flight: el('fNo').value.trim(), memo: el('fMemo').value.trim()
+    });
+}
+
+function dropFlight(kind, at) {
+  if (!confirm('이 일정을 삭제할까요?')) return;
+  google.script.run
+    .withSuccessHandler(applyTeam).withFailureHandler(fail)
+    .removeMissionFlight(TOKEN, TEAM.name, kind, at);
+}
+
+/* ---------- 체크 · 노트 ---------- */
+
+function toggleCheck(key, on) {
+  var patch = {}; patch[key] = on;
+  say('ckMsg', '저장하는 중…');
+  google.script.run
+    .withSuccessHandler(function (t) { applyTeam(t); say('ckMsg', ''); })
+    .withFailureHandler(function (e) { say('ckMsg', e.message || '저장하지 못했습니다.', 'err'); load(TEAM.name); })
+    .setMissionField(TOKEN, TEAM.name, patch);
+}
+
+function setStatus(v) {
+  say('ckMsg', '저장하는 중…');
+  google.script.run
+    .withSuccessHandler(function (t) { applyTeam(t); say('ckMsg', ''); })
+    .withFailureHandler(function (e) { say('ckMsg', e.message || '저장하지 못했습니다.', 'err'); })
+    .setMissionField(TOKEN, TEAM.name, { status: v });
+}
+
+function notePanel(t) {
+  return '<div class="panel"><span class="chip">노트</span>' +
+    '<textarea id="note" placeholder="비자 · 예방접종 · 현지 연락처 · 준비물 등 자유롭게 적어주세요.">' +
+      esc(t.note) + '</textarea>' +
+    '<button class="btn accent full" style="margin-top:10px;" onclick="saveNote()">노트 저장</button>' +
+    '<p class="msg" id="nMsg"></p></div>';
+}
+
+function saveNote() {
+  say('nMsg', '저장하는 중…');
+  google.script.run
+    .withSuccessHandler(function (t) { TEAM.note = t.note; D.list = D.list.map(function (x) {
+        return x.name === t.name ? t : x; }); say('nMsg', '저장했습니다.', 'ok'); })
+    .withFailureHandler(function (e) { say('nMsg', e.message || '저장하지 못했습니다.', 'err'); })
+    .setMissionField(TOKEN, TEAM.name, { note: el('note').value });
+}
+</script>
+</body>
+</html>
