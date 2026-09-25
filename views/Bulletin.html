@@ -4,8 +4,7 @@
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,700;0,800;1,700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,700;0,800;1,700&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Cormorant+Garamond:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
 <script src="/vendor/qrcode.js"></script>
 <style>
   :root {
@@ -210,58 +209,56 @@
   .stat { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 10px; padding: 1px 8px; margin-left: 6px; vertical-align: 1px; }
   .stat.pub { background: #E3F2EA; color: #1D7A56; } .stat.tmp { background: #FBEADF; color: #A8420F; } .stat.new { background: #EDEBE7; color: #55504A; }
 
-  /* ================= 주보 — 본문 디자인 (Pretendard 고딕) ================= */
-  .viewer, .pv, .pdfpage { font-family: 'Pretendard Variable', Pretendard, 'Noto Sans KR', -apple-system, sans-serif; }
-  .viewer *, .pv *, .pdfpage * { font-family: inherit; }
-  .viewer .shead h2.big, .pv .shead h2.big, .pdfpage .shead h2.big, .eyebrow, .rule, .ynfoot .cw, .ynfoot .cp { font-family: 'Montserrat', 'Pretendard Variable', sans-serif !important; }
-  .card { background: #F8F6F2; border-radius: 16px; padding: 22px 18px 20px; box-shadow: 0 18px 40px rgba(0,0,0,.38); }
-  .eyebrow { font-weight: 700; font-size: 11.5px; letter-spacing: .28em; color: var(--orange); margin-bottom: 6px; }
-  .shead h2 .ko { font-weight: 700; color: #fff; font-size: 28px; letter-spacing: -.6px; }
-  .shead h2 .en { display: block; margin: 6px 0 0; font-weight: 500; font-style: normal; font-size: 14px; color: #F7B58E; letter-spacing: .04em; }
-  .shead h2.big { font-size: 34px; font-weight: 800; letter-spacing: .01em; }
-  .rule { display: flex; align-items: center; gap: 10px; justify-content: center; margin: 0 0 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .26em; color: #9C958C; }
+  /* ================= 주보 — 본문 디자인 (9/20 주보 디자인 · 고딕 제목 · 가운데 정렬) ================= */
+  .viewer, .pv, .pdfpage { font-family: 'Noto Sans KR', -apple-system, sans-serif; }
+  .card { background: #F8F6F2; border-radius: 16px; padding: 22px 18px 20px; box-shadow: 0 18px 40px rgba(0,0,0,.38), inset 0 0 0 1px rgba(255,255,255,.6); }
+  .eyebrow { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 11.5px; letter-spacing: .28em; color: var(--orange); margin-bottom: 6px; }
+  .shead h2 .ko { font-family: 'Noto Sans KR', sans-serif; font-weight: 800; color: #fff; font-size: 30px; letter-spacing: -.8px; }
+  .shead h2 .en { display: block; margin: 6px 0 0; font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 600; font-size: 21px; color: #F7B58E; letter-spacing: .02em; }
+  .shead h2.big { font-size: 36px; letter-spacing: .01em; }
+  .rule { display: flex; align-items: center; gap: 10px; justify-content: center; margin: 0 0 12px; font-family: 'Montserrat', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .26em; color: #9C958C; }
   .rule:before, .rule:after { content: ''; flex: 1; height: 1px; background: #DDD7CE; }
 
-  /* 예배 순서 — 두 열 (항목 | 내용), 설교말씀만 가운데 */
-  .orow { display: grid; grid-template-columns: 36% 1fr; gap: 12px; align-items: baseline; padding: 12px 4px; border-bottom: 1px solid #E9E4DC; }
+  /* 예배 순서 — 항목 | 내용 (내용은 가운데) */
+  .orow { display: flex; gap: 10px; align-items: center; padding: 12px 2px; border-bottom: 1px solid #E6E1D9; }
   .orow:last-of-type { border-bottom: none; }
-  .orow .l { font-size: 14px; font-weight: 600; color: #8A847C; letter-spacing: -.1px; display: flex; align-items: center; word-break: keep-all; }
-  .orow .v { font-size: 16.5px; font-weight: 600; color: #1F1D1B; white-space: pre-line; line-height: 1.55; word-break: keep-all; letter-spacing: -.3px; }
-  .orow .v:empty:after { content: '—'; color: #C9C3BA; font-weight: 400; }
-  .orow .dot, .stand .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--orange); margin-right: 6px; flex: none; }
-  .sermon { display: block; text-align: center; margin: 4px -4px; padding: 17px 14px 16px; background: rgba(242,107,33,.07); border-radius: 12px; border-bottom: none; }
-  .sermon .l { justify-content: center; color: var(--orange-2); font-size: 13px; }
-  .sermon .t { margin-top: 5px; font-size: 23px; font-weight: 700; color: var(--orange-2); line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
-  .sermon .p { margin-top: 4px; font-size: 15px; color: #5E5953; font-weight: 500; white-space: pre-line; }
-  .stand { font-size: 12.5px; color: #9A948B; margin: 12px 2px 0; display: flex; align-items: center; justify-content: flex-end; }
-  .cleanup { margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
-  .cleanup .cb { background: var(--orange); color: #fff; border-radius: 8px; padding: 5px 11px; font-size: 13.5px; font-weight: 700; letter-spacing: .02em; }
-  .cleanup b { color: #1F1D1B; font-weight: 600; font-size: 16px; }
+  .orow .l { flex: none; width: 34%; font-size: 13.5px; font-weight: 500; color: #8A847C; display: flex; align-items: center; word-break: keep-all; }
+  .orow .v { flex: 1; min-width: 0; text-align: center; font-size: 16px; font-weight: 500; color: #1F1D1B; white-space: pre-line; line-height: 1.6; word-break: keep-all; letter-spacing: -.2px; }
+  .orow .v:empty:after { content: '—'; color: #C2BCB3; font-weight: 400; }
+  .orow .dot, .stand .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--orange); margin-right: 7px; flex: none; }
+  .sermon { display: block; margin: 4px -4px; padding: 16px 14px 14px; background: linear-gradient(180deg, rgba(242,107,33,.09), rgba(242,107,33,.03)); border-radius: 12px; text-align: center; border-bottom: none; }
+  .sermon .l { display: flex; justify-content: center; width: auto; font-size: 11.5px; letter-spacing: .2em; color: var(--orange-2); margin-bottom: 6px; font-weight: 700; }
+  .sermon .t { font-family: 'Noto Sans KR', sans-serif; font-size: 22px; font-weight: 700; color: var(--orange-2); line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
+  .sermon .p { margin-top: 5px; font-size: 14.5px; color: #6E6A65; font-weight: 500; white-space: pre-line; }
+  .stand { text-align: right; font-size: 12.5px; color: #8A847C; margin: 10px 2px 0; display: flex; align-items: center; justify-content: flex-end; }
+  .cleanup { margin-top: 14px; padding-top: 14px; border-top: 1px solid #E6E1D9; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .cleanup .cb { background: var(--orange); color: #fff; border-radius: 8px; padding: 5px 11px; font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+  .cleanup b { color: #1F1D1B; font-weight: 500; font-size: 15.5px; }
 
   /* 성경 본문 */
-  .vhead { text-align: center; margin: 2px 0 18px; }
-  .vhead .t { font-size: 21.5px; font-weight: 700; color: #1F1D1B; line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
-  .vhead .te { margin-top: 3px; font-size: 15px; font-weight: 500; color: #8A847C; letter-spacing: -.1px; }
-  .vhead .r { display: inline-block; margin-top: 10px; font-size: 13.5px; font-weight: 600; color: var(--orange-2); background: rgba(242,107,33,.09); border-radius: 20px; padding: 4px 12px; }
+  .vhead { text-align: center; margin: 2px 0 16px; }
+  .vhead .t { font-family: 'Noto Sans KR', sans-serif; font-size: 21px; font-weight: 700; color: #1F1D1B; line-height: 1.4; letter-spacing: -.5px; word-break: keep-all; }
+  .vhead .te { margin-top: 3px; font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 17px; font-weight: 600; color: #8A847C; }
+  .vhead .r { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--orange-2); letter-spacing: .04em; border-top: 1px solid rgba(210,81,31,.35); border-bottom: 1px solid rgba(210,81,31,.35); padding: 3px 12px; }
   .vhead .ver { font-size: 10.5px; color: #A39D95; margin-top: 7px; letter-spacing: .14em; }
-  .verses p.ko { font-size: 16.5px; line-height: 1.85; color: #262422; margin: 0; letter-spacing: -.2px; }
-  .verses .n { font-size: 11px; font-weight: 700; color: var(--orange-2); vertical-align: 3px; margin-right: 5px; }
-  .verses p.en { font-style: normal; font-size: 14.5px; line-height: 1.6; color: #8A847C; margin: 2px 0 12px; }
+  .verses p.ko { font-size: 16px; line-height: 1.9; color: #262422; margin: 0; }
+  .verses .n { font-family: 'Montserrat', sans-serif; font-size: 10.5px; font-weight: 700; color: var(--orange-2); vertical-align: 4px; margin-right: 5px; }
+  .verses p.en { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 17px; line-height: 1.5; color: #7A746C; margin: 1px 0 12px; }
 
   /* 셀모임 */
   .stitle { text-align: center; margin: 2px 0 14px; }
-  .stitle .t { font-size: 22.5px; font-weight: 700; color: var(--orange-2); letter-spacing: -.5px; }
-  .stitle .r { font-size: 12.5px; color: #8A847C; margin-top: 4px; }
+  .stitle .t { font-family: 'Noto Sans KR', sans-serif; font-size: 22px; font-weight: 700; color: var(--orange-2); letter-spacing: -.5px; }
+  .stitle .r { font-size: 13px; color: #8A847C; margin-top: 4px; letter-spacing: .04em; }
   .ssec { margin: 20px 0 8px; display: flex; align-items: center; gap: 10px; }
-  .ssec span { background: none; color: var(--orange-2); font-size: 14px; font-weight: 700; padding: 0; letter-spacing: .02em; }
+  .ssec span { background: none; color: var(--orange-2); font-size: 13.5px; font-weight: 800; padding: 0; letter-spacing: .06em; }
   .ssec i { flex: 1; height: 1px; background: #DDD7CE; }
-  .sbody { font-size: 15.5px; line-height: 1.85; color: #2B2926; }
+  .sbody { font-size: 15.5px; line-height: 1.9; color: #2B2926; }
 
   /* 소식 */
-  .ann { gap: 12px; padding: 13px 0; border-bottom: 1px solid #E9E4DC; }
-  .ann .no { flex: none; width: 22px; height: 22px; border-radius: 7px; background: var(--orange); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .ann { gap: 12px; padding: 13px 0; border-bottom: 1px solid #E6E1D9; }
+  .ann .no { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--orange); color: #fff; font: 700 12px 'Montserrat', sans-serif; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
   .ann .tx { font-size: 15px; }
-  .ann .tx b { font-size: 16.5px; font-weight: 700; margin-bottom: 2px; }
+  .ann .tx b { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
   .ann .qr { padding: 4px; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); width: auto; }
   .ann .qr img, .ann .qr svg { width: 84px; height: 84px; }
   .em-b { font-weight: 700; color: #1F1D1B; }
@@ -270,18 +267,19 @@
   .em-b .em-o, .em-o .em-b { font-weight: 800; }
   .box { background: #fff; border-radius: 12px; padding: 12px 12px 10px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
   .box .ls, .box ol { font-size: 14px !important; }
-  .nfbox p { font-size: 14.5px !important; }
-  .box h4 { border: none; background: none; padding: 0 0 6px; margin: 0 0 8px; border-bottom: 1px solid #EFE9E1; text-align: left; font-size: 13.5px; letter-spacing: .02em; color: var(--orange-2); border-radius: 0; }
+  .box h4 { border: none; background: none; padding: 0 0 6px; margin: 0 0 8px; border-bottom: 1px solid #EFE9E1; text-align: left; font-size: 13px; letter-spacing: .04em; color: var(--orange-2); border-radius: 0; }
   .boxes.one { grid-template-columns: 1fr; }
-  .nfbox { background: rgba(242,107,33,.07); border: none; border-radius: 12px; }
+  .nfbox { background: linear-gradient(180deg, rgba(242,107,33,.09), rgba(242,107,33,.03)); border: none; border-radius: 12px; }
+  .nfbox h4 { letter-spacing: .06em; font-size: 13px; }
+  .nfbox p { font-size: 14.5px !important; }
 
   /* 섬김이 */
-  .grp .pill { background: none; color: #1F1D1B; padding: 0; font-size: 18px; font-weight: 700; margin-bottom: 8px; display: block; letter-spacing: -.3px; }
-  .grp .pill .en { display: block; font-family: 'Montserrat', sans-serif; color: var(--orange); font-size: 10px; font-weight: 700; letter-spacing: .24em; margin: 3px 0 0; }
+  .grp .pill { background: none; color: #1F1D1B; padding: 0; font-family: 'Noto Sans KR', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 8px; display: block; letter-spacing: -.3px; }
+  .grp .pill .en { display: block; font-family: 'Montserrat', sans-serif; color: var(--orange); font-size: 10.5px; letter-spacing: .24em; margin: 3px 0 0; }
   .grp .ln, .grp .inline { font-size: 15px; color: #5E5953; line-height: 1.85; word-break: keep-all; }
   .grp .nm { white-space: nowrap; }
-  .grp + .grp { border-top: 1px solid #E9E4DC; padding-top: 18px; }
-  .note { border-top: 1px solid #E9E4DC; font-size: 14.5px !important; }
+  .grp + .grp { border-top: 1px solid #E6E1D9; padding-top: 18px; }
+  .note { border-top: 1px solid #E6E1D9; font-size: 14.5px !important; }
 
   /* 편집기 — 강조 도구 */
   .emtool { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: #FFF6EF; border: 1px solid #F6C9AC; border-radius: 12px; padding: 8px 10px; margin-bottom: 12px; font-size: 12px; color: #7A5A45; }
@@ -304,8 +302,15 @@
   .pdfpage:before { content: ''; position: absolute; inset: 0; background: rgba(8,8,8,.45); }
   .pdfpage .pin { position: absolute; left: 22px; right: 22px; top: 54px; transform-origin: top center; }
   .pdfpage .plogo { position: absolute; top: 18px; right: 20px; height: 26px; z-index: 2; }
-  .pdfpage .pfoot { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; color: #9A958F; font-size: 9.5px; line-height: 1.7; z-index: 2; }
-  .pdfpage .pfoot b { font-family: 'Montserrat', sans-serif; letter-spacing: .06em; color: #7A756F; font-size: 8.5px; }
+  .pdfpage .pfoot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; }
+  .pdfpage .pfoot .ynfoot { padding: 16px 16px 18px; font-size: 11px; line-height: 1.75; }
+  .pdfpage .pfoot .ynfoot .cw { font-size: 17px; }
+  .pdfpage .pfoot .ynfoot .cw:before { width: 22px; margin-bottom: 7px; }
+  .pdfpage .pfoot .ynfoot .sl { font-size: 11.5px; margin: 1px 0 7px; }
+  .pdfpage .pfoot .ynfoot .ln { gap: 2px 12px; }
+  .pdfpage .pfoot .ynfoot svg { width: 11px; height: 11px; }
+  .pdfpage .pfoot .ynfoot .ch { margin-top: 7px; font-size: 10px; }
+  .pdfpage .pfoot .ynfoot .cp { margin-top: 4px; font-size: 9px; }
   .pdfpage .sheet { padding-top: 14px; }
   .pdfpage .card { box-shadow: 0 12px 30px rgba(0,0,0,.35); }
   .pdfpage .pconn { position: absolute; left: 0; right: 0; top: 38%; text-align: center; z-index: 2; }
@@ -730,7 +735,7 @@ function fixDateOpt() {
 /* ================================================================
    PDF — W 26.59cm × H 48.34cm, 배경이 꽉 차게. 섹션마다 한 장 (넘치면 이어서)
    ================================================================ */
-var PW = 560, PH = Math.round(560 * 48.34 / 26.59), PTOP = 58, PBOT = 64;
+var PW = 560, PH = Math.round(560 * 48.34 / 26.59), PTOP = 58, PBOT = 168;
 function loadJs(src, ok, done) {
   if (ok()) return done();
   var sc = document.createElement('script'); sc.src = src;
@@ -762,7 +767,7 @@ function pdfPageShell(stage, b, pageNo) {
   var pg = document.createElement('div');
   pg.className = 'pdfpage';
   pg.innerHTML = '<img class="plogo" src="/logo.png" alt=""><div class="pin"></div>' +
-    '<div class="pfoot">토론토영락교회 청년1부 · ' + esc(korDate(b.date)) + ' · ' + esc(volText(b)) + '<br><b>YOUNGNAK PRESBYTERIAN CHURCH OF TORONTO</b></div>';
+    '<div class="pfoot">' + ynFooter() + '</div>';
   stage.appendChild(pg);
   return pg;
 }
@@ -814,6 +819,11 @@ function layoutPdf(stage, b) {
       } else u.nodes.forEach(function (n) { cardEl.appendChild(n); added.push(n); });
       return added;
     };
+    // 한 장에 조금만 넘치면 나누지 않고 살짝 줄여 한 장에 담습니다
+    open();
+    units.forEach(function (u) { put(u); });
+    if (pin.scrollHeight <= avail * 1.3) return;
+    pages.pop(); page.remove(); first = true;
     open();
     var count = 0;
     units.forEach(function (u) {
@@ -826,11 +836,6 @@ function layoutPdf(stage, b) {
       count++;
     });
   });
-  // 마지막 장 — Connect with us
-  var last = pdfPageShell(stage, b);
-  last.querySelector('.pfoot').remove();
-  last.querySelector('.pin').innerHTML = '<div style="text-align:center;padding-top:260px;"><img src="/logo.png" alt="" style="height:64px;"></div>' + ynFooter();
-  pages.push(last);
   // 넘치는 장은 살짝 줄입니다
   pages.forEach(function (pg) {
     if (pg.pdf) return;
@@ -892,10 +897,17 @@ function buildPdf(b) {
   var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [265.9, 483.4], compress: true });
   var i = 0, n = 0;
   var shot = function (el) {
+    // 링크 자리 (전화 · 지도 · 인스타 · 유튜브 · 광고 링크) — PDF 에서도 누르면 열리게
+    var base = el.getBoundingClientRect(), k = 265.9 / PW;
+    var links = [].slice.call(el.querySelectorAll('a[href]')).map(function (a) {
+      var r = a.getBoundingClientRect();
+      return { x: (r.left - base.left) * k, y: (r.top - base.top) * k, w: r.width * k, h: r.height * k, url: a.href };
+    }).filter(function (l) { return l.w > 0 && l.h > 0 && /^(https?:|tel:)/.test(l.url); });
     return window.html2canvas(el, { scale: 2.8, useCORS: true, backgroundColor: '#0B0B0B', logging: false, width: PW, height: PH, scrollX: 0, scrollY: 0, windowWidth: 1200 })
       .then(function (cv) {
         if (n) doc.addPage([265.9, 483.4], 'portrait');
         doc.addImage(cv.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 265.9, 483.4, undefined, 'FAST');
+        links.forEach(function (l) { try { doc.link(l.x, l.y, l.w, l.h, { url: l.url }); } catch (e) {} });
         n++;
       });
   };
