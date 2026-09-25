@@ -941,7 +941,7 @@ function doGet(e) {
   }
 
   if (page === 'portal') {
-    return render_('Portal', '청년1부', 포털입구_(p), 'portal');
+    return render_('Portal', '토론토영락교회 청년1부', 포털입구_(p), 'portal');
   }
 
   if (page === 'worship') {
