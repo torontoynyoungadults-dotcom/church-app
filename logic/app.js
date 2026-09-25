@@ -963,6 +963,13 @@ function doGet(e) {
     return render_('Worship', '찬양방송팀 허브', wpre, 'worship');
   }
 
+  if (page === 'bulletin') {
+    var bpre = { edit: p.edit ? 1 : 0, t: p.t || '', date: p.date || '' };
+    // 보는 화면은 주보를 함께 실어 보내 바로 열리게 합니다
+    if (!bpre.edit) { try { bpre.data = getBulletin(p.date || ''); } catch (e) { bpre.err = e.message || ''; } }
+    return render_('Bulletin', bpre.edit ? '주보 편집' : '토론토영락교회 청년1부 주보', bpre, 'bulletin');
+  }
+
   if (page === 'mission') {
     return render_('Mission', '선교팀 관리',
       { t: p.t || '', team: p.team || '',
@@ -6634,6 +6641,11 @@ function 포털메뉴_(r, token) {
       url: base + '?page=mission&t=' + encodeURIComponent(token),
       note: 선교담당팀_(r.name || '').join(', ') });
   }
+  out.push({ key: 'bulletin', title: '주보', desc: '이번 주 주보 보기', url: base + '?page=bulletin', note: '' });
+  if (has('주보팀') || 커미티) {
+    out.push({ key: 'bulletinEdit', title: '주보 편집', desc: '예배 순서 · 광고 · 스케줄',
+      url: base + '?page=bulletin&edit=1&t=' + encodeURIComponent(token), note: '' });
+  }
   // 회계팀 (커미티가 아닌 분) — 커미티는 아래 커미티 칸에서 회계로 바로 갑니다
   if (has('회계팀') && !커미티) {
     out.push({ key: 'acct', title: '회계 관리', desc: '지출 신청 · 예산 · Cheque',
@@ -8434,4 +8446,424 @@ function 교적생년월일정리() {
 }
 function 최초설정() {
   try { return 최초설정__원래.apply(this, arguments); } finally { 캐시비움_(); }
+}
+
+
+/* =========================================================
+   18. 주보
+   ---------------------------------------------------------
+   · 누구나(로그인 없이) 게시된 주보를 봅니다   ?page=bulletin
+   · 주보팀(교적 역할 '주보팀') · 커미티만 편집합니다  ?page=bulletin&edit=1
+   · 한 주에 한 줄 — 내용은 JSON 으로 '내용' 칸부터 나눠 담습니다 (한 칸 5만 자 제한)
+   · 경배와 찬양 · 결단찬양은 찬양방송팀 허브 콘티에서,
+     대표기도 · 뒷정리는 주보 스케줄 표에서 자동으로 불러옵니다
+   ========================================================= */
+
+var SHEET_주보 = '주보';
+var SHEET_대표기도 = '대표기도스케줄';
+var SHEET_뒷정리 = '뒷정리스케줄';
+var HEAD_주보 = ['날짜', '상태', '제목', '수정자', '수정시각', '내용'];
+var BU_날짜 = 0, BU_상태 = 1, BU_제목 = 2, BU_수정자 = 3, BU_시각 = 4, BU_내용 = 5;
+var HEAD_대표기도 = ['날짜', '이름', '메모'];
+var HEAD_뒷정리 = ['날짜', '담당', '메모'];
+var 주보조각 = 40000;
+
+역할종류.push('주보팀');
+
+function 주보시트_(name, head) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(name);
+  if (sh) return sh;
+  sh = createSheet_(ss, name, head);
+  캐시비움_();
+  return sh;
+}
+
+function 주일인가_(ymd) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd || ''))) return false;
+  var d = parseYmd_(ymd);
+  return !isNaN(d.getTime()) && d.getDay() === 0 && ymd_(d) === ymd;
+}
+
+/** 오늘이 주일이면 오늘, 아니면 다가오는 주일 */
+function 다가오는주일_() {
+  var d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + (7 - d.getDay()) % 7);
+  return ymd_(d);
+}
+
+function 주보제목_(date, occasion) {
+  var p = String(date || '').split('-');
+  occasion = String(occasion || '').trim();
+  return p.join('.') + ' ' + (occasion ? occasion + ' ' : '') + '주일예배';
+}
+
+/** 편집 권한 — 주보팀 · 커미티 (관리자키도 통과) → 이름 */
+function 주보권한_(token) {
+  if (isAdmin_(token)) return '커미티';
+  var me = 포털본인_(token);
+  if (!me) throw new Error(구글만안내);
+  var roles = 포털역할_(me.name).roles;
+  if (roles.indexOf('주보팀') === -1 && roles.indexOf('커미티') === -1) {
+    throw new Error('주보 편집 권한이 없습니다. 커미티에 주보팀 지정을 부탁해 주세요.');
+  }
+  return me.name;
+}
+
+/* ---- 저장된 주보 읽기 ---- */
+
+function 주보행들_() {
+  return rows_(SHEET_주보).map(function (r) {
+    var date = 날짜문자열_(r[BU_날짜]);
+    if (!date) return null;
+    var json = '';
+    for (var i = BU_내용; i < r.length; i++) {
+      var part = String(r[i] == null ? '' : r[i]);
+      if (part.charAt(0) === "'") part = part.slice(1);
+      json += part;
+    }
+    return {
+      date: date, status: String(r[BU_상태] || '').trim() || '임시',
+      title: String(r[BU_제목] || '').trim(), by: String(r[BU_수정자] || '').trim(),
+      at: r[BU_시각] instanceof Date ? Utilities.formatDate(r[BU_시각], Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : String(r[BU_시각] || ''),
+      json: json
+    };
+  }).filter(function (x) { return x; });
+}
+
+function 주보풀기_(row) {
+  if (!row || !row.json) return null;
+  try {
+    var b = JSON.parse(row.json);
+    b.date = row.date; b.status = row.status; b.updatedBy = row.by; b.updatedAt = row.at;
+    b.title = 주보제목_(row.date, b.occasion);
+    return b;
+  } catch (e) { return null; }
+}
+
+function 주보찾기_(date) {
+  var list = 주보행들_();
+  for (var i = 0; i < list.length; i++) if (list[i].date === date) return list[i];
+  return null;
+}
+
+/* ---- 누구나 — 게시된 주보 ---- */
+
+function 게시주보목록_() {
+  // 너무 앞선 날짜(다음다음 주)는 아직 보여주지 않습니다
+  var 한계 = parseYmd_(다가오는주일_());
+  한계.setDate(한계.getDate() + 7);
+  var max = ymd_(한계);
+  return 주보행들_().filter(function (r) { return r.status === '게시' && r.date <= max; })
+    .sort(function (a, b) { return b.date.localeCompare(a.date); });
+}
+
+/** 로그인 없이 — date 가 비면 가장 최근 게시본 */
+function getBulletin(date) {
+  var list = 게시주보목록_();
+  date = String(date || '').trim();
+  var row = null;
+  if (date) row = list.filter(function (r) { return r.date === date; })[0] || null;
+  if (!row) {
+    // 다가오는 주일 이전 것 중 가장 가까운 것 → 없으면 가장 최근
+    var up = 다가오는주일_();
+    row = list.filter(function (r) { return r.date <= up; })[0] || list[0] || null;
+  }
+  return {
+    bulletin: row ? 주보풀기_(row) : null,
+    dates: list.slice(0, 40).map(function (r) { return { date: r.date, title: 주보제목_(r.date, (주보풀기_(r) || {}).occasion) }; })
+  };
+}
+
+/* ---- 편집 ---- */
+
+var 주보기본순서 = [
+  ['creed', '신앙의 고백', '사도신경'],
+  ['call', '예배의 부름', ''],
+  ['praise', '경배와 찬양', ''],
+  ['prayer', '대표기도', ''],
+  ['offering', '광고 및 봉헌', '다 같이'],
+  ['reading', '성경교독', ''],
+  ['sermon', '설교말씀', ''],
+  ['final', '찬양 및 합심기도', ''],
+  ['benediction', '축도', '강산 목사'],
+  ['fellowship', '광고 및 교제', '']
+];
+/* 주마다 그대로 이어 쓰는 칸 */
+var 주보유지칸 = ['creed', 'offering', 'benediction'];
+
+function 주보새틀_(date) {
+  var prev = 주보행들_().filter(function (r) { return r.date < date; })
+    .sort(function (a, b) { return b.date.localeCompare(a.date); })[0];
+  var p = prev ? 주보풀기_(prev) : null;
+
+  var order;
+  if (p && p.order && p.order.length) {
+    order = p.order.map(function (o) {
+      return { key: o.key || '', label: o.label || '', value: 주보유지칸.indexOf(o.key) !== -1 ? (o.value || '') : '' };
+    });
+  } else {
+    order = 주보기본순서.map(function (x) { return { key: x[0], label: x[1], value: x[2] }; });
+  }
+
+  var b = {
+    date: date, occasion: '', order: order, cleanup: '',
+    bible: { title: '', ref: '', text: '' },
+    study: { mode: 'text', title: '', ref: '', sections: [{ heading: '', body: '' }], file: null, link: '', linkLabel: '' },
+    news: {
+      scheduleTitle: '', schedule: p && p.news ? (p.news.schedule || '') : '',
+      prayers: p && p.news ? (p.news.prayers || []) : [],
+      announcements: [{ title: '환영 인사', body: 기본환영문, link: '', qr: 'auto', qrImage: null }]
+    },
+    servants: p && p.servants ? p.servants : 주보기본섬김이_(),
+    status: '새 주보'
+  };
+  var auto = 주보자동값_(date);
+  b.order.forEach(function (o) {
+    if (o.key === 'praise' && auto.praise) o.value = auto.praise;
+    if (o.key === 'final' && auto.final) o.value = auto.final;
+    if (o.key === 'prayer' && auto.prayer) o.value = auto.prayer;
+  });
+  if (auto.cleanup) b.cleanup = auto.cleanup;
+  b.title = 주보제목_(date, '');
+  return b;
+}
+
+var 기본환영문 = '토론토 영락교회 청년부 예배에 오신 모든 분들을 주님의 이름으로 환영합니다. ' +
+  '처음 오셨거나 등록을 원하시는 분들은 목사님 또는 새가족팀에게 문의해 주세요.';
+
+function 주보기본섬김이_() {
+  var y = new Date().getFullYear() % 100, m = new Date().getMonth();
+  var 시작 = m >= 8 ? y : y - 1;           // 9월에 새 회기
+  var g = 주보섬김이자동_();
+  return {
+    heading: 시작 + '-' + (시작 + 1) + ' 섬김이들',
+    groups: g,
+    newcomer: 기본환영문,
+    place: ''
+  };
+}
+
+/** 이름에 형제 · 자매를 붙입니다 (이미 직분이 있으면 그대로) */
+function 주보호칭_(name) {
+  name = String(name || '').trim();
+  if (!name) return '';
+  if (/(목사|전도사|강도사|사모|선교사|장로|권사|집사|형제|자매)$/.test(name)) return name;
+  var p = 교적맵_()[name];
+  if (p && p.gender === '남') return name + ' 형제';
+  if (p && p.gender === '여') return name + ' 자매';
+  return name;
+}
+
+/** 찬양 콘티 · 대표기도 · 뒷정리 스케줄에서 그 주 값을 찾습니다 */
+function 주보자동값_(date) {
+  var out = { praise: '', final: '', prayer: '', cleanup: '' };
+  try {
+    var 곡줄 = function (list) {
+      return list.sort(function (a, b) { return a.seq - b.seq; })
+        .filter(function (s) { return s.title; })
+        .map(function (s, i) { return (i + 1) + '. ' + s.title + (s.team ? ' (' + s.team + ')' : ''); });
+    };
+    var praise = 곡줄(콘티목록_(date, '콘티'));
+    var fin = 콘티목록_(date, '결단').filter(function (s) { return s.title; }).map(function (s) { return s.title; });
+    out.praise = praise.join('\n');
+    out.final = fin.join(', ');
+  } catch (e) {}
+  rows_(SHEET_대표기도).forEach(function (r) {
+    if (날짜문자열_(r[0]) === date && String(r[1] || '').trim()) out.prayer = 주보호칭_(r[1]);
+  });
+  rows_(SHEET_뒷정리).forEach(function (r) {
+    if (날짜문자열_(r[0]) === date && String(r[1] || '').trim()) out.cleanup = String(r[1]).trim();
+  });
+  return out;
+}
+
+/** 섬김이 — 시스템(역할 · 사역팀 · 셀목록)에서 채우기 */
+function 주보섬김이자동_() {
+  var 교적 = 교적맵_();
+  var kakao = function (n) { return (교적[n] && 교적[n].kakao) || ''; };
+  var 커미티 = Object.keys(교적).filter(function (n) {
+    try { return 포털역할_(n).roles.indexOf('커미티') !== -1; } catch (e) { return false; }
+  }).sort(function (a, b) { return a.localeCompare(b, 'ko'); });
+  var teams = 사역팀목록_().filter(function (t) { return t.leader; });
+  var leaders = getCells().map(function (c) { return c.leader; }).filter(function (n) { return n; })
+    .sort(function (a, b) { return a.localeCompare(b, 'ko'); });
+  return [
+    { ko: '커미티', en: 'COMMITTEE', items: 커미티.map(function (n) { return { name: n, title: '', part: '', contact: kakao(n) }; }) },
+    { ko: '사역팀', en: 'TEAM MINISTRY', items: teams.map(function (t) { return { name: t.leader, title: '', part: t.name, contact: kakao(t.leader) }; }) },
+    { ko: '셀장', en: 'SMALL GROUP LEADERS', items: leaders.map(function (n) { return { name: n, title: '', part: '', contact: '' }; }) }
+  ];
+}
+
+function 주보스케줄_(name, head) {
+  return rows_(name).map(function (r) {
+    return { date: 날짜문자열_(r[0]), name: String(r[1] || '').trim(), memo: String(r[2] || '').trim() };
+  }).filter(function (x) { return x.date; })
+    .sort(function (a, b) { return a.date.localeCompare(b.date); });
+}
+
+function 주보목록_() {
+  return 주보행들_().sort(function (a, b) { return b.date.localeCompare(a.date); }).slice(0, 60)
+    .map(function (r) { return { date: r.date, status: r.status, title: r.title, by: r.by, at: r.at }; });
+}
+
+function 주일목록_() {
+  var out = [], d = parseYmd_(다가오는주일_());
+  d.setDate(d.getDate() - 7 * 12);
+  for (var i = 0; i < 12 + 1 + 16; i++) { out.push(ymd_(d)); d.setDate(d.getDate() + 7); }
+  return out;
+}
+
+/** 편집기 첫 화면 */
+function bulletinEditorInit(token) {
+  var who = 주보권한_(token);
+  주보시트_(SHEET_주보, HEAD_주보); 주보시트_(SHEET_대표기도, HEAD_대표기도); 주보시트_(SHEET_뒷정리, HEAD_뒷정리);
+  var date = 다가오는주일_();
+  return {
+    me: who, sundays: 주일목록_(), defaultDate: date, list: 주보목록_(),
+    managers: Object.keys(교적맵_()).filter(function (n) {
+      return String(교적맵_()[n].roleTags || '').split(',').map(function (x) { return x.trim(); }).indexOf('주보팀') !== -1;
+    }),
+    draft: getBulletinDraft(token, date)
+  };
+}
+
+/** 그 주 주보 — 저장된 게 있으면 그것, 없으면 새 틀 (자동 불러오기 포함) */
+function getBulletinDraft(token, date) {
+  주보권한_(token);
+  date = String(date || '').trim();
+  if (!주일인가_(date)) throw new Error('주일 날짜를 골라주세요.');
+  var row = 주보찾기_(date);
+  var b = row ? 주보풀기_(row) : null;
+  return b || 주보새틀_(date);
+}
+
+/** 편집기의 '자동 불러오기' */
+function bulletinAutoFill(token, date) {
+  주보권한_(token);
+  if (!주일인가_(date)) throw new Error('주일 날짜를 골라주세요.');
+  return 주보자동값_(date);
+}
+
+function bulletinServantsFromSystem(token) {
+  주보권한_(token);
+  return 주보섬김이자동_();
+}
+
+/** 저장 — publish: true 면 게시(누구나 봄), false 면 임시저장 */
+function saveBulletin(token, data, publish) {
+  var who = 주보권한_(token);
+  data = data || {};
+  var date = String(data.date || '').trim();
+  if (!주일인가_(date)) throw new Error('주일 날짜를 골라주세요.');
+
+  var keep = {};
+  ['occasion', 'order', 'cleanup', 'bible', 'study', 'news', 'servants'].forEach(function (k) {
+    if (data.hasOwnProperty(k)) keep[k] = data[k];
+  });
+  keep.occasion = String(keep.occasion || '').trim().slice(0, 30);
+  keep.order = (keep.order || []).filter(function (o) { return o && String(o.label || '').trim(); }).map(function (o) {
+    return { key: String(o.key || '').slice(0, 20), label: String(o.label).trim().slice(0, 30), value: String(o.value || '').slice(0, 2000) };
+  });
+  var json = JSON.stringify(keep);
+  if (json.length > 주보조각 * 10) throw new Error('주보 내용이 너무 깁니다. 성경 본문이나 셀 교재를 줄여 주세요.');
+
+  var parts = [];
+  for (var i = 0; i < json.length; i += 주보조각) parts.push("'" + json.slice(i, i + 주보조각));
+  var status = publish ? '게시' : '임시';
+  var row = [date, status, 주보제목_(date, keep.occasion), who,
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')].concat(parts);
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = 주보시트_(SHEET_주보, HEAD_주보), v = sh.getDataRange().getValues();
+    var at = 0, width = Math.max(sh.getLastColumn(), row.length);
+    for (var r = 1; r < v.length; r++) if (날짜문자열_(v[r][BU_날짜]) === date) { at = r + 1; break; }
+    while (row.length < width) row.push('');
+    if (!at) at = Math.max(sh.getLastRow(), 1) + 1;
+    sh.getRange(at, 1).setNumberFormat('@');
+    sh.getRange(at, 1, 1, row.length).setValues([row]);
+  } finally { lock.releaseLock(); }
+  캐시비움_();
+  return { ok: true, status: status, list: 주보목록_(), bulletin: 주보풀기_(주보찾기_(date)) };
+}
+
+function deleteBulletin(token, date) {
+  주보권한_(token);
+  var sh = 주보시트_(SHEET_주보, HEAD_주보), v = sh.getDataRange().getValues();
+  for (var r = v.length - 1; r >= 1; r--) if (날짜문자열_(v[r][BU_날짜]) === date) sh.deleteRow(r + 1);
+  캐시비움_();
+  return 주보목록_();
+}
+
+/* ---- 대표기도 · 뒷정리 스케줄 ---- */
+
+function getBulletinSchedules(token) {
+  주보권한_(token);
+  주보시트_(SHEET_대표기도, HEAD_대표기도); 주보시트_(SHEET_뒷정리, HEAD_뒷정리);
+  return {
+    prayer: 주보스케줄_(SHEET_대표기도), cleanup: 주보스케줄_(SHEET_뒷정리),
+    people: Object.keys(교적맵_()).sort(function (a, b) { return a.localeCompare(b, 'ko'); }),
+    cells: getCells().map(function (c) { return c.name; }),
+    teams: 사역팀목록_().map(function (t) { return t.name; })
+  };
+}
+
+/** kind: 'prayer' | 'cleanup' — 표 전체를 새로 씁니다 */
+function saveBulletinSchedule(token, kind, rows) {
+  주보권한_(token);
+  var name = kind === 'cleanup' ? SHEET_뒷정리 : SHEET_대표기도;
+  var head = kind === 'cleanup' ? HEAD_뒷정리 : HEAD_대표기도;
+  var clean = [], seen = {};
+  (rows || []).forEach(function (x) {
+    var d = String(x && x.date || '').trim(), n = String(x && x.name || '').trim();
+    if (!d && !n) return;
+    if (!주일인가_(d)) throw new Error((d || '(빈 날짜)') + ' — 주일 날짜만 넣을 수 있습니다.');
+    if (!n) throw new Error(d + ' — ' + (kind === 'cleanup' ? '담당 셀/팀' : '이름') + '을 넣어주세요.');
+    if (seen[d]) throw new Error(d + ' 이 두 번 들어가 있습니다.');
+    seen[d] = 1;
+    clean.push([d, n, String(x.memo || '').trim()]);
+  });
+  clean.sort(function (a, b) { return a[0].localeCompare(b[0]); });
+  var sh = 주보시트_(name, head);
+  var last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, head.length).clearContent();
+  if (clean.length) {
+    sh.getRange(2, 1, clean.length, 1).setNumberFormat('@');
+    sh.getRange(2, 1, clean.length, head.length).setValues(clean);
+  }
+  캐시비움_();
+  return getBulletinSchedules(token);
+}
+
+/* ---- 파일 (셀 교재 PDF · QR 이미지) ---- */
+
+function 주보폴더_(date) {
+  var id = 설정값_('주보자료폴더'), root = null;
+  if (id) { try { root = DriveApp.getFolderById(id); } catch (e) {} }
+  if (!root) { root = DriveApp.createFolder('청년부 주보 자료'); 설정저장_('주보자료폴더', root.getId()); }
+  var it = root.getFoldersByName(date);
+  return it.hasNext() ? it.next() : root.createFolder(date);
+}
+
+function uploadBulletinFile(token, date, fileName, dataUrl) {
+  주보권한_(token);
+  if (!주일인가_(date)) throw new Error('주일 날짜를 먼저 골라주세요.');
+  var m = /^data:([a-zA-Z0-9.+\/-]+);base64,(.+)$/.exec(String(dataUrl || ''));
+  if (!m) throw new Error('파일을 읽을 수 없습니다.');
+  if (!/^(application\/pdf|image\/(png|jpe?g|gif|webp))$/.test(m[1])) throw new Error('PDF 또는 이미지 파일만 올릴 수 있습니다.');
+  var bytes = Utilities.base64Decode(m[2]);
+  if (bytes.length > 20 * 1024 * 1024) throw new Error('20MB 이하 파일만 올릴 수 있습니다.');
+  var safe = String(fileName || 'file').replace(/[\\\/:*?"<>|]/g, '_').slice(0, 80);
+  var file = 주보폴더_(date).createFile(Utilities.newBlob(bytes, m[1], safe));
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  var fid = file.getId();
+  return {
+    id: fid, name: safe, mime: m[1],
+    url: 'https://drive.google.com/file/d/' + fid + '/view',
+    embed: 'https://drive.google.com/file/d/' + fid + '/preview',
+    image: 'https://lh3.googleusercontent.com/d/' + fid + '=w800'
+  };
 }
