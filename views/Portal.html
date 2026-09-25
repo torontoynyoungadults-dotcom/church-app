@@ -439,7 +439,7 @@
     <div class="panel" id="gbox">
       <span class="chip">토론토영락교회 청년1부 Portal 로그인</span>
       <p class="hint"><b>구글 계정</b>으로 로그인합니다. 교적에 아직 연결되지 않은 계정이면 처음 한 번만 본인 확인을 합니다.</p>
-      <a class="gbtn" id="gbtn" href="#" onclick="goGoogle()">
+      <a class="gbtn" id="gbtn" href="#" onclick="return goGoogle(event)">
         <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.3 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.4C.5 8.2 0 10 0 12s.5 3.8 1.4 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
         <span>Google 계정으로 로그인</span>
       </a>
@@ -649,6 +649,7 @@
 <script>
 var PREFILL = (window.__PREFILL__ || {});
 var TOKEN = '', ME = null, MENUS = [], ROLES = [], ADMIN = [], editing = false;
+var _bootT = null, _goT = null, _stuck = false;   // "로그인 중" 에서 멈추지 않게 지켜보는 시계
 
 function el(id) { return document.getElementById(id); }
 function esc(s) {
@@ -794,8 +795,18 @@ function boot() {
   showLock();
 }
 
+/** 카카오톡 · 인스타그램 같은 앱 안의 브라우저에서는 구글이 로그인을 막습니다 */
+function inAppBrowser() {
+  return /(KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER\(inapp|DaumApps|everytimeApp)/i.test(navigator.userAgent || '');
+}
+
 function showGoogle() {
   if (PREFILL.err) { el('gbox').style.display = 'block'; say('gMsg', PREFILL.err, 'err'); }
+  else if (inAppBrowser()) {
+    el('gbox').style.display = 'block';
+    say('gMsg', '카카오톡 · 인스타그램 앱 안의 브라우저에서는 구글 로그인이 막힙니다. ' +
+      '오른쪽 아래 메뉴에서 Safari · Chrome 으로 열어주세요.', 'err');
+  }
   if (PREFILL.googleUrl) {
     el('gbox').style.display = 'block';
     el('gbtn').href = PREFILL.googleUrl;
@@ -822,14 +833,46 @@ function freshGoogle() {
   if (!_gTimer) _gTimer = setInterval(get, 10 * 60 * 1000);
 }
 
-function goGoogle() {
-  if (!PREFILL.googleUrl) return;
-  // 구글 화면이 뜰 때까지 잠깐 비는 시간에 안내를 보여줍니다
-  setTimeout(function () {
-    el('lock').style.display = 'none';
-    el('enterMsg').textContent = '구글 로그인으로 이동 중…';
-    el('entering').style.display = 'block';
-  }, 30);
+/**
+ * 구글 로그인 화면으로 넘어갑니다.
+ * 시크릿(Private) 모드처럼 화면이 넘어가지 않는 경우가 있어서,
+ * 7초가 지나도 그대로면 스스로 로그인 화면으로 돌아와 직접 누를 수 있는 링크를 보여줍니다.
+ */
+function goingGoogle(url, back) {
+  back = back || 'gbox';
+  var msgId = (back === 'nfStart') ? 'nfStartMsg' : 'gMsg';
+  el('lock').style.display = 'none';
+  el('enterMsg').textContent = '구글 로그인으로 이동 중…';
+  el('entering').style.display = 'block';
+  clearTimeout(_goT);
+  _goT = setTimeout(function () {
+    el('entering').style.display = 'none';
+    el('lock').style.display = 'block';
+    lockPanels(back);
+    var m = el(msgId);
+    if (m) {
+      m.className = 'msg err';
+      m.innerHTML = '구글 로그인 화면이 열리지 않았습니다. ' +
+        '<a href="' + esc(url) + '" target="_top" rel="noopener"><b>여기를 눌러 구글 로그인을 열어주세요</b></a>.';
+    }
+  }, 7000);
+  try { window.top.location.href = url; } catch (e) { location.href = url; }
+}
+
+function goGoogle(ev) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  var url = String(PREFILL.googleUrl || '');
+  if (!/^https?:/.test(url)) {
+    var h = el('gbtn') ? String(el('gbtn').getAttribute('href') || '') : '';
+    if (/^https?:/.test(h)) url = h;
+  }
+  if (!/^https?:/.test(url)) {
+    say('gMsg', '구글 로그인 주소를 아직 받지 못했습니다. 잠시 후 다시 눌러주세요.', 'err');
+    freshGoogle();
+    return false;
+  }
+  goingGoogle(url, 'gbox');
+  return false;
 }
 
 function toggleManual() {
@@ -840,6 +883,7 @@ function toggleManual() {
 }
 
 function showLock() {
+  clearTimeout(_bootT);
   el('entering').style.display = 'none';
   el('lock').style.display = 'block';
   lockPanels('gbox');
@@ -875,6 +919,7 @@ function doLogin() {
 /* ---------- 교적에 없는 구글 계정 — 한 번만 본인 확인 ---------- */
 
 function showLinkForm() {
+  clearTimeout(_bootT);
   el('entering').style.display = 'none';
   el('lock').style.display = 'block';
   el('gbox').style.display = 'none';
@@ -927,7 +972,7 @@ function goNewcomerGoogle() {
   say('nfStartMsg', '구글 로그인으로 이동 중…');
   callServer('portalGoogleUrl', ['newcomer'], function (u) {
     if (!u) { say('nfStartMsg', '구글 로그인이 아직 설정되어 있지 않습니다. 커미티에 문의해주세요.', 'err'); return; }
-    location.href = u;
+    goingGoogle(u, 'nfStart');
   }, function (e) { say('nfStartMsg', (e && e.message) || '이동하지 못했습니다.', 'err'); });
 }
 function nfOpts(id, key, list, cur) {
@@ -943,6 +988,7 @@ function nfOpts(id, key, list, cur) {
   };
 }
 function showNewcomerForm(mine) {
+  clearTimeout(_bootT);
   NF_MINE = mine || null;
   var m = mine || {};
   el('entering').style.display = 'none';
@@ -1016,6 +1062,7 @@ function openNfHome() {
   });
 }
 function renderNfHome(h) {
+  clearTimeout(_bootT);
   NF_HOME = h; NF_TOKEN = h.token; NF_MINE = h.mine; keepToken(NF_TOKEN);
   PREFILL.email = h.email;
   el('entering').style.display = 'none';
@@ -1222,6 +1269,7 @@ function doLogout() {
 var SELF = null, VIEW = '', VIEW_NOLINK = false;          // 내 자료 · 지금 보고 있는 다른 사람 (커미티)
 
 function onIn(res) {
+  clearTimeout(_bootT);
   TOKEN = res.token;
   SELF = res; VIEW = '';
   keepToken(TOKEN);
@@ -1668,11 +1716,30 @@ function shrink(file, done) {
   rd.readAsDataURL(file);
 }
 
+/* 무슨 일이 있어도 "로그인 중" 에서 멈춰 있지 않게 — 마지막 안전장치 */
+function bootStuck(msg) {
+  if (_stuck) return;
+  clearTimeout(_bootT); clearTimeout(_goT);
+  if (!el('entering') || el('entering').style.display === 'none') return;   // 이미 어떤 화면이든 떠 있으면 그대로
+  _stuck = true;
+  try { showLock(); } catch (e) {
+    el('entering').style.display = 'none';
+    el('lock').style.display = 'block';
+  }
+  try { say('gMsg', msg, 'err'); } catch (e) {}
+}
+window.addEventListener('error', function (ev) {
+  bootStuck('화면을 여는 중 문제가 생겼습니다: ' + ((ev && ev.message) || '알 수 없는 오류') + ' — 다시 시도해주세요.');
+});
+
 /* 모든 함수 · 변수가 준비된 뒤에 시작합니다 */
+_bootT = setTimeout(function () {
+  bootStuck('로그인을 확인하는 데 시간이 너무 오래 걸렸습니다. 다시 시도해주세요.');
+}, 20000);
 boot();
 /* 구글 화면에서 뒤로 돌아온 경우 "이동 중" 에 멈춰 있지 않게 */
 window.addEventListener('pageshow', function (ev) {
-  if (ev.persisted && !ME) showLock();
+  if (ev.persisted && !ME) { clearTimeout(_goT); showLock(); }
 });
 </script>
 </body>
