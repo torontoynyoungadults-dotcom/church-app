@@ -24,7 +24,9 @@
   .vwrap { position: relative; max-width: 560px; margin: 0 auto; padding: 0 16px 40px; }
   .vtop { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 0 6px; }
   .vtop img { height: 34px; display: block; }
-  .vtop select { max-width: 64%; background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 8px 10px; font: 500 13px 'Noto Sans KR', sans-serif; }
+  .vtop .pick { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; max-width: 70%; }
+  .vtop .pick label { font-size: 11px; color: #BDB8B1; letter-spacing: .04em; }
+  .vtop select { max-width: 100%; background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(242,107,33,.7); border-radius: 10px; padding: 8px 10px; font: 700 13px 'Noto Sans KR', sans-serif; }
   .vtop select option { color: #111; }
   .vnav { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; overflow-x: auto; padding: 10px 0; margin: 0 -16px; padding-left: 16px; padding-right: 16px;
     background: linear-gradient(rgba(11,11,11,.96), rgba(11,11,11,.88)); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); scrollbar-width: none; }
@@ -41,6 +43,7 @@
   .shead .sub { margin-top: 8px; font-size: 14px; color: #EDEBE7; font-weight: 500; }
   .shead .sub b { font-weight: 700; color: #fff; }
   .shead .sub .bar { color: var(--orange); margin: 0 6px; }
+  .shead .vn { margin-top: 4px; font-size: 12.5px; color: #CFCBC5; letter-spacing: .04em; }
   .shead .occ { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: #fff; background: var(--orange); padding: 3px 12px; border-radius: 14px; }
   .card { background: var(--card); border-radius: 10px; padding: 18px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
 
@@ -48,8 +51,10 @@
   .ordhead { background: var(--dark); color: #fff; text-align: center; font-weight: 700; font-size: 15px; padding: 8px; border-radius: 4px; margin-bottom: 6px; }
   .ord { display: grid; grid-template-columns: 37% 1fr; gap: 5px; margin-bottom: 5px; }
   .ord .l { background: var(--dark); color: #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 14px; padding: 9px 5px; font-weight: 500; word-break: keep-all; }
-  .ord .v { background: var(--cell); border-radius: 4px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 14.5px; font-weight: 700; color: #3A3835; padding: 9px 10px; white-space: pre-line; line-height: 1.6; }
-  .ord .v.list { justify-content: flex-start; text-align: left; font-size: 13.5px; padding: 12px 14px; }
+  .ord .v { background: var(--cell); border-radius: 4px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 14.5px; font-weight: 700; color: #3A3835; padding: 9px 10px; white-space: pre-line; line-height: 1.6; flex-direction: column; word-break: keep-all; }
+  .ord .v .st { display: block; color: var(--orange-2); font-size: 16.5px; font-weight: 900; }
+  .ord .l .dot, .stand .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--orange); margin-right: 6px; vertical-align: 1px; flex: none; }
+  .stand { text-align: right; font-size: 12.5px; color: var(--ink-2); margin: 8px 2px 0; }
   .ord .v:empty::after { content: '—'; color: #B0ACA6; font-weight: 400; }
   .cleanup { margin-top: 12px; text-align: center; font-size: 13.5px; color: var(--ink-2); }
   .cleanup b { color: var(--ink); }
@@ -61,6 +66,9 @@
   .verses { font-size: 15px; line-height: 1.85; color: #2B2926; }
   .verses p { margin: 0 0 4px; }
   .verses .n { color: var(--orange-2); font-weight: 700; margin-right: 5px; font-size: 13px; }
+  .verses p.en { color: #6E6A65; font-size: 13.5px; line-height: 1.6; margin: 0 0 10px; font-style: italic; }
+  .verses .ko + .en { margin-top: -2px; }
+  .vtitle .ver { font-size: 11px; color: #BDB8B1; margin-top: 3px; letter-spacing: .05em; }
 
   /* 3. 셀모임 */
   .stitle { text-align: center; margin-bottom: 14px; }
@@ -102,6 +110,16 @@
   .connect img { width: 100%; display: block; border-radius: 10px; }
   .vfoot { text-align: center; color: #9A958F; font-size: 12px; line-height: 1.9; margin-top: 30px; }
   .vfoot b { color: #C9C5BF; font-weight: 500; }
+  .ynfoot { position: relative; text-align: center; color: #A7A29B; padding: 34px 16px 30px; font-size: 12.5px; line-height: 1.9; }
+  .ynfoot .cw { font-family: 'Montserrat', sans-serif; font-weight: 800; color: var(--orange); font-size: 22px; letter-spacing: .01em; }
+  .ynfoot .cw:before { content: ''; display: block; width: 28px; height: 2px; background: var(--orange); margin: 0 auto 10px; }
+  .ynfoot .sl { color: #EDEBE7; font-size: 13.5px; margin: 2px 0 12px; }
+  .ynfoot .ln { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; }
+  .ynfoot a, .ynfoot span.i { color: #D8D5D0; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+  .ynfoot a:hover { color: #fff; }
+  .ynfoot svg { width: 14px; height: 14px; flex: none; color: var(--orange); }
+  .ynfoot .ch { margin-top: 12px; color: #8C8883; font-size: 11.5px; }
+  .ynfoot .cp { margin-top: 8px; font-family: 'Montserrat', sans-serif; font-size: 10.5px; font-weight: 700; color: #6E6A65; letter-spacing: .03em; }
   .vempty { color: #D8D5D0; text-align: center; padding: 80px 20px; line-height: 1.8; }
   .vempty a { color: var(--orange); }
 
@@ -145,6 +163,9 @@
   @media (max-width: 520px) { .oitem .flds { grid-template-columns: 1fr; } }
   .oitem textarea { min-height: 38px; }
   .oitem .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .standck { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-2); margin: 6px 6px 0 2px; cursor: pointer; }
+  .standck input { width: 15px; height: 15px; margin: 0; accent-color: var(--orange); }
+  .standck .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); }
   .tag { display: inline-block; font-size: 11px; font-weight: 700; color: #1D7A56; background: #E3F2EA; border-radius: 10px; padding: 1px 7px; margin-left: 6px; }
   .rowbtns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
   .sub-item { border: 1px solid var(--ed-hair); border-radius: 12px; padding: 12px; margin-bottom: 8px; background: #FCFBF9; }
@@ -204,6 +225,32 @@ function safeUrl(u) {
 function ymdParts(d) { var p = String(d || '').split('-'); return { y: +p[0], m: +p[1], d: +p[2] }; }
 function korDate(d) { var p = ymdParts(d); return p.y + '년 ' + p.m + '월 ' + p.d + '일'; }
 function mdTitle(d) { var p = ymdParts(d); return p.m + '월 ' + p.d + '일 일정'; }
+function volNo(d) {
+  var p = ymdParts(d), base = (INIT && INIT.volBase) || 1976;
+  var first = new Date(p.y, 0, 1); first.setDate(first.getDate() + (7 - first.getDay()) % 7);
+  var dt = new Date(p.y, p.m - 1, p.d);
+  return { vol: p.y - base, no: Math.round((dt - first) / 604800000) + 1 };
+}
+function volText(b) { var v = (b.vol && b.no) ? b : volNo(b.date); return '제 ' + v.vol + '권 ' + v.no + '호'; }
+
+var ICON = {
+  phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>',
+  web: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.7 5.7 3.7 9s-1.2 6.3-3.7 9c-2.5-2.7-3.7-5.7-3.7-9S9.5 5.7 12 3z"/></svg>',
+  ig: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1" fill="currentColor" stroke="none"/></svg>',
+  yt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2a2.6 2.6 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.6 2.6 0 0 0 2.4 7.2 27 27 0 0 0 2 12a27 27 0 0 0 .4 4.8 2.6 2.6 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.6 2.6 0 0 0 1.8-1.8A27 27 0 0 0 22 12a27 27 0 0 0-.4-4.8zM10 15V9l5.2 3z"/></svg>'
+};
+function ynFooter() {
+  return '<footer class="ynfoot"><div class="cw">CONNECT WITH US</div><div class="sl">복음 안에 예배하고 사랑으로 선교하는 공동체</div>' +
+    '<div class="ln"><a href="tel:+14164940191">' + ICON.phone + '(416) 494-0191</a>' +
+    '<a href="https://maps.google.com/?q=650+McNicoll+Ave+Toronto+ON+M2H+2E1" target="_blank" rel="noopener">' + ICON.pin + '650 McNicoll Ave. Toronto, ON M2H 2E1</a></div>' +
+    '<div class="ln"><a href="https://www.torontoyn.com" target="_blank" rel="noopener">' + ICON.web + 'www.torontoyn.com</a>' +
+    '<a href="https://www.instagram.com/yntoronto/" target="_blank" rel="noopener">' + ICON.ig + '@yntoronto</a>' +
+    '<a href="https://www.youtube.com/@토론토영락교회청년부" target="_blank" rel="noopener">' + ICON.yt + '@토론토영락교회청년부</a></div>' +
+    '<div class="ch">해외한인장로회 토론토영락교회 · 담임목사: 전대혁 · 청년1부 목사: 강산</div>' +
+    '<div class="cp">YOUNGNAK PRESBYTERIAN CHURCH OF TORONTO</div></footer>';
+}
+
 function bulletinTitle(d, occ) { return String(d || '').split('-').join('.') + ' ' + (occ ? occ + ' ' : '') + '주일예배'; }
 
 /* ================================================================
@@ -212,10 +259,10 @@ function bulletinTitle(d, occ) { return String(d || '').split('-').join('.') + '
 
 var SECTIONS = [
   ['worship', '예배 순서'], ['bible', '성경 본문'], ['study', '셀모임 나눔'],
-  ['news', '소식 · 광고'], ['servants', '섬김이'], ['connect', 'Connect']
+  ['news', '소식 · 광고'], ['servants', '섬김이']
 ];
 
-function hasBible(b) { return b.bible && (b.bible.text || b.bible.title); }
+function hasBible(b) { return b.bible && (b.bible.text || b.bible.textEn || b.bible.title); }
 function hasStudy(b) {
   var s = b.study || {};
   if (s.mode === 'pdf') return !!(s.file && s.file.id);
@@ -252,26 +299,40 @@ function renderBulletin(b, idp) {
   h += '<section class="sheet" id="' + idp + 'worship"><div class="shead">' +
     '<h2 class="big">WORSHIP SERVICE</h2>' +
     '<div class="sub">토론토영락교회 청년1부<span class="bar">|</span><b>' + esc(korDate(b.date)) + '</b></div>' +
+    '<div class="vn">' + esc(volText(b)) + '</div>' +
     (b.occasion ? '<span class="occ">' + esc(b.occasion) + ' 주일예배</span>' : '') +
     '</div><div class="card"><div class="ordhead">예배 순서</div>' +
     (b.order || []).map(function (o) {
-      var v = String(o.value || '');
-      var isList = /\n/.test(v) && /^\s*\d+[.)]/.test(v);
-      return '<div class="ord"><div class="l">' + esc(o.label) + '</div><div class="v' + (isList ? ' list' : '') + '">' + esc(v) + '</div></div>';
+      var v = String(o.value || ''), body;
+      if (o.key === 'sermon' && v) {
+        var ls = v.split('\n');
+        body = '<span class="st">' + esc(ls[0]) + '</span>' + esc(ls.slice(1).join('\n'));
+      } else body = esc(v);
+      return '<div class="ord"><div class="l">' + (o.stand ? '<span class="dot"></span>' : '') + esc(o.label) + '</div><div class="v">' + body + '</div></div>';
     }).join('') +
+    ((b.order || []).some(function (o) { return o.stand; }) ? '<div class="stand"><span class="dot"></span>일어서서</div>' : '') +
     (b.cleanup ? '<div class="cleanup">예배 후 뒷정리 &nbsp;<b>' + esc(b.cleanup) + '</b></div>' : '') +
     '</div></section>';
 
   /* 2. 성경 본문 */
   if (on('bible')) {
     var lines = String(b.bible.text || '').split(/\n+/).filter(function (x) { return x.trim(); });
+    var en = {}, enRest = [];
+    String(b.bible.textEn || '').split(/\n+/).forEach(function (x) {
+      var m2 = /^\s*(\d+)\s+(.*)$/.exec(x);
+      if (m2) en[m2[1]] = m2[2]; else if (x.trim()) enRest.push(x.trim());
+    });
     h += '<section class="sheet" id="' + idp + 'bible"><div class="shead"><h2><span class="ko">성경본문</span><span class="en">BIBLE VERSE</span></h2></div>' +
       '<div class="card">' +
-      (b.bible.title || b.bible.ref ? '<div class="vtitle"><div class="t">' + esc(b.bible.title) + '</div>' + (b.bible.ref ? '<div class="r">[' + esc(b.bible.ref) + ']</div>' : '') + '</div>' : '') +
+      (b.bible.title || b.bible.ref ? '<div class="vtitle"><div class="t">' + esc(b.bible.title) + '</div>' + (b.bible.ref ? '<div class="r">[' + esc(b.bible.ref) + ']</div>' : '') +
+        (b.bible.textEn ? '<div class="ver">개역개정 · NIV</div>' : '') + '</div>' : '') +
       '<div class="verses">' + lines.map(function (ln) {
         var m = /^\s*(\d+)\s+(.*)$/.exec(ln);
-        return '<p>' + (m ? '<span class="n">' + m[1] + '</span>' + esc(m[2]) : esc(ln)) + '</p>';
-      }).join('') + '</div></div></section>';
+        var e = m && en[m[1]];
+        return '<p class="ko">' + (m ? '<span class="n">' + m[1] + '</span>' + esc(m[2]) : esc(ln)) + '</p>' +
+          (e ? '<p class="en">' + esc(e) + '</p>' : '');
+      }).join('') + (lines.length ? '' : Object.keys(en).map(function (k) { return '<p class="en"><span class="n">' + k + '</span>' + esc(en[k]) + '</p>'; }).join('')) +
+      enRest.map(function (x) { return '<p class="en">' + esc(x) + '</p>'; }).join('') + '</div></div></section>';
   }
 
   /* 3. 셀모임 나눔 */
@@ -336,8 +397,6 @@ function renderBulletin(b, idp) {
     (sv.place ? '<div class="note"><b>모임 장소 안내</b>' + esc(sv.place) + '</div>' : '') +
     '</div></section>';
 
-  /* 6. Connect */
-  h += '<section class="sheet connect" id="' + idp + 'connect"><img src="/bulletin/connect.jpg" alt="Connect with us — 토론토영락교회 청년부 (416) 494-0191 · 650 McNicoll Ave. Toronto · www.torontoyn.com · @yntoronto"></section>';
   return h;
 }
 
@@ -355,9 +414,10 @@ function paintViewer(data) {
   var b = data.bulletin, dates = data.dates || [];
   var h = '<div class="viewer"><div class="vwrap">' +
     '<div class="vtop"><a href="' + esc(HOME) + '" title="포털"><img src="/logo.png" alt="Youngnak"></a>' +
-    (dates.length ? '<select id="vdate" onchange="loadDate(this.value)">' + dates.map(function (d) {
-      return '<option value="' + esc(d.date) + '"' + (b && d.date === b.date ? ' selected' : '') + '>' + esc(d.title) + '</option>';
-    }).join('') + '</select>' : '') + '</div>';
+    (dates.length ? '<div class="pick"><label>' + (dates.length > 1 ? '지난 주보 보기 ▾' : '게시된 주보') + '</label><select id="vdate" onchange="loadDate(this.value)">' + dates.map(function (d) {
+      var vn = volNo(d.date);
+      return '<option value="' + esc(d.date) + '"' + (b && d.date === b.date ? ' selected' : '') + '>' + esc(d.date.split('-').join('.')) + ' · ' + vn.no + '호' + (d.title.indexOf('주일예배') > 11 ? ' · ' + esc(d.title.slice(11).replace(' 주일예배', '')) : '') + '</option>';
+    }).join('') + '</select></div>' : '') + '</div>';
   if (!b) {
     h += '<div class="vempty">아직 게시된 주보가 없습니다.<br><a href="' + esc(HOME) + '">포털로 가기</a></div>';
   } else {
@@ -365,9 +425,7 @@ function paintViewer(data) {
       return '<a href="#sec-' + s[0] + '" data-k="' + s[0] + '"' + (i === 0 ? ' class="on"' : '') + '>' + esc(s[1]) + '</a>';
     }).join('') + '</nav>' + renderBulletin(b, 'sec-');
   }
-  h += '<div class="vfoot">해외한인장로회 토론토영락교회 <b>|</b> 담임목사: 전대혁 <b>|</b> 청년1부 목사: 강산<br>' +
-    '(416) 494-0191 · 650 McNicoll Ave. Toronto, ON M2H 2E1<br>' +
-    '<a href="https://www.torontoyn.com" target="_blank" rel="noopener">www.torontoyn.com</a> · @yntoronto</div></div></div>';
+  h += ynFooter() + '</div></div>';
   el('root').innerHTML = h;
   if (b) document.title = bulletinTitle(b.date, b.occasion) + ' · 청년1부 주보';
   watchNav();
@@ -445,18 +503,18 @@ function paintEditor() {
     '<div class="ecard"><div class="datebar"><div class="ef"><label>주일 날짜</label><select id="eDate" onchange="pickDate(this.value)">' +
       sundays.map(function (d) {
         var st = statusOf(d);
-        return '<option value="' + d + '"' + (d === B.date ? ' selected' : '') + '>' + d.split('-').join('.') + ' (주일)' + (st === '게시' ? ' · 게시됨' : st === '임시' ? ' · 임시' : '') + '</option>';
+        return '<option value="' + d + '"' + (d === B.date ? ' selected' : '') + '>' + d.split('-').join('.') + ' (주일) · ' + volNo(d).no + '호' + (st === '게시' ? ' · 게시됨' : st === '임시' ? ' · 임시' : '') + '</option>';
       }).join('') + '</select></div></div>' +
     '<div class="ef" style="margin-top:11px;"><label>절기 <span style="font-weight:400;color:var(--ink-3);">(없으면 비워두세요)</span></label>' +
       '<input type="text" id="eOcc" value="' + esc(B.occasion || '') + '" placeholder="예: 추수감사절" maxlength="30" oninput="B.occasion=this.value.trim();markDirty();el(\'eTitle\').textContent=bulletinTitle(B.date,B.occasion)"></div>' +
-    '<div class="ttl">제목: <b id="eTitle">' + esc(bulletinTitle(B.date, B.occasion)) + '</b> <span id="eStat">' + statTag(statusOf(B.date)) + '</span></div></div>' +
+    '<div class="ttl">제목: <b id="eTitle">' + esc(bulletinTitle(B.date, B.occasion)) + '</b> · <b>' + esc(volText({ date: B.date })) + '</b> <span id="eStat">' + statTag(statusOf(B.date)) + '</span></div></div>' +
     '<div class="tabs" id="eTabs">' + [
       ['worship', '1 예배 순서'], ['bible', '2 성경 본문'], ['study', '3 셀모임'], ['news', '4 소식 · 광고'],
-      ['servants', '5 섬김이'], ['sched', '스케줄 관리'], ['preview', '미리보기']
+      ['servants', '5 섬김이'], ['sched', '스케줄 · 권한'], ['preview', '미리보기']
     ].map(function (t) { return '<button data-t="' + t[0] + '" class="' + (TAB === t[0] ? 'on' : '') + '" onclick="setTab(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>' +
     '<div id="ePane"></div></div>' +
     '<div class="ebar"><div class="row"><div class="st" id="eBarSt"></div>' +
-      '<button class="b" onclick="save(false)">임시저장</button><button class="b or" onclick="save(true)">게시하기</button></div></div></div>';
+      '<button class="b" onclick="save(false)">임시저장</button>' + (INIT.canPublish ? '<button class="b or" onclick="save(true)">게시하기</button>' : '') + '</div></div></div>';
   el('root').innerHTML = h;
   paintPane();
   paintBar();
@@ -465,7 +523,7 @@ function paintEditor() {
 function paintBar(msg, kind) {
   var st = statusOf(B.date);
   el('eBarSt').innerHTML = msg ? '<span style="color:' + (kind === 'err' ? '#B23A1B' : '#1D7A56') + ';font-weight:700;">' + esc(msg) + '</span>'
-    : (DIRTY ? '<b>저장하지 않은 변경</b>이 있습니다.' : (st === '게시' ? '게시됨 — 누구나 볼 수 있습니다.' : st === '임시' ? '임시저장 — 아직 공개되지 않았습니다.' : '새 주보 — 아직 저장하지 않았습니다.')) +
+    : (DIRTY ? '<b>저장하지 않은 변경</b>이 있습니다.' : (st === '게시' ? '게시됨 — 누구나 볼 수 있습니다.' + (INIT.canPublish ? '' : '<br>게시된 주보는 게시자만 고칠 수 있습니다.') : st === '임시' ? '임시저장 — 아직 공개되지 않았습니다.' + (INIT.canPublish ? '' : '<br>게시는 주보 게시자가 합니다.') : '새 주보 — 아직 저장하지 않았습니다.')) +
       (B.updatedBy && !DIRTY ? '<br>' + esc(B.updatedBy) + ' · ' + esc(B.updatedAt || '') : '');
   el('eStat').innerHTML = statTag(st);
 }
@@ -497,7 +555,7 @@ function save(publish) {
     document.querySelectorAll('.ebar .b').forEach(function (x) { x.disabled = false; });
     // 날짜 목록의 표시도 고칩니다
     var opt = el('eDate').querySelector('option[value="' + B.date + '"]');
-    if (opt) opt.textContent = B.date.split('-').join('.') + ' (주일)' + (r.status === '게시' ? ' · 게시됨' : ' · 임시');
+    if (opt) opt.textContent = B.date.split('-').join('.') + ' (주일) · ' + volNo(B.date).no + '호' + (r.status === '게시' ? ' · 게시됨' : ' · 임시');
     paintBar(r.status === '게시' ? '게시했습니다 ✓' : '임시저장했습니다 ✓');
     setTimeout(function () { paintBar(); }, 2500);
   }, function (e) {
@@ -532,8 +590,9 @@ function paneWorship() {
     o.map(function (it, i) {
       return '<div class="oitem" draggable="true" data-i="' + i + '"><div class="grip" title="끌어서 옮기기">☰</div>' +
         '<div class="flds"><div>' + inp(it.label, 'B.order[' + i + '].label=this.value', '항목 이름') +
+          '<label class="standck"><input type="checkbox"' + (it.stand ? ' checked' : '') + ' onchange="B.order[' + i + '].stand=this.checked;markDirty()"><span class="dot"></span>일어서서</label>' +
           (AUTO_KEYS[it.key] ? '<span class="tag">자동 · ' + AUTO_KEYS[it.key] + '</span>' : '') + '</div>' +
-          '<div>' + ta(it.value, 'B.order[' + i + '].value=this.value', it.key === 'sermon' ? '설교 제목\n설교자 (예: 강산 목사)' : it.key === 'praise' ? '1. 곡 제목 (원곡팀)\n2. …' : '내용', /\n/.test(it.value || '') || it.key === 'praise' || it.key === 'sermon' ? 3 : 1) + '</div></div>' +
+          '<div>' + ta(it.value, 'B.order[' + i + '].value=this.value', it.key === 'sermon' ? '설교 제목\n설교자 (예: 강산 목사)' : it.key === 'praise' ? '곡 제목 - 원곡팀\n곡 제목 - 원곡팀' : '내용', /\n/.test(it.value || '') || it.key === 'praise' || it.key === 'sermon' ? 3 : 1) + '</div></div>' +
         '<div class="ctl"><button class="b ic" onclick="move(B.order,' + i + ',-1)" ' + (i === 0 ? 'disabled' : '') + ' title="위로">▲</button>' +
           '<button class="b ic" onclick="move(B.order,' + i + ',1)" ' + (i === o.length - 1 ? 'disabled' : '') + ' title="아래로">▼</button>' +
           '<button class="b ic del" onclick="drop(B.order,' + i + ',\'' + esc(String(it.label || '이 항목').replace(/['"\\<>&]/g, '')) + '\')" title="지우기">✕</button></div></div>';
@@ -604,15 +663,30 @@ function paneBible() {
   return '<div class="ecard"><h3>성경 본문 <span class="s">비워두면 주보에서 이 쪽이 빠집니다</span></h3>' +
     '<div class="two"><div class="ef"><label>설교 제목</label>' + inp(b.title, 'B.bible.title=this.value', '예: 베드로 (1) 부르시는 주님') + '</div>' +
     '<div class="ef"><label>본문</label>' + inp(b.ref, 'B.bible.ref=this.value', '예: 누가복음 5:1-11') + '</div></div>' +
-    '<div class="ef"><label>본문 말씀</label>' + ta(b.text, 'B.bible.text=this.value', '1 무리가 몰려와서…\n2 호숫가에 배 두 척이…', 14) +
-    '<p class="hint">한 줄에 한 절씩, 맨 앞에 절 번호를 쓰면 번호가 주황색으로 표시됩니다.</p></div>' +
-    '<div class="rowbtns"><button class="b" onclick="copySermon()">설교말씀 칸에서 제목 가져오기</button></div></div>';
+    '<div class="rowbtns" style="margin-bottom:12px;"><button class="b" onclick="copySermon()">설교말씀 · 성경교독 칸에서 가져오기</button>' +
+      (b.ref ? '<a class="b" style="text-decoration:none;" target="_blank" rel="noopener" href="' + esc(gatewayUrl(b.ref, 'NIV')) + '">NIV 본문 열기 ↗</a>' : '') + '</div>' +
+    '<div class="ef"><label>개역개정</label>' + ta(b.text, 'B.bible.text=this.value', '1 무리가 몰려와서…\n2 호숫가에 배 두 척이…', 12) + '</div>' +
+    '<div class="ef"><label>NIV <span style="font-weight:400;color:var(--ink-3);">(선택 — 넣으면 절마다 한글 아래에 영어가 나옵니다)</span></label>' +
+      ta(b.textEn, 'B.bible.textEn=this.value', '1 One day as Jesus was standing by the Lake of Gennesaret…\n2 He saw at the water’s edge two boats…', 10) +
+    '<p class="hint">한 줄에 한 절씩, 맨 앞에 절 번호를 써 주세요. 같은 번호끼리 짝지어 한글 → 영어 순으로 보여줍니다.<br>' +
+    '개역개정 · NIV 는 저작권이 있어 자동으로 가져올 수 없습니다. 성경 앱이나 “NIV 본문 열기” 에서 복사해 붙여 넣어 주세요.</p></div></div>';
 }
+/* 한글 책 이름 → 영어 (BibleGateway 주소용) */
+var BOOKS = ['창세기 Genesis','출애굽기 Exodus','레위기 Leviticus','민수기 Numbers','신명기 Deuteronomy','여호수아 Joshua','사사기 Judges','룻기 Ruth','사무엘상 1 Samuel','사무엘하 2 Samuel','열왕기상 1 Kings','열왕기하 2 Kings','역대상 1 Chronicles','역대하 2 Chronicles','에스라 Ezra','느헤미야 Nehemiah','에스더 Esther','욥기 Job','시편 Psalm','잠언 Proverbs','전도서 Ecclesiastes','아가 Song of Songs','이사야 Isaiah','예레미야애가 Lamentations','예레미야 Jeremiah','에스겔 Ezekiel','다니엘 Daniel','호세아 Hosea','요엘 Joel','아모스 Amos','오바댜 Obadiah','요나 Jonah','미가 Micah','나훔 Nahum','하박국 Habakkuk','스바냐 Zephaniah','학개 Haggai','스가랴 Zechariah','말라기 Malachi','마태복음 Matthew','마가복음 Mark','누가복음 Luke','요한복음 John','사도행전 Acts','로마서 Romans','고린도전서 1 Corinthians','고린도후서 2 Corinthians','갈라디아서 Galatians','에베소서 Ephesians','빌립보서 Philippians','골로새서 Colossians','데살로니가전서 1 Thessalonians','데살로니가후서 2 Thessalonians','디모데전서 1 Timothy','디모데후서 2 Timothy','디도서 Titus','빌레몬서 Philemon','히브리서 Hebrews','야고보서 James','베드로전서 1 Peter','베드로후서 2 Peter','요한일서 1 John','요한이서 2 John','요한삼서 3 John','유다서 Jude','요한계시록 Revelation'];
+function gatewayUrl(ref, ver) {
+  var q = String(ref || '').trim();
+  for (var i = 0; i < BOOKS.length; i++) {
+    var k = BOOKS[i].split(' ')[0];
+    if (q.indexOf(k) === 0) { q = BOOKS[i].slice(k.length + 1) + ' ' + q.slice(k.length).trim(); break; }
+  }
+  return 'https://www.biblegateway.com/passage/?search=' + encodeURIComponent(q) + '&version=' + ver;
+}
+
 function copySermon() {
   var s = (B.order || []).filter(function (o) { return o.key === 'sermon'; })[0];
   var r = (B.order || []).filter(function (o) { return o.key === 'reading'; })[0];
   if (s && s.value) B.bible.title = String(s.value).split('\n')[0];
-  if (r && r.value && !B.bible.ref) B.bible.ref = r.value;
+  if (r && r.value) B.bible.ref = String(r.value).split('\n')[0];
   markDirty(); paintPane();
 }
 
@@ -775,9 +849,39 @@ function paneSched() {
     '이미 만든 주보는 예배 순서의 “자동 불러오기” 를 누르면 반영됩니다.</p>' +
     schedTable('prayer', '대표기도 스케줄', '이름 (형제 · 자매는 자동)', 'dlPeople') +
     schedTable('cleanup', '예배 후 뒷정리 스케줄', '셀 또는 팀', 'dlCells') +
-    '<div class="ecard"><h3>주보 편집 권한</h3><p style="font-size:13.5px;line-height:1.7;margin:0;color:var(--ink-2);">' +
-      '지금 주보팀: <b>' + esc((INIT.managers || []).join(', ') || '없음') + '</b> (커미티는 모두 편집 가능)<br>' +
-      '주보팀 지정은 관리시스템 → 교적 관리에서 그 사람의 <b>포털 역할</b>에 “주보팀” 을 체크하면 됩니다.</p></div>';
+    paneTeam();
+}
+
+/* 주보 편집자 · 게시자 */
+var TEAM = null;
+function paneTeam() {
+  var t = INIT.team || {};
+  if (!TEAM) TEAM = { editors: (t.editors || []).slice(), publishers: (t.publishers || []).slice() };
+  var can = INIT.canPublish;
+  var list = function (kind, title, desc) {
+    var arr = TEAM[kind];
+    return '<div class="ef"><label>' + title + ' <span style="font-weight:400;color:var(--ink-3);">' + desc + '</span></label>' +
+      arr.map(function (n, i) {
+        return '<div style="display:flex;gap:6px;margin-bottom:6px;"><input type="text" list="dlPeople" value="' + esc(n) + '" ' + (can ? '' : 'disabled') +
+          ' placeholder="교적 이름" oninput="TEAM.' + kind + '[' + i + ']=this.value.trim()">' +
+          (can ? '<button class="b ic del" onclick="TEAM.' + kind + '.splice(' + i + ',1);paintPane()">✕</button>' : '') + '</div>';
+      }).join('') + (arr.length ? '' : '<p class="hint" style="margin:0 0 6px;">아직 없습니다.</p>') +
+      (can ? '<button class="b sm" onclick="TEAM.' + kind + '.push(\'\');paintPane()">＋ 사람 추가</button>' : '') + '</div>';
+  };
+  return '<div class="ecard"><h3>주보 편집 권한</h3>' +
+    list('publishers', '게시자', '— 편집 · 게시 · 게시된 주보 수정 · 권한 지정') +
+    list('editors', '편집자', '— 편집 · 임시저장 (게시는 게시자가)') +
+    (can ? '<div class="rowbtns"><button class="b dark" onclick="saveTeam()">권한 저장</button></div><p class="msg" id="tMsg"></p>' : '') +
+    '<p class="hint" style="font-size:12px;color:var(--ink-3);margin:10px 0 0;line-height:1.6;">커미티는 따로 넣지 않아도 게시자와 같습니다.' +
+      ((t.roleEditors || []).length ? '<br>교적 역할 “주보팀” 으로 편집할 수 있는 분: ' + esc(t.roleEditors.join(', ')) : '') + '</p></div>';
+}
+
+function saveTeam() {
+  var m = el('tMsg'); m.className = 'msg'; m.textContent = '저장하는 중…';
+  callServer('saveBulletinPeople', [TOKEN, TEAM.editors, TEAM.publishers], function (r) {
+    INIT.team = r; TEAM = null; paintPane();
+    var m2 = el('tMsg'); if (m2) { m2.className = 'msg ok'; m2.textContent = '저장했습니다 ✓'; }
+  }, function (e) { m.className = 'msg err'; m.textContent = e.message; });
 }
 
 function addSched(kind) {
@@ -799,7 +903,7 @@ function saveSched(kind) {
 
 /* 미리보기 */
 function panePreview() {
-  return '<div class="pv">' + renderBulletin(B, 'pv-') + '</div>';
+  return '<div class="pv">' + renderBulletin(B, 'pv-') + ynFooter() + '</div>';
 }
 
 /* ================================================================ */

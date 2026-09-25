@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <style>
   /* 청년1부 관리시스템 — 구조만 정의합니다. 색·여백·버튼은 Theme 이 맡습니다 */
-  :root { --accent: #4A52BE; --tone-rgb: 74,82,190; --mid: #B14A12; --low: #A3261F; }
+  :root { --accent: #D2511F; --tone-rgb: 210,81,31; --mid: #B14A12; --low: #A3261F; }
   * { box-sizing: border-box; }
 
   .filters { display: flex; gap: 7px; margin: 0 12px 12px; }
@@ -605,6 +605,25 @@
   .dgadm .addrow input[type=date] { flex: 1.25; min-width: 0; }
 </style>
 <!--#include Theme-->
+<style>
+/* =========================================================
+   관리시스템 — 주보 편집기와 같은 마감
+   흰 카드 · 얇은 선 · 둥근 14px · 검은/주황 알약 탭
+   ========================================================= */
+.panel { background: #FFFFFF !important; border: 1px solid #E6E2DB !important; border-radius: 14px !important; box-shadow: 0 6px 20px rgba(0,0,0,.18) !important; }
+.panel .panel, .card { border-radius: 12px !important; }
+.tabs { background: transparent !important; border: none !important; padding: 0 !important; gap: 6px !important; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { flex: none !important; padding: 8px 14px !important; border-radius: 20px !important; border: 1px solid rgba(255,255,255,.18) !important;
+  color: #D8D5D0 !important; background: rgba(255,255,255,.04) !important; white-space: nowrap; font-size: 13px !important; }
+.tabs button.on { background: #F26B21 !important; border-color: #F26B21 !important; color: #fff !important; box-shadow: none !important; }
+input[type=text], input[type=email], input[type=tel], input[type=date], input[type=number], input[type=url], select, textarea {
+  border-radius: 9px !important; border-color: #D8D3CB !important; }
+input:focus, select:focus, textarea:focus { border-color: #F26B21 !important; box-shadow: 0 0 0 3px rgba(242,107,33,.14) !important; outline: none !important; }
+.menucard, .secard, a.tile, .home .card { border-radius: 14px !important; }
+header h1 { color: #F26B21 !important; }
+.hcard, .hcard.cell, .hcard.nf, .hcard.team, .hcard.dir, .hcard.tr, .hcard.acct, .hcard.mis, .hcard.wor, .hcard.cal { --c: #D2511F !important; --cs: rgba(242,107,33,.12) !important; }
+</style>
 </head>
 <body>
 <div id="lock" style="display:none;">
@@ -1424,12 +1443,11 @@ function moodFace(m) { return FACE_MOOD[m] || '—'; }
 function fail(e) { alert(e && e.message ? e.message : '처리에 실패했습니다.'); }
 
 /* 영역마다 강조색만 달라지고, 나머지 마감은 모두 같습니다 (포털 메뉴 색과 맞춥니다) */
+/* 모든 영역을 청년부 주황 하나로 — 주보 편집기와 같은 모양 */
+var YN_ORANGE = ['#D2511F', '210,81,31'];
 var SEC_TONE = {
-  home: ['#4A52BE', '74,82,190'],  cell: ['#C4431A', '196,67,26'],
-  nf:   ['#2A8C94', '42,140,148'], team: ['#2E9A4B', '46,154,75'],
-  tr:   ['#1F6FEB', '31,111,235'], dir:  ['#4A52BE', '74,82,190'],
-  acct: ['#A8751F', '168,117,31'], mis:  ['#2E7D6B', '46,125,107'],
-  cal:  ['#7A4FB5', '122,79,181']
+  home: YN_ORANGE, cell: YN_ORANGE, nf: YN_ORANGE, team: YN_ORANGE, tr: YN_ORANGE,
+  dir: YN_ORANGE, acct: YN_ORANGE, mis: YN_ORANGE, cal: YN_ORANGE
 };
 /* 탭을 더 붙이려면 여기에 이름을 더하고 sub_<sec>_<이름> / st_<sec>_<이름> 를 만들면 됩니다 */
 var SEC_SUBS = {
