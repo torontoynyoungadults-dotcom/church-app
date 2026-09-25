@@ -316,6 +316,17 @@
   .orline { display: flex; align-items: center; gap: 12px; margin: 16px 0 -8px; }
   .orline:before, .orline:after { content: ""; flex: 1; height: 1px; background: var(--hair-2); }
   .orline span { font-size: 11.5px; font-weight: 750; color: var(--ink-3); }
+
+.lkchg { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 16px; font-size: 14px; line-height: 1.55; cursor: pointer; }
+.lkchg input[type=checkbox] { -webkit-appearance: checkbox; appearance: auto; width: 18px; height: 18px; min-height: 0; margin: 2px 0 0; padding: 0; border: none; border-radius: 0; box-shadow: none; background: none; flex: none; accent-color: #D2511F; }
+.lkchg em { display: block; font-style: normal; color: #8E8880; font-size: 12.5px; margin-top: 2px; }
+.gnote { margin: 0 16px 14px; background: #fff; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; padding: 14px 15px;
+  display: flex; gap: 12px; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.gnote .gt { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.55; color: #3A3632; }
+.gnote .gt b { color: #1C1C1C; }
+.gnote.ok { background: #EEF7F1; border-color: #CFE7D8; }
+.gnote .gx { background: none; border: none; color: #A39D95; font-size: 18px; cursor: pointer; padding: 0 2px; flex: none; }
+.gnote .gb { flex: none; background: #1C1C1C; color: #fff; border: none; border-radius: 9px; padding: 8px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 </style>
 <!--#include Theme-->
 <style>
@@ -343,7 +354,7 @@
   <div id="lock" style="display:none;">
     <div class="panel" id="gbox" style="display:none;">
       <span class="chip">구글 계정으로 들어가기</span>
-      <p class="hint">교적에 등록된 이메일과 같은 구글 계정으로 로그인하면 바로 들어옵니다.</p>
+      <p class="hint">구글 계정으로 로그인하세요. 교적에 아직 연결되지 않은 계정이면 처음 한 번만 본인 확인을 합니다.</p>
       <a class="gbtn" id="gbtn" href="#" onclick="goGoogle()">
         <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.3 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.4C.5 8.2 0 10 0 12s.5 3.8 1.4 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
         <span>Google 계정으로 로그인</span>
@@ -352,6 +363,44 @@
       <p class="fnote" style="text-align:center;margin-top:14px;">
         구글 계정으로 안 되시나요?
         <a href="#" id="manualToggle" onclick="toggleManual();return false;">이름 · 전화번호로 로그인</a>
+      </p>
+    </div>
+
+    <div class="panel" id="linkBox" style="display:none;">
+      <span class="chip">처음 한 번만 본인 확인</span>
+      <p class="hint">
+        <b id="linkEmail"></b> 구글 계정이 아직 교적에 연결되어 있지 않습니다.
+        교적에 등록된 정보로 한 번만 확인하면, 다음부터는 구글 로그인만으로 바로 들어옵니다.
+      </p>
+      <div class="f">
+        <label>이름</label>
+        <input type="text" id="lkName" class="big" autocomplete="name" placeholder="홍길동">
+      </div>
+      <div class="f">
+        <label>전화번호 10자리</label>
+        <input type="tel" id="lkPhone" class="big" inputmode="numeric" autocomplete="tel"
+          placeholder="416-000-0000" maxlength="14" oninput="fmtPhone(this)">
+      </div>
+      <div class="f">
+        <label>생년월일</label>
+        <input type="date" id="lkBirth" class="big" autocomplete="bday">
+      </div>
+      <div class="f">
+        <label>Postal Code</label>
+        <input type="text" id="lkPostal" class="big code" maxlength="7" autocomplete="postal-code"
+          placeholder="M2H 2E1" lang="en" inputmode="latin" spellcheck="false"
+          autocapitalize="characters" autocorrect="off" oninput="fmtPostal(this)">
+        <p class="fnote">교적에 등록된 주소의 Postal Code 입니다. 주소가 등록되어 있지 않으면 비워두셔도 됩니다.</p>
+      </div>
+      <label class="lkchg">
+        <input type="checkbox" id="lkChange" checked>
+        <span>교적 이메일을 이 구글 계정(<b id="linkEmail2"></b>)으로 바꾸기
+          <em>바꿔 두시면 다음부터 구글 로그인만으로 들어옵니다.</em></span>
+      </label>
+      <button class="submit" id="btnLink" onclick="doLink()">확인하고 들어가기</button>
+      <p class="msg" id="linkMsg"></p>
+      <p class="fnote" style="text-align:center;">
+        <a href="#" onclick="cancelLink();return false;">다른 방법으로 로그인</a>
       </p>
     </div>
 
@@ -390,6 +439,7 @@
   <div id="main" style="display:none;">
    <div id="dash">
     <div id="asBox"></div>
+    <div id="gNote"></div>
     <div class="hero">
       <div class="herotop">
         <div id="heroAva"></div>
@@ -551,6 +601,21 @@ function forgetToken() {
    2) 이미 로그인한 적이 있으면 — 저장된 표로 확인하는 동안 "로그인 중" 을 보여줍니다
    3) 둘 다 아니면 로그인 화면 */
 function boot() {
+  // 구글로 로그인했는데 교적에 없는 계정 — 본인 확인(또는 로그인된 분이면 바로 연결)
+  if (PREFILL.link) {
+    try { history.replaceState(null, '', location.pathname + '?page=portal'); } catch (e) {}
+    var kept = keptToken(), intent = false;
+    try { intent = sessionStorage.getItem('ynLinkIntent') === '1'; sessionStorage.removeItem('ynLinkIntent'); } catch (e) {}
+    if (kept && intent) {
+      el('enterMsg').textContent = '구글 계정을 연결하는 중…';
+      callServer('portalLinkGoogleWithToken', [PREFILL.link, kept], onIn, function (e) {
+        showLinkForm(); say('linkMsg', (e && e.message) || '연결하지 못했습니다.', 'err');
+      });
+      return;
+    }
+    showLinkForm();
+    return;
+  }
   if (PREFILL.token) TOKEN = PREFILL.token;
   else TOKEN = keptToken();
 
@@ -644,6 +709,78 @@ function doLogin() {
     });
 }
 
+/* ---------- 교적에 없는 구글 계정 — 한 번만 본인 확인 ---------- */
+
+function showLinkForm() {
+  el('entering').style.display = 'none';
+  el('lock').style.display = 'block';
+  el('gbox').style.display = 'none';
+  el('manualBox').style.display = 'none';
+  el('linkBox').style.display = 'block';
+  el('linkEmail').textContent = PREFILL.email || '';
+  el('linkEmail2').textContent = PREFILL.email || '';
+  el('lkName').focus();
+  ['lkName', 'lkPhone', 'lkBirth', 'lkPostal'].forEach(function (k) {
+    el(k).addEventListener('keydown', function (ev) { if (ev.key === 'Enter') doLink(); });
+  });
+}
+
+function doLink() {
+  var name = el('lkName').value.trim(), phone = el('lkPhone').value.trim(), birth = el('lkBirth').value;
+  if (!name) { say('linkMsg', '이름을 입력해주세요.', 'err'); el('lkName').focus(); return; }
+  if (phone.replace(/[^0-9]/g, '').length < 10) { say('linkMsg', '전화번호를 10자리로 입력해주세요.', 'err'); el('lkPhone').focus(); return; }
+  if (!birth) { say('linkMsg', '생년월일을 골라주세요.', 'err'); el('lkBirth').focus(); return; }
+  el('btnLink').disabled = true;
+  say('linkMsg', '확인 중…');
+  callServer('portalLinkGoogle', [PREFILL.link, name, phone, birth, el('lkPostal').value.trim(), el('lkChange').checked],
+    function (res) { el('btnLink').disabled = false; el('linkBox').style.display = 'none'; onIn(res); },
+    function (e) { el('btnLink').disabled = false; say('linkMsg', (e && e.message) || '확인하지 못했습니다.', 'err'); });
+}
+
+function cancelLink() {
+  PREFILL.link = '';
+  el('linkBox').style.display = 'none';
+  el('manualBox').style.display = 'block';
+  showLock();
+}
+
+/* ---------- 구글 계정 연결 안내 (이름 · 전화번호로 들어온 분께) ---------- */
+
+function gDismissed() { try { return localStorage.getItem('ynGNoteOff') === '1'; } catch (e) { return false; } }
+
+function renderGNote(res) {
+  var box = el('gNote');
+  if (!box) return;
+  if (VIEW) { box.innerHTML = ''; return; }
+  if (res && res.linked) {
+    box.innerHTML = '<div class="gnote ok"><div class="gt">✓ 구글 계정 <b>' + esc(res.linked) + '</b> 을 교적에 연결했습니다. ' +
+      '다음부터는 <b>구글 로그인</b>만으로 바로 들어오실 수 있습니다.</div>' +
+      '<button class="gx" onclick="el(\'gNote\').innerHTML=\'\'" aria-label="닫기">×</button></div>';
+    return;
+  }
+  var email = String((ME && ME.email) || '').toLowerCase();
+  var google = /@(gmail|googlemail)\.com$/.test(email) || PREFILL.email;
+  if (!res || !res.googleReady || google || gDismissed()) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="gnote"><div class="gt"><b>다음부터 구글로 한 번에</b><br>' +
+    '구글 계정을 교적에 연결해 두면 이름 · 전화번호를 입력하지 않아도 됩니다.</div>' +
+    '<button class="gb" onclick="linkGoogle(this)">구글 계정 연결</button>' +
+    '<button class="gx" onclick="gNoteOff()" aria-label="다시 보지 않기">×</button></div>';
+}
+
+function gNoteOff() {
+  try { localStorage.setItem('ynGNoteOff', '1'); } catch (e) {}
+  el('gNote').innerHTML = '';
+}
+
+function linkGoogle(btn) {
+  btn.disabled = true; btn.textContent = '이동 중…';
+  callServer('portalGoogleLinkUrl', [TOKEN], function (u) {
+    if (!u) { btn.disabled = false; btn.textContent = '구글 계정 연결'; alert('구글 로그인이 아직 설정되어 있지 않습니다. 커미티에 문의해주세요.'); return; }
+    try { sessionStorage.setItem('ynLinkIntent', '1'); } catch (e) {}
+    location.href = u;
+  }, function (e) { btn.disabled = false; btn.textContent = '구글 계정 연결'; alert(e.message || '이동하지 못했습니다.'); });
+}
+
 /** 로그아웃 — 새로고침하지 않고 그 자리에서 로그인 화면으로 (하얀 화면 없이) */
 function doLogout() {
   forgetToken();
@@ -678,6 +815,7 @@ function paint(res) {
   CAL_COM = !!res.committee;
   CAL_LEAD = !!res.leader || CAL_COM;
   renderAs();
+  renderGNote(res);
   renderHero();
   renderMenus();
   if (!VIEW) renderProfile();
