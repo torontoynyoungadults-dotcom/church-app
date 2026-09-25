@@ -314,6 +314,20 @@
   .bulbtn .bt small { display: block; font-size: 12.5px; color: #BDB8B1; margin-top: 1px; }
   .bulbtn .ba { font-size: 22px; color: #8E8880; }
   .bulbtn.in { margin: 0 16px 14px; }
+
+  /* 알림 켜기 카드 */
+  .pushcard { display: flex; align-items: center; gap: 12px; margin: 0 16px 12px; padding: 13px 15px;
+    background: #fff; border: 1px solid var(--hair-2); border-radius: var(--r-md); box-shadow: var(--sh-1); }
+  .pushcard.on { background: #F4FAF6; border-color: #CFE7D8; }
+  .pushcard .pi { width: 36px; height: 36px; border-radius: 11px; background: #FBEFE7; flex: none;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .pushcard.on .pi { background: #DFF1E5; }
+  .pushcard .pt { flex: 1; min-width: 0; }
+  .pushcard .pt b { display: block; font-size: 14.5px; color: var(--ink-1); }
+  .pushcard .pt small { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 2px; line-height: 1.5; }
+  .pushcard .pb { flex: none; background: var(--ink-1); color: #fff; border: none; border-radius: 9px;
+    padding: 9px 14px; font-size: 13px; font-weight: 750; cursor: pointer; }
+  .pushcard.on .pb { background: #fff; color: var(--ink-2); border: 1px solid var(--hair-2); }
   .prebtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 16px 12px; }
   .prebtns .bulbtn { margin: 0; padding: 13px 14px; }
   .prebtns .bulbtn .bi { width: 34px; height: 34px; }
@@ -589,6 +603,7 @@
       <span class="bt"><b>이번 주 주보 보기</b><small>예배 순서 · 말씀 · 셀 나눔 · 광고</small></span><span class="ba">›</span>
     </a>
     <div id="cellAppBox"></div>
+    <div id="pushBox"></div>
 
     <div id="calWrap" style="display:none;">
       <div class="calhead">
@@ -1106,6 +1121,55 @@ function renderCellApp(res) {
   box.innerHTML = (ca.state === 'open' || ca.state === 'locked' ? cellAppBtn(ca) : '') + (res.myCell ? myCellHtml(res.myCell) : '');
 }
 
+/* ---------- 알림(푸시) 켜기 ---------- */
+
+function renderPush() {
+  var box = el('pushBox');
+  if (!box) return;
+  if (VIEW) { box.innerHTML = ''; return; }          // 커미티가 남의 화면을 볼 때는 숨깁니다
+  var P = window.YNPush;
+  if (!P) { box.innerHTML = ''; return; }
+  var st = P.state();
+  if (st === 'unsupported') { box.innerHTML = ''; return; }
+
+  if (st === 'needsHome') {
+    box.innerHTML = '<div class="pushcard"><div class="pi">🔔</div>' +
+      '<div class="pt"><b>알림을 받으시려면</b>' +
+      '<small>아이폰은 <b>공유 버튼 → 홈 화면에 추가</b> 를 한 뒤, 홈 화면 아이콘으로 열면 알림을 켤 수 있습니다.</small></div></div>';
+    return;
+  }
+  if (st === 'denied') {
+    box.innerHTML = '<div class="pushcard"><div class="pi">🔕</div>' +
+      '<div class="pt"><b>알림이 차단되어 있습니다</b>' +
+      '<small>브라우저 설정에서 이 사이트의 알림을 허용으로 바꿔주세요.</small></div></div>';
+    return;
+  }
+  P.subscribed(function (on) {
+    box.innerHTML = '<div class="pushcard' + (on ? ' on' : '') + '"><div class="pi">' + (on ? '🔔' : '🔔') + '</div>' +
+      '<div class="pt"><b>' + (on ? '이 기기로 알림을 받고 있습니다' : '알림 켜기') + '</b>' +
+      '<small>' + (on ? '셀보고 · 주보 · 공지 알림이 이 기기로 옵니다.'
+                      : '셀보고 독려, 새 주보, 공지를 휴대폰 알림으로 받아보세요.') + '</small></div>' +
+      '<button class="pb" onclick="' + (on ? 'pushOff()' : 'pushOn()') + '">' + (on ? '끄기' : '켜기') + '</button></div>' +
+      '<p class="msg" id="pushMsg" style="margin:-6px 16px 12px;"></p>';
+  });
+}
+
+function pushOn() {
+  say('pushMsg', '알림을 켜는 중…');
+  window.YNPush.enable(caToken(), function () {
+    renderPush();
+    setTimeout(function () { say('pushMsg', '알림을 켰습니다.', 'ok'); }, 60);
+  }, function (e) { say('pushMsg', (e && e.message) || '알림을 켜지 못했습니다.', 'err'); });
+}
+
+function pushOff() {
+  say('pushMsg', '끄는 중…');
+  window.YNPush.disable(caToken(), function () {
+    renderPush();
+    setTimeout(function () { say('pushMsg', '이 기기 알림을 껐습니다.'); }, 60);
+  }, function (e) { say('pushMsg', (e && e.message) || '끄지 못했습니다.', 'err'); });
+}
+
 function caToken() { return NF_TOKEN && !TOKEN ? NF_TOKEN : TOKEN; }
 function openCellApp() {
   CA_FROM = el('main').style.display !== 'none' ? 'main' : 'lock';
@@ -1290,6 +1354,7 @@ function paint(res) {
   renderHero();
   renderMenus();
   renderCellApp(res);
+  try { renderPush(); } catch (e) {}
   if (!VIEW) renderProfile();
   el('meBtn').style.display = VIEW ? 'none' : '';
   renderAdmin();

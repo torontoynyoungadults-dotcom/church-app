@@ -2455,6 +2455,9 @@ function saveNewFamily(token, data) {
   var birthday = String(data.birthday || '').trim();
   if (birthday && !/^\d{4}-\d{2}-\d{2}$/.test(birthday)) throw new Error('생년월일 형식을 확인해주세요.');
 
+  var email = String(data.email || '').trim().toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('이메일 형식을 확인해주세요.');
+
   var prev = String(data.id || '').trim();
   var sh = sheet_(SHEET_새가족), v = sh.getDataRange().getValues();
 
@@ -2463,6 +2466,13 @@ function saveNewFamily(token, data) {
     if (rn === name && rn !== prev) {
       throw new Error('같은 이름의 새가족이 이미 있습니다. 구분할 수 있도록 이름을 조정해주세요.');
     }
+    if (email && rn !== prev && String(v[i][NF_이메일] || '').trim().toLowerCase() === email) {
+      throw new Error(email + ' 은 이미 ' + rn + '님 이메일로 쓰이고 있습니다.');
+    }
+  }
+  if (email) {
+    var 기존교적 = 이메일찾기_(email);
+    if (기존교적) throw new Error(email + ' 은 교적에서 ' + 기존교적.name + '님 이메일로 쓰이고 있습니다.');
   }
 
   var joined = String(data.joinedAt || '').trim() || ymd_(new Date());
@@ -2486,6 +2496,8 @@ function saveNewFamily(token, data) {
 
   sh.getRange(target, NF_생일 + 1).setNumberFormat('@').setValue(birthday);
   sh.getRange(target, NF_등록일 + 1).setNumberFormat('@').setValue(joined);
+  ensureColumn_(SpreadsheetApp.getActiveSpreadsheet(), SHEET_새가족, NF_이메일 + 1, '이메일');
+  sh.getRange(target, NF_이메일 + 1).setValue(email);
 
   if (prev && prev !== name) {
     renameInColumn_(SHEET_새가족과정, NP_이름, prev, name);
@@ -4154,6 +4166,12 @@ function sendReminders___원래(force) {
     sendReminderMail_(c, 키, url);
     기록.appendRow([키, c.name, new Date()]);
     sent.push(c.name);
+    // 휴대폰 알림도 같이 (설정에서 꺼둘 수 있습니다)
+    알림_('셀보고', [c.leader], {
+      title: '셀보고서를 기다리고 있습니다',
+      body: c.name + ' — ' + 키 + ' 셀모임 보고서를 아직 안 쓰셨습니다.',
+      url: url + '?page=leader', tag: '셀보고', keep: true
+    });
   });
   return { date: 키, sent: sent, skipped: skipped };
 }
@@ -6000,7 +6018,8 @@ function 구글표식확인_(state) {
   if (p.length !== 2 && p.length !== 3) return false;
   if (포털서명_('g:' + p[0]) !== p[1]) return false;
   var age = Math.floor(new Date().getTime() / 1000) - Number(p[0]);
-  return age >= 0 && age < 900;          // 15분 안에 돌아와야 합니다
+  // 30분 안에 돌아와야 합니다 (시크릿 모드에서는 구글 계정 로그인부터 해야 해서 넉넉히 둡니다)
+  return age >= 0 && age < 1800;
 }
 
 function 포털주소_() { return 앱주소_() + '?page=portal'; }
@@ -7091,6 +7110,12 @@ function registerNewcomer(link, data) {
     새가족등록알림_({ name: finalName, gender: gender, birthday: birthday, contact: contact, kakao: kakao, baptized: baptized,
       prevChurch: prevChurch, job: job, plan: plan, question: question, email: email }, isNew);
   } catch (e) {}
+  // 새가족팀 · 커미티 휴대폰으로도 알려줍니다
+  알림_('새가족', 역할인사람_('새가족팀').concat(역할인사람_('커미티')), {
+    title: isNew ? '새가족이 등록했습니다' : '새가족이 내용을 고쳤습니다',
+    body: finalName + ' (' + gender + ') — ' + plan,
+    url: 앱주소_() + '?page=newfamily', tag: '새가족', keep: true
+  });
   return { ok: true, isNew: isNew, name: finalName, mine: 새가족내등록_(email), nfToken: 새가족토큰_(email) };
 }
 
@@ -8131,6 +8156,11 @@ function submitExpense(data) {
 
     var 건 = 지출쓰기_(data, { needReceipt: true, status: 'In Review', source: '신청서' });
     try { 지출접수메일_(건); } catch (e) {}
+    알림_('팀보고', 역할인사람_('회계팀').concat(역할인사람_('커미티')), {
+      title: '지출 신청이 들어왔습니다',
+      body: (건.no ? '#' + 건.no + ' · ' : '') + (data.team || data.name || '') + ' · $' + 건.total,
+      url: 앱주소_() + '?page=expense', tag: '지출'
+    });
     return { ok: true, no: 건.no, total: 건.total };
   } finally {
     lock.releaseLock();
@@ -9294,6 +9324,14 @@ function saveBulletin(token, data, publish) {
     sh.getRange(at, 1, 1, row.length).setValues([row]);
   } finally { lock.releaseLock(); }
   캐시비움_();
+  // 새로 게시된 주보는 알림을 켠 모두에게 알려줍니다
+  if (publish && !(지금 && 지금.status === '게시')) {
+    알림_('주보', '*', {
+      title: '이번 주 주보가 나왔습니다',
+      body: 주보제목_(date, keep.occasion),
+      url: 앱주소_() + '?page=bulletin', tag: '주보'
+    });
+  }
   return { ok: true, status: status, list: 주보목록_(), bulletin: 주보풀기_(주보찾기_(date)) };
 }
 
@@ -9807,6 +9845,13 @@ function submitCellApp(token, d) {
   else sh.appendRow(row);
   캐시비움_();
 
+  // 커미티 휴대폰으로 알려줍니다
+  알림_('셀신청', 역할인사람_('커미티'), {
+    title: '셀 신청이 들어왔습니다',
+    body: name + ' — ' + join + (who.kind === 'newcomer' ? ' (새가족)' : ''),
+    url: 앱주소_() + '?page=cells', tag: '셀신청'
+  });
+
   // 헌금봉투번호 신청 (없는 분만)
   var envMsg = '';
   if (d.envelope) {
@@ -10052,4 +10097,278 @@ function 셀명단바꾸기_(year, cells, why) {
   var lg = sheet_(SHEET_명단변경);
   if (lg && log.length) lg.getRange(lg.getLastRow() + 1, 1, log.length, 6).setValues(log);
   캐시비움_();
+}
+
+/* =========================================================
+   알림 (푸시) — 휴대폰 · 컴퓨터로 바로 가는 알림
+   ---------------------------------------------------------
+   · 기기마다 한 줄씩 '알림기기' 시트에 저장합니다.
+   · 아이폰은 "홈 화면에 추가" 한 뒤에만 켤 수 있습니다 (애플 정책).
+   · 어떤 알림을 보낼지는 커미티가 관리 화면에서 켜고 끕니다.
+   ========================================================= */
+
+var SHEET_푸시 = '알림기기';
+var HEAD_푸시 = ['이름', '이메일', '기기', '구독', '등록일', '마지막알림', '상태'];
+var PS_이름 = 0, PS_이메일 = 1, PS_기기 = 2, PS_구독 = 3, PS_등록 = 4, PS_마지막 = 5, PS_상태 = 6;
+
+/** 알림 종류 — 커미티가 켜고 끕니다 (기본은 모두 켜짐) */
+function 알림종류_() {
+  return [
+    { key: '셀보고', name: '셀보고 독려', who: '셀장', help: '셀보고서를 아직 안 쓰신 셀장에게 (이메일 리마인더와 같이 나갑니다)' },
+    { key: '팀보고', name: '사역팀 · 지출 결재', who: '팀장 · 회계팀', help: '지출 신청이 올라오거나 결재가 필요할 때' },
+    { key: '주보', name: '새 주보 · 공지', who: '알림을 켠 모두', help: '주보가 새로 게시되면' },
+    { key: '새가족', name: '새가족 등록', who: '새가족팀 · 커미티', help: '새가족이 등록하거나 내용을 고쳤을 때' },
+    { key: '셀신청', name: '셀 신청', who: '커미티', help: '셀 신청서가 들어왔을 때' },
+    { key: '공지', name: '커미티 직접 보내기', who: '고르는 대로', help: '관리 화면에서 손으로 보내는 알림' }
+  ];
+}
+
+function 알림켜짐_(kind) {
+  return String(설정값_('알림_' + kind) || 'ON').trim().toUpperCase() !== 'OFF';
+}
+
+/** 서명 열쇠 한 쌍 — 없으면 처음 한 번 만들어 설정 시트에 둡니다 */
+function 푸시열쇠_() {
+  var pub = String(설정값_('푸시공개키') || '').trim();
+  var pri = String(설정값_('푸시비밀키') || '').trim();
+  if (pub && pri) return { publicKey: pub, privateKey: pri };
+  var k = HOST.vapid();
+  if (!k || !k.publicKey) throw new Error('알림 열쇠를 만들지 못했습니다.');
+  설정저장_('푸시공개키', k.publicKey);
+  설정저장_('푸시비밀키', k.privateKey);
+  return k;
+}
+
+/** 화면이 구독할 때 쓰는 공개 열쇠 */
+function pushKey() {
+  try { return 푸시열쇠_().publicKey; } catch (e) { return ''; }
+}
+
+function 푸시시트_() {
+  var sh = 주보시트_(SHEET_푸시, HEAD_푸시);
+  // 빈 시트를 미리 만들어 두신 경우 — 머리글이 없으면 채워 넣습니다
+  try {
+    if (sh.getLastRow() === 0) {
+      sh.getRange(1, 1, 1, HEAD_푸시.length).setValues([HEAD_푸시]);
+      캐시비움_();
+    }
+  } catch (e) {}
+  return sh;
+}
+
+function 푸시행들_() {
+  return rows_(SHEET_푸시).filter(function (r) {
+    return String(r[PS_구독] || '').trim() && String(r[PS_상태] || '').trim() !== '삭제';
+  }).map(function (r) {
+    var sub = null;
+    try { sub = JSON.parse(String(r[PS_구독])); } catch (e) {}
+    return { name: String(r[PS_이름] || '').trim(), email: String(r[PS_이메일] || '').trim().toLowerCase(),
+      device: String(r[PS_기기] || '').trim(), sub: sub, at: 날짜문자열_(r[PS_등록]) };
+  }).filter(function (x) { return x.sub && x.sub.endpoint; });
+}
+
+/** 기기 이름을 알아보기 쉽게 */
+function 기기이름_(ua) {
+  ua = String(ua || '');
+  var os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
+    : /Macintosh/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : '기기';
+  var br = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox'
+    : /Safari\//.test(ua) ? 'Safari' : '';
+  return br ? os + ' · ' + br : os;
+}
+
+/** 토큰 → 알림을 켜는 분 (교적 교인 · 새가족 모두) */
+function 알림본인_(token) {
+  if (String(token || '').indexOf(새가족접두) === 0) {
+    var nf = 새가족본인_(token);
+    return { name: nf.name, email: String(nf.email || '').toLowerCase() };
+  }
+  var me = requirePortal_(token);
+  return { name: me.name, email: String(me.email || '').toLowerCase() };
+}
+
+/** 이 기기에서 알림 켜기 */
+function savePushDevice(token, sub, ua) {
+  var who = 알림본인_(token);
+  sub = sub || {};
+  var ep = String(sub.endpoint || '').trim();
+  if (!ep) throw new Error('알림 정보를 받지 못했습니다. 다시 시도해주세요.');
+  var json = JSON.stringify({ endpoint: ep, keys: sub.keys || {}, expirationTime: null });
+  if (json.length > 4000) throw new Error('알림 정보가 너무 깁니다.');
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var sh = 푸시시트_(), v = sh.getDataRange().getValues(), at = 0;
+    for (var i = 1; i < v.length; i++) {
+      var s = String(v[i][PS_구독] || '');
+      if (s.indexOf(ep) !== -1) { at = i + 1; break; }
+    }
+    var row = [who.name, who.email, 기기이름_(ua), json, ymd_(new Date()), '', '켜짐'];
+    if (at) sh.getRange(at, 1, 1, row.length).setValues([row]);
+    else { sh.appendRow(row); at = sh.getLastRow(); }
+    sh.getRange(at, PS_등록 + 1).setNumberFormat('@').setValue(ymd_(new Date()));
+  } finally { lock.releaseLock(); }
+  캐시비움_();
+  return { ok: true, name: who.name, devices: 내기기수_(who.name) };
+}
+
+/** 이 기기에서 알림 끄기 */
+function deletePushDevice(token, endpoint) {
+  알림본인_(token);
+  var ep = String(endpoint || '').trim();
+  if (!ep) return { ok: true };
+  푸시지우기_([ep]);
+  return { ok: true };
+}
+
+function 푸시지우기_(endpoints) {
+  if (!endpoints || !endpoints.length) return;
+  var sh = 푸시시트_(), v = sh.getDataRange().getValues(), kill = [];
+  for (var i = 1; i < v.length; i++) {
+    var s = String(v[i][PS_구독] || '');
+    for (var j = 0; j < endpoints.length; j++) {
+      if (s.indexOf(endpoints[j]) !== -1) { kill.push(i + 1); break; }
+    }
+  }
+  kill.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
+  if (kill.length) 캐시비움_();
+}
+
+function 내기기수_(name) {
+  return 푸시행들_().filter(function (x) { return x.name === name; }).length;
+}
+
+/**
+ * 알림 보내기.
+ *   names : ['김현세', ...] 또는 '*' (알림을 켠 모두)
+ *   msg   : { title, body, url, tag }
+ */
+function 푸시보내기_(names, msg) {
+  msg = msg || {};
+  var rows = 푸시행들_();
+  if (names !== '*') {
+    var want = {};
+    (names || []).forEach(function (n) { if (n) want[String(n).trim()] = 1; });
+    rows = rows.filter(function (x) { return want[x.name]; });
+  }
+  if (!rows.length) return { sent: 0, failed: 0 };
+
+  var key;
+  try { key = 푸시열쇠_(); } catch (e) { return { sent: 0, failed: 0, error: e.message }; }
+
+  var payload = {
+    title: String(msg.title || '토론토영락교회 청년1부').slice(0, 80),
+    body: String(msg.body || '').slice(0, 300),
+    url: String(msg.url || (앱주소_() + '?page=portal')),
+    tag: String(msg.tag || 'yn'), keep: !!msg.keep
+  };
+
+  var out = { sent: 0, failed: 0 }, dead = [];
+  // 한 번에 너무 많이 보내면 오래 걸려서 100개씩 끊어 보냅니다
+  for (var s = 0; s < rows.length; s += 100) {
+    var part = rows.slice(s, s + 100);
+    var res;
+    try {
+      res = HOST.push({ subscriptions: part.map(function (x) { return x.sub; }), payload: payload,
+        publicKey: key.publicKey, privateKey: key.privateKey, subject: 푸시주소_() });
+    } catch (e) { out.failed += part.length; continue; }
+    (res && res.results || []).forEach(function (r, i) {
+      if (r && r.ok) out.sent++;
+      else { out.failed++; if (r && r.gone) dead.push(part[i].sub.endpoint); }
+    });
+  }
+  if (dead.length) { try { 푸시지우기_(dead); } catch (e) {} }
+  return out;
+}
+
+function 푸시주소_() {
+  var m = String(설정값_('알림이메일') || 설정값_('보내는이메일') || '').trim();
+  return 'mailto:' + (m && m.indexOf('@') !== -1 ? m : 'noreply@ynchurch.com');
+}
+
+/** 알림 종류를 확인하고 보냅니다 (꺼져 있으면 아무 일도 하지 않습니다) */
+function 알림_(kind, names, msg) {
+  try {
+    if (!알림켜짐_(kind)) return { sent: 0, off: true };
+    return 푸시보내기_(names, msg);
+  } catch (e) { return { sent: 0, failed: 0, error: e.message }; }
+}
+
+/** 역할로 사람 찾기 — '커미티' · '새가족팀' · '회계팀' 등 */
+function 역할인사람_(role) {
+  var map = 역할맵_(), out = [];
+  Object.keys(map).forEach(function (n) { if (map[n][role]) out.push(n); });
+  return out;
+}
+
+/* ---- 관리 화면 ---- */
+
+function pushAdminInit(token) {
+  if (!커미티토큰_(token)) throw new Error('알림 설정은 커미티만 볼 수 있습니다.');
+  var rows = 푸시행들_();
+  var byName = {};
+  rows.forEach(function (x) { (byName[x.name] = byName[x.name] || []).push(x.device); });
+  var people = Object.keys(byName).sort(function (a, b) { return a.localeCompare(b, 'ko'); })
+    .map(function (n) { return { name: n, devices: byName[n] }; });
+  var kinds = 알림종류_().map(function (k) {
+    return { key: k.key, name: k.name, who: k.who, help: k.help, on: 알림켜짐_(k.key) };
+  });
+  var roles = 역할맵_(), leaders = [], teamLeads = [], com = [];
+  Object.keys(roles).forEach(function (n) {
+    if (roles[n]['셀장']) leaders.push(n);
+    if (roles[n]['팀장']) teamLeads.push(n);
+    if (roles[n]['커미티']) com.push(n);
+  });
+  return {
+    kinds: kinds, people: people, total: rows.length,
+    ready: !!String(설정값_('푸시공개키') || '').trim(),
+    groups: { 전체: people.length, 셀장: leaders.length, 팀장: teamLeads.length, 커미티: com.length }
+  };
+}
+
+function savePushSetting(token, kind, on) {
+  if (!커미티토큰_(token)) throw new Error('알림 설정은 커미티만 바꿀 수 있습니다.');
+  var ok = 알림종류_().some(function (k) { return k.key === kind; });
+  if (!ok) throw new Error('없는 알림 종류입니다.');
+  설정저장_('알림_' + kind, on ? 'ON' : 'OFF');
+  return pushAdminInit(token);
+}
+
+/** 커미티가 직접 보내는 알림 */
+function sendPushNow(token, target, title, body, url) {
+  if (!커미티토큰_(token)) throw new Error('알림은 커미티만 보낼 수 있습니다.');
+  if (!알림켜짐_('공지')) throw new Error('"커미티 직접 보내기" 알림이 꺼져 있습니다. 먼저 켜주세요.');
+  title = String(title || '').trim();
+  body = String(body || '').trim();
+  if (!title) throw new Error('제목을 입력해주세요.');
+
+  var names;
+  target = String(target || '전체').trim();
+  if (target === '전체') names = '*';
+  else if (target === '셀장' || target === '팀장' || target === '커미티') names = 역할인사람_(target);
+  else names = target.split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+
+  var r = 푸시보내기_(names, { title: title, body: body, url: url || (앱주소_() + '?page=portal'), tag: 'notice', keep: true });
+  if (r.error) throw new Error(r.error);
+  return r;
+}
+
+/** 내 알림 상태 (포털에서 씁니다) */
+function myPushState(token) {
+  var who = 알림본인_(token);
+  return { name: who.name, devices: 내기기수_(who.name), ready: !!String(설정값_('푸시공개키') || '').trim() };
+}
+
+/**
+ * 시트를 지금 당장 다시 읽습니다 — 구글시트에서 직접 고친 내용을 바로 반영할 때.
+ * (평소에는 서버가 몇 초마다 알아서 확인합니다)
+ */
+function refreshNow(token) {
+  var ok = false;
+  try { ok = isAdmin_(token) || 마스터_(token) || !!포털본인_(token) || !!새가족본인_(token); } catch (e) {}
+  if (!ok) throw new Error('다시 로그인해주세요.');
+  try { HOST.forget(); } catch (e) {}      // 메모리에 들고 있던 시트 값을 버립니다
+  캐시비움_();
+  return { ok: true, at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm:ss') };
 }

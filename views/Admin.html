@@ -449,6 +449,13 @@
   body:not([data-sec="home"]) header h1 { font-size: 19px !important; color: #8E8880 !important; }
   body:not([data-sec="home"]) header .meta,
   body:not([data-sec="home"]) header:after { display: none; }
+  /* 시트 새로고침 버튼 (머리말 안) */
+  .refbtn { display: inline-flex; align-items: center; gap: 6px; margin: 10px auto 0; padding: 7px 13px;
+    background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.22); border-radius: 999px;
+    color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: -.01em; }
+  .refbtn:active { transform: translateY(.5px); }
+  .refbtn[disabled] { opacity: .6; }
+  .refbtn svg { flex: none; }
   .secbar { display: flex; align-items: center; gap: 10px; margin: 0 12px 12px; }
   .backbtn {
     display: inline-flex; align-items: center; gap: 2px; font-family: inherit; cursor: pointer;
@@ -622,7 +629,21 @@ input[type=text], input[type=email], input[type=tel], input[type=date], input[ty
 input:focus, select:focus, textarea:focus { border-color: #F26B21 !important; box-shadow: 0 0 0 3px rgba(242,107,33,.14) !important; outline: none !important; }
 .menucard, .secard, a.tile, .home .card { border-radius: 14px !important; }
 header h1 { color: #F26B21 !important; }
-.hcard, .hcard.cell, .hcard.nf, .hcard.team, .hcard.dir, .hcard.tr, .hcard.acct, .hcard.mis, .hcard.wor, .hcard.cal { --c: #D2511F !important; --cs: rgba(242,107,33,.12) !important; }
+.hcard, .hcard.cell, .hcard.nf, .hcard.team, .hcard.dir, .hcard.tr, .hcard.acct, .hcard.mis, .hcard.wor, .hcard.cal, .hcard.push { --c: #D2511F !important; --cs: rgba(242,107,33,.12) !important; }
+/* 알림 관리 */
+.pkrow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hair-2); }
+.pkrow:first-of-type { border-top: none; }
+.pkt { flex: 1; min-width: 0; }
+.pkt b { display: block; font-size: 14.5px; }
+.pkt small { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 2px; line-height: 1.5; }
+.tgl { flex: none; width: 50px; height: 29px; border-radius: 999px; border: none; background: #D8D3CB; position: relative; cursor: pointer; padding: 0; transition: background .15s; }
+.tgl span { position: absolute; top: 3px; left: 3px; width: 23px; height: 23px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.22); transition: left .15s; }
+.tgl.on { background: #2E9A4B; }
+.tgl.on span { left: 24px; }
+.pprow { display: flex; align-items: baseline; gap: 10px; padding: 9px 0; border-top: 1px solid var(--hair-2); font-size: 14px; }
+.pprow:first-of-type { border-top: none; }
+.pprow b { min-width: 74px; }
+.pprow span { color: var(--ink-3); font-size: 12.5px; }
 </style>
 </head>
 <body>
@@ -644,6 +665,10 @@ header h1 { color: #F26B21 !important; }
     <img src="/logo.png" alt="Youngnak Young Adults">
     <h1>청년1부 관리시스템</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; COMMITTEE</p>
+    <button type="button" class="refbtn" id="refBtn" onclick="refreshSheets()" title="구글시트에서 고친 내용을 지금 바로 가져옵니다">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 10-.9 4.6"/><path d="M20 4.5V11h-6.5"/></svg>
+      <span id="refTxt">시트 새로고침</span>
+    </button>
   </header>
 
   <!-- ===================== 메뉴 (첫 화면) ===================== -->
@@ -728,7 +753,24 @@ header h1 { color: #F26B21 !important; }
         <span class="hstat" id="hs_dir"><i class="skel line" style="width:70%;"></i></span>
         <span class="harrow">&rsaquo;</span>
       </button>
+      <button type="button" class="hcard push" onclick="go('push')">
+        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8.5a6 6 0 10-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5z"/><path d="M13.7 19a2 2 0 01-3.4 0"/></svg></span>
+        <span class="htitle">알림 관리</span>
+        <span class="hdesc">푸시 알림 켜고 끄기 · 직접 보내기</span>
+        <span class="hstat" id="hs_push"><i class="skel line" style="width:70%;"></i></span>
+        <span class="harrow">&rsaquo;</span>
+      </button>
     </div>
+  </div>
+
+  <!-- ===================== 알림 (푸시) 관리 ===================== -->
+  <div id="sec_push" class="section" style="display:none;">
+    <div class="secbar">
+      <button type="button" class="backbtn" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>메뉴</span></button>
+      <span class="sectitle">알림 관리</span>
+      <span class="secspace"></span>
+    </div>
+    <div id="pushAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
   </div>
 
   <!-- ===================== 셀 (소그룹) 관리 ===================== -->
@@ -1449,7 +1491,7 @@ function fail(e) { alert(e && e.message ? e.message : '처리에 실패했습니
 var YN_ORANGE = ['#D2511F', '210,81,31'];
 var SEC_TONE = {
   home: YN_ORANGE, cell: YN_ORANGE, nf: YN_ORANGE, team: YN_ORANGE, tr: YN_ORANGE,
-  dir: YN_ORANGE, acct: YN_ORANGE, mis: YN_ORANGE, cal: YN_ORANGE
+  dir: YN_ORANGE, acct: YN_ORANGE, mis: YN_ORANGE, cal: YN_ORANGE, push: YN_ORANGE
 };
 /* 탭을 더 붙이려면 여기에 이름을 더하고 sub_<sec>_<이름> / st_<sec>_<이름> 를 만들면 됩니다 */
 var SEC_SUBS = {
@@ -1457,10 +1499,10 @@ var SEC_SUBS = {
   team: ['summary', 'report', 'manage'], tr: ['check', 'status', 'manage'],
   acct: ['expense', 'entry', 'budget', 'envelope', 'summary']
 };
-var SECTIONS = ['home', 'cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal'];
+var SECTIONS = ['home', 'cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal', 'push'];
 var curSec = 'home';
 var curSub = { cell: 'summary', nf: 'status', team: 'summary', tr: 'check', acct: 'expense' };
-var dirLoaded = false, trLoaded = false, acctLoaded = false, misLoaded = false, calLoaded = false;
+var dirLoaded = false, trLoaded = false, acctLoaded = false, misLoaded = false, calLoaded = false, pushLoaded = false;
 
 /** 화면 전환 — 메뉴 / 각 영역 / 서브 탭 */
 function go(sec, sub, fromHistory) {
@@ -1495,6 +1537,7 @@ function go(sec, sub, fromHistory) {
   if (sec === 'acct' && !acctLoaded) { acctLoaded = true; loadExpenses(); loadBudgets(); loadEnvelopes(); }
   if (sec === 'mis' && !misLoaded) { misLoaded = true; loadMissions(); }
   if (sec === 'cal' && !calLoaded) { calLoaded = true; loadCal('sec'); }
+  if (sec === 'push' && !pushLoaded) { pushLoaded = true; loadPushAdmin(); }
 
   if (curSec !== sec) window.scrollTo(0, 0);
   curSec = sec;
@@ -1506,6 +1549,104 @@ function go(sec, sub, fromHistory) {
       history.replaceState({ sec: sec, sub: sub }, '', location.pathname + location.search + (h ? '#' + h : ''));
     } catch (e) {}
   }
+}
+
+/* ===================== 시트 새로고침 ===================== */
+
+/** 구글시트에서 직접 고친 내용을 지금 바로 가져옵니다 */
+function refreshSheets() {
+  var b = el('refBtn'), t = el('refTxt');
+  if (!b || b.disabled) return;
+  b.disabled = true; t.textContent = '가져오는 중…';
+  callServer('refreshNow', [KEY], function () {
+    t.textContent = '가져왔습니다';
+    setTimeout(function () { location.reload(); }, 250);
+  }, function (e) {
+    b.disabled = false; t.textContent = '시트 새로고침';
+    alert((e && e.message) || '새로고침하지 못했습니다.');
+  });
+}
+
+/* ===================== 알림 (푸시) 관리 ===================== */
+
+var PUSHA = null;
+
+function loadPushAdmin() {
+  callServer('pushAdminInit', [KEY], drawPushAdmin, function (e) {
+    el('pushAdmin').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>';
+  });
+}
+
+function drawPushAdmin(r) {
+  PUSHA = r;
+  var g = r.groups || {};
+  var kinds = (r.kinds || []).map(function (k) {
+    return '<div class="pkrow">' +
+      '<div class="pkt"><b>' + esc(k.name) + '</b>' +
+      '<small>' + esc(k.who) + ' &middot; ' + esc(k.help) + '</small></div>' +
+      '<button type="button" class="tgl' + (k.on ? ' on' : '') + '" onclick="togglePush(\'' + esc(k.key) + '\',' + (k.on ? 'false' : 'true') + ')">' +
+      '<span></span></button></div>';
+  }).join('');
+
+  var people = (r.people || []).length
+    ? r.people.map(function (p) {
+        return '<div class="pprow"><b>' + esc(p.name) + '</b><span>' + esc(p.devices.join(', ')) + '</span></div>';
+      }).join('')
+    : '<p class="empty">아직 알림을 켠 분이 없습니다. 포털 첫 화면에서 각자 "알림 켜기" 를 누르면 여기에 나옵니다.</p>';
+
+  el('pushAdmin').innerHTML =
+    '<div class="panel"><span class="chip">알림 종류</span>' +
+      '<p class="hint">꺼두면 그 알림은 아무에게도 가지 않습니다. 이메일 알림은 이 설정과 상관없이 그대로 나갑니다.</p>' +
+      kinds +
+      (r.ready ? '' : '<p class="msg" style="margin-top:10px;">알림 열쇠는 처음 보낼 때 저절로 만들어집니다.</p>') +
+    '</div>' +
+    '<div class="panel"><span class="chip">직접 보내기</span>' +
+      '<div class="f"><label class="fl">받는 사람</label>' +
+        '<select id="pgTarget">' +
+          '<option value="전체">알림 켠 모두 (' + (g['전체'] || 0) + '명)</option>' +
+          '<option value="셀장">셀장 (' + (g['셀장'] || 0) + '명)</option>' +
+          '<option value="팀장">팀장 (' + (g['팀장'] || 0) + '명)</option>' +
+          '<option value="커미티">커미티 (' + (g['커미티'] || 0) + '명)</option>' +
+          '<option value="__names">이름 직접 적기</option>' +
+        '</select></div>' +
+      '<div class="f" id="pgNamesBox" style="display:none;"><label class="fl">이름 (쉼표로 여러 명)</label>' +
+        '<input type="text" id="pgNames" placeholder="예: 김현세, 강산"></div>' +
+      '<div class="f"><label class="fl">제목 *</label><input type="text" id="pgTitle" maxlength="60" placeholder="예: 오늘 셀모임 장소가 바뀌었습니다"></div>' +
+      '<div class="f"><label class="fl">내용</label><textarea id="pgBody" rows="3" maxlength="200" placeholder="알림에 함께 보일 한두 줄"></textarea></div>' +
+      '<div class="f"><label class="fl">누르면 열릴 화면</label>' +
+        '<select id="pgUrl">' +
+          '<option value="">포털 첫 화면</option>' +
+          '<option value="?page=bulletin">주보</option>' +
+          '<option value="?page=calendar">청년부 일정</option>' +
+          '<option value="?page=leader">셀보고</option>' +
+        '</select></div>' +
+      '<button class="btn accent full" onclick="sendPushMsg()">알림 보내기</button>' +
+      '<p class="msg" id="pgMsg"></p>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">알림을 켠 분들 (' + (r.total || 0) + '대)</span>' + people + '</div>';
+
+  var sel = el('pgTarget');
+  sel.onchange = function () { el('pgNamesBox').style.display = sel.value === '__names' ? 'block' : 'none'; };
+}
+
+function togglePush(kind, on) {
+  callServer('savePushSetting', [KEY, kind, on], drawPushAdmin, function (e) { alert(e.message || '바꾸지 못했습니다.'); });
+}
+
+function sendPushMsg() {
+  var m = el('pgMsg'), t = el('pgTarget').value;
+  var target = t === '__names' ? el('pgNames').value.trim() : t;
+  var title = el('pgTitle').value.trim();
+  if (!target) { m.className = 'msg err'; m.textContent = '받는 사람을 적어주세요.'; return; }
+  if (!title) { m.className = 'msg err'; m.textContent = '제목을 입력해주세요.'; return; }
+  m.className = 'msg'; m.textContent = '보내는 중…';
+  callServer('sendPushNow', [KEY, target, title, el('pgBody').value.trim(), el('pgUrl').value],
+    function (r) {
+      m.className = 'msg ok';
+      m.textContent = r.sent + '대에 보냈습니다.' + (r.failed ? ' (' + r.failed + '대 실패)' : '');
+      el('pgTitle').value = ''; el('pgBody').value = '';
+    },
+    function (e) { m.className = 'msg err'; m.textContent = e.message || '보내지 못했습니다.'; });
 }
 
 /* ===================== 일정 (구글 캘린더) ===================== */
