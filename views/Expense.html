@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* 지출환급신청서 — 구조만 정의합니다. 색·여백·버튼은 Theme 이 맡습니다 */
+  :root { --accent: #A8751F; --tone-rgb: 168,117,31; }
+  * { box-sizing: border-box; }
+
+  /* 단계 표시 */
+  .steps { display: flex; gap: 6px; padding: 0 12px 14px; }
+  .steps div { flex: 1; height: 4px; border-radius: 99px; background: var(--night-3); }
+  .steps div.on { background: var(--tone); }
+  .steplabel {
+    text-align: center; font-size: 10.5px; color: var(--night-sub); letter-spacing: .2em;
+    text-transform: uppercase; font-weight: 700; margin: -6px 0 12px;
+  }
+
+  /* 동의 목록 */
+  ol.notices { margin: 0 0 6px; padding: 0; list-style: none; counter-reset: n; }
+  ol.notices li {
+    counter-increment: n; position: relative; padding: 11px 2px 11px 32px;
+    font-size: 13.5px; line-height: 1.78; border-top: 1px solid var(--hair); color: var(--ink-2);
+  }
+  ol.notices li:first-child { border-top: none; }
+  ol.notices li:before {
+    content: counter(n); position: absolute; left: 0; top: 12px;
+    width: 21px; height: 21px; border-radius: 50%; background: var(--tone-soft);
+    color: var(--tone); font-size: 11px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* 체크박스 (기본 모양을 끄고 직접 그립니다) */
+  .check {
+    display: flex; align-items: center; gap: 12px; cursor: pointer; position: relative;
+    background: var(--surface); border: 1px solid var(--hair-2); border-radius: var(--r-md);
+    padding: 14px 15px; box-shadow: var(--sh-1);
+    transition: border-color .15s, background .15s;
+  }
+  .check.on { border-color: var(--tone); background: var(--tone-soft); }
+  .check input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .check .box {
+    width: 24px; height: 24px; flex: none; border-radius: 7px;
+    border: 2px solid #C7C1B7; background: #fff; position: relative;
+    transition: background .15s, border-color .15s;
+  }
+  .check .box:after {
+    content: ""; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px;
+    border: solid #fff; border-width: 0 2.6px 2.6px 0; transform: rotate(45deg) scale(.4);
+    opacity: 0; transition: opacity .15s, transform .15s;
+  }
+  .check.on .box { background: var(--tone); border-color: var(--tone); }
+  .check.on .box:after { opacity: 1; transform: rotate(45deg) scale(1); }
+  .check .lbl {
+    font-size: 14px !important; font-weight: 750; line-height: 1.5;
+    color: var(--ink-1) !important; letter-spacing: 0 !important; text-transform: none !important;
+    margin: 0 !important;
+  }
+
+  /* 예 / 아니오 */
+  .qbig { font-size: 16px; font-weight: 750; line-height: 1.62; margin: 2px 0 16px; letter-spacing: -0.018em; }
+  .yn { display: flex; gap: 9px; }
+  .yn button {
+    flex: 1; padding: 18px 8px; font-size: 16px; font-weight: 800; font-family: inherit; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--hair-2); border-radius: var(--r-md);
+    color: var(--ink-1); box-shadow: var(--sh-1); transition: background .15s, border-color .15s, color .15s;
+  }
+  .yn button.on { background: var(--tone); border-color: var(--tone); color: #fff; }
+  .yn button.no.on { background: var(--bad); border-color: var(--bad); }
+  .stop {
+    margin-top: 14px; background: var(--bad-bg); border-radius: var(--r-md); padding: 15px 16px;
+    font-size: 13.5px; color: #8E2A10; line-height: 1.8;
+  }
+  .stop b { color: #6E2009; }
+  .stop.plain { background: var(--sunken); color: var(--ink-2); }
+  .stop.plain b { color: var(--ink-1); }
+
+  .f > label em { font-style: normal; color: var(--tone); margin-left: 3px; }
+  .f > label .opt { color: var(--ink-4); font-weight: 700; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+
+  .money { position: relative; }
+  .money span.cur {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    font-size: 14px; color: var(--ink-3); font-weight: 750; pointer-events: none; z-index: 1;
+  }
+  .money input { padding-left: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* 지출 항목 */
+  .item {
+    background: var(--surface); border: 1px solid var(--hair); border-radius: var(--r-lg);
+    box-shadow: var(--sh-1); padding: 15px; margin-bottom: 10px;
+  }
+  .itemhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .itemno {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11.5px; font-weight: 800; color: var(--tone);
+    background: var(--tone-soft); border-radius: 99px; padding: 5px 13px;
+  }
+  .itemdel {
+    border: none; background: none; color: var(--ink-3); font-size: 12.5px; font-weight: 750;
+    cursor: pointer; font-family: inherit; padding: 4px 6px;
+  }
+  .itemdel:hover { color: var(--bad); }
+  .subtotal {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #F7F5F2; border-radius: var(--r-sm); padding: 9px 13px; margin: 0 0 13px;
+  }
+  .subtotal .k { font-size: 10.5px; color: var(--ink-3); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  .subtotal .v { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  .additem {
+    width: 100%; padding: 14px; font-size: 13.5px; font-weight: 800; font-family: inherit; cursor: pointer;
+    background: transparent; border: 1.5px dashed #C7C1B7; border-radius: var(--r-md); color: var(--tone);
+    transition: border-color .15s, background .15s;
+  }
+  .additem:hover { border-color: var(--tone); background: var(--tone-soft); }
+
+  .total {
+    background: var(--ink-1); border-radius: var(--r-md); padding: 15px 17px; margin-top: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .total .t { font-size: 10.5px; color: #9A948C; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+  .total .t small { display: block; text-transform: none; letter-spacing: 0; font-size: 10.5px; margin-top: 3px; }
+  .total .v { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+
+  .reasonwarn {
+    background: var(--tone-soft); border-radius: var(--r-sm); padding: 10px 13px; margin-bottom: 8px;
+    font-size: 12.5px; color: var(--tone); line-height: 1.7; font-weight: 650;
+  }
+
+  /* 영수증 */
+  .pickbtn {
+    display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
+    padding: 12px; font-size: 13.5px; font-weight: 750; font-family: inherit; cursor: pointer;
+    background: #fff; border: 1.5px dashed #C7C1B7; border-radius: var(--r-md); color: var(--tone);
+    transition: border-color .15s, background .15s;
+  }
+  .pickbtn:hover { border-color: var(--tone); background: var(--tone-soft); }
+  .pickbtn svg { width: 15px; height: 15px; flex: none; }
+  .files { margin-top: 8px; }
+  .file {
+    display: flex; align-items: center; gap: 9px; padding: 9px 11px; background: #F7F5F2;
+    border: 1px solid var(--hair); border-radius: var(--r-sm); margin-bottom: 6px;
+  }
+  .file .ic {
+    width: 29px; height: 29px; border-radius: 7px; flex: none; background: var(--tone-soft);
+    color: var(--tone); font-size: 9.5px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .file .fn { flex: 1; font-size: 12.5px; font-weight: 650; word-break: break-all; line-height: 1.45; }
+  .file .fs { font-size: 10.5px; color: var(--ink-3); font-weight: 750; white-space: nowrap; }
+  .file .x {
+    border: none; background: none; color: var(--ink-3); font-size: 19px; line-height: 1;
+    cursor: pointer; padding: 0 2px; font-family: inherit;
+  }
+  .file.up .fn { color: var(--ink-3); }
+
+  .backlink {
+    background: none; border: none; color: var(--ink-3); font-size: 13px; font-family: inherit;
+    cursor: pointer; padding: 6px 0; font-weight: 650;
+  }
+
+  .done { text-align: center; padding: 10px 4px 6px; }
+  .done .mark {
+    width: 62px; height: 62px; border-radius: 50%; background: var(--tone-soft);
+    color: var(--tone); font-size: 30px; margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .done h2 { font-size: 20px; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.025em; }
+  .done p { font-size: 13.5px; color: var(--ink-3); margin: 0 0 18px; line-height: 1.8; }
+  .refno {
+    background: var(--ink-1); color: #fff; border-radius: var(--r-md); padding: 15px;
+    font-size: 21px; font-weight: 800; letter-spacing: .05em;
+  }
+  .refno small { display: block; font-size: 10px; color: #9A948C; letter-spacing: .14em; margin-bottom: 5px; font-weight: 750; }
+</style>
+<!--#include Theme-->
+</head>
+<body>
+<div class="shell">
+  <header>
+    <img src="/logo.png" alt="Youngnak">
+    <h1>지출환급신청서</h1>
+    <p class="meta">YNTORONTO &nbsp;·&nbsp; EXPENSE</p>
+  </header>
+
+  <div class="steps" id="steps"><div class="on"></div><div></div><div></div></div>
+  <p class="steplabel" id="stepLabel">Step 1 / 3 &nbsp;·&nbsp; 확인 사항</p>
+
+  <!-- ============ 1. 확인 사항 ============ -->
+  <div id="step1">
+    <div class="panel">
+      <span class="chip">확인 사항</span>
+      <p class="hint">
+        아래의 내용을 숙지하였으며, 현재 제출하고자 하는 지출 신청이
+        모든 조건을 충족하는지 확인해 주시기 바랍니다.
+      </p>
+      <ol class="notices" id="notices">
+        <li><i class="skel line" style="width:90%;"></i></li>
+        <li><i class="skel line" style="width:80%;"></i></li>
+        <li><i class="skel line" style="width:85%;"></i></li>
+      </ol>
+      <label class="check" id="agreeBox">
+        <input type="checkbox" id="agree" onchange="onAgree()">
+        <span class="box"></span>
+        <span class="lbl">확인했습니다</span>
+      </label>
+      <p class="msg" id="msg1"></p>
+      <button class="submit" id="btn1" disabled onclick="go(2)" style="margin-top:12px;">계속 진행</button>
+    </div>
+  </div>
+
+  <!-- ============ 2. 사전 승인 ============ -->
+  <div id="step2" style="display:none;">
+    <div class="panel">
+      <span class="chip">사전 승인</span>
+      <p class="qbig">목사님과 회계팀의 확인 및 승인을 받은 지출입니까?</p>
+      <div class="yn">
+        <button type="button" id="ynYes" onclick="answer('Yes')">Yes</button>
+        <button type="button" id="ynNo" class="no" onclick="answer('No')">No</button>
+      </div>
+      <div class="stop" id="noBlock" style="display:none;">
+        <b>승인을 먼저 받아주세요.</b><br>
+        지출을 진행하시기 전에 반드시 회계팀(<span id="contact1">회계팀</span>)과 상의하셔야 합니다.
+        승인 없이 진행된 지출은 환급이 지연되거나 불가능할 수 있습니다.<br>
+        회계팀과 확인을 마치신 뒤 다시 신청해 주세요.
+      </div>
+      <div style="text-align:center;margin-top:14px;">
+        <button class="backlink" onclick="go(1)">&lsaquo; 확인 사항 다시 보기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3. 신청 내용 ============ -->
+  <div id="step3" style="display:none;">
+    <div class="panel">
+      <span class="chip">신청자 정보</span>
+
+      <div class="f">
+        <label>이메일 주소<em>*</em></label>
+        <input type="email" id="email" inputmode="email" autocomplete="email" placeholder="name@example.com">
+        <p class="fnote">제출하신 내역을 이 주소로 보내드리고, 처리 상황도 이 주소로 안내드립니다.</p>
+      </div>
+
+      <div class="two">
+        <div class="f">
+          <label>신청자 이름<em>*</em></label>
+          <input type="text" id="name" autocomplete="name" placeholder="홍길동">
+        </div>
+        <div class="f">
+          <label>연락처<em>*</em></label>
+          <input type="tel" id="phone" inputmode="tel" autocomplete="tel" placeholder="416-000-0000">
+        </div>
+      </div>
+      <p class="fnote" style="margin:-6px 0 13px;">꼭 지출하신 분의 이름이 아니어도 괜찮습니다.</p>
+
+      <div class="f">
+        <label>부서 / 팀<em>*</em></label>
+        <select id="dept" onchange="onDept()"><option value="">선택해주세요</option></select>
+      </div>
+      <div class="f" id="deptOtherBox" style="display:none;">
+        <label>부서 / 팀 직접 입력<em>*</em></label>
+        <input type="text" id="deptOther" placeholder="예: 청년부 수련회 준비팀">
+      </div>
+
+      <div class="f" style="margin-bottom:0;">
+        <label>지출일 <span class="opt">(영수증 날짜)</span><em>*</em></label>
+        <input type="date" id="spentAt">
+        <p class="fnote">영수증이 여러 장이고 날짜가 다르면, 가장 마지막 지출일을 적어주세요.</p>
+      </div>
+    </div>
+
+    <!-- ---- 지출 항목 ---- -->
+    <div class="panel">
+      <span class="chip">지출 항목</span>
+      <p class="hint">
+        영수증 한 건당 항목 하나씩 적어주세요. 영수증이 여러 장이면
+        아래 <b>＋ 항목 추가</b>를 눌러 계속 추가하실 수 있습니다.<br>
+        지출 내역은 가능하다면 영문으로 기입해 주시기 바랍니다.
+      </p>
+
+      <div id="items"></div>
+
+      <button type="button" class="additem" onclick="addItem()">＋ 항목 추가</button>
+
+      <div class="total">
+        <span class="t">Total Amount<small id="totalBreak">세전 $0.00 + 세금 $0.00</small></span>
+        <span class="v" id="totalView">$0.00</span>
+      </div>
+
+      <div class="stop plain" style="margin-top:12px;">
+        <b>종이 영수증(Hard Copy)은 반드시 회계팀에 전달해 주세요.</b><br>
+        종이 사본이 없으면 Cheque가 발행되지 않습니다.
+        팁이 포함된 경우 Itemized Receipt과 카드 결제 영수증을 함께 첨부해 주시고,
+        영수증이 없는 특수한 경우(선교지 지출, 기부 등)에는 영락 지출 영수증 템플릿을
+        작성하여 첨부해 주세요. (오피스에서 픽업 가능합니다.)
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="chip">Cheque 수령인</span>
+      <div class="f" style="margin-bottom:0;">
+        <label>Payable to <span class="opt">(영문)</span><em>*</em></label>
+        <input type="text" id="payableTo" placeholder="Gil Dong Hong">
+        <p class="fnote">Cheque는 한 건에 한 장 발행되며, 위 총액으로 발행됩니다.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="chip">인원 확인</span>
+      <label class="check" id="mealBox">
+        <input type="checkbox" id="isMeal" onchange="onMeal()">
+        <span class="box"></span>
+        <span class="lbl">식사 · 숙박 · 입장료 등이 포함된 지출입니다</span>
+      </label>
+      <div id="mealFields" style="display:none;margin-top:12px;">
+        <div class="f">
+          <label>참석자<em>*</em></label>
+          <textarea id="attendees" placeholder="홍길동, 김영희, 이철수 …" style="min-height:70px;"></textarea>
+        </div>
+        <div class="f" style="margin-bottom:0;">
+          <label>총 인원<em>*</em></label>
+          <input type="number" id="headcount" min="1" step="1" inputmode="numeric" placeholder="8">
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="chip">지출 사유</span>
+      <div class="reasonwarn" id="reasonWarn" style="display:none;">
+        총액이 CAD <span id="thr1">500</span> 이상입니다. 청년부 담당 장로님의 허락이 필요하므로
+        지출 사유를 최대한 자세하게 적어주세요.
+      </div>
+      <div class="f" style="margin-bottom:0;">
+        <label id="reasonLabel">지출 사유</label>
+        <textarea id="reason" placeholder="어떤 목적의 지출인지, 누가 승인했는지 적어주세요."></textarea>
+        <p class="fnote">CAD <span id="thr2">500</span> 이상 지출 시 반드시 기입해 주셔야 합니다.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="chip">그 외 코멘트</span>
+      <div class="f" style="margin-bottom:0;">
+        <textarea id="comment" placeholder="회계팀에 전달하고 싶은 내용이 있으면 적어주세요." style="min-height:70px;"></textarea>
+      </div>
+    </div>
+
+    <div class="panel">
+      <button class="submit" id="btnSubmit" onclick="doSubmit()">지출 환급 신청하기</button>
+      <p class="msg" id="msg3"></p>
+      <div style="text-align:center;margin-top:4px;">
+        <button class="backlink" onclick="go(2)">&lsaquo; 이전</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 완료 ============ -->
+  <div id="done" style="display:none;">
+    <div class="panel">
+      <div class="done">
+        <div class="mark">&#10003;</div>
+        <h2>신청이 접수되었습니다</h2>
+        <p>입력하신 이메일로 접수 내역을 보내드렸습니다.<br>처리 상황이 바뀌면 다시 안내드립니다.</p>
+        <div class="refno"><small>신청번호</small><span id="refNo">—</span></div>
+        <p style="margin:14px 0 0;">
+          <b style="color:var(--danger);">종이 영수증(Hard Copy)</b>을 회계팀
+          (<span id="contact2">회계팀</span>)에 전달해 주셔야 Cheque가 발행됩니다.
+        </p>
+      </div>
+      <button class="btn full" style="margin-top:16px;" onclick="location.reload()">새 신청서 작성</button>
+    </div>
+  </div>
+
+  <footer>
+    해외한인장로회 토론토영락교회 &nbsp;|&nbsp; 담임목사 : 전대혁 &nbsp;|&nbsp; 청년1부 목사: 강산<br>
+    650 McNicoll Ave. Toronto, ON M2H 2E1 &nbsp;|&nbsp; www.ynchurch.com
+  </footer>
+</div>
+
+<input type="file" id="filePicker" accept="image/*,application/pdf,.pdf" multiple
+  style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" onchange="onPicked(this)">
+
+<script>
+var PREFILL = (window.__PREFILL__ || {});
+var CFG = { notices: [], depts: [], reasonThreshold: 500, contact: '회계팀', today: '' };
+var DRAFT = makeId();
+var items = [];          // [{ key, detail, beforeTax, tax, files:[] }]
+var step = 1, approved = '', busy = 0, sending = false, pickTarget = '';
+
+var MAXITEMS = 15, MAXFILES = 4;
+
+function el(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+function makeId() {
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+  var s = '';
+  for (var i = 0; i < 32; i++) s += '0123456789abcdef'[Math.floor(Math.random() * 16)];
+  return s;
+}
+function money(n) {
+  n = Math.round((Number(n) || 0) * 100) / 100;
+  var p = n.toFixed(2).split('.');
+  return '$' + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + p[1];
+}
+function say(id, text, kind) {
+  var m = el(id);
+  m.className = 'msg' + (kind ? ' ' + kind : '');
+  m.textContent = text || '';
+}
+
+/* ---------- 시작 ---------- */
+
+callServer('getExpenseForm', [], function (cfg) {
+  CFG = cfg || CFG;
+  el('notices').innerHTML = (CFG.notices || []).map(function (t) {
+    return '<li>' + esc(t) + '</li>';
+  }).join('');
+  el('dept').innerHTML = '<option value="">선택해주세요</option>' +
+    (CFG.depts || []).map(function (d) { return '<option>' + esc(d) + '</option>'; }).join('');
+  el('contact1').textContent = CFG.contact;
+  el('contact2').textContent = CFG.contact;
+  el('thr1').textContent = CFG.reasonThreshold;
+  el('thr2').textContent = CFG.reasonThreshold;
+  var d = el('spentAt');
+  d.max = CFG.today || '';
+  d.value = CFG.today || '';
+}, function () {
+  el('notices').innerHTML = '<li>안내 사항을 불러오지 못했습니다. 새로고침해 주세요.</li>';
+});
+
+/* ---------- 단계 이동 ---------- */
+
+var LABELS = ['확인 사항', '사전 승인', '신청 내용'];
+
+function go(n) {
+  if (n === 2 && !el('agree').checked) { say('msg1', '확인 사항에 동의해주셔야 계속하실 수 있습니다.', 'err'); return; }
+  if (n === 3 && approved !== 'Yes') return;
+
+  step = n;
+  ['step1', 'step2', 'step3', 'done'].forEach(function (k, i) {
+    el(k).style.display = (i + 1 === n) ? 'block' : 'none';
+  });
+  var bars = el('steps').children;
+  for (var i = 0; i < bars.length; i++) bars[i].className = (i < n) ? 'on' : '';
+  el('steps').style.display = n > 3 ? 'none' : 'flex';
+  el('stepLabel').style.display = n > 3 ? 'none' : 'block';
+  if (n <= 3) el('stepLabel').textContent = 'Step ' + n + ' / 3 · ' + LABELS[n - 1];
+  window.scrollTo(0, 0);
+}
+
+function onAgree() {
+  var on = el('agree').checked;
+  el('agreeBox').className = 'check' + (on ? ' on' : '');
+  el('btn1').disabled = !on;
+  if (on) say('msg1', '');
+}
+
+function answer(v) {
+  approved = v;
+  el('ynYes').className = (v === 'Yes') ? 'on' : '';
+  el('ynNo').className = 'no' + (v === 'No' ? ' on' : '');
+  el('noBlock').style.display = (v === 'No') ? 'block' : 'none';
+  if (v === 'Yes') setTimeout(function () { go(3); }, 180);
+}
+
+function onDept() {
+  el('deptOtherBox').style.display = (el('dept').value === '그 외') ? 'block' : 'none';
+}
+
+function onMeal() {
+  var on = el('isMeal').checked;
+  el('mealBox').className = 'check' + (on ? ' on' : '');
+  el('mealFields').style.display = on ? 'block' : 'none';
+}
+
+/* ---------- 지출 항목 ---------- */
+
+function findItem(key) {
+  for (var i = 0; i < items.length; i++) if (items[i].key === key) return items[i];
+  return null;
+}
+
+function addItem() {
+  if (items.length >= MAXITEMS) {
+    say('msg3', '항목은 ' + MAXITEMS + '개까지 추가하실 수 있습니다.', 'err');
+    return;
+  }
+  items.push({ key: makeId(), detail: '', beforeTax: '', tax: '', files: [] });
+  renderItems();
+  var boxes = el('items').querySelectorAll('.item');
+  var last = boxes[boxes.length - 1];
+  if (last) {
+    last.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    var ta = last.querySelector('textarea');
+    if (ta) ta.focus();
+  }
+}
+
+function removeItem(key) {
+  var it = findItem(key);
+  if (!it) return;
+  if (items.length === 1) { say('msg3', '항목은 최소 한 개가 필요합니다.', 'err'); return; }
+  it.files.forEach(function (f) {
+    if (f.id) callServer('deleteExpenseReceipt', [DRAFT, f.id], null, null);
+  });
+  items = items.filter(function (x) { return x.key !== key; });
+  renderItems();
+  calcTotal();
+}
+
+/** 화면 값을 모델에 담아둡니다 (다시 그려도 입력이 사라지지 않도록) */
+function syncItems() {
+  items.forEach(function (it) {
+    var d = el('d_' + it.key), b = el('b_' + it.key), t = el('t_' + it.key);
+    if (d) it.detail = d.value;
+    if (b) it.beforeTax = b.value;
+    if (t) it.tax = t.value;
+  });
+}
+
+function onItemInput(key) {
+  var it = findItem(key);
+  if (!it) return;
+  it.beforeTax = el('b_' + key).value;
+  it.tax = el('t_' + key).value;
+  var sub = (Number(it.beforeTax) || 0) + (Number(it.tax) || 0);
+  el('s_' + key).textContent = money(sub);
+  calcTotal();
+}
+
+function renderItems() {
+  el('items').innerHTML = items.map(function (it, i) {
+    var sub = (Number(it.beforeTax) || 0) + (Number(it.tax) || 0);
+    return '<div class="item">' +
+      itemHead(i, it.key) +
+      '<div class="f">' +
+        '<label>지출 내역<em>*</em></label>' +
+        '<textarea id="d_' + it.key + '" placeholder="Snacks and drinks for Friday cell meeting" ' +
+          'oninput="findItem(\'' + it.key + '\').detail=this.value">' + esc(it.detail) + '</textarea>' +
+      '</div>' +
+      '<div class="two">' +
+        '<div class="f"><label>Before Tax<em>*</em></label>' +
+          '<div class="money"><span class="cur">$</span>' +
+          '<input type="number" id="b_' + it.key + '" step="0.01" min="0" inputmode="decimal" ' +
+            'placeholder="0.00" value="' + esc(it.beforeTax) + '" oninput="onItemInput(\'' + it.key + '\')"></div></div>' +
+        '<div class="f"><label>HST / GST<em>*</em></label>' +
+          '<div class="money"><span class="cur">$</span>' +
+          '<input type="number" id="t_' + it.key + '" step="0.01" min="0" inputmode="decimal" ' +
+            'placeholder="0.00" value="' + esc(it.tax) + '" oninput="onItemInput(\'' + it.key + '\')"></div></div>' +
+      '</div>' +
+      '<div class="subtotal"><span class="k">소계</span>' +
+        '<span class="v" id="s_' + it.key + '">' + money(sub) + '</span></div>' +
+      '<div class="f" style="margin-bottom:6px;"><label>영수증<em>*</em></label></div>' +
+      '<button type="button" class="pickbtn" onclick="pickFor(\'' + it.key + '\')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">' +
+        '<path d="M12 5v14M5 12h14"/></svg>영수증 선택</button>' +
+      '<div class="files" id="f_' + it.key + '">' + fileRows(it) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function itemHead(i, key) {
+  return '<div class="itemhead"><span class="itemno">항목 ' + (i + 1) + '</span>' +
+    (items.length > 1 ? '<button type="button" class="itemdel" onclick="removeItem(\'' + key + '\')">삭제</button>' : '') +
+    '</div>';
+}
+
+function fileRows(it) {
+  if (!it.files.length) {
+    return '<p class="fnote" style="margin-top:7px;">사진 또는 PDF, 한 개당 10MB까지 올리실 수 있습니다.</p>';
+  }
+  return it.files.map(function (f, i) {
+    var kb = f.size ? (f.size > 1048576 ? (f.size / 1048576).toFixed(1) + 'MB' : Math.round(f.size / 1024) + 'KB') : '';
+    var tag = /pdf/i.test(f.mime || f.name) ? 'PDF' : 'IMG';
+    return '<div class="file' + (f.uploading ? ' up' : '') + '">' +
+      '<span class="ic">' + (f.uploading ? '…' : tag) + '</span>' +
+      '<span class="fn">' + esc(f.name) + (f.uploading ? ' — 올리는 중…' : '') + '</span>' +
+      (f.uploading ? '' : '<span class="fs">' + kb + '</span>') +
+      (f.uploading ? '' : '<button type="button" class="x" onclick="removeFile(\'' + it.key + '\',' + i + ')">&times;</button>') +
+      '</div>';
+  }).join('');
+}
+
+function paintFiles(key) {
+  var it = findItem(key);
+  var box = el('f_' + key);
+  if (it && box) box.innerHTML = fileRows(it);
+}
+
+function calcTotal() {
+  var b = 0, t = 0;
+  items.forEach(function (it) {
+    b += Number(it.beforeTax) || 0;
+    t += Number(it.tax) || 0;
+  });
+  b = Math.round(b * 100) / 100;
+  t = Math.round(t * 100) / 100;
+  var total = Math.round((b + t) * 100) / 100;
+
+  el('totalView').textContent = money(total);
+  el('totalBreak').textContent = '세전 ' + money(b) + ' + 세금 ' + money(t) +
+    (items.length > 1 ? ' · ' + items.length + '개 항목' : '');
+
+  var must = total >= CFG.reasonThreshold;
+  el('reasonWarn').style.display = must ? 'block' : 'none';
+  el('reasonLabel').innerHTML = '지출 사유' + (must ? '<em>*</em>' : '');
+  return total;
+}
+
+/* ---------- 영수증 올리기 ---------- */
+
+function pickFor(key) {
+  pickTarget = key;
+  el('filePicker').click();
+}
+
+function onPicked(input) {
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = '';
+  var it = findItem(pickTarget);
+  if (!it || !files.length) return;
+
+  if (it.files.length + files.length > MAXFILES) {
+    say('msg3', '한 항목에는 영수증을 ' + MAXFILES + '장까지 올릴 수 있습니다. 나머지는 항목을 추가해주세요.', 'err');
+    files = files.slice(0, MAXFILES - it.files.length);
+    if (!files.length) return;
+  } else say('msg3', '');
+
+  files.forEach(function (f) { queueFile(it, f); });
+}
+
+function queueFile(it, file) {
+  var pending = { name: file.name || '영수증', size: file.size, uploading: true };
+  it.files.push(pending);
+  paintFiles(it.key);
+  lockSubmit(1);
+
+  toDataUrl(file, function (dataUrl) {
+    if (!dataUrl) { dropPending(it, pending, '파일을 읽지 못했습니다: ' + (file.name || '')); return; }
+    callServer('uploadExpenseReceipt', [DRAFT, pending.name, dataUrl], function (res) {
+        pending.uploading = false;
+        pending.id = res.id; pending.name = res.name;
+        pending.mime = res.mime; pending.size = res.size;
+        paintFiles(it.key);
+        lockSubmit(-1);
+        say('msg3', '');
+      }, function (e) {
+        dropPending(it, pending, (e && e.message) ? e.message : '올리지 못했습니다.');
+      });
+  });
+}
+
+function dropPending(it, pending, message) {
+  var i = it.files.indexOf(pending);
+  if (i !== -1) it.files.splice(i, 1);
+  paintFiles(it.key);
+  lockSubmit(-1);
+  say('msg3', message, 'err');
+}
+
+function removeFile(key, i) {
+  var it = findItem(key);
+  if (!it) return;
+  var f = it.files[i];
+  if (!f || f.uploading) return;
+  it.files.splice(i, 1);
+  paintFiles(key);
+  if (f.id) callServer('deleteExpenseReceipt', [DRAFT, f.id], null, null);
+}
+
+function lockSubmit(delta) {
+  busy = Math.max(0, busy + delta);
+  el('btnSubmit').disabled = (busy > 0) || sending;
+  if (busy > 0) el('btnSubmit').textContent = '영수증 올리는 중…';
+  else if (!sending) el('btnSubmit').textContent = '지출 환급 신청하기';
+}
+
+/** 사진이 너무 크면 줄여서 올립니다. PDF는 그대로 보냅니다. */
+function toDataUrl(file, done) {
+  var rd = new FileReader();
+  rd.onerror = function () { done(null); };
+  rd.onload = function () {
+    var url = rd.result;
+    if (!/^data:image\/(jpeg|jpg|png|webp)/i.test(String(url))) { done(url); return; }
+    var img = new Image();
+    img.onerror = function () { done(url); };
+    img.onload = function () {
+      var W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+      var max = 2000;
+      if (Math.max(W, H) <= max && String(url).length < 3500000) { done(url); return; }
+      var s = Math.min(1, max / Math.max(W, H));
+      try {
+        var cv = document.createElement('canvas');
+        cv.width = Math.round(W * s); cv.height = Math.round(H * s);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        done(cv.toDataURL('image/jpeg', 0.88));
+      } catch (e) { done(url); }
+    };
+    img.src = url;
+  };
+  rd.readAsDataURL(file);
+}
+
+/* ---------- 제출 ---------- */
+
+function need(id, label) {
+  var v = String(el(id).value || '').trim();
+  if (!v) { el(id).focus(); throw new Error(label); }
+  return v;
+}
+
+function doSubmit() {
+  if (busy > 0 || sending) return;
+  say('msg3', '');
+  syncItems();
+  var total = calcTotal();
+
+  var data;
+  try {
+    data = {
+      draftId: DRAFT,
+      agreed: el('agree').checked,
+      approved: approved,
+      email: need('email', '이메일 주소를 입력해주세요.'),
+      name: need('name', '신청자 이름을 입력해주세요.'),
+      phone: need('phone', '연락처를 입력해주세요.'),
+      dept: need('dept', '부서 / 팀을 선택해주세요.'),
+      deptOther: String(el('deptOther').value || '').trim(),
+      spentAt: need('spentAt', '지출일(영수증 날짜)을 선택해주세요.'),
+      payableTo: need('payableTo', 'Cheque 수령인(Payable to)을 입력해주세요.'),
+      isMeal: el('isMeal').checked,
+      attendees: String(el('attendees').value || '').trim(),
+      headcount: String(el('headcount').value || '').trim(),
+      reason: String(el('reason').value || '').trim(),
+      comment: String(el('comment').value || '').trim(),
+      items: items.map(function (it) {
+        return {
+          detail: String(it.detail || '').trim(),
+          beforeTax: it.beforeTax,
+          tax: it.tax,
+          receipts: it.files.filter(function (f) { return f.id; })
+            .map(function (f) { return { id: f.id, name: f.name, mime: f.mime }; })
+        };
+      })
+    };
+  } catch (e) { say('msg3', e.message, 'err'); return; }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+    say('msg3', '이메일 주소 형식을 확인해주세요.', 'err'); el('email').focus(); return;
+  }
+
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i], n = i + 1;
+    if (!String(it.detail || '').trim()) {
+      say('msg3', '항목 ' + n + '의 지출 내역을 입력해주세요.', 'err');
+      var d = el('d_' + it.key); if (d) d.focus(); return;
+    }
+    if (!(Number(it.beforeTax) > 0)) {
+      say('msg3', '항목 ' + n + '의 세전 금액(Before Tax Amount)을 입력해주세요.', 'err');
+      var b = el('b_' + it.key); if (b) b.focus(); return;
+    }
+    if (!it.files.filter(function (f) { return f.id; }).length) {
+      say('msg3', '항목 ' + n + '의 영수증을 첨부해주세요.', 'err'); return;
+    }
+  }
+
+  if (total >= CFG.reasonThreshold && !data.reason) {
+    say('msg3', 'CAD ' + CFG.reasonThreshold + ' 이상 지출은 지출 사유를 반드시 적어주셔야 합니다.', 'err');
+    el('reason').focus(); return;
+  }
+  if (data.isMeal && (!data.attendees || !data.headcount)) {
+    say('msg3', '참석자와 총 인원을 적어주세요.', 'err'); return;
+  }
+
+  sending = true;
+  el('btnSubmit').disabled = true;
+  el('btnSubmit').textContent = '보내는 중…';
+
+  callServer('submitExpense', [data], function (res) { el('refNo').textContent = res.no; go(4); }, function (e) {
+      sending = false;
+      el('btnSubmit').disabled = false;
+      el('btnSubmit').textContent = '지출 환급 신청하기';
+      say('msg3', (e && e.message) ? e.message : '제출하지 못했습니다. 잠시 후 다시 시도해주세요.', 'err');
+    });
+}
+
+addItem();
+calcTotal();
+</script>
+</body>
+</html>
