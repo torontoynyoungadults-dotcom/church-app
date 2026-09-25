@@ -314,6 +314,12 @@
   .bulbtn .bt small { display: block; font-size: 12.5px; color: #BDB8B1; margin-top: 1px; }
   .bulbtn .ba { font-size: 22px; color: #8E8880; }
   .bulbtn.in { margin: 0 16px 14px; }
+  .prebtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 16px 12px; }
+  .prebtns .bulbtn { margin: 0; padding: 13px 14px; }
+  .prebtns .bulbtn .bi { width: 34px; height: 34px; }
+  .prebtns .bulbtn .bt b { font-size: 15px; white-space: nowrap; }
+  .prebtns .bulbtn { gap: 10px; }
+  .bulbtn.cal .bi { background: #2E2B28; border: 1px solid rgba(255,255,255,.18); }
   .gbtn {
     display: flex; align-items: center; justify-content: center; gap: 10px;
     width: 100%; padding: 14px; text-decoration: none;
@@ -349,7 +355,7 @@
 <div class="shell">
   <header>
     <img src="/logo.png" alt="Youngnak">
-    <h1><span>토론토영락교회</span> <span>청년1부 포털</span></h1>
+    <h1><span>토론토영락교회</span> <span>청년1부 Portal</span></h1>
     <p class="meta">YNTORONTO</p>
   </header>
 
@@ -362,13 +368,19 @@
 
   <!-- ============ 로그인 ============ -->
   <div id="lock" style="display:none;">
-    <a class="bulbtn" href="?page=bulletin">
-      <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
-      <span class="bt"><b>이번 주 주보 보기</b><small>로그인 없이 누구나 볼 수 있어요</small></span><span class="ba">›</span>
-    </a>
+    <div class="prebtns">
+      <a class="bulbtn" href="?page=bulletin">
+        <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
+        <span class="bt"><b>주보 보기</b></span><span class="ba">›</span>
+      </a>
+      <a class="bulbtn cal" href="?page=calendar">
+        <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8.5 3.5v3M15.5 3.5v3"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg></span>
+        <span class="bt"><b>청년부 일정</b></span><span class="ba">›</span>
+      </a>
+    </div>
     <div class="panel" id="gbox">
-      <span class="chip">구글 계정으로 들어가기</span>
-      <p class="hint">청년1부 포털은 <b>구글 계정</b>으로 들어옵니다. 교적에 아직 연결되지 않은 계정이면 처음 한 번만 본인 확인을 합니다.</p>
+      <span class="chip">토론토영락교회 청년1부 Portal 로그인</span>
+      <p class="hint"><b>구글 계정</b>으로 로그인합니다. 교적에 아직 연결되지 않은 계정이면 처음 한 번만 본인 확인을 합니다.</p>
       <a class="gbtn" id="gbtn" href="#" onclick="goGoogle()">
         <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.3 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.4C.5 8.2 0 10 0 12s.5 3.8 1.4 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
         <span>Google 계정으로 로그인</span>
@@ -455,7 +467,7 @@
         <div id="heroAva"></div>
         <div class="herotext">
           <h2 id="helloName">—</h2>
-          <p>토론토영락교회 청년1부 포털에 오신 것을 환영합니다.</p>
+          <p>토론토영락교회 청년1부 Portal 에 오신 것을 환영합니다.</p>
         </div>
       </div>
       <div class="herofoot" id="heroFoot"></div>
@@ -464,7 +476,7 @@
         내 정보 관리 <span>&rsaquo;</span></button>
     </div>
 
-    <a class="bulbtn in" href="?page=bulletin" target="_blank" rel="noopener">
+    <a class="bulbtn in" href="?page=bulletin">
       <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
       <span class="bt"><b>이번 주 주보 보기</b><small>예배 순서 · 말씀 · 셀 나눔 · 광고</small></span><span class="ba">›</span>
     </a>
@@ -1025,7 +1037,7 @@ function renderMenus() {
   el('menus').innerHTML = MENUS.map(function (m) {
     var ro = VIEW && VIEW_NOLINK;
     return '<a class="tile ' + esc(m.key) + (ro ? ' ro' : '') + (VIEW && !ro ? ' as' : '') + '"' +
-      (ro ? ' onclick="roTap()"' : ' href="' + esc(m.url) + '" target="_blank" rel="noopener"') + ' title="' + esc(m.desc) + '">' +
+      (ro ? ' onclick="roTap()"' : ' href="' + esc(m.url) + '"') + ' title="' + esc(m.desc) + '">' +
       tileIcon(m.key) + '<span class="tt">' + esc(m.title) + '</span>' +
       (m.note ? '<span class="td">' + esc(m.note) + '</span>' : '') + '</a>';
   }).join('');
@@ -1036,7 +1048,7 @@ function renderAdmin() {
   el('adminWrap').style.display = ADMIN.length ? 'block' : 'none';
   if (!ADMIN.length) return;
   el('adminTiles').innerHTML = ADMIN.map(function (m) {
-    return '<a class="tile a-' + esc(m.key) + '" href="' + esc(m.url) + '" target="_blank" rel="noopener">' +
+    return '<a class="tile a-' + esc(m.key) + '" href="' + esc(m.url) + '">' +
       tileIcon('a-' + m.key) + '<span class="tt">' + esc(m.title) + '</span>' +
       '<span class="td">' + esc(m.desc) + '</span></a>';
   }).join('');

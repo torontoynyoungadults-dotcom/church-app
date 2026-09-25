@@ -94,6 +94,11 @@
   .boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
   .box h4 { margin: 0 0 8px; text-align: center; color: var(--orange-2); font-size: 14px; border: 1.5px solid var(--orange); border-radius: 6px; padding: 5px; background: #fff; }
   .box .ls { font-size: 13px; line-height: 1.75; color: #2B2926; white-space: pre-line; }
+  .box .ls b.evd { font-weight: 700; color: var(--ink); margin-right: 2px; }
+  .nfbox { margin-top: 14px; background: #fff; border: 1.5px solid var(--orange); border-radius: 8px; padding: 12px 14px; }
+  .nfbox h4 { margin: 0 0 6px; color: var(--orange-2); font-size: 14px; }
+  .nfbox p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.7; color: #2B2926; }
+  .nfbox p b { display: block; font-size: 12px; color: var(--ink-3); }
   .box ol { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; color: #2B2926; }
   @media (max-width: 380px) { .boxes { grid-template-columns: 1fr; } }
 
@@ -163,6 +168,9 @@
   @media (max-width: 520px) { .oitem .flds { grid-template-columns: 1fr; } }
   .oitem textarea { min-height: 38px; }
   .oitem .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .evh, .evrow { display: grid; grid-template-columns: 96px 1fr 34px; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .evh span { font-size: 11.5px; font-weight: 700; color: var(--ink-3); }
+  .evrow input { padding: 8px 9px; font-size: 14px; }
   .standck { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-2); margin: 6px 6px 0 2px; cursor: pointer; }
   .standck input { width: 15px; height: 15px; margin: 0; accent-color: var(--orange); }
   .standck .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); }
@@ -225,6 +233,31 @@ function safeUrl(u) {
 function ymdParts(d) { var p = String(d || '').split('-'); return { y: +p[0], m: +p[1], d: +p[2] }; }
 function korDate(d) { var p = ymdParts(d); return p.y + '년 ' + p.m + '월 ' + p.d + '일'; }
 function mdTitle(d) { var p = ymdParts(d); return p.m + '월 ' + p.d + '일 일정'; }
+/* 일정 — [{date:'11/1', name:'…'}] 날짜 순서로 (가을에 적은 1 · 2월 일정은 내년으로 봅니다) */
+function evKey(x, base) {
+  var m = /^(\d{1,2})[./](\d{1,2})/.exec(String(x.date || ''));
+  if (!m) return 99999;
+  var bm = ymdParts(base).m, mm = Number(m[1]);
+  return (mm < bm - 3 ? mm + 12 : mm) * 100 + Number(m[2]);
+}
+function newsEvents(b) {
+  var n = b.news || {};
+  var list = n.events;
+  if (!list) {
+    list = [];
+    String(n.schedule || '').split(/\n+/).forEach(function (ln) {
+      var m = /^\s*([0-9]{1,2}[./][0-9]{1,2}(?:\s*-\s*[0-9]{1,2}(?:[./][0-9]{1,2})?)?)\s+(.+)$/.exec(ln);
+      if (m) list.push({ date: m[1].replace(/\s/g, ''), name: m[2].trim() });
+      else if (ln.trim()) list.push({ date: '', name: ln.trim() });
+    });
+  }
+  return list.filter(function (x) { return x && (x.name || x.date); })
+    .map(function (x, i) { return { x: x, i: i }; })
+    .sort(function (a, c) { return (evKey(a.x, b.date) - evKey(c.x, b.date)) || a.i - c.i; })
+    .map(function (y) { return y.x; });
+}
+function hasNewFamily(b) { var f = (b.news || {}).newfamily; return !!(f && (f.first || (f.assigned || []).some(function (a) { return a.name; }))); }
+
 function volNo(d) {
   var p = ymdParts(d), base = (INIT && INIT.volBase) || 1976;
   var first = new Date(p.y, 0, 1); first.setDate(first.getDate() + (7 - first.getDay()) % 7);
@@ -271,7 +304,7 @@ function hasStudy(b) {
 }
 function hasNews(b) {
   var n = b.news || {};
-  return (n.announcements || []).some(function (a) { return a.title || a.body; }) || n.schedule || (n.prayers || []).some(function (x) { return x; });
+  return (n.announcements || []).some(function (a) { return a.title || a.body; }) || newsEvents(b).length || hasNewFamily(b) || (n.prayers || []).some(function (x) { return x; });
 }
 function sectionsOf(b) {
   return SECTIONS.filter(function (s) {
@@ -370,8 +403,17 @@ function renderBulletin(b, idp) {
           (a.link ? '<a class="lk" target="_blank" rel="noopener" href="' + esc(safeUrl(a.link)) + '">바로가기 →</a>' : '') + '</div>' +
           (qr ? '<div class="qr">' + qr + '</div>' : '') + '</div>';
       }).join('') +
-      ((n.schedule || prs.length) ? '<div class="boxes">' +
-        '<div class="box"><h4>' + esc(n.scheduleTitle || mdTitle(b.date)) + '</h4><div class="ls">' + esc(n.schedule || '') + '</div></div>' +
+      (hasNewFamily(b) ? (function () {
+        var f = n.newfamily;
+        return '<div class="nfbox"><h4>새가족 소식</h4>' +
+          (f.first ? '<p><b>지난 주 새로 오신 분</b>' + esc(f.first) + ' — 환영합니다!</p>' : '') +
+          ((f.assigned || []).filter(function (a) { return a.name; }).length ? '<p><b>셀 배정</b>' +
+            f.assigned.filter(function (a) { return a.name; }).map(function (a) { return esc(a.name) + ' → ' + esc(a.cell); }).join('<br>') + '</p>' : '') +
+          '</div>';
+      })() : '') +
+      ((newsEvents(b).length || prs.length) ? '<div class="boxes">' +
+        '<div class="box"><h4>' + esc(n.scheduleTitle || mdTitle(b.date)) + '</h4><div class="ls">' +
+          newsEvents(b).map(function (x) { return (x.date ? '<b class="evd">' + esc(String(x.date).replace(/\//g, '.')) + '</b> ' : '') + esc(x.name); }).join('<br>') + '</div></div>' +
         '<div class="box"><h4>공동체 기도제목</h4>' + (prs.length ? '<ol>' + prs.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol>' : '') + '</div>' +
       '</div>' : '') +
       '</div></section>';
@@ -664,14 +706,29 @@ function paneBible() {
     '<div class="two"><div class="ef"><label>설교 제목</label>' + inp(b.title, 'B.bible.title=this.value', '예: 베드로 (1) 부르시는 주님') + '</div>' +
     '<div class="ef"><label>본문</label>' + inp(b.ref, 'B.bible.ref=this.value', '예: 누가복음 5:1-11') + '</div></div>' +
     '<div class="rowbtns" style="margin-bottom:12px;"><button class="b" onclick="copySermon()">설교말씀 · 성경교독 칸에서 가져오기</button>' +
-      (b.ref ? '<a class="b" style="text-decoration:none;" target="_blank" rel="noopener" href="' + esc(gatewayUrl(b.ref, 'NIV')) + '">NIV 본문 열기 ↗</a>' : '') + '</div>' +
+      (b.ref ? '<a class="b" style="text-decoration:none;" target="_blank" rel="noopener" href="' + esc(korUrl(b.ref)) + '">개역개정 본문 열기 ↗</a>' +
+        '<a class="b" style="text-decoration:none;" target="_blank" rel="noopener" href="' + esc(gatewayUrl(b.ref, 'NIV')) + '">NIV 본문 열기 ↗</a>' : '') + '</div>' +
     '<div class="ef"><label>개역개정</label>' + ta(b.text, 'B.bible.text=this.value', '1 무리가 몰려와서…\n2 호숫가에 배 두 척이…', 12) + '</div>' +
     '<div class="ef"><label>NIV <span style="font-weight:400;color:var(--ink-3);">(선택 — 넣으면 절마다 한글 아래에 영어가 나옵니다)</span></label>' +
       ta(b.textEn, 'B.bible.textEn=this.value', '1 One day as Jesus was standing by the Lake of Gennesaret…\n2 He saw at the water’s edge two boats…', 10) +
     '<p class="hint">한 줄에 한 절씩, 맨 앞에 절 번호를 써 주세요. 같은 번호끼리 짝지어 한글 → 영어 순으로 보여줍니다.<br>' +
-    '개역개정 · NIV 는 저작권이 있어 자동으로 가져올 수 없습니다. 성경 앱이나 “NIV 본문 열기” 에서 복사해 붙여 넣어 주세요.</p></div></div>';
+    '개역개정 · NIV 는 저작권이 있어 자동으로 가져올 수 없습니다. 위의 “본문 열기” 버튼으로 열어 복사해 붙여 넣어 주세요.</p></div></div>';
 }
 /* 한글 책 이름 → 영어 (BibleGateway 주소용) */
+var BOOK_CODES = ['gen','exo','lev','num','deu','jos','jdg','rut','1sa','2sa','1ki','2ki','1ch','2ch','ezr','neh','est','job','psa','pro','ecc','sng','isa','lam','jer','ezk','dan','hos','jol','amo','oba','jon','mic','nam','hab','zep','hag','zec','mal','mat','mrk','luk','jhn','act','rom','1co','2co','gal','eph','php','col','1th','2th','1ti','2ti','tit','phm','heb','jas','1pe','2pe','1jn','2jn','3jn','jud','rev'];
+/** 대한성서공회 개역개정 본문 주소 */
+function korUrl(ref) {
+  var q = String(ref || '').trim();
+  for (var i = 0; i < BOOKS.length; i++) {
+    var k = BOOKS[i].split(' ')[0];
+    if (q.indexOf(k) === 0) {
+      var m = /(\d+)(?:\s*[:장]\s*(\d+))?/.exec(q.slice(k.length));
+      return 'https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE&book=' + BOOK_CODES[i] +
+        '&chap=' + (m ? m[1] : 1) + '&sec=' + (m && m[2] ? m[2] : 1);
+    }
+  }
+  return 'https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE';
+}
 var BOOKS = ['창세기 Genesis','출애굽기 Exodus','레위기 Leviticus','민수기 Numbers','신명기 Deuteronomy','여호수아 Joshua','사사기 Judges','룻기 Ruth','사무엘상 1 Samuel','사무엘하 2 Samuel','열왕기상 1 Kings','열왕기하 2 Kings','역대상 1 Chronicles','역대하 2 Chronicles','에스라 Ezra','느헤미야 Nehemiah','에스더 Esther','욥기 Job','시편 Psalm','잠언 Proverbs','전도서 Ecclesiastes','아가 Song of Songs','이사야 Isaiah','예레미야애가 Lamentations','예레미야 Jeremiah','에스겔 Ezekiel','다니엘 Daniel','호세아 Hosea','요엘 Joel','아모스 Amos','오바댜 Obadiah','요나 Jonah','미가 Micah','나훔 Nahum','하박국 Habakkuk','스바냐 Zephaniah','학개 Haggai','스가랴 Zechariah','말라기 Malachi','마태복음 Matthew','마가복음 Mark','누가복음 Luke','요한복음 John','사도행전 Acts','로마서 Romans','고린도전서 1 Corinthians','고린도후서 2 Corinthians','갈라디아서 Galatians','에베소서 Ephesians','빌립보서 Philippians','골로새서 Colossians','데살로니가전서 1 Thessalonians','데살로니가후서 2 Thessalonians','디모데전서 1 Timothy','디모데후서 2 Timothy','디도서 Titus','빌레몬서 Philemon','히브리서 Hebrews','야고보서 James','베드로전서 1 Peter','베드로후서 2 Peter','요한일서 1 John','요한이서 2 John','요한삼서 3 John','유다서 Jude','요한계시록 Revelation'];
 function gatewayUrl(ref, ver) {
   var q = String(ref || '').trim();
@@ -747,6 +804,7 @@ function upFile(input, done, msgId) {
 function paneNews() {
   var n = B.news || (B.news = {});
   n.announcements = n.announcements || []; n.prayers = n.prayers || [];
+  if (!n.events) { n.events = newsEvents(B); delete n.schedule; }
   return '<div class="ecard"><h3>주간 광고</h3>' +
     n.announcements.map(function (a, i) {
       var q = a.qr || 'auto';
@@ -770,9 +828,18 @@ function paneNews() {
     }).join('') +
     '<div class="rowbtns"><button class="b" onclick="B.news.announcements.push({title:\'\',body:\'\',link:\'\',qr:\'auto\',qrImage:null});markDirty();paintPane()">＋ 광고 추가</button></div></div>' +
 
-    '<div class="ecard"><h3>일정</h3>' +
+    paneNewFamily() +
+    '<div class="ecard"><h3>일정 <span class="s">날짜 순서로 저절로 정렬됩니다</span></h3>' +
     '<div class="ef"><label>상자 제목</label>' + inp(n.scheduleTitle, 'B.news.scheduleTitle=this.value', mdTitle(B.date)) + '</div>' +
-    '<div class="ef"><label>일정 (한 줄에 하나)</label>' + ta(n.schedule, 'B.news.schedule=this.value', '10.24-26 부흥회\n12.26-28 겨울수련회\n매주 금요일 8:00 금요기도회', 6) + '</div></div>' +
+    '<div class="evh"><span>날짜 (월/일)</span><span>행사</span><span></span></div>' +
+    n.events.map(function (x, i) {
+      return '<div class="evrow">' + inp(x.date, 'B.news.events[' + i + '].date=this.value', '11/1') +
+        inp(x.name, 'B.news.events[' + i + '].name=this.value', '예: 부흥회') +
+        '<button class="b ic del" onclick="B.news.events.splice(' + i + ',1);markDirty();paintPane()">✕</button></div>';
+    }).join('') +
+    '<div class="rowbtns"><button class="b" onclick="B.news.events.push({date:\'\',name:\'\'});markDirty();paintPane()">＋ 일정 추가</button>' +
+      '<button class="b" onclick="B.news.events=newsEvents(B);markDirty();paintPane()">날짜순 정렬</button></div>' +
+    '<p class="hint" style="font-size:12px;color:var(--ink-3);margin:6px 0 0;">여러 날이면 10/24-26 처럼, 날짜가 없으면 비워두세요 (예: 매주 금요일 8:00 금요기도회).</p></div>' +
 
     '<div class="ecard"><h3>공동체 기도제목</h3>' +
     n.prayers.map(function (p, i) {
@@ -781,6 +848,32 @@ function paneNews() {
         '<button class="b ic del" onclick="B.news.prayers.splice(' + i + ',1);markDirty();paintPane()">✕</button></div>';
     }).join('') +
     '<div class="rowbtns"><button class="b" onclick="B.news.prayers.push(\'\');markDirty();paintPane()">＋ 기도제목 추가</button></div></div>';
+}
+
+/* 새가족 소식 */
+function paneNewFamily() {
+  var f = B.news.newfamily || (B.news.newfamily = { first: '', assigned: [] });
+  f.assigned = f.assigned || [];
+  return '<div class="ecard"><h3>새가족 소식 <span class="tag">자동 · 새가족 관리</span></h3>' +
+    '<div class="ef"><label>지난 주 새로 오신 분</label>' + inp(f.first, 'B.news.newfamily.first=this.value', '예: 홍길동 형제, 김영희 자매') + '</div>' +
+    '<div class="ef"><label>셀 배정</label>' +
+    f.assigned.map(function (a, i) {
+      return '<div class="evrow">' + inp(a.name, 'B.news.newfamily.assigned[' + i + '].name=this.value', '이름') +
+        inp(a.cell, 'B.news.newfamily.assigned[' + i + '].cell=this.value', '셀') +
+        '<button class="b ic del" onclick="B.news.newfamily.assigned.splice(' + i + ',1);markDirty();paintPane()">✕</button></div>';
+    }).join('') +
+    '<div class="rowbtns"><button class="b sm" onclick="B.news.newfamily.assigned.push({name:\'\',cell:\'\'});markDirty();paintPane()">＋ 배정 추가</button>' +
+      '<button class="b sm" onclick="nfAuto()">↻ 자동 불러오기</button></div></div>' +
+    '<p class="hint" style="font-size:12px;color:var(--ink-3);margin:0;line-height:1.6;">지난 주(주일~토요일)에 새가족 과정 1주차를 한 분과, 양육팀이 셀을 배정한 분을 새가족 관리에서 가져옵니다.</p>' +
+    '<p class="msg" id="nfMsg"></p></div>';
+}
+function nfAuto() {
+  var m = el('nfMsg'); m.className = 'msg'; m.textContent = '불러오는 중…';
+  callServer('bulletinAutoFill', [TOKEN, B.date], function (a) {
+    B.news.newfamily = a.newfamily || { first: '', assigned: [] };
+    markDirty(); paintPane();
+    var m2 = el('nfMsg'); if (m2) { m2.className = 'msg ok'; m2.textContent = (a.newfamily.first || a.newfamily.assigned.length) ? '채웠습니다.' : '지난 주 새가족 소식이 없습니다.'; }
+  }, function (e) { m.className = 'msg err'; m.textContent = e.message; });
 }
 
 /* 5. 섬김이 */

@@ -37,4 +37,18 @@
   }
 
   window.callServer = callServer;
+
+  /** 서버가 보낸 파일 { name, mime, b64 } 을 내려받습니다 */
+  window.saveB64 = window.saveB64 || function (res) {
+    try {
+      var bin = atob(res.b64), buf = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([buf], { type: res.mime }));
+      var a = document.createElement('a');
+      a.href = url; a.download = res.name;
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); a.parentNode.removeChild(a); }, 1500);
+      return true;
+    } catch (e) { return false; }
+  };
 })();

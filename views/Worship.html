@@ -50,11 +50,59 @@
     padding: 15px 16px;
   }
   .verse .vq { font-size: 17px; font-weight: 800; line-height: 1.65; letter-spacing: -0.025em; }
+  .verse .vt { font-size: 18px; font-weight: 800; line-height: 1.45; letter-spacing: -0.025em; }
+  .verse .vr { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--tone); background: var(--tone-soft); border-radius: 12px; padding: 2px 10px; }
   .verse .vn { font-size: 14px; color: var(--ink-2); line-height: 1.8; margin-top: 9px; white-space: pre-wrap; }
 
   /* ---------- 편성표 ---------- */
   .lineup { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; grid-auto-flow: row dense; }
+  /* 편성 — 간결형 (세션 · 싱어 · 방송을 나눠 한 줄씩) */
+  .lu { margin: 0; }
+  .lu + .lu { margin-top: 14px; }
+  .lu .lh { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 800; letter-spacing: .12em; color: var(--ink-3); margin: 0 0 6px 2px; }
+  .lu .lh:after { content: ''; flex: 1; height: 1px; background: var(--hair); }
+  .lr { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid var(--hair);
+    padding: 8px 2px; font-family: inherit; color: inherit; }
+  .lu .lr:last-of-type { border-bottom: none; }
+  button.lr { cursor: pointer; }
+  button.lr:active { background: var(--tone-soft); }
+  .lr.open { background: var(--tone-soft); border-radius: 10px; }
+  .lr .pl { flex: none; width: auto; min-width: 82px; padding-right: 6px; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 750; color: var(--ink-2); white-space: nowrap; letter-spacing: -0.03em; }
+  .lr .pl .si { width: 24px !important; height: 24px !important; border-radius: 7px !important; }
+  .lr .pl .si svg { width: 15px !important; height: 15px !important; }
+  .lr .pp { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; }
+  .pe { display: inline-flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 750; color: var(--ink-1); }
+  .pe .fc { width: 40px !important; height: 40px !important; border-radius: 50% !important; font-size: 15px !important; flex: none; object-fit: cover;
+    display: inline-flex !important; align-items: center; justify-content: center; background: var(--sunken); color: var(--ink-2); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .pe.off { color: var(--bad); } .pe.off .fc { outline: 2px solid var(--bad); }
+  .pe.guest { color: var(--tone); }
+  .pe.none { color: var(--ink-4); font-weight: 500; font-size: 13.5px; }
+  .lr .ed { flex: none; color: var(--ink-4); font-size: 18px; }
+  .lu2 .rows { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .lu2 .rows .lr { border-bottom: 1px solid var(--hair) !important; }
+  .lu2 .rows .lr .pl { width: 66px; }
+  .lu2 .rows .lr .ed { display: none; }
+  .lu2 .rows .picker { grid-column: 1 / -1; }
+  @media (max-width: 360px) { .lu2 .rows { grid-template-columns: 1fr; } }
+  .unav { margin-top: 12px; font-size: 11.5px; color: var(--ink-3); line-height: 1.6; }
+  .unav b { font-weight: 800; letter-spacing: .06em; color: var(--ink-3); margin-right: 4px; }
   .lineup .picker { grid-column: 1 / -1; margin-top: -2px; }
+  .lineup2 .picker { margin: 4px 0 10px; }
+  .sesbar { display: flex; gap: 6px; overflow-x: auto; margin: 10px 0 12px; padding-bottom: 2px; scrollbar-width: none; }
+  .sesbar::-webkit-scrollbar { display: none; }
+  .sesbar button { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 1px solid var(--hair-2); background: #fff;
+    border-radius: 11px; padding: 7px 11px; font-family: inherit; cursor: pointer; }
+  .sesbar button b { font-size: 13px; font-weight: 800; color: var(--ink-1); }
+  .sesbar button span { font-size: 11px; color: var(--ink-3); font-weight: 600; }
+  .sesbar button.on { background: var(--tone); border-color: var(--tone); }
+  .sesbar button.on b, .sesbar button.on span { color: #fff; }
+  .sesrow { display: grid; grid-template-columns: 1.3fr 1fr .8fr auto; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .sesrow input { min-width: 0; padding: 8px !important; font-size: 13.5px !important; }
+  @media (max-width: 460px) { .sesrow { grid-template-columns: 1fr 1fr; } .sesrow input:first-child { grid-column: 1 / -1; } }
+  .bulk .bkh, .bulk .bkr { display: grid; grid-template-columns: 20px 1fr .8fr 56px; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .bulk .bkh span { font-size: 11px; font-weight: 800; color: var(--ink-3); letter-spacing: .06em; }
+  .bulk .bn { font-size: 12px; font-weight: 800; color: var(--ink-4); text-align: center; }
+  .bulk input { padding: 9px 9px !important; font-size: 14.5px !important; min-width: 0; }
   .slot {
     background: #fff; border: 1px solid var(--hair); border-radius: var(--r-md);
     box-shadow: var(--sh-1); padding: 15px 15px 14px; text-align: left; font-family: inherit;
@@ -731,7 +779,13 @@ function start(d) {
 
 /** 이미 받아둔 주면 곧바로, 아니면 한 번만 불러옵니다 */
 function goWeek(date) {
-  DATE = date; openPos = ''; songEdit = null; whenEdit = false; verseEdit = false; plEdit = false; EVEDIT = null; REC_KIND = '';
+  // 세션이 있는 행사는 세션으로 바로 들어갑니다 (오늘 이후 첫 세션, 없으면 첫 세션)
+  var evx = (D.events || []).filter(function (e) { return e.key === date; })[0];
+  if (evx && (evx.sessions || []).length) {
+    var ss = evx.sessions, pick = ss.filter(function (x) { return (x.date || evx.date) >= D.today; })[0] || ss[0];
+    date = pick.key;
+  }
+  DATE = date; openPos = ''; songEdit = null; BULK = {}; whenEdit = false; verseEdit = false; plEdit = false; EVEDIT = null; REC_KIND = '';
   if (TAB !== 'plan') { TAB = 'plan'; renderTabs(); }
   renderWeeks();
   window.scrollTo(0, 0);
@@ -782,7 +836,7 @@ function renderTabs() {
 function renderWeeks() {
   el('weeks').innerHTML = D.weeks.map(function (w) {
     var p = (w.day || w.date).split('-');
-    var cls = 'wk' + (w.date === DATE ? ' on' : '') + (w.event ? ' ev' : '') +
+    var cls = 'wk' + (w.date === DATE || String(DATE).indexOf(w.date + '~') === 0 ? ' on' : '') + (w.event ? ' ev' : '') +
       (w.date === (D.nextWeek || D.thisWeek) ? ' now' : '');
     return '<button type="button" class="' + cls + '" onclick="goWeek(\'' + w.date + '\')">' +
       '<div class="mo">' + (w.event ? esc(w.event.kind) : Number(p[1]) + '월') + '</div>' +
@@ -885,6 +939,8 @@ function planTab() {
           (W.saturday ? fmtDay(W.saturday) + (pp.practice ? ', ' + fmtTime(pp.practice) : '') : '<span class="tbd">아직 정하지 않았습니다</span>') +
         '</span></div>' +
         '<div class="when"><span class="wl">' + esc(ev.kind) + '</span><span class="wv">' + fmtRange(ev.date, ev.endDate) + '</span></div>' +
+        (W.session ? '<div class="when"><span class="wl">이 세션</span><span class="wv">' + esc(W.session.label) +
+          (W.session.date ? ' · ' + fmtDay(W.session.date) : '') + (W.session.time ? ', ' + fmtTime(W.session.time) : '') + '</span></div>' : '') +
         (ev.place ? '<div class="when"><span class="wl">장소</span><span class="wv">' + esc(ev.place) + '</span></div>' : '') +
         (ev.memo ? '<div class="when"><span class="wl">메모</span><span class="wv wmemo">' + esc(ev.memo) + '</span></div>' : '') +
       '</div>' +
@@ -902,36 +958,53 @@ function planTab() {
   }
 
   var verse = verseEdit
-    ? '<div class="f"><label>' + (ev ? '말씀' : '이 주의 말씀') + '</label>' +
+    ? '<div class="f"><label>말씀 제목</label>' +
+        '<input type="text" id="vT" value="' + esc(pp.verseTitle || '') + '" placeholder="예: 기쁨으로 드리는 예배"></div>' +
+      '<div class="f"><label>성경 구절</label>' +
         '<input type="text" id="vQ" value="' + esc(pp.verse) + '" placeholder="예: 시편 100:1-2"></div>' +
-      '<div class="f"><label>부가 설명</label>' +
-        '<textarea id="vN" placeholder="말씀 나눔 · 예배 방향">' + esc(pp.verseNote) + '</textarea></div>' +
+      '<div class="f"><label>목사님 설명</label>' +
+        '<textarea id="vN" placeholder="짧은 설명 · 예배 방향">' + esc(pp.verseNote) + '</textarea></div>' +
       '<div class="addrow"><button class="btn" style="flex:1;" onclick="verseEdit=false;render();">취소</button>' +
       '<button class="btn accent" style="flex:2;" onclick="savePaper()">저장</button></div>'
-    : (pp.verse || pp.verseNote
-        ? '<div class="verse">' + (pp.verse ? '<div class="vq">' + esc(pp.verse) + '</div>' : '') +
+    : (pp.verse || pp.verseNote || pp.verseTitle
+        ? '<div class="verse">' + (pp.verseTitle ? '<div class="vt">' + esc(pp.verseTitle) + '</div>' : '') +
+            (pp.verse ? '<div class="vr">' + esc(pp.verse) + '</div>' : '') +
             (pp.verseNote ? '<div class="vn">' + esc(pp.verseNote) + '</div>' : '') + '</div>'
         : '<p class="empty">아직 등록된 말씀이 없습니다.</p>') +
       (D.canEdit ? '<div class="editline"><button class="btn mini" onclick="verseEdit=true;render();">' +
-        (pp.verse ? '수정' : '말씀 적기') + '</button></div>' : '');
+        (pp.verse || pp.verseTitle ? '수정' : '말씀 적기') + '</button></div>' : '');
 
   var offbar = (W.off || []).length
-    ? '<div class="offbar"><b>' + (ev ? '이 행사' : '이 주일') + ' 불가</b><br>' +
-      W.off.map(function (x) { return esc(x.name) + ' — ' + esc(x.reason); }).join('<br>') + '</div>'
+    ? '<div class="unav"><b>UNAVAILABLE</b>' +
+      W.off.map(function (x) { return esc(x.name) + (x.reason && x.reason !== '불가' ? ' (' + esc(x.reason) + ')' : ''); }).join(' · ') + '</div>'
     : '';
 
-  var title = ev ? '<span class="evtag">' + esc(ev.kind) + '</span>' + esc(ev.name) : fmtDate(W.date) + ' 주일';
+  var ses = W.session;
+  var title = ev ? '<span class="evtag">' + esc(ev.kind) + '</span>' + esc(ev.name) + (ses ? ' · ' + esc(ses.label) : '') : fmtDate(W.date) + ' 주일';
+  var sesBar = (ev && (ev.sessions || []).length)
+    ? '<div class="sesbar">' + ev.sessions.map(function (x) {
+        return '<button type="button" class="' + (x.key === DATE ? 'on' : '') + '" onclick="goSession(\'' + x.key + '\')">' +
+          '<b>' + esc(x.label) + '</b><span>' + (x.date ? md(x.date) + ' ' + WD[dt(x.date).getDay()] : '') + (x.time ? ' ' + esc(hhmm(x.time)) : '') + '</span></button>';
+      }).join('') + '</div>'
+    : '';
 
-  return '<div class="panel"><span class="chip">' + title + '</span>' + when +
+  return '<div class="panel"><span class="chip">' + title + '</span>' + sesBar + when +
       '<p class="msg" id="paperMsg"></p></div>' +
     '<div class="panel"><span class="chip">' + (ev ? '말씀' : '이 주의 말씀') + '</span>' + verse + '</div>' +
-    '<div class="panel"><span class="chip">' + (ev ? '편성' : '주일 편성') + '</span>' + offbar +
-      '<div class="lineup">' + D.positions.map(function (p) {
-        // 누른 칸 바로 밑에 고르는 칸을 엽니다 (빈자리는 옆 칸이 채웁니다)
-        return slotTile(p, off) + (openPos === p.key ? picker(off) : '');
-      }).join('') + '</div>' +
-      (D.canEdit ? '<p class="fnote">칸을 눌러 사람을 넣고 빼세요. 바로 저장됩니다.</p>' : '') +
-      '<p class="msg" id="planMsg"></p></div>';
+    '<div class="panel"><span class="chip">' + (ev ? '편성' : '주일 편성') + '</span>' +
+      '<div class="lineup2">' + lineupHtml(off) + '</div>' +
+      (D.canEdit ? '<p class="fnote">줄을 눌러 사람을 넣고 빼세요. 바로 저장됩니다.</p>' : '') +
+      '<p class="msg" id="planMsg"></p>' + offbar + '</div>';
+}
+
+/** 세션 사이 이동 (같은 행사 안) */
+function goSession(key) {
+  DATE = key; openPos = ''; songEdit = null; BULK = {};
+  window.scrollTo(0, 0);
+  if (CACHE[key]) { W = CACHE[key]; render(); return; }
+  el('body').innerHTML = '<div class="panel"><i class="skel line" style="width:55%;"></i><i class="skel line" style="width:80%;"></i></div>';
+  callServer('getWorshipWeek', [TOKEN, key], function (w) { CACHE[w.date] = w; if (DATE === w.date) { W = w; render(); } },
+    function (e) { el('body').innerHTML = '<div class="panel"><p class="empty">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>'; });
 }
 
 /** 이름 → 얼굴 (교적 사진이 있으면 사진, 없으면 첫 글자) */
@@ -948,6 +1021,52 @@ function face(n) {
     ? '<img class="fc" src="' + esc(p) + '" alt="" ' +
       'onerror="this.outerHTML=&quot;<span class=\'fc\'>' + ch + '</span>&quot;">'
     : '<span class="fc">' + ch + '</span>';
+}
+
+/** 얼굴 옆 이름 — 세 글자 한국 이름은 성을 뺍니다 (김예은 → 예은) */
+function shortName(n) {
+  n = String(n || '').trim();
+  return /^[가-힣]{3}$/.test(n) ? n.slice(1) : n;
+}
+
+var LU_GROUPS = [
+  ['싱어', ['lead', 'mvocal', 'fvocal']],
+  ['세션', ['piano', 'synth', 'drum', 'bass', 'egt', 'agt']],
+  ['방송', ['media', 'ppt', 'codi']],
+  ['기도', ['pray']]
+];
+
+/** 한 포지션 한 줄 — 왼쪽 포지션, 오른쪽 얼굴 + 이름 */
+function luRow(p, off) {
+  var picked = (W.slots[p.key] || []);
+  var kn = known();
+  var people = picked.length
+    ? picked.map(function (n) {
+        return '<span class="pe' + (off[n] ? ' off' : (kn[n] ? '' : ' guest')) + '" title="' + esc(n) + '">' + face(n) + esc(shortName(n)) + '</span>';
+      }).join('')
+    : '<span class="pe none">' + (p.optional ? '선택' : '미정') + '</span>';
+  var tag = D.canEdit ? 'button' : 'div';
+  return '<' + tag + ' type="button" class="lr' + (openPos === p.key ? ' open' : '') + '"' +
+      (D.canEdit ? ' onclick="openPicker(\'' + p.key + '\')"' : '') + '>' +
+    '<span class="pl">' + ico(p.icon) + esc(p.label) + '</span><span class="pp">' + people + '</span>' +
+    (D.canEdit ? '<span class="ed">›</span>' : '') + '</' + tag + '>';
+}
+
+function lineupHtml(off) {
+  var byKey = {};
+  D.positions.forEach(function (p) { byKey[p.key] = p; });
+  var used = {};
+  var out = LU_GROUPS.map(function (g) {
+    var ps = g[1].map(function (k) { used[k] = 1; return byKey[k]; }).filter(function (p) { return p; });
+    if (!ps.length) return '';
+    var two = g[0] === '세션' || g[0] === '방송';
+    var rows = ps.map(function (p) { return luRow(p, off) + (openPos === p.key ? picker(off) : ''); }).join('');
+    return '<div class="lu' + (two ? ' lu2' : '') + '"><div class="lh">' + g[0] + '</div>' + (two ? '<div class="rows">' + rows + '</div>' : rows) + '</div>';
+  }).join('');
+  // 목록에 없는 새 포지션도 빠뜨리지 않습니다
+  var rest = D.positions.filter(function (p) { return !used[p.key]; });
+  if (rest.length) out += '<div class="lu"><div class="lh">기타</div>' + rest.map(function (p) { return luRow(p, off) + (openPos === p.key ? picker(off) : ''); }).join('') + '</div>';
+  return out;
 }
 
 function known() {
@@ -981,7 +1100,7 @@ function openPicker(key) {
   var y = window.scrollY;
   render();
   window.scrollTo(0, y);            // 화면이 튀지 않게 그 자리 그대로
-  var pk = document.querySelector('.lineup .picker');
+  var pk = document.querySelector('.lineup2 .picker, .lineup .picker');
   if (pk && pk.getBoundingClientRect().bottom > window.innerHeight) pk.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -1013,7 +1132,7 @@ function pickGroups(p, picked, off, fn) {
   return group(p.bcast ? '방송팀' : '이 포지션 담당', 우선) +
     group('그 외 팀원', 나머지) +
     group('객원', 손님) +
-    group('이 날 불가 · ' + 불가.length + '명', 불가, 'offg');
+    group('Unavailable · ' + 불가.length + '명', 불가, 'offg');
 }
 
 function picker(off) {
@@ -1066,6 +1185,7 @@ function savePaper() {
   var body = {
     practice: whenEdit ? (val('wTime') || pp.practice) : pp.practice,
     verse: verseEdit ? val('vQ') : pp.verse,
+    verseTitle: verseEdit ? val('vT') : (pp.verseTitle || ''),
     verseNote: verseEdit ? val('vN') : pp.verseNote,
     playlist: plEdit ? val('plUrl') : pp.playlist,
     media: mediaEdit ? (el('mdReq') ? el('mdReq').value : pp.media) : (pp.media || '')
@@ -1086,6 +1206,7 @@ function setTab() {
   return playlistBox() +
     '<div class="panel"><span class="chip">콘티</span>' + soloSummary() + songList('콘티', W.songs) + '</div>' +
     '<div class="panel"><span class="chip">악보</span>' + fileList('콘티', W.sheets) + '</div>' +
+    recBox() +
     '<div class="panel"><span class="chip">결단찬양</span>' +
       '<p class="hint">목사님께서 주시는 결단찬양입니다.</p>' +
       songList('결단', W.finals) +
@@ -1093,8 +1214,7 @@ function setTab() {
       '<div class="sect" style="margin-top:0;">결단찬양 악보</div>' +
       fileList('결단', W.finalSheets) + '</div>' +
     mediaBox() +
-    commentBox() +
-    recBox();
+    commentBox();
 }
 
 function playlistBox() {
@@ -1143,13 +1263,64 @@ function songList(kind, list) {
   }).join('') : '<p class="empty">아직 등록된 곡이 없습니다.</p>';
 
   var adding = (songEdit === kind + ':0');
-  return rows +
+  // 빈 콘티는 처음부터 '여러 곡 한 번에' 칸을 펼쳐 둡니다
+  var bulk = (songEdit === kind + ':bulk') || (D.canEdit && !list.length && songEdit === null && kind === '콘티');
+  return (list.length || !bulk ? rows : '') +
     (D.canEdit
       ? (adding ? songForm(kind, { seq: 0, title: '', team: '', key: '', link: '', note: '', bpm: '', form: '', solo: [] })
-                : '<button class="btn accent full" style="margin-top:6px;" onclick="songEdit=\'' + kind +
-                  ':0\';render();">＋ ' + (kind === '결단' ? '결단찬양' : '찬양') + ' 추가</button>')
+         : bulk ? bulkForm(kind)
+         : '<div class="addrow" style="margin-top:6px;">' +
+             '<button class="btn accent" style="flex:2;" onclick="openBulk(\'' + kind + '\')">＋ 여러 곡 한 번에</button>' +
+             '<button class="btn" style="flex:1;" onclick="songEdit=\'' + kind + ':0\';render();">＋ 한 곡 (자세히)</button></div>')
       : '') +
     '<p class="msg" id="songMsg_' + kind + '"></p>';
+}
+
+/* ---- 여러 곡 한 번에 입력 → 한 번에 저장 ---- */
+var BULK = {};
+function openBulk(kind) {
+  BULK[kind] = BULK[kind] || [{}, {}, {}, {}, {}];
+  songEdit = kind + ':bulk';
+  render();
+  setTimeout(function () { var x = document.querySelector('.bulk input'); if (x) x.focus(); }, 30);
+}
+function bulkForm(kind) {
+  var rows = BULK[kind] || (BULK[kind] = [{}, {}, {}, {}, {}]);
+  return '<div class="bulk card" style="border-color:var(--tone);">' +
+    '<p class="hint" style="margin:0 0 8px;">제목만 적어도 됩니다. 한 칸에 여러 줄을 붙여 넣으면 줄마다 한 곡으로 나뉩니다 ' +
+      '(예: <b>곡 제목 - 원곡팀 - Key</b>). BPM · 송폼 · 솔로는 저장한 뒤 각 곡의 "수정"에서 넣으세요.</p>' +
+    '<div class="bkh"><span>#</span><span>찬양 제목</span><span>원곡팀</span><span>Key</span></div>' +
+    rows.map(function (r, i) {
+      return '<div class="bkr"><span class="bn">' + (i + 1) + '</span>' +
+        '<input type="text" value="' + esc(r.title || '') + '" placeholder="찬양 제목" oninput="BULK[\'' + kind + '\'][' + i + '].title=this.value" onpaste="bulkPaste(event,\'' + kind + '\',' + i + ')">' +
+        '<input type="text" value="' + esc(r.team || '') + '" placeholder="원곡팀" oninput="BULK[\'' + kind + '\'][' + i + '].team=this.value">' +
+        '<input type="text" value="' + esc(r.key || '') + '" placeholder="Key" oninput="BULK[\'' + kind + '\'][' + i + '].key=this.value"></div>';
+    }).join('') +
+    '<button type="button" class="btn mini" onclick="BULK[\'' + kind + '\'].push({});render();">＋ 줄 추가</button>' +
+    '<div class="addrow" style="margin-top:10px;">' +
+      '<button class="btn" style="flex:1;" onclick="BULK[\'' + kind + '\']=null;songEdit=null;render();">취소</button>' +
+      '<button class="btn accent" style="flex:2;" onclick="saveBulk(\'' + kind + '\')">한 번에 저장</button></div></div>';
+}
+/** 여러 줄을 붙여 넣으면 줄마다 한 곡 — "제목 - 팀 - Key" */
+function bulkPaste(ev, kind, i) {
+  var t = (ev.clipboardData || window.clipboardData).getData('text');
+  if (!/\n/.test(t)) return;
+  ev.preventDefault();
+  var lines = t.split(/\r?\n/).map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+  var rows = BULK[kind];
+  lines.forEach(function (ln, k) {
+    var p = ln.replace(/^\d+[.)]\s*/, '').split(/\s+[-–|]\s+|\t/);
+    rows[i + k] = { title: (p[0] || '').trim(), team: (p[1] || '').trim(), key: (p[2] || '').trim() };
+  });
+  render();
+}
+function saveBulk(kind) {
+  var songs = (BULK[kind] || []).filter(function (r) { return String(r.title || '').trim(); });
+  if (!songs.length) { say('songMsg_' + kind, '찬양 제목을 입력해주세요.', 'err'); return; }
+  say('songMsg_' + kind, songs.length + '곡을 저장하는 중…');
+  callServer('saveWorshipSongs', [TOKEN, DATE, kind, songs], function (w) {
+    BULK[kind] = null; songEdit = null; apply(w); render();
+  }, function (e) { fail(e); });
 }
 
 function songForm(kind, s) {
@@ -1488,7 +1659,7 @@ function eventsTab() {
       '<span class="evb"><span class="evt"><span class="evtag">' + esc(e.kind) + '</span>' + esc(e.name) + '</span>' +
         '<span class="evm">' + esc(fmtRange(e.date, e.endDate)) + (e.place ? ' · ' + esc(e.place) : '') + '</span>' +
         '<span class="evm">연습 ' + (e.practiceDate ? esc(fmtDay(e.practiceDate)) + (e.practice ? ' ' + esc(fmtTime(e.practice)) : '') : '미정') +
-          (w ? ' · 편성 ' + w.filled + '/' + w.need : '') + '</span></span>' +
+          ((e.sessions || []).length ? ' · 세션 ' + e.sessions.length + '개' : (w ? ' · 편성 ' + w.filled + '/' + w.need : '')) + '</span></span>' +
       '<span class="go">&rsaquo;</span></button>';
   }
 
@@ -1504,7 +1675,7 @@ function eventsTab() {
 }
 
 function newEvent() {
-  EVEDIT = { key: '', name: '', kind: '수련회', date: '', endDate: '', place: '', practiceDate: '', practice: '', memo: '' };
+  EVEDIT = { key: '', name: '', kind: '수련회', date: '', endDate: '', place: '', practiceDate: '', practice: '', memo: '', sessions: [] };
   render();
   setTimeout(function () { var x = el('eName'); if (x) x.focus(); }, 50);
 }
@@ -1512,8 +1683,42 @@ function newEvent() {
 function editEvent() {
   var e = W.event;
   EVEDIT = { key: e.key, name: e.name, kind: e.kind, date: e.date, endDate: e.endDate, place: e.place,
-    practiceDate: e.practiceDate, practice: e.practice, memo: e.memo };
+    practiceDate: e.practiceDate, practice: e.practice, memo: e.memo,
+    sessions: (e.sessions || []).map(function (x) { return { id: x.id, label: x.label, date: x.date, time: x.time }; }) };
   render();
+}
+
+/* ---- 세션 (수련회처럼 여러 날 · 여러 번) ---- */
+var SES_SLOTS = ['오전', '오후', '저녁'];
+function addSession() {
+  keepForm();
+  var e = EVEDIT, list = e.sessions || (e.sessions = []);
+  var start = e.date || D.today, end = e.endDate || start;
+  // 다음 칸을 짐작합니다 — 1일차 저녁 → 2일차 오전 …
+  var last = list[list.length - 1], day = start, slot = 2;
+  if (last) {
+    var i = SES_SLOTS.indexOf((last.label.split(' ')[1] || ''));
+    day = last.date || start; slot = i + 1;
+    if (i === -1 || slot >= SES_SLOTS.length) { slot = 0; var nd = dt(day); nd.setDate(nd.getDate() + 1); day = ymdOf(nd) > end ? end : ymdOf(nd); }
+  }
+  var n = Math.round((dt(day) - dt(start)) / 864e5) + 1;
+  list.push({ id: '', label: n + '일차 ' + SES_SLOTS[slot], date: day, time: slot === 0 ? '10:00' : slot === 1 ? '14:00' : '19:30' });
+  render();
+}
+function ymdOf(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function sessionRows() {
+  var list = EVEDIT.sessions || [];
+  return '<div class="f"><label>세션 <span class="sub">(여러 날 · 오전/오후마다 편성 · 콘티가 다르면 나눠 주세요)</span></label>' +
+    list.map(function (x, i) {
+      return '<div class="sesrow">' +
+        '<input type="text" value="' + esc(x.label) + '" placeholder="예: 1일차 저녁" oninput="EVEDIT.sessions[' + i + '].label=this.value">' +
+        '<input type="date" value="' + esc(x.date) + '" oninput="EVEDIT.sessions[' + i + '].date=this.value">' +
+        '<input type="time" value="' + esc(hhmm(x.time)) + '" oninput="EVEDIT.sessions[' + i + '].time=this.value">' +
+        '<button type="button" class="btn mini danger" onclick="keepForm();EVEDIT.sessions.splice(' + i + ',1);render();">✕</button></div>';
+    }).join('') +
+    '<button type="button" class="btn mini" onclick="addSession()">＋ 세션 추가</button>' +
+    (list.some(function (x) { return x.id; }) ? '<p class="fnote" style="margin-top:6px;">세션을 지우면 그 세션의 편성 · 콘티 · 악보도 지워집니다.</p>' : '') +
+    '</div>';
 }
 
 function pickKind(k) { EVEDIT.kind = k; keepForm(); render(); }
@@ -1543,6 +1748,7 @@ function eventForm() {
       '<div class="f"><label>연습 시간</label><input type="time" id="ePTime" value="' + esc(hhmm(e.practice)) + '"></div>' +
     '</div>' +
     '<div class="f"><label>메모</label><textarea id="eMemo" placeholder="집합 시간 · 이동 · 준비물 등">' + esc(e.memo) + '</textarea></div>' +
+    sessionRows() +
     '<div class="addrow"><button class="btn" style="flex:1;" onclick="EVEDIT=null;render();">취소</button>' +
       '<button class="btn accent" style="flex:2;" id="eSave" onclick="saveEvent()">' + (e.key ? '저장' : '행사 만들기') + '</button></div>' +
     '<p class="msg" id="evMsg"></p>';
@@ -2195,7 +2401,21 @@ function songSheet(c) {
 
 /* ===================== 아카이브 — 지난 콘티 · 악보 한곳에 ===================== */
 
-var AR = { data: null, view: 'date', q: '', year: '', more: 30, songs: null };
+var AR = { data: null, view: 'date', q: '', year: '', more: 30, songs: null, range: 'recent' };
+var AR_RANGES = [['up', '다가오는 예배'], ['recent', '최근 3개월'], ['older', '그 이전'], ['all', '전체']];
+
+/** 오늘에서 3개월 전 (yyyy-mm-dd) */
+function arCut() {
+  var t = dt(AR.data.today); t.setMonth(t.getMonth() - 3);
+  return t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2);
+}
+function arInRange(d) {
+  var today = AR.data.today, cut = arCut();
+  if (AR.range === 'up') return d.date > today;
+  if (AR.range === 'recent') return d.date <= today && d.date >= cut;
+  if (AR.range === 'older') return d.date < cut;
+  return true;
+}
 
 function loadArchive() {
   callServer('worshipArchive', [TOKEN], function (d) { AR.data = d; AR.songs = null; if (TAB === 'archive') render(); }, function (e) {
@@ -2222,8 +2442,32 @@ function archiveTab() {
             return '<option value="' + y + '"' + (AR.year === y ? ' selected' : '') + '>' + y + '년</option>';
           }).join('') + '</select>' +
         '<input type="search" placeholder="곡 · 팀 · 파일 이름 검색" value="' + esc(AR.q) + '" oninput="AR.q=this.value;AR.more=30;arRedraw();">' +
-      '</div></div>' +
+      '</div>' +
+      '<div class="ssf" style="margin-top:8px;"><div class="seg">' + AR_RANGES.map(function (r) {
+          return '<button type="button" class="' + (AR.range === r[0] ? 'on' : '') + '" onclick="AR.range=\'' + r[0] + '\';AR.more=30;render();">' + r[1] + '</button>';
+        }).join('') + '</div>' +
+        '<button class="btn mini" onclick="arExport()">엑셀로 내려받기</button></div>' +
+      '<p class="msg" id="arMsg"></p></div>' +
     '<div id="arBody">' + arBody() + '</div>';
+}
+
+/** 지금 보이는 기간의 콘티를 엑셀로 */
+function arExport() {
+  var rows = [];
+  arDays().slice().sort(function (a, b) { return a.date.localeCompare(b.date); }).forEach(function (d) {
+    var name = d.event ? d.event.kind + ' · ' + d.event.name : '주일예배';
+    var songs = d.songs.slice().sort(function (a, b) { return (a.kind === b.kind ? 0 : (a.kind === '결단' ? 1 : -1)) || a.seq - b.seq; });
+    if (!songs.length) rows.push([d.date, name, '', '', '', '', '', '', d.lead.join(', '), '']);
+    songs.forEach(function (x, i) {
+      rows.push([d.date, name, x.kind, i + 1, x.title, x.team, x.key, x.bpm, d.lead.join(', '), x.link]);
+    });
+  });
+  if (!rows.length) { say('arMsg', '내보낼 콘티가 없습니다.', 'err'); return; }
+  say('arMsg', '엑셀 파일을 만드는 중…');
+  var label = (AR_RANGES.filter(function (r) { return r[0] === AR.range; })[0] || ['', '전체'])[1];
+  callServer('worshipArchiveExport', [TOKEN, label, rows], function (res) {
+    saveB64(res); say('arMsg', res.name + ' 을 내려받았습니다.', 'ok');
+  }, function (e) { say('arMsg', e.message || '내보내지 못했습니다.', 'err'); });
 }
 
 function arRedraw() { if (el('arBody')) el('arBody').innerHTML = arBody(); }
@@ -2231,6 +2475,7 @@ function arRedraw() { if (el('arBody')) el('arBody').innerHTML = arBody(); }
 function arDays() {
   var q = AR.q ? songNorm(AR.q) : '';
   return AR.data.days.filter(function (d) {
+    if (!arInRange(d)) return false;
     if (AR.year && d.date.slice(0, 4) !== AR.year) return false;
     if (!q) return true;
     return d.songs.some(function (s) { return songNorm(s.title).indexOf(q) !== -1 || songNorm(s.team).indexOf(q) !== -1; }) ||
@@ -2264,8 +2509,8 @@ function arBody() {
   var past = days.filter(function (d) { return d.date <= today; });
   var more = past.length > AR.more;
   return (up.length ? '<p class="seclabel2">다가오는 예배 · ' + up.length + '</p>' + up.map(arCard).join('') : '') +
-    '<p class="seclabel2">지난 예배 · ' + past.length + '</p>' +
-    (past.length ? past.slice(0, AR.more).map(arCard).join('') : '<div class="panel"><p class="empty">아직 지난 기록이 없습니다.</p></div>') +
+    (AR.range === 'up' ? '' : '<p class="seclabel2">지난 예배 · ' + past.length + '</p>' +
+    (past.length ? past.slice(0, AR.more).map(arCard).join('') : '<div class="panel"><p class="empty">이 기간의 기록이 없습니다.</p></div>')) +
     (more ? '<button class="btn full" style="margin:2px 0 12px;" onclick="AR.more+=20;arRedraw();">더 보기 (' + (past.length - AR.more) + ')</button>' : '');
 }
 

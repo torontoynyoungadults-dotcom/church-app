@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --accent: #D2511F; --tone-rgb: 210,81,31; }
+  .shell { max-width: 620px; margin: 0 auto; padding-bottom: 10px; }
+  .calnav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .calnav b { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+  .calnav button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--hair-2); background: #fff; font-size: 18px; cursor: pointer; }
+  .day { display: grid; grid-template-columns: 54px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--hair); }
+  .day:last-child { border-bottom: none; }
+  .day .d { text-align: center; }
+  .day .d b { display: block; font-size: 22px; font-weight: 800; line-height: 1.1; }
+  .day .d span { font-size: 11.5px; color: var(--ink-3); font-weight: 700; }
+  .day.past { opacity: .5; }
+  .day.today .d b { color: var(--tone); }
+  .ev + .ev { margin-top: 8px; }
+  .ev .t { font-size: 15px; font-weight: 750; }
+  .ev .m { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; line-height: 1.55; }
+  .ev .m a { color: var(--tone); text-decoration: none; }
+  .ev .ds { font-size: 13px; color: var(--ink-2); margin-top: 4px; white-space: pre-wrap; line-height: 1.6; }
+  .back { display: flex; justify-content: center; gap: 8px; margin: 4px 12px 0; }
+  .back a { flex: 1; text-align: center; text-decoration: none; background: #1C1C1C; color: #fff; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 14px; border: 1px solid rgba(255,255,255,.15); }
+  .back a.o { background: #F26B21; border-color: #F26B21; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <img src="/logo.png" alt="Youngnak">
+    <h1>청년부 일정</h1>
+    <p class="meta">YNTORONTO · SCHEDULE</p>
+  </header>
+
+  <div class="panel">
+    <div class="calnav">
+      <button type="button" onclick="move(-1)" aria-label="이전 달">‹</button>
+      <b id="ym">—</b>
+      <button type="button" onclick="move(1)" aria-label="다음 달">›</button>
+    </div>
+    <div id="list"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div>
+  </div>
+
+  <div class="back">
+    <a href="?page=bulletin">주보 보기</a>
+    <a class="o" href="?page=portal">Portal 로그인</a>
+  </div>
+
+  <footer></footer>
+</div>
+<!--#include Theme-->
+<script>
+var P = (window.__PREFILL__ || {});
+var YM = '', CACHE = {};
+var WD = ['일', '월', '화', '수', '목', '금', '토'];
+function el(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function shift(ym, n) { var p = ym.split('-'); var d = new Date(+p[0], +p[1] - 1 + n, 1); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+function tm(t) { var m = /(\d{1,2}):(\d{2})/.exec(t || ''); if (!m) return ''; var h = +m[1]; return (h < 12 ? '오전 ' : '오후 ') + (h % 12 || 12) + (m[2] !== '00' ? ':' + m[2] : '시'); }
+
+function draw(r) {
+  YM = r.ym; CACHE[r.ym] = r;
+  var p = r.ym.split('-');
+  el('ym').textContent = Number(p[0]) + '년 ' + Number(p[1]) + '월';
+  if (!r.configured) { el('list').innerHTML = '<p class="empty">아직 청년부 캘린더가 연결되어 있지 않습니다.</p>'; return; }
+  if (r.error) { el('list').innerHTML = '<p class="empty">' + esc(r.error) + '</p>'; return; }
+  if (!r.events.length) { el('list').innerHTML = '<p class="empty">이 달에는 등록된 일정이 없습니다.</p>'; return; }
+  var byDay = {}, order = [], t = today();
+  r.events.forEach(function (e) { if (!byDay[e.date]) { byDay[e.date] = []; order.push(e.date); } byDay[e.date].push(e); });
+  el('list').innerHTML = order.map(function (d) {
+    var q = d.split('-'), wd = WD[new Date(+q[0], +q[1] - 1, +q[2]).getDay()];
+    return '<div class="day' + (d < t ? ' past' : '') + (d === t ? ' today' : '') + '"><div class="d"><b>' + Number(q[2]) + '</b><span>' + wd + '요일</span></div><div>' +
+      byDay[d].map(function (e) {
+        var when = e.allDay ? (e.endDate && e.endDate !== e.date ? '~ ' + Number(e.endDate.split('-')[1]) + '/' + Number(e.endDate.split('-')[2]) : '종일')
+          : tm(e.time) + (e.endTime ? ' – ' + tm(e.endTime) : '');
+        return '<div class="ev"><div class="t">' + esc(e.title) + '</div><div class="m">' + esc(when) +
+          (e.where ? ' · <a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(e.where) + '">' + esc(e.where) + '</a>' : '') + '</div>' +
+          (e.desc ? '<div class="ds">' + esc(e.desc) + '</div>' : '') + '</div>';
+      }).join('') + '</div></div>';
+  }).join('');
+}
+
+function move(n) {
+  var ym = shift(YM, n);
+  if (CACHE[ym]) { draw(CACHE[ym]); return; }
+  el('list').innerHTML = '<i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i>';
+  callServer('getOpenCalendar', [ym], draw, function (e) { el('list').innerHTML = '<p class="empty">' + esc(e.message || '불러오지 못했습니다.') + '</p>'; });
+}
+
+if (P.cal) draw(P.cal);
+else el('list').innerHTML = '<p class="empty">' + esc(P.err || '불러오지 못했습니다.') + '</p>';
+</script>
+</body>
+</html>

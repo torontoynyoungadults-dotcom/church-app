@@ -982,6 +982,8 @@ header h1 { color: #F26B21 !important; }
         <p class="sub" id="trCheckSum" style="margin:-6px 0 10px;"></p>
         <div id="trCheckList"><div class="skel row"></div><div class="skel row"></div><div class="skel row"></div></div>
         <p class="sub" id="trCheckMsg" style="margin-top:8px;min-height:16px;"></p>
+        <button class="btn full" style="margin-top:6px;" onclick="trSheetPdf()">🖨 이 주 출석부 PDF (종이로 체크)</button>
+        <p class="sub" id="trPdfMsg" style="margin-top:6px;min-height:16px;"></p>
       </div>
     </div>
 
@@ -1500,7 +1502,8 @@ function go(sec, sub, fromHistory) {
   if (!fromHistory) {
     try {
       var h = sec === 'home' ? '' : sec + (sub ? '-' + sub : '');
-      history.pushState({ sec: sec, sub: sub }, '', location.pathname + location.search + (h ? '#' + h : ''));
+      // 기록을 쌓지 않고 바꿔치기만 합니다 — 뒤로가기를 누르면 관리 첫 화면이 아니라 포털로 돌아갑니다
+      history.replaceState({ sec: sec, sub: sub }, '', location.pathname + location.search + (h ? '#' + h : ''));
     } catch (e) {}
   }
 }
@@ -3221,6 +3224,13 @@ function saveDirNew() {
 /* ==================== 제자훈련 관리 ==================== */
 
 var TR = null, trWeek = '';
+
+/** 종이 출석부 — 고른 주 · 사람 옆 네모 칸 · 지금까지 출석 */
+function trSheetPdf() {
+  el('trPdfMsg').textContent = 'PDF를 만드는 중…';
+  callServer('discipleshipSheetPdf', [KEY, trWeek], function (res) { saveB64(res, 'trPdfMsg'); },
+    function (e) { el('trPdfMsg').textContent = e.message || '만들지 못했습니다.'; });
+}
 
 function loadTraining(after) {
   callServer('getDiscipleship', [KEY], function (d) { TR = d; rememberPhotos(d.list); renderTraining(); if (after) after(); }, function (e) {
