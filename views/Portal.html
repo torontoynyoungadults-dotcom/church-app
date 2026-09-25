@@ -480,8 +480,6 @@
       <div class="f"><label>직업</label>
         <input type="text" id="nfJob" placeholder="예: 학생, 회사원" maxlength="100"></div>
       <div class="f"><label>청년부 활동 계획 <span class="req">*</span></label><div class="nfopts col" id="nfPlan"></div></div>
-      <div class="f"><label>문의사항</label>
-        <textarea id="nfQ" rows="3" maxlength="2000" placeholder="궁금하신 점이 있으면 적어주세요"></textarea></div>
       <button class="submit" id="nfSubmit" onclick="submitNewcomer()">등록하기</button>
       <p class="msg" id="nfMsg"></p>
     </div>
@@ -954,7 +952,7 @@ function showNewcomerForm(mine) {
     (mine ? '<br>이미 등록하신 내용이 있어 불러왔습니다. 고친 뒤 다시 저장할 수 있습니다.' : '');
   el('nfName').value = m.name || ''; el('nfBirth').value = m.birthday || '';
   el('nfPhone').value = m.contact || ''; el('nfKakao').value = m.kakao || ''; el('nfChurch').value = m.prevChurch || '';
-  el('nfJob').value = m.job || ''; el('nfQ').value = m.question || '';
+  el('nfJob').value = m.job || '';
   nfOpts('nfGender', 'gender', NF_OPT.성별, m.gender);
   nfOpts('nfBapt', 'baptized', NF_OPT.수세여부, m.baptized);
   nfOpts('nfPlan', 'plan', NF_OPT.활동계획, m.plan);
@@ -965,7 +963,7 @@ function submitNewcomer() {
   var d = {
     name: el('nfName').value.trim(), gender: NF_PICK.gender, birthday: el('nfBirth').value,
     contact: el('nfPhone').value.trim(), kakao: el('nfKakao').value.trim(), baptized: NF_PICK.baptized, prevChurch: el('nfChurch').value.trim(),
-    job: el('nfJob').value.trim(), plan: NF_PICK.plan, question: el('nfQ').value.trim()
+    job: el('nfJob').value.trim(), plan: NF_PICK.plan
   };
   var need = function (ok, msg, focus) { if (ok) return false; say('nfMsg', msg, 'err'); if (focus) el(focus).focus(); return true; };
   if (need(d.name, '이름(한글)을 입력해주세요.', 'nfName')) return;
