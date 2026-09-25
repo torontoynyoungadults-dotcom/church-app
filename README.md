@@ -39,7 +39,7 @@ scripts/             리프레시 토큰 받기 · 설정 점검
 
 ### 1. 구글 클라우드 — API 켜기
 [Google Cloud Console](https://console.cloud.google.com/) → 청년부 프로젝트 → **API 및 서비스 → 라이브러리** 에서
-**Google Sheets API · Google Drive API · Google Calendar API** 세 개를 "사용"으로.
+**Google Sheets API · Google Drive API · Google Calendar API · Gmail API** 네 개를 "사용"으로.
 
 ### 2. 청년부 계정 권한(리프레시 토큰) 받기 — 권장
 서비스 계정은 드라이브에 파일을 **소유할 수 없어서** 사진 · 영수증 · 악보 올리기가 실패합니다.
@@ -56,20 +56,21 @@ scripts/             리프레시 토큰 받기 · 설정 점검
    ```
    나오는 주소를 열고 **청년부 구글 계정**으로 로그인 → 허용. 터미널에 찍힌 토큰을 복사합니다.
 
-### 3. Gmail 앱 비밀번호
-청년부 구글 계정 → 보안 → **2단계 인증 켜기** → [앱 비밀번호](https://myaccount.google.com/apppasswords) 에서 하나 만들기 (16자리).
+### 3. 메일
+메일은 **Gmail API** 로 청년부 계정에서 보냅니다 (2번 토큰을 그대로 씁니다).
+Render 무료 요금제는 SMTP 포트(465·587)를 막아 두어서 앱 비밀번호 방식은 무료에서는 작동하지 않습니다.
+유료 요금제에서 SMTP 를 쓰고 싶으면 `MAIL_VIA=smtp`, `GMAIL_APP_PASSWORD` 를 넣으면 됩니다.
 
 ### 4. Render 설정
 - **Build Command**: `npm install`  · **Start Command**: `npm start`
-- **Environment** 에 넣을 값:
+- **Environment** 에 넣을 값 (`GMAIL_APP_PASSWORD` 는 필요 없습니다):
 
 | 이름 | 값 |
 |---|---|
 | `SPREADSHEET_ID` | 구글 시트 주소의 `/d/` 와 `/edit` 사이 |
 | `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 2번에서 만든 데스크톱 클라이언트 |
 | `GOOGLE_REFRESH_TOKEN` | 2번에서 받은 토큰 |
-| `GMAIL_USER` | 청년부 Gmail 주소 (예: torontoyn.youngadults@gmail.com) |
-| `GMAIL_APP_PASSWORD` | 3번의 16자리 |
+| `GMAIL_USER` | 청년부 Gmail 주소 (예: torontoyn.youngadults@gmail.com) — 토큰을 받은 계정과 같게 |
 | `CRON_SECRET` | 아무도 모를 긴 글자 (자동 발송 · 처음 설정용) |
 | `TZ` | `America/Toronto` (시트 시간대와 같아야 합니다) |
 | `NODE_ENV` | `production` |
