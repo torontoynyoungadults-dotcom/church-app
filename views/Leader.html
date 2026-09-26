@@ -144,6 +144,62 @@
   .dgset input[type=date] { flex: 1; min-width: 0; }
   .dglabel { font-size: 11px; font-weight: 800; color: var(--ink-3); letter-spacing: .06em; margin: 12px 0 6px; }
   .skel.row { height: 46px; margin-bottom: 8px; }
+
+  /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
+  body .panel {
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: var(--night-ink) !important;
+    box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+  }
+  body .panel .chip { color: #F3EFE8 !important; }
+  body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
+  body .panel .empty, body .panel .meta { color: #ADA69E !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #C4BEB6 !important; }
+  body .panel b, body .panel strong { color: #F6F4F0; }
+  body .panel input, body .panel select, body .panel textarea {
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
+    color: #F3EFE8 !important;
+  }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #7E786F !important; }
+  body .panel .picklist button {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+    color: #D6D1C9 !important;
+  }
+  body .panel .picklist button.picked {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #fff !important;
+  }
+  body .panel .btn:not(.accent):not(.danger) {
+    background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
+    color: #E8E4DE !important;
+  }
+  body .panel .btn.accent, body .panel .submit {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
+  }
+
+  /* 안내 박스 · 카드 · 통계 · 줄 버튼도 같은 유리로 */
+  body .notice, body .banner, body .callout, body .subnotice,
+  body .card, body .nfcard, body .mcard, body .dcard, body .mrow, body .song,
+  body .fileitem, body .msrow, body .stat, body .moodbox, body .facebox, body .rowbtn {
+    background: rgba(255,255,255,.055) !important;
+    border-color: rgba(255,255,255,.12) !important;
+    color: var(--night-ink) !important;
+    box-shadow: none !important;
+  }
+  body .notice b, body .banner b, body .callout b,
+  body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
+    color: #F6F4F0 !important;
+  }
+  body .notice p, body .banner p, body .callout p, body .subnotice p,
+  body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
+    color: #ADA69E !important;
+  }
+  body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
+  body .bar { background: rgba(255,255,255,.12) !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #B9B3AB !important; }
+  body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
 </style>
 <!--#include Theme-->
 </head>

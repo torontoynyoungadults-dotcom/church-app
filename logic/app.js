@@ -2178,12 +2178,12 @@ function 새가족팀원_() {
 }
 
 function getNewFamilyStaff(key) {
-  requireAdmin_(key);
+  requireNewFamily_(key);
   return 새가족팀원_();
 }
 
 function saveNewFamilyStaff(key, list) {
-  requireAdmin_(key);
+  requireNewFamily_(key);
   var sh = sheet_(SHEET_새가족팀원);
   var rows = (list || []).filter(function (x) { return String(x.name || '').trim(); })
     .map(function (x, i) { return [String(x.name).trim(), Number(x.week) || 0, i + 1]; });
@@ -2953,7 +2953,7 @@ function getTeamBootstrap(key) {
 
 /** 양육팀 대시보드용 새가족 요약 */
 function getNewFamilySummary(key) {
-  requireAdmin_(key);
+  requireNewFamily_(key);
   var list = 새가족전체_();
   var 상태 = {};
   새가족선택지().상태.forEach(function (p) { 상태[p[0]] = 0; });
@@ -3271,7 +3271,9 @@ function submitTeamReport__원래(token, data) {
     var team = String(data.team || '').trim();
     requireTeam_(token, team);
 
-    if (!String(data.period || '').trim()) throw new Error('보고 기준일을 선택해주세요.');
+    if (!String(data.period || '').trim()) throw new Error('보고하실 달을 골라주세요.');
+    // 'YYYY-MM' 으로 오면 그 달의 1일로 맞춥니다 (예전 날짜 보고서와 섞이지 않게)
+    if (/^\d{4}-\d{2}$/.test(String(data.period).trim())) data.period = String(data.period).trim() + '-01';
     if (!String(data.submitter || '').trim()) throw new Error('작성자 이름을 입력해주세요.');
     if (!String(data.condition || '').trim()) throw new Error('팀장님의 컨디션을 선택해주세요.');
     if (!String(data.mood || '').trim()) throw new Error('팀 분위기를 선택해주세요.');
@@ -4514,29 +4516,69 @@ function getMissions(key) {
   };
 }
 
-/** 선교팀 페이지 — 관리자는 모든 팀, 팀장·회계·서기는 본인 팀만 */
+/** 이 사람이 속한 선교팀 (역할과 상관없이 팀원이면 모두) */
+function 선교속한팀_(name) {
+  name = String(name || '').trim();
+  if (!name) return [];
+  var out = {};
+  rows_(SHEET_선교팀원).forEach(function (r) {
+    if (String(r[MM_이름]).trim() === name) out[String(r[MM_팀]).trim()] = 1;
+  });
+  return Object.keys(out);
+}
+
+/** 선교팀 이름에서 연도를 떼어냅니다 — "2026 니카라과 선교팀" → 2026 / 니카라과 */
+function 선교연도_(name) {
+  var m = /(20\d{2})/.exec(String(name || ''));
+  return m ? m[1] : '';
+}
+function 선교짧은이름_(name, country) {
+  var s = String(name || '').replace(/20\d{2}/g, '').replace(/선교팀?/g, '').trim();
+  s = s.replace(/^[\s·\-]+|[\s·\-]+$/g, '');
+  return s || String(country || '').trim() || String(name || '').trim();
+}
+
+/**
+ * 선교팀 페이지 — 커미티는 모든 팀, 팀장·회계·서기는 자기 팀을 고칩니다.
+ * 그냥 팀원도 자기 팀을 볼 수 있고, 본인 서류(서약서·여권)를 올립니다.
+ */
 function missionLogin(token) {
   선교팀시트_(); 선교팀원시트_(); 선교일정시트_();
   var all = 선교팀목록_();
-  var mine = all, who = '';
+  var mine = all, who = '', 커미티 = isAdmin_(token), 편집 = {};
 
-  if (!isAdmin_(token)) {
+  if (!커미티) {
     var me = 포털본인_(token);
     if (!me) throw new Error('포털에서 다시 들어와 주세요.');
     who = me.name;
     var r = 포털역할_(me.name);
-    if (r.roles.indexOf('커미티') === -1) {
+    커미티 = r.roles.indexOf('커미티') !== -1;
+    if (!커미티) {
       var 맡은팀 = 선교담당팀_(me.name);
-      mine = all.filter(function (t) { return 맡은팀.indexOf(t.name) !== -1; });
-      if (!mine.length) throw new Error('맡고 계신 선교팀이 없습니다. 커미티에 문의해주세요.');
+      var 속한팀 = 선교속한팀_(me.name);
+      mine = all.filter(function (t) { return 속한팀.indexOf(t.name) !== -1; });
+      if (!mine.length) throw new Error('속해 계신 선교팀이 없습니다. 커미티에 문의해주세요.');
+      맡은팀.forEach(function (t) { 편집[t] = 1; });
     }
   }
+  if (커미티) all.forEach(function (t) { 편집[t.name] = 1; });
+
+  var years = {};
+  all.forEach(function (t) { var y = 선교연도_(t.name) || (t.start || '').slice(0, 4); if (y) years[y] = 1; });
 
   return {
-    token: token, who: who, admin: isAdmin_(token),
-    list: mine, checks: 선교체크목록(), statuses: 선교상태,
+    token: token, who: who, admin: isAdmin_(token), committee: 커미티,
+    canEdit: 편집,
+    list: mine.map(function (t) {
+      t.year = 선교연도_(t.name) || (t.start || '').slice(0, 4);
+      t.short = 선교짧은이름_(t.name, t.country);
+      return t;
+    }),
+    years: Object.keys(years).sort().reverse(),
+    checks: 선교체크목록(), statuses: 선교상태,
     roles: 선교기본역할, kinds: 선교일정구분,
     names: Object.keys(교적맵_()).sort(function (a, b) { return a.localeCompare(b, 'ko'); }),
+    deadlines: (function () { try { return 마감들_().filter(function (d) { return d.kind === '선교'; }); } catch (e) { return []; } })(),
     today: ymd_(new Date())
   };
 }
@@ -4589,7 +4631,35 @@ function saveMission(key, data) {
     renameInColumn_(SHEET_선교일정, MF_팀, old, name);
   }
   캐시비움_();
+  // 기간이 정해지면 청년부 공개 캘린더에도 올려둡니다
+  try { 선교일정캘린더_(name, country, start, end, status, old); } catch (e) {}
   return getMissions(key);
+}
+
+/**
+ * 선교 기간을 청년부 공개 캘린더에 올립니다 (이미 있으면 고칩니다).
+ * 캘린더 ID 가 없거나 기간이 비어 있으면 아무 일도 하지 않습니다.
+ */
+function 선교일정캘린더_(name, country, start, end, status, oldName) {
+  var cal = 캘린더_('공개');
+  if (!cal || !start) return;
+  var title = 선교짧은이름_(name, country) + ' 선교';
+  var 찾을이름 = [title, 선교짧은이름_(oldName || name, country) + ' 선교'];
+  var from = parseYmd_(start);
+  var to = parseYmd_(end || start);
+  to.setDate(to.getDate() + 1);          // 하루 종일 일정은 끝날을 하루 뒤로
+
+  // 같은 이름의 일정이 이미 있으면 지우고 다시 만듭니다 (기간이 바뀔 수 있어서)
+  try {
+    var 앞 = new Date(from.getFullYear() - 1, 0, 1), 뒤 = new Date(from.getFullYear() + 2, 0, 1);
+    cal.getEvents(앞, 뒤).forEach(function (ev) {
+      var t = String(ev.getTitle() || '').trim();
+      if (찾을이름.indexOf(t) !== -1) { try { ev.deleteEvent(); } catch (e) {} }
+    });
+  } catch (e) {}
+  if (status === '취소') return;
+  var ev2 = cal.createAllDayEvent(title, from, to);
+  try { ev2.setDescription('청년부 선교팀 · ' + name); } catch (e) {}
 }
 
 function deleteMission(key, name) {
@@ -10580,7 +10650,9 @@ function 신청서풀기_(r) {
     editable: body.editable !== false,
     showCount: !!body.showCount,
     limit: Number(body.limit) || 0,
-    notify: !!body.notify
+    notify: !!body.notify,
+    mail: !!body.mail,
+    autoClose: body.autoClose !== false
   };
 }
 
@@ -10804,6 +10876,7 @@ function submitForm(token, id, answers) {
   캐시비움_();
 
   // 담당자에게 알림
+  var 지금수 = 답행들_(f.id).length;
   if (f.notify) {
     var to = [];
     if (f.owner && f.owner !== '커미티') to.push(f.owner);
@@ -10811,10 +10884,39 @@ function submitForm(token, id, answers) {
       사역팀목록_().forEach(function (t) { if (t.name === f.team && t.leader) to.push(t.leader); });
     }
     if (!to.length) to = 역할인사람_('커미티');
-    알림_('공지', to, { title: f.title + ' 신청이 들어왔습니다', body: who.name + '님' + (mine ? ' (고침)' : ''),
-      url: 앱주소_() + '?page=forms', tag: 'form-' + f.id });
+    var msg = { title: f.title + ' 신청이 들어왔습니다',
+      body: who.name + '님' + (mine ? ' (고침)' : '') + (f.limit ? ' · ' + 지금수 + '/' + f.limit + '명' : ' · 모두 ' + 지금수 + '명'),
+      url: 앱주소_() + '?page=forms', tag: 'form-' + f.id };
+    알림_('공지', to, msg);
+    if (f.mail) {
+      try {
+        var mto = 이름메일_(to);
+        if (mto.length) {
+          MailApp.sendEmail({ to: mto.join(','), name: '토론토영락교회 청년1부',
+            subject: '[신청] ' + msg.title, htmlBody: 알림메일본문_(msg) });
+        }
+      } catch (e) {}
+    }
   }
-  return { ok: true, at: now, edited: !!mine };
+
+  // 정원이 다 차면 스스로 마감합니다
+  var closed = false;
+  if (f.autoClose !== false && f.limit > 0 && 지금수 >= f.limit && f.status === '받는중') {
+    try {
+      var sh2 = 신청서시트_(), v3 = sh2.getDataRange().getValues();
+      for (var k = 1; k < v3.length; k++) {
+        if (String(v3[k][FM_ID]).trim() === f.id) { sh2.getRange(k + 1, FM_상태 + 1).setValue('마감'); break; }
+      }
+      캐시비움_();
+      closed = true;
+      var own = [];
+      if (f.owner && f.owner !== '커미티') own.push(f.owner);
+      if (!own.length) own = 역할인사람_('커미티');
+      알림_('공지', own, { title: f.title + ' 정원이 찼습니다', body: 지금수 + '명 신청 · 자동으로 마감했습니다',
+        url: 앱주소_() + '?page=forms', tag: 'form-full-' + f.id });
+    } catch (e) {}
+  }
+  return { ok: true, at: now, edited: !!mine, closed: closed, count: 지금수 };
 }
 
 /** 신청 취소 */
@@ -10870,12 +10972,15 @@ function formAdminInit(token) {
       var rows = 답행들_(f.id);
       return { id: f.id, title: f.title, status: f.status, team: f.team, owner: f.owner,
         at: f.at, openAt: f.openAt, closeAt: f.closeAt, target: f.target, limit: f.limit,
-        count: rows.length, live: 신청받는중_(f), why: 신청마감사유_(f), qn: (f.questions || []).length };
+        count: rows.length, live: 신청받는중_(f), why: 신청마감사유_(f), qn: (f.questions || []).length,
+        full: !!(f.limit && rows.length >= f.limit) };
     })
     .sort(function (a, b) { return (b.at || '').localeCompare(a.at || ''); });
   return {
     list: list, me: who.name, committee: who.committee, teams: who.teams,
-    types: 문항종류(), statuses: 신청서상태
+    types: 문항종류(), statuses: 신청서상태,
+    targets: 알림대상목록_(),
+    myTemplates: 내본보기들_()
   };
 }
 
@@ -10931,7 +11036,9 @@ function formSave(token, data) {
     editable: data.editable !== false,
     showCount: !!data.showCount,
     limit: Math.max(0, Math.min(Number(data.limit) || 0, 9999)),
-    notify: !!data.notify
+    notify: !!data.notify,
+    mail: !!data.mail,
+    autoClose: data.autoClose !== false
   };
   var status = 신청서상태.indexOf(String(data.status)) !== -1 ? String(data.status) : (old ? old.status : '준비중');
   var team = String(data.team || '').trim().slice(0, 40);
@@ -11131,6 +11238,20 @@ function formTemplates() {
         { type: 'checks', label: '봉사 가능한 시간', req: true, opts: ['토요일 오전', '토요일 오후', '주일 오전', '주일 오후'] },
         { type: 'checks', label: '맡을 수 있는 일', opts: ['음식 준비', '판매', '정리 · 청소', '홍보 · 사진', '운반'] },
         { type: 'text', label: '하고 싶은 말' }
+      ] } },
+    { key: 'team', name: '사역팀 지원', icon: '🙌',
+      desc: '팀 지원 · 세례 확인 · 가능한 시간까지',
+      form: { title: '사역팀 지원', desc: '', target: '교인', questions: [
+        { type: 'choice', label: '지원하는 팀', req: true, opts: ['찬양팀', '방송팀', '미디어팀', '예배준비팀', '쉐마', '새가족팀', '원주민팀', '홍보팀'] },
+        { type: 'text', label: '맡고 싶은 자리 (악기 · 파트 등)', help: '예: 건반, 드럼, 영상, 사진' },
+        { type: 'choice', label: '세례 · 입교 여부', req: true,
+          help: '교적에 있는 내용을 확인차 여쭙습니다. 사역에 따라 필요할 수 있습니다.',
+          opts: ['성인세례 / 입교', '유아세례만', '아직 받지 않음', '잘 모르겠음'] },
+        { type: 'checks', label: '섬길 수 있는 시간', req: true,
+          opts: ['주일 오전 (예배 전)', '주일 오후', '토요일', '평일 저녁'] },
+        { type: 'long', label: '해온 경험이 있다면 알려주세요', help: '없어도 괜찮습니다' },
+        { type: 'long', label: '지원 이유 · 하고 싶은 말' },
+        { type: 'agree', label: '팀 모임과 섬김에 성실히 참여하겠습니다', req: true }
       ] } },
     { key: 'blank', name: '빈 신청서', icon: '+', desc: '처음부터 직접 만들기',
       form: { title: '', desc: '', target: '모두', questions: [] } }
@@ -11893,4 +12014,117 @@ function sendDeadlineNow(token, team, item) {
     tag: 'due-' + hit.team + '-' + hit.item, keep: true
   });
   return { sent: r.sent || 0, mail: r.mail || 0, people: who.length };
+}
+
+/* =========================================================
+   신청서 2단계 — 오픈 알림 · 이메일 · 정원 자동마감 · 내 본보기
+   ========================================================= */
+
+var SHEET_신청양식 = '신청서본보기';
+var HEAD_신청양식 = ['ID', '이름', '설명', '만든이', '만든날', '내용'];
+var FT_ID = 0, FT_이름 = 1, FT_설명 = 2, FT_만든이 = 3, FT_날 = 4, FT_내용 = 5;
+
+function 신청양식시트_() {
+  var sh = 주보시트_(SHEET_신청양식, HEAD_신청양식);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_신청양식.length).setValues([HEAD_신청양식]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+/** 우리 청년부가 만들어 둔 본보기 */
+function 내본보기들_() {
+  return rows_(SHEET_신청양식).filter(function (r) { return String(r[FT_ID]).trim(); }).map(function (r) {
+    var parts = [];
+    for (var i = FT_내용; i < r.length; i++) {
+      var s = String(r[i] == null ? '' : r[i]);
+      if (s.charAt(0) === "'") s = s.slice(1);
+      parts.push(s);
+    }
+    var body = {};
+    try { body = JSON.parse(parts.join('')) || {}; } catch (e) {}
+    return { key: 'my:' + String(r[FT_ID]).trim(), id: String(r[FT_ID]).trim(),
+      name: String(r[FT_이름] || '').trim(), desc: String(r[FT_설명] || '').trim(),
+      by: String(r[FT_만든이] || '').trim(), at: 날짜문자열_(r[FT_날]),
+      icon: '⭐', mine: true, form: body };
+  });
+}
+
+/** 지금 신청서를 본보기로 저장합니다 */
+function saveFormTemplate(token, formId, name, desc) {
+  var who = 신청서관리자_(token);
+  var f = 신청서찾기_(formId);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (!신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  name = String(name || f.title || '').trim().slice(0, 60);
+  if (!name) throw new Error('본보기 이름을 적어주세요.');
+
+  var body = { title: f.title, desc: f.desc, target: f.target, questions: f.questions,
+    editable: f.editable, showCount: f.showCount, notify: f.notify, mail: f.mail,
+    limit: f.limit, autoClose: f.autoClose };
+  var json = JSON.stringify(body);
+  var parts = [];
+  for (var i = 0; i < json.length; i += 신청서조각) parts.push("'" + json.slice(i, i + 신청서조각));
+
+  var id = 'T' + Date.now().toString(36);
+  var sh = 신청양식시트_();
+  var row = [id, name, String(desc || '').trim().slice(0, 120), who.name, ymd_(new Date())].concat(parts);
+  sh.appendRow(row);
+  캐시비움_();
+  return { ok: true, id: id, list: 내본보기들_() };
+}
+
+function deleteFormTemplate(token, id) {
+  var who = 신청서관리자_(token);
+  var sh = 신청양식시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][FT_ID]).trim() !== String(id).trim()) continue;
+    if (!who.committee && String(v[i][FT_만든이]).trim() !== who.name) throw new Error('만든 분과 커미티만 지울 수 있습니다.');
+    sh.deleteRow(i + 1);
+  }
+  캐시비움_();
+  return { ok: true, list: 내본보기들_() };
+}
+
+/** 기본 본보기 + 우리가 만든 본보기 */
+function formTemplatesAll(token) {
+  var mine = [];
+  try { 신청서관리자_(token); mine = 내본보기들_(); } catch (e) {}
+  return { builtin: formTemplates(), mine: mine };
+}
+
+/** 신청서를 열 때 알리기 */
+function announceForm(token, id, target, opts) {
+  var who = 신청서관리자_(token);
+  var f = 신청서찾기_(id);
+  if (!f) throw new Error('없는 신청서입니다.');
+  if (!신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  opts = opts || {};
+  var names = 대상사람_(target || (f.target === '새가족' ? '전체' : '전체'));
+  var url = 앱주소_() + '?page=portal';
+  var body = (f.desc ? f.desc.split('\n')[0].slice(0, 120) : '') +
+    (f.closeAt ? (f.desc ? '\n' : '') + f.closeAt + ' 까지 신청해주세요.' : '');
+
+  var out = { push: 0, mail: 0, portal: false };
+  if (opts.push !== false) {
+    var p = 푸시보내기_(names, { title: f.title + ' 신청을 받습니다', body: body, url: url,
+      tag: 'form-' + f.id, keep: true });
+    out.push = p.sent || 0;
+  }
+  if (opts.mail) {
+    try {
+      var to = 이름메일_(names);
+      if (to.length) {
+        MailApp.sendEmail({ to: to.join(','), name: '토론토영락교회 청년1부',
+          subject: '[청년1부] ' + f.title + ' 신청을 받습니다',
+          htmlBody: 알림메일본문_({ title: f.title + ' 신청을 받습니다', body: body, url: url }) });
+        out.mail = to.length;
+      }
+    } catch (e) { out.mailError = e.message; }
+  }
+  if (opts.portal) {
+    공지시트_().appendRow(['N' + Date.now().toString(36), f.title + ' 신청을 받습니다', body,
+      String(target || '전체'), url, 커미티이름_(token), ymd_(new Date()), f.closeAt || '']);
+    캐시비움_();
+    out.portal = true;
+  }
+  return out;
 }

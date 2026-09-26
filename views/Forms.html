@@ -39,6 +39,11 @@
   .tpl .i { font-size: 20px; }
   .tpl .n { font-size: 14px; font-weight: 800; }
   .tpl .d { font-size: 11.5px; color: var(--ink-3); line-height: 1.45; }
+  .tpl button { position: relative; }
+  .tpl .mytag { position: absolute; top: 8px; right: 8px; font-size: 9.5px; font-weight: 800;
+    background: var(--tone); color: #fff; border-radius: 5px; padding: 2px 6px; }
+  .tpl .tdel { position: absolute; bottom: 7px; right: 9px; font-size: 10.5px; color: var(--ink-4); font-weight: 700; }
+  .tpl .tdel:hover { color: var(--danger); }
 
   /* 문항 만들기 */
   .q { border: 1px solid var(--hair-2); border-radius: 14px; padding: 12px 13px; margin-bottom: 9px; background: #fff; }
@@ -101,6 +106,62 @@
     flex: none; accent-color: #D2511F;
   }
   .lkchg em { display: block; font-style: normal; color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+
+  /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
+  body .panel {
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: var(--night-ink) !important;
+    box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+  }
+  body .panel .chip { color: #F3EFE8 !important; }
+  body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
+  body .panel .empty, body .panel .meta { color: #ADA69E !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #C4BEB6 !important; }
+  body .panel b, body .panel strong { color: #F6F4F0; }
+  body .panel input, body .panel select, body .panel textarea {
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
+    color: #F3EFE8 !important;
+  }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #7E786F !important; }
+  body .panel .picklist button {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+    color: #D6D1C9 !important;
+  }
+  body .panel .picklist button.picked {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #fff !important;
+  }
+  body .panel .btn:not(.accent):not(.danger) {
+    background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
+    color: #E8E4DE !important;
+  }
+  body .panel .btn.accent, body .panel .submit {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
+  }
+
+  /* 안내 박스 · 카드 · 통계 · 줄 버튼도 같은 유리로 */
+  body .notice, body .banner, body .callout, body .subnotice,
+  body .card, body .nfcard, body .mcard, body .dcard, body .mrow, body .song,
+  body .fileitem, body .msrow, body .stat, body .moodbox, body .facebox, body .rowbtn {
+    background: rgba(255,255,255,.055) !important;
+    border-color: rgba(255,255,255,.12) !important;
+    color: var(--night-ink) !important;
+    box-shadow: none !important;
+  }
+  body .notice b, body .banner b, body .callout b,
+  body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
+    color: #F6F4F0 !important;
+  }
+  body .notice p, body .banner p, body .callout p, body .subnotice p,
+  body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
+    color: #ADA69E !important;
+  }
+  body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
+  body .bar { background: rgba(255,255,255,.12) !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #B9B3AB !important; }
+  body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
 </style>
 </head>
 <body>
@@ -161,6 +222,7 @@ function drawList() {
       esc(f.team || f.owner) + ' &middot; 문항 ' + f.qn + '개' +
       (f.closeAt ? ' &middot; ~' + esc(f.closeAt) : '') +
       (f.limit ? ' &middot; 정원 ' + f.limit + '명' : '') +
+      (f.full ? ' &middot; <b>정원 참</b>' : '') +
       (f.status === '받는중' && !f.live ? ' &middot; <b>' + esc(f.why) + '</b>' : '') +
       '</div></div>' +
       '<div class="fn"><b>' + f.count + '</b><span>신청</span></div></div>';
@@ -180,16 +242,26 @@ function drawList() {
 }
 
 function drawTemplates() {
-  callServer('formTemplates', [], function (list) {
+  callServer('formTemplatesAll', [TOKEN], function (r) {
     var b = el('tplBox');
     if (!b) return;
+    var list = (r.mine || []).concat(r.builtin || []);
+    window.__TPL = list;
     b.innerHTML = list.map(function (t, i) {
       return '<button type="button" onclick="newFromTemplate(' + i + ')">' +
+        (t.mine ? '<span class="mytag">우리 본보기</span>' : '') +
         '<span class="i">' + t.icon + '</span><span class="n">' + esc(t.name) + '</span>' +
-        '<span class="d">' + esc(t.desc) + '</span></button>';
+        '<span class="d">' + esc(t.desc || (t.by ? t.by + ' 만듦' : '')) + '</span>' +
+        (t.mine ? '<span class="tdel" onclick="event.stopPropagation();delTemplate(\'' + jsq(t.id) + '\')">지우기</span>' : '') +
+        '</button>';
     }).join('');
-    window.__TPL = list;
   }, function () { var b = el('tplBox'); if (b) b.innerHTML = ''; });
+}
+
+function delTemplate(id) {
+  if (!confirm('이 본보기를 지울까요? (이미 만든 신청서는 그대로입니다)')) return;
+  callServer('deleteFormTemplate', [TOKEN, id], function () { drawTemplates(); },
+    function (e) { alert(e.message || '지우지 못했습니다.'); });
 }
 
 function newFromTemplate(i) {
@@ -270,9 +342,15 @@ function drawEdit() {
       '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;">' +
         '<input type="checkbox" id="fCount"' + (F.showCount ? ' checked' : '') + '>' +
         '<span>신청 인원을 신청자에게도 보여주기</span></label>' +
-      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0;">' +
+      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;">' +
         '<input type="checkbox" id="fNotify"' + (F.notify !== false ? ' checked' : '') + '>' +
         '<span>신청이 들어오면 알림 받기<em style="display:block;color:var(--ink-3);font-size:12px;">담당자 휴대폰으로 알림이 갑니다</em></span></label>' +
+      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;">' +
+        '<input type="checkbox" id="fMail"' + (F.mail ? ' checked' : '') + '>' +
+        '<span>알림을 이메일로도 받기<em style="display:block;color:var(--ink-3);font-size:12px;">신청이 들어올 때마다 담당자 이메일로 갑니다</em></span></label>' +
+      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0;">' +
+        '<input type="checkbox" id="fAuto"' + (F.autoClose !== false ? ' checked' : '') + '>' +
+        '<span>정원이 차면 저절로 마감하기<em style="display:block;color:var(--ink-3);font-size:12px;">정원을 정했을 때만 씁니다</em></span></label>' +
     '</div>' +
     '<div class="panel"><span class="chip">문항</span>' +
       '<p class="hint">이름 · 연락처 · 성별 · 셀은 로그인 정보에서 자동으로 채워집니다. 그 밖에 받을 것만 만들어주세요.</p>' +
@@ -291,7 +369,28 @@ function drawEdit() {
           }).join('') + '</select></div>' +
       '<button class="btn accent full" onclick="saveForm()">저장</button>' +
       '<p class="msg" id="saveMsg"></p>' +
-    '</div>';
+    '</div>' +
+    (F.id ?
+    '<div class="panel"><span class="chip">신청 받는다고 알리기</span>' +
+      '<p class="hint">만들어 두고 따로 알릴 수 있습니다. 포털 · 휴대폰 알림 · 이메일 중에 고르세요.</p>' +
+      '<div class="f"><label class="fl">누구에게</label>' +
+        '<select id="anTarget">' + targetOptions() + '</select></div>' +
+      '<label class="lkchg" style="margin:0 0 8px;"><input type="checkbox" id="anPush" checked>' +
+        '<span>휴대폰 알림</span></label>' +
+      '<label class="lkchg" style="margin:0 0 8px;"><input type="checkbox" id="anPortal" checked>' +
+        '<span>포털 첫 화면에 공지로 올리기</span></label>' +
+      '<label class="lkchg" style="margin:0 0 12px;"><input type="checkbox" id="anMail">' +
+        '<span>이메일로도 보내기</span></label>' +
+      '<button class="btn full" onclick="announceNow()">지금 알리기</button>' +
+      '<p class="msg" id="anMsg"></p>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">다음에도 쓰기</span>' +
+      '<p class="hint">지금 문항 그대로 본보기로 저장해 두면, 다음 번에 한 번에 불러올 수 있습니다.</p>' +
+      '<div class="f"><label class="fl">본보기 이름</label>' +
+        '<input type="text" id="tplName" maxlength="60" value="' + esc(F.title || '') + '"></div>' +
+      '<button class="btn full" onclick="saveAsTemplate()">본보기로 저장</button>' +
+      '<p class="msg" id="tplMsg"></p>' +
+    '</div>' : '');
   drawQuestions();
   drawAddButtons();
 }
@@ -331,6 +430,8 @@ function pullForm() {
   F.editable = el('fEdit').checked;
   F.showCount = el('fCount').checked;
   F.notify = el('fNotify').checked;
+  F.mail = el('fMail') ? el('fMail').checked : false;
+  F.autoClose = el('fAuto') ? el('fAuto').checked : true;
   F.status = el('fStatus').value;
   pullQuestions();
 }
@@ -432,6 +533,41 @@ function saveForm() {
     say('saveMsg', '저장했습니다.', 'ok');
     setTimeout(drawList, 350);
   }, function (e) { say('saveMsg', e.message || '저장하지 못했습니다.', 'err'); });
+}
+
+function targetOptions() {
+  var groups = {}, plain = [];
+  (D.targets || []).forEach(function (t) {
+    if (t.group) (groups[t.group] = groups[t.group] || []).push(t);
+    else plain.push(t);
+  });
+  var opt = function (t) { return '<option value="' + esc(t.key) + '">' + esc(t.name) + ' (' + t.n + '명)</option>'; };
+  return plain.map(opt).join('') + Object.keys(groups).map(function (g) {
+    return '<optgroup label="' + esc(g) + '">' + groups[g].map(opt).join('') + '</optgroup>';
+  }).join('');
+}
+
+function announceNow() {
+  if (!confirm('지금 알릴까요?')) return;
+  say('anMsg', '보내는 중…');
+  callServer('announceForm', [TOKEN, F.id, el('anTarget').value, {
+      push: el('anPush').checked, portal: el('anPortal').checked, mail: el('anMail').checked
+    }], function (r) {
+      var parts = [];
+      if (r.portal) parts.push('포털에 올림');
+      if (r.push) parts.push('알림 ' + r.push + '대');
+      if (r.mail) parts.push('이메일 ' + r.mail + '통');
+      say('anMsg', (parts.join(' · ') || '보냈습니다') + '.', 'ok');
+    }, function (e) { say('anMsg', e.message || '보내지 못했습니다.', 'err'); });
+}
+
+function saveAsTemplate() {
+  var name = el('tplName').value.trim();
+  if (!name) { say('tplMsg', '본보기 이름을 적어주세요.', 'err'); return; }
+  say('tplMsg', '저장하는 중…');
+  callServer('saveFormTemplate', [TOKEN, F.id, name, ''], function () {
+    say('tplMsg', '본보기로 저장했습니다. 목록 첫 화면에서 쓸 수 있습니다.', 'ok');
+  }, function (e) { say('tplMsg', e.message || '저장하지 못했습니다.', 'err'); });
 }
 
 function removeForm() {

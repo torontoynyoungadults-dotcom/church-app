@@ -58,6 +58,85 @@
   .done h2 { font-size: 19px; font-weight: 800; margin: 13px 0 6px; color: var(--tone); }
   .done p { color: var(--ink-3); font-size: 13.5px; margin: 0 0 18px; }
   .skel.row { height: 46px; margin-bottom: 8px; }
+
+  /* ---------- 유리 느낌 (배경이 비치는 카드) ---------- */
+  body .panel {
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: var(--night-ink) !important;
+    box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+  }
+  body .panel .chip { color: #F3EFE8 !important; }
+  body .panel .hint, .panel .sub, .panel .fnote, .panel .closing { color: #ADA69E !important; }
+  body .panel .closing b { color: #F3EFE8; }
+  body .panel label, .panel .fl { color: #C4BEB6 !important; }
+  body .panel input, .panel select, .panel textarea {
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
+    color: #F3EFE8 !important;
+  }
+  body .panel input::placeholder, .panel textarea::placeholder { color: #7E786F !important; }
+  body .panel .picklist button, .panel .mrow, .panel .dcard {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+    color: #D6D1C9 !important;
+  }
+  body .panel .picklist button.picked {
+    background: linear-gradient(135deg, #34A855, #2E9A4B) !important; border-color: transparent !important; color: #fff !important;
+  }
+  body .panel .mrow .mname, .panel .dcard .dname { color: #F3EFE8; }
+  /* 팀 카드 — 초록 그라데이션 */
+  body .teamcard {
+    background:
+      radial-gradient(130% 100% at 0% 0%, rgba(46,154,75,.30) 0%, rgba(46,154,75,0) 62%),
+      rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.15) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+    box-shadow: 0 8px 26px rgba(0,0,0,.26);
+  }
+  body .teamcard .tdept { background: linear-gradient(135deg, #34A855, #2E9A4B); }
+
+  /* ---------- 탭 (보고서 · 팀원 관리) ---------- */
+  .ttabs { display: flex; gap: 6px; margin: 0 12px 12px; }
+  .ttabs button {
+    flex: 1; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.055);
+    color: #B9B3AB; border-radius: 12px; padding: 11px 8px; font: 800 14px inherit; font-family: inherit;
+    cursor: pointer; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  }
+  .ttabs button.on {
+    background: linear-gradient(135deg, rgba(52,168,85,.9), rgba(46,154,75,.75));
+    border-color: rgba(120,215,155,.4); color: #fff;
+  }
+  /* 팀원 관리 */
+  .mmrow { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.1); }
+  .mmrow:first-of-type { border-top: none; }
+  .mmrow .mmn { flex: 1; min-width: 0; }
+  .mmrow .mmn b { display: block; font-size: 15px; color: #F3EFE8; }
+  .mmrow .mmn small { display: block; font-size: 12px; color: #948E86; margin-top: 2px; }
+  .mmrow .btn { flex: none; }
+  .mrole { display: inline-block; font-size: 11px; font-weight: 750; background: rgba(46,154,75,.22);
+    color: #9FE0B4; border-radius: 6px; padding: 2px 7px; margin-right: 4px; }
+
+  /* 안내 박스 · 카드 · 통계 · 줄 버튼도 같은 유리로 */
+  body .notice, body .banner, body .callout, body .subnotice,
+  body .card, body .nfcard, body .mcard, body .dcard, body .mrow, body .song,
+  body .fileitem, body .msrow, body .stat, body .moodbox, body .facebox, body .rowbtn {
+    background: rgba(255,255,255,.055) !important;
+    border-color: rgba(255,255,255,.12) !important;
+    color: var(--night-ink) !important;
+    box-shadow: none !important;
+  }
+  body .notice b, body .banner b, body .callout b,
+  body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
+    color: #F6F4F0 !important;
+  }
+  body .notice p, body .banner p, body .callout p, body .subnotice p,
+  body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
+    color: #ADA69E !important;
+  }
+  body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
+  body .bar { background: rgba(255,255,255,.12) !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #B9B3AB !important; }
+  body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
 </style>
 <!--#include Theme-->
 </head>
@@ -65,7 +144,7 @@
 <div class="shell">
   <header>
     <img src="/logo.png" alt="Youngnak">
-    <h1>사역 보고서</h1>
+    <h1>팀 보고서 및 팀 관리</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; MINISTRY</p>
   </header>
 
@@ -87,6 +166,34 @@
     </div>
     <div class="teamcard" id="teamCard"></div>
 
+    <div class="ttabs">
+      <button type="button" id="tabRep" class="on" onclick="showTab('rep')">보고서</button>
+      <button type="button" id="tabMem" onclick="showTab('mem')">팀원 관리</button>
+    </div>
+
+    <!-- ===== 팀원 관리 ===== -->
+    <div id="paneMem" style="display:none;">
+      <div class="panel">
+        <span class="chip">팀원</span>
+        <p class="hint">이 팀에 속한 분들입니다. 새로 들어온 분을 넣고, 그만둔 분은 뺄 수 있습니다.</p>
+        <div id="memManage"></div>
+        <div style="display:flex;gap:6px;margin-top:12px;">
+          <input type="text" id="mmNew" placeholder="새 팀원 이름 (교적에 있는 이름)">
+          <button class="btn accent" onclick="mmAdd()">추가</button>
+        </div>
+        <p class="hint" style="margin:9px 0 6px;">새 팀원 역할 <span style="font-weight:500;">(여러 개 고를 수 있어요)</span></p>
+        <div id="mmRoleBox"></div>
+        <p class="msg" id="mmMsg"></p>
+      </div>
+      <div class="panel">
+        <span class="chip">팀원 정보</span>
+        <p class="hint">연락처 · 생일 · 출석률입니다.</p>
+        <div id="dirList2"></div>
+      </div>
+    </div>
+
+    <!-- ===== 보고서 ===== -->
+    <div id="paneRep">
     <div class="panel">
       <div class="linkbar">
         <button type="button" class="dirbtn" id="dirToggle" onclick="toggleDir()">팀원 정보 보기</button>
@@ -95,9 +202,9 @@
     </div>
 
     <div class="panel">
-      <span class="chip">보고 기준일<span class="req">*</span></span>
-      <p class="hint">보고서를 작성하는 날짜입니다. 같은 날짜를 다시 고르면 기존 보고서를 불러옵니다.</p>
-      <input type="date" id="period" onchange="loadExisting()">
+      <span class="chip">보고하는 달<span class="req">*</span></span>
+      <p class="hint">달을 고르면 그 달 보고서를 불러옵니다. 아직 없으면 새로 씁니다.</p>
+      <select id="period" onchange="loadExisting()"></select>
     </div>
 
     <div class="panel">
@@ -167,6 +274,7 @@
 
     <button class="submit" id="submitBtn" onclick="doSubmit()" style="margin-top:14px;">보고서 제출</button>
     <p class="msg" id="msg" style="text-align:center;"></p>
+    </div>
     </div>
   </div>
 
@@ -270,8 +378,34 @@ function tryLogin(pw, silent) {
 
 /* ---------- 초기화 ---------- */
 
+/* ---------- 탭 ---------- */
+function showTab(k) {
+  el('paneRep').style.display = (k === 'rep') ? 'block' : 'none';
+  el('paneMem').style.display = (k === 'mem') ? 'block' : 'none';
+  el('tabRep').className = (k === 'rep') ? 'on' : '';
+  el('tabMem').className = (k === 'mem') ? 'on' : '';
+  if (k === 'mem') drawMemManage();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- 보고하는 달 ---------- */
+function monthOptions(sel) {
+  var d = new Date(), out = [];
+  for (var i = 0; i < 18; i++) {
+    var y = d.getFullYear(), m = d.getMonth() + 1;
+    var v = y + '-' + ('0' + m).slice(-2);
+    out.push('<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + y + '년 ' + m + '월</option>');
+    d.setMonth(d.getMonth() - 1);
+  }
+  return out.join('');
+}
+function thisMonth() {
+  var d = new Date();
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+}
+
 function start() {
-  el('period').value = today();
+  el('period').innerHTML = monthOptions(thisMonth());
   el('condRow').className = 'picklist';
   el('moodRow').className = 'picklist';
   el('expenseRow').className = 'picklist';
@@ -406,6 +540,68 @@ function doRemoveMember(name) {
 
 /* ---------- 팀원 정보 ---------- */
 
+/* ---------- 팀원 관리 탭 ---------- */
+function drawMemManage() {
+  var t = currentTeam();
+  if (!t) { el('memManage').innerHTML = '<p class="hint">팀을 먼저 선택해주세요.</p>'; return; }
+  el('memManage').innerHTML = t.members.length
+    ? t.members.map(function (m) {
+        var rl = m.roles && m.roles.length ? m.roles : (m.role ? String(m.role).split(/\s*[,·]\s*/) : []);
+        var roles = rl.filter(function (x) { return x; })
+          .map(function (r) { return '<span class="mrole">' + esc(r) + '</span>'; }).join('');
+        return '<div class="mmrow"><div class="mmn"><b>' + esc(m.name) + '</b>' +
+          (roles ? '<small>' + roles + '</small>' : '<small>역할 없음</small>') + '</div>' +
+          '<button class="btn mini danger" onclick="mmRemove(\'' + jsq(m.name) + '\')">빼기</button></div>';
+      }).join('')
+    : '<p class="hint">아직 팀원이 없습니다. 아래에서 추가해주세요.</p>';
+  if (!el('mmRoleBox').innerHTML) el('mmRoleBox').innerHTML = RP.html('mmRole', '', teamSugg(t));
+  // 팀원 정보도 같이
+  loadDir2();
+}
+
+function mmAdd() {
+  var t = currentTeam();
+  if (!t) { say2('팀을 먼저 선택해주세요.', 'err'); return; }
+  var name = el('mmNew').value.trim(), role = RP.val('mmRole');
+  if (!name) { say2('팀원 이름을 입력해주세요.', 'err'); return; }
+  say2('추가하는 중…');
+  callServer('addTeamMember', [TOKEN, t.name, name, role], function (list) {
+      TEAMS = IS_MASTER ? list : list.filter(function (x) { return x.name === t.name; });
+      el('mmNew').value = ''; el('mmRoleBox').innerHTML = '';
+      drawMemManage(); renderMembers();
+      say2(name + '님을 넣었습니다.', 'ok');
+    }, function (e) { say2(e.message || '추가하지 못했습니다.', 'err'); });
+}
+
+function mmRemove(name) {
+  var t = currentTeam();
+  if (!confirm(name + '님을 팀 명단에서 뺄까요?')) return;
+  callServer('removeTeamMember', [TOKEN, t.name, name], function (list) {
+      TEAMS = IS_MASTER ? list : list.filter(function (x) { return x.name === t.name; });
+      delete states[name];
+      drawMemManage(); renderMembers();
+      say2(name + '님을 뺐습니다.', 'ok');
+    }, function (e) { say2(e.message || '빼지 못했습니다.', 'err'); });
+}
+
+function say2(t, k) {
+  var m = el('mmMsg');
+  if (!m) return;
+  m.className = 'msg' + (k ? ' ' + k : '');
+  m.textContent = t || '';
+}
+
+function loadDir2() {
+  var t = currentTeam();
+  if (!t) return;
+  var box = el('dirList2');
+  box.innerHTML = '<p class="hint">불러오는 중…</p>';
+  callServer('getTeamDirectory', [TOKEN, t.name], function (list) {
+      mergePhotos(list);
+      box.innerHTML = list.length ? dirHtml(list) : '<p class="hint">등록된 팀원이 없습니다.</p>';
+    }, function (e) { box.innerHTML = '<p class="msg err">' + esc(e.message || '') + '</p>'; });
+}
+
 function toggleDir() {
   var p = el('dirPanel'), open = p.style.display === 'block';
   p.style.display = open ? 'none' : 'block';
@@ -421,7 +617,12 @@ function loadDir() {
   callServer('getTeamDirectory', [TOKEN, t.name], function (list) {
       mergePhotos(list);
       if (!list.length) { el('dirList').innerHTML = '<p class="hint">등록된 팀원이 없습니다.</p>'; return; }
-      el('dirList').innerHTML = list.map(function (m, i) {
+      el('dirList').innerHTML = dirHtml(list);
+    }, function (e) { el('dirList').innerHTML = '<p class="hint">' + esc(e.message) + '</p>'; });
+}
+
+function dirHtml(list) {
+  return list.map(function (m, i) {
         var badge = '';
         if (m.rate !== null && m.rate !== undefined) {
           var c = m.rate >= 80 ? 'var(--good)' : m.rate >= 60 ? 'var(--mid)' : 'var(--danger)';
@@ -445,8 +646,7 @@ function loadDir() {
           '<div class="grid">' + fields + '</div>' +
           '<div style="margin-top:9px;"><button class="btn" onclick="editRole(\'' + esc(jsq(m.name)) + '\')">역할 바꾸기 (여러 개)</button></div>' +
           '</div>';
-      }).join('');
-    }, function (e) { el('dirList').innerHTML = '<p class="hint">' + esc(e.message) + '</p>'; });
+  }).join('');
 }
 
 function saveRole(name, i) {
@@ -465,9 +665,11 @@ function loadExisting() {
   var t = currentTeam(), p = el('period').value;
   if (!t || !p) return;
 
+  var same = function (x) { return String(x.period || '').slice(0, 7) === p; };
+
   // 로그인 때 받아둔 목록이 있으면 서버를 다시 부르지 않습니다
   if (PRELOADED) {
-    var pre = PRELOADED.filter(function (x) { return x.period === p; })[0];
+    var pre = PRELOADED.filter(same)[0];
     PRELOADED = null;
     if (pre) { fill(pre); return; }
     clearForm();
@@ -475,7 +677,7 @@ function loadExisting() {
   }
 
   callServer('getTeamReports', [TOKEN, t.name], function (list) {
-      var r = list.filter(function (x) { return x.period === p; })[0];
+      var r = list.filter(same)[0];
       if (r) fill(r); else clearForm();
     }, function () {});
 }
@@ -523,7 +725,7 @@ function doSubmit() {
   var t = currentTeam();
   if (!t) return showMsg('팀을 선택해주세요.', 'err');
   var p = el('period').value;
-  if (!p) return showMsg('보고 기준일을 선택해주세요.', 'err');
+  if (!p) return showMsg('보고하실 달을 골라주세요.', 'err');
 
   var members = [];
   for (var i = 0; i < t.members.length; i++) {

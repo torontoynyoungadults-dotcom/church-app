@@ -7,6 +7,27 @@
   :root { --accent: #2A8C94; --tone-rgb: 42,140,148; }
   * { box-sizing: border-box; }
 
+  .nftabs { display: flex; gap: 6px; margin: 0 12px 12px; overflow-x: auto; }
+  .nftabs button {
+    flex: 1; min-width: 78px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.055);
+    color: #B9B3AB; border-radius: 12px; padding: 10px 6px; font: 800 13px inherit; font-family: inherit;
+    cursor: pointer; white-space: nowrap;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  }
+  .nftabs button.on {
+    background: linear-gradient(135deg, rgba(42,140,148,.95), rgba(32,115,122,.8));
+    border-color: rgba(120,215,215,.4); color: #fff;
+  }
+  .nfbar { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; font-size: 13px; }
+  .nfbar .bn { width: 96px; flex: none; color: #B9B3AB; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nfbar .bg { flex: 1; height: 16px; background: rgba(255,255,255,.1); border-radius: 5px; overflow: hidden; }
+  .nfbar .bg i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+  .nfbar .bv { width: 34px; flex: none; text-align: right; font-weight: 750; color: #F3EFE8; }
+  .mmrow2 { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.1); }
+  .mmrow2:first-of-type { border-top: none; }
+  .mmrow2 .mmn { flex: 1; min-width: 0; }
+  .mmrow2 .mmn b { display: block; font-size: 14.5px; color: #F3EFE8; }
+  .mmrow2 .mmn small { display: block; font-size: 12px; color: #948E86; margin-top: 2px; }
   .frow { display: flex; gap: 8px; }
   .frow > div { flex: 1; min-width: 0; }
   /* 주차 코멘트 — 넉넉하게 적을 수 있도록 */
@@ -135,6 +156,62 @@
   .cellok input { margin-top: 3px; width: 18px; height: 18px; accent-color: #D2511F; flex: none; }
   .cellok b { display: block; font-size: 14px; }
   .cellok em { display: block; font-style: normal; font-size: 12px; color: var(--ink-3); margin-top: 2px; line-height: 1.6; }
+
+  /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
+  body .panel {
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: var(--night-ink) !important;
+    box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+  }
+  body .panel .chip { color: #F3EFE8 !important; }
+  body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
+  body .panel .empty, body .panel .meta { color: #ADA69E !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #C4BEB6 !important; }
+  body .panel b, body .panel strong { color: #F6F4F0; }
+  body .panel input, body .panel select, body .panel textarea {
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
+    color: #F3EFE8 !important;
+  }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #7E786F !important; }
+  body .panel .picklist button {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+    color: #D6D1C9 !important;
+  }
+  body .panel .picklist button.picked {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #fff !important;
+  }
+  body .panel .btn:not(.accent):not(.danger) {
+    background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
+    color: #E8E4DE !important;
+  }
+  body .panel .btn.accent, body .panel .submit {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
+  }
+
+  /* 안내 박스 · 카드 · 통계 · 줄 버튼도 같은 유리로 */
+  body .notice, body .banner, body .callout, body .subnotice,
+  body .card, body .nfcard, body .mcard, body .dcard, body .mrow, body .song,
+  body .fileitem, body .msrow, body .stat, body .moodbox, body .facebox, body .rowbtn {
+    background: rgba(255,255,255,.055) !important;
+    border-color: rgba(255,255,255,.12) !important;
+    color: var(--night-ink) !important;
+    box-shadow: none !important;
+  }
+  body .notice b, body .banner b, body .callout b,
+  body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
+    color: #F6F4F0 !important;
+  }
+  body .notice p, body .banner p, body .callout p, body .subnotice p,
+  body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
+    color: #ADA69E !important;
+  }
+  body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
+  body .bar { background: rgba(255,255,255,.12) !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #B9B3AB !important; }
+  body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
 </style>
 <!--#include Theme-->
 </head>
@@ -157,7 +234,57 @@
   </div>
 
   <div id="main" style="display:none;">
-    <div id="notifyBox"></div>
+    <div class="nftabs">
+      <button type="button" id="ntb_list" class="on" onclick="nfTab('list')">명단</button>
+      <button type="button" id="ntb_stat" onclick="nfTab('stat')">진행 통계</button>
+      <button type="button" id="ntb_track" onclick="nfTab('track')">정착 추적</button>
+      <button type="button" id="ntb_staff" onclick="nfTab('staff')">팀원 · 설정</button>
+    </div>
+
+    <!-- 진행 통계 -->
+    <div id="pane_stat" style="display:none;">
+      <div class="panel"><span class="chip">한눈에 보기</span>
+        <div class="stats" id="nfStats"><div class="skel row"></div></div>
+      </div>
+      <div class="panel"><span class="chip">단계별 인원</span>
+        <div id="nfStageBar"></div>
+      </div>
+      <div class="panel"><span class="chip">상태별 인원</span>
+        <div id="nfStatusBar"></div>
+      </div>
+    </div>
+
+    <!-- 정착 추적 -->
+    <div id="pane_track" style="display:none;">
+      <div class="panel"><span class="chip">정착 추적</span>
+        <p class="hint">셀 배정이 끝난 분들입니다. 배정 후 1년간 월 단위로 확인해주세요.</p>
+        <div id="nfTrackBar" style="margin-bottom:12px;"></div>
+        <div id="nfSettled"><p class="empty">배정 완료된 새가족이 없습니다.</p></div>
+      </div>
+    </div>
+
+    <!-- 팀원 · 설정 -->
+    <div id="pane_staff" style="display:none;">
+      <div class="panel">
+        <span class="chip">새가족팀원 명단</span>
+        <p class="hint">담당자 드롭다운에 나타납니다. 기본 주차를 정하면 그 주차의 기본 담당자가 됩니다.</p>
+        <div id="staffList"></div>
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <input type="text" id="stName" placeholder="새가족팀원 이름">
+          <select id="stWeek" style="width:110px;">
+            <option value="0">기본 주차 없음</option>
+            <option value="1">1주차</option><option value="2">2주차</option>
+            <option value="3">3주차</option><option value="4">4주차</option>
+          </select>
+          <button class="btn accent" onclick="addStaff()">추가</button>
+        </div>
+        <p class="msg" id="staffMsg"></p>
+      </div>
+      <div id="notifyBox"></div>
+    </div>
+
+    <!-- 명단 -->
+    <div id="pane_list">
     <div class="panel">
       <button class="btn dark full" onclick="openForm()">+ 새가족 등록</button>
       <div id="formBox" style="display:none;margin-top:12px;"></div>
@@ -171,6 +298,7 @@
         <div><select id="filterOwner" onchange="renderList()"><option value="">담당자 전체</option></select></div>
       </div>
       <div id="list"><div class="skel row"></div><div class="skel row"></div><div class="skel row"></div></div>
+    </div>
     </div>
   </div>
 
@@ -391,6 +519,119 @@ function setCellApp(name, box) {
 }
 
 /* 새가족 등록 알림 이메일 (커미티) */
+/* ---------- 탭 ---------- */
+var NFSUM = null;
+
+function nfTab(k) {
+  ['list', 'stat', 'track', 'staff'].forEach(function (x) {
+    el('pane_' + x).style.display = (x === k) ? 'block' : 'none';
+    el('ntb_' + x).className = (x === k) ? 'on' : '';
+  });
+  window.scrollTo(0, 0);
+  if ((k === 'stat' || k === 'track' || k === 'staff') && !NFSUM) loadSummary();
+  else if (k === 'stat') drawStats();
+  else if (k === 'track') drawTrack();
+  else if (k === 'staff') renderStaff();
+}
+
+function loadSummary() {
+  callServer('getNewFamilySummary', [TOKEN], function (r) {
+    NFSUM = r;
+    drawStats(); drawTrack(); renderStaff();
+  }, function (e) {
+    el('nfStats').innerHTML = '<p class="msg err">' + esc(e.message || '') + '</p>';
+  });
+}
+
+function bar(name, n, max) {
+  return '<div class="nfbar"><span class="bn">' + esc(name) + '</span>' +
+    '<span class="bg"><i style="width:' + Math.round((n / (max || 1)) * 100) + '%;"></i></span>' +
+    '<span class="bv">' + n + '</span></div>';
+}
+
+function drawStats() {
+  if (!NFSUM) return;
+  el('nfStats').innerHTML =
+    '<div class="stat"><div class="v">' + NFSUM.total + '</div><div class="k">전체</div></div>' +
+    '<div class="stat"><div class="v">' + NFSUM.inProgress + '</div><div class="k">진행 중</div></div>' +
+    '<div class="stat"><div class="v">' + NFSUM.assigned + '</div><div class="k">셀 배정</div></div>' +
+    '<div class="stat"><div class="v">' + (NFSUM.settleRate == null ? '—' : NFSUM.settleRate + '%') + '</div><div class="k">정착률</div></div>';
+
+  var sc = NFSUM.stageCounts || {}, max1 = 1;
+  (NFSUM.stages || []).forEach(function (k) { if ((sc[k] || 0) > max1) max1 = sc[k]; });
+  el('nfStageBar').innerHTML = (NFSUM.stages || []).map(function (k) { return bar(k, sc[k] || 0, max1); }).join('')
+    || '<p class="empty">아직 없습니다.</p>';
+
+  var st = NFSUM.statusCounts || {}, keys = Object.keys(st), max2 = 1;
+  keys.forEach(function (k) { if (st[k] > max2) max2 = st[k]; });
+  el('nfStatusBar').innerHTML = keys.map(function (k) { return bar(k, st[k], max2); }).join('')
+    || '<p class="empty">아직 없습니다.</p>';
+}
+
+function drawTrack() {
+  if (!NFSUM) return;
+  var tc = NFSUM.trackingCounts || {}, keys = Object.keys(tc), max = 1;
+  keys.forEach(function (k) { if (tc[k] > max) max = tc[k]; });
+  el('nfTrackBar').innerHTML = keys.length
+    ? keys.map(function (k) { return bar(k, tc[k], max); }).join('') : '';
+
+  var settled = (NFSUM.list || []).filter(function (n) { return n.status === '셀배정완료'; });
+  el('nfSettled').innerHTML = settled.length
+    ? settled.map(function (n) {
+        var t = n.latestTracking;
+        return '<div class="mmrow2"><div class="mmn"><b>' + esc(n.name) + '</b>' +
+          '<small>' + esc(n.cell || '셀 미정') + (n.assignedAt ? ' · ' + esc(n.assignedAt) + ' 배정' : '') +
+          (t ? ' · ' + esc(t.month) + ' ' + esc(t.status) : ' · 아직 확인 전') + '</small></div>' +
+          '<button class="btn mini" onclick="goDetail(\'' + jsq(n.id) + '\')">보기</button></div>';
+      }).join('')
+    : '<p class="empty">배정 완료된 새가족이 없습니다.</p>';
+}
+
+function renderStaff() {
+  if (!NFSUM) return;
+  el('staffList').innerHTML = (NFSUM.staff || []).length
+    ? NFSUM.staff.map(function (m, i) {
+        return '<div class="mmrow2"><div class="mmn"><b>' + esc(m.name) + '</b>' +
+          (m.week ? '<small>' + m.week + '주차 기본 담당</small>' : '<small>기본 주차 없음</small>') + '</div>' +
+          '<button class="btn mini danger" onclick="removeStaff(' + i + ')">빼기</button></div>';
+      }).join('')
+    : '<p class="empty">등록된 팀원이 없습니다.</p>';
+}
+
+function addStaff() {
+  var name = el('stName').value.trim();
+  if (!name) { el('staffMsg').textContent = '이름을 입력해주세요.'; return; }
+  var list = (NFSUM.staff || []).slice();
+  list.push({ name: name, week: Number(el('stWeek').value) || 0 });
+  saveStaff(list);
+}
+function removeStaff(i) {
+  var list = (NFSUM.staff || []).slice();
+  if (!confirm(list[i].name + '님을 새가족팀원 명단에서 뺄까요?')) return;
+  list.splice(i, 1);
+  saveStaff(list);
+}
+function saveStaff(list) {
+  el('staffMsg').textContent = '저장하는 중…';
+  callServer('saveNewFamilyStaff', [TOKEN, list], function (staff) {
+      NFSUM.staff = staff;
+      el('stName').value = ''; el('stWeek').value = '0';
+      el('staffMsg').textContent = '저장했습니다.';
+      renderStaff();
+    }, function (e) { el('staffMsg').textContent = e.message || '저장하지 못했습니다.'; });
+}
+
+/** 정착 추적에서 이름을 누르면 명단 탭으로 가서 펼칩니다 */
+function goDetail(id) {
+  nfTab('list');
+  openId = id;
+  renderList();
+  setTimeout(function () {
+    var box = el('d' + cssId(id));
+    if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 120);
+}
+
 function renderNotify(res) {
   var box = el('notifyBox');
   if (!box) return;

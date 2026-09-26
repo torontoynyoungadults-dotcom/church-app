@@ -13,6 +13,13 @@
     background: none !important; border: none !important; margin: 0 !important;
   }
   .tabs::-webkit-scrollbar { display: none; }
+  .yearbar { display: flex; align-items: center; gap: 9px; margin: 0 12px 10px; }
+  .yearbar label { font-size: 12px; font-weight: 800; color: #948E86; flex: none; }
+  .yearbar select {
+    width: auto !important; min-width: 130px; padding: 8px 11px !important; font-size: 13.5px !important;
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important; color: #F3EFE8 !important;
+  }
+  .yearbar .ycnt { font-size: 12px; color: #7E786F; margin-left: auto; }
   .tabs button {
     flex: 0 0 auto; padding: 9px 16px !important; font-size: 12.5px !important;
     background: var(--night-2) !important; border: 1px solid var(--hair-night) !important;
@@ -126,6 +133,62 @@
   .fl .b { flex: 1; min-width: 0; }
   .fl .at { font-size: 14px; font-weight: 750; }
   .fl .sub2 { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+  /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
+  body .panel {
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: var(--night-ink) !important;
+    box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+  }
+  body .panel .chip { color: #F3EFE8 !important; }
+  body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
+  body .panel .empty, body .panel .meta { color: #ADA69E !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #C4BEB6 !important; }
+  body .panel b, body .panel strong { color: #F6F4F0; }
+  body .panel input, body .panel select, body .panel textarea {
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
+    color: #F3EFE8 !important;
+  }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #7E786F !important; }
+  body .panel .picklist button {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+    color: #D6D1C9 !important;
+  }
+  body .panel .picklist button.picked {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #fff !important;
+  }
+  body .panel .btn:not(.accent):not(.danger) {
+    background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
+    color: #E8E4DE !important;
+  }
+  body .panel .btn.accent, body .panel .submit {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
+  }
+
+  /* 안내 박스 · 카드 · 통계 · 줄 버튼도 같은 유리로 */
+  body .notice, body .banner, body .callout, body .subnotice,
+  body .card, body .nfcard, body .mcard, body .dcard, body .mrow, body .song,
+  body .fileitem, body .msrow, body .stat, body .moodbox, body .facebox, body .rowbtn {
+    background: rgba(255,255,255,.055) !important;
+    border-color: rgba(255,255,255,.12) !important;
+    color: var(--night-ink) !important;
+    box-shadow: none !important;
+  }
+  body .notice b, body .banner b, body .callout b,
+  body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
+    color: #F6F4F0 !important;
+  }
+  body .notice p, body .banner p, body .callout p, body .subnotice p,
+  body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
+    color: #ADA69E !important;
+  }
+  body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
+  body .bar { background: rgba(255,255,255,.12) !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #B9B3AB !important; }
+  body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
 </style>
 <!--#include Theme-->
 </head>
@@ -144,6 +207,11 @@
   </div>
 
   <div id="app" style="display:none;">
+    <div class="yearbar" id="yearBar" style="display:none;">
+      <label>연도</label>
+      <select id="yearSel" onchange="pickYear()"></select>
+      <span class="ycnt" id="yearCount"></span>
+    </div>
     <div class="tabs" id="teamTabs"></div>
     <div id="body"></div>
   </div>
@@ -190,7 +258,8 @@ function load(keep) {
       el('app').style.display = 'block';
       var name = keep || (TEAM && TEAM.name) || PREFILL.team || D.list[0].name;
       TEAM = D.list.filter(function (t) { return t.name === name; })[0] || D.list[0];
-      renderTabs(); renderTeam();
+      YEAR = yearOf(TEAM);
+      renderYears(); renderTabs(); renderTeam();
     }, function (e) { showLock((e && e.message) ? e.message : '불러오지 못했습니다.'); });
 }
 
@@ -201,18 +270,46 @@ function applyTeam(t) {
   renderTeam();
 }
 
+var YEAR = '';
+
+function yearOf(t) { return t.year || String(t.start || '').slice(0, 4) || '기타'; }
+
+function renderYears() {
+  var ys = {};
+  D.list.forEach(function (t) { ys[yearOf(t)] = (ys[yearOf(t)] || 0) + 1; });
+  var keys = Object.keys(ys).sort().reverse();
+  if (!YEAR || keys.indexOf(YEAR) === -1) YEAR = (TEAM && yearOf(TEAM)) || keys[0] || '';
+  el('yearBar').style.display = keys.length > 1 ? 'flex' : 'none';
+  el('yearSel').innerHTML = keys.map(function (y) {
+    return '<option value="' + esc(y) + '"' + (y === YEAR ? ' selected' : '') + '>' + esc(y) + '년 (' + ys[y] + '팀)</option>';
+  }).join('');
+  el('yearCount').textContent = (ys[YEAR] || 0) + '팀';
+}
+
+function pickYear() {
+  YEAR = el('yearSel').value;
+  var first = D.list.filter(function (t) { return yearOf(t) === YEAR; })[0];
+  if (first) { TEAM = first; editing = ''; }
+  renderYears(); renderTabs(); renderTeam();
+  window.scrollTo(0, 0);
+}
+
 function renderTabs() {
-  el('teamTabs').style.display = D.list.length > 1 ? 'flex' : 'none';
-  el('teamTabs').innerHTML = D.list.map(function (t) {
+  var list = D.list.filter(function (t) { return yearOf(t) === YEAR; });
+  if (!list.length) list = D.list;
+  el('teamTabs').style.display = list.length > 1 ? 'flex' : 'none';
+  el('teamTabs').innerHTML = list.map(function (t) {
     return '<button type="button" class="' + (TEAM.name === t.name ? 'on' : '') +
-      '" onclick="pickTeam(\'' + esc(jsq(t.name)) + '\')">' + esc(t.name) + '</button>';
+      '" onclick="pickTeam(\'' + esc(jsq(t.name)) + '\')" title="' + esc(t.name) + '">' +
+      esc(t.short || t.name) + '</button>';
   }).join('');
 }
 
 function pickTeam(n) {
   TEAM = D.list.filter(function (t) { return t.name === n; })[0];
   editing = '';
-  renderTabs(); renderTeam();
+  YEAR = yearOf(TEAM);
+  renderYears(); renderTabs(); renderTeam();
   window.scrollTo(0, 0);
 }
 
