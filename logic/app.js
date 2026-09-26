@@ -14225,13 +14225,21 @@ function translateOneExpense(key, no) {
    ============================================================ */
 
 var SHEET_설교 = '설교요약';
-var HEAD_설교 = ['영상ID', '제목', '올린날', '설교자', '본문', '핵심대지', '주요메시지', '만든시각', '모델', '상태', '적용점', '3줄요약'];
+var HEAD_설교 = ['영상ID', '제목', '올린날', '설교자', '본문', '핵심대지', '주요메시지', '만든시각', '모델', '상태', '적용점', '3줄요약', '요약본문'];
 var SM_ID = 0, SM_제목 = 1, SM_날 = 2, SM_설교자 = 3, SM_본문 = 4, SM_대지 = 5, SM_메시지 = 6,
-    SM_시각 = 7, SM_모델 = 8, SM_상태 = 9, SM_적용 = 10, SM_삼줄 = 11;
+    SM_시각 = 7, SM_모델 = 8, SM_상태 = 9, SM_적용 = 10, SM_삼줄 = 11, SM_요약 = 12;
 
 function 설교시트_() {
   var sh = 주보시트_(SHEET_설교, HEAD_설교);
   try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_설교.length).setValues([HEAD_설교]); 캐시비움_(); } } catch (e) {}
+  // 예전에 만든 시트(12칸)에는 '요약본문' 칸을 한 번만 덧붙입니다
+  try {
+    if (sh.getMaxColumns() < HEAD_설교.length) sh.insertColumnsAfter(sh.getMaxColumns(), HEAD_설교.length - sh.getMaxColumns());
+    if (String(sh.getRange(1, SM_요약 + 1).getValue() || '').trim() !== HEAD_설교[SM_요약]) {
+      sh.getRange(1, SM_요약 + 1).setValue(HEAD_설교[SM_요약]);
+      캐시비움_();
+    }
+  } catch (e) {}
   return sh;
 }
 
@@ -14560,7 +14568,7 @@ function 설교저장_(item) {
   var sh = 설교시트_(), v = sh.getDataRange().getValues();
   var row = [item.id, item.title, item.date, item.preacher, item.passage,
     item.points.join('\n'), item.messages.join('\n'), item.at, AI모델_(), '완료',
-    (item.apply || []).join('\n'), (item.short3 || []).join('\n')];
+    (item.apply || []).join('\n'), (item.short3 || []).join('\n'), ''];
   for (var i = 1; i < v.length; i++) {
     if (String(v[i][SM_ID] || '').trim() === item.id) {
       sh.getRange(i + 1, 1, 1, HEAD_설교.length).setValues([row]);
@@ -14584,6 +14592,7 @@ function 설교행_(r) {
     messages: 줄(r[SM_메시지]),
     apply: 줄(r[SM_적용]),
     short3: 줄(r[SM_삼줄]),
+    summaryText: String(r[SM_요약] || '').trim(),
     at: String(r[SM_시각] || '').trim(),
     url: 'https://www.youtube.com/watch?v=' + String(r[SM_ID] || '').trim()
   };
@@ -14664,7 +14673,7 @@ function 현재설교_() {
   if (found) return found;
   return {
     id: videoId, title: title, date: date, preacher: '', passage: '',
-    points: [], messages: [], apply: [], short3: [], at: '', url: 'https://www.youtube.com/watch?v=' + videoId, pending: true
+    points: [], messages: [], apply: [], short3: [], summaryText: '', at: '', url: 'https://www.youtube.com/watch?v=' + videoId, pending: true
   };
 }
 
@@ -14706,6 +14715,167 @@ function clearSermonConfirm(key) {
   if (!isAdmin_(key)) throw new Error('관리자만 고칠 수 있습니다.');
   설정저장_('설교확정영상', '');
   try { 캐시_() && 캐시_().remove('현재설교자동'); } catch (e) {}
+  return getSermonAdmin(key);
+}
+
+/* ---------------------------------------------------------
+   설교 요약 — 직접 입력 + Gemini 자동 요약 (관리 화면 '설교 영상 확정')
+   출력 형식(고정):
+     설교자: …
+     본문 구절: …
+     핵심 대지 3가지:
+     1. …  2. …  3. …
+     주요 메시지:
+     - … (3~5줄)
+   --------------------------------------------------------- */
+
+var 설교요약_지침 =
+  '당신은 한인 교회 청년부의 주일 설교를 정리하는 신실한 요약 도우미입니다.\n' +
+  '설교를 듣지 못한 청년이 읽고 은혜를 나눌 수 있도록, 설교자가 실제로 전한 내용만 충실하게 요약합니다.\n' +
+  '· 설교에 없는 내용, 설교자의 주장, 성경 구절을 지어내지 마세요. 알 수 없는 항목은 "확인 필요"라고 쓰세요.\n' +
+  '· 성경 본문(개역개정 등 번역문)을 그대로 옮겨 적지 말고, 구절 표기(예: 요한복음 3:16-21)만 적으세요.\n' +
+  '· 자막의 오타나 잘못 받아 적힌 부분은 문맥으로 바로잡아 읽으세요.\n' +
+  '· 모든 내용은 한국어로, 청년들이 읽기 쉬운 부드럽고 간결한 문장으로 쓰세요.\n' +
+  '· 마크다운(**, #, ``` 등)과 인사말, 설명은 쓰지 말고, 아래 형식의 글만 출력하세요.\n\n' +
+  '[출력 형식 — 이 형식과 항목 이름을 정확히 지키세요]\n' +
+  '설교자: (설교자 이름과 직함)\n' +
+  '본문 구절: (설교 본문 성경 구절)\n' +
+  '핵심 대지 3가지:\n' +
+  '1. (첫째 대지, 한 문장)\n' +
+  '2. (둘째 대지, 한 문장)\n' +
+  '3. (셋째 대지, 한 문장)\n' +
+  '주요 메시지:\n' +
+  '- (핵심 메시지 한 문장)\n' +
+  '- (…)\n' +
+  '- (…)\n' +
+  '※ 핵심 대지는 정확히 3개, 주요 메시지는 3~5줄(한 줄에 한 문장)입니다.';
+
+/** 요약 글이 약속한 형식을 갖췄는지 봅니다 */
+function 설교요약형식맞나_(t) {
+  t = String(t || '');
+  if (!/^\s*설교자\s*[:：]/m.test(t)) return false;
+  if (!/^\s*본문\s*구절\s*[:：]/m.test(t)) return false;
+  if (!/^\s*핵심\s*대지[^\n]*[:：]?\s*$/m.test(t) && !/핵심\s*대지/.test(t)) return false;
+  var p = 설교요약글파싱_(t);
+  return p.points.length === 3 && p.messages.length >= 3 && p.messages.length <= 5;
+}
+
+/** 위 형식의 글을 설교자 · 본문 · 대지 · 메시지로 나눕니다 (직접 고쳐 쓴 글도 최대한 읽어냅니다) */
+function 설교요약글파싱_(text) {
+  var out = { preacher: '', passage: '', points: [], messages: [] };
+  var mode = '';
+  String(text || '').split(/\r?\n/).forEach(function (raw) {
+    var line = String(raw || '').replace(/[*#`]/g, '').trim();
+    if (!line) return;
+    var m;
+    if ((m = line.match(/^(?:\d\)\s*)?설교자\s*[:：]\s*(.*)$/))) { out.preacher = m[1].trim(); mode = ''; return; }
+    if ((m = line.match(/^(?:\d\)\s*)?본문\s*구절\s*[:：]\s*(.*)$/)) || (m = line.match(/^(?:\d\)\s*)?본문\s*[:：]\s*(.*)$/))) { out.passage = m[1].trim(); mode = ''; return; }
+    if (/^(?:\d\)\s*)?핵심\s*대지/.test(line)) { mode = 'p'; return; }
+    if (/^(?:\d\)\s*)?주요\s*메시지/.test(line)) { mode = 'm'; return; }
+    var item = line.replace(/^(?:[-·•▪●○]|\d+[.)]|[①-⑩])\s*/, '').trim();
+    if (!item) return;
+    if (mode === 'p') out.points.push(item);
+    else if (mode === 'm') out.messages.push(item);
+  });
+  return out;
+}
+
+/**
+ * Gemini 로 설교 요약 글을 만들어 돌려줍니다 (저장은 하지 않습니다 — 관리자가 확인·수정한 뒤 saveSermonSummary 로 저장).
+ * link : 유튜브 주소 또는 영상 ID (자막을 가져옵니다)
+ * text : 설교 원고 · 자막 글 (있으면 이것을 먼저 씁니다)
+ */
+function sermonGeminiSummary(key, link, text) {
+  if (!isAdmin_(key)) throw new Error('관리자만 사용할 수 있습니다.');
+  AI확인_();
+
+  var 본문 = String(text || '').trim();
+  var videoId = 유튜브영상ID추출_(link);
+  var 제목 = '';
+  var 출처 = '붙여넣은 글';
+
+  if (!본문) {
+    if (!String(link || '').trim()) throw new Error('유튜브 주소를 넣거나 설교 원고를 붙여넣어 주세요.');
+    if (!videoId) throw new Error('유튜브 주소나 영상 ID를 정확히 넣어주세요.');
+    try { 본문 = 자막가져오기_(videoId); } catch (e) { 본문 = ''; }
+    출처 = '유튜브 자막';
+  }
+  if (videoId) {
+    try { 유튜브영상들_().forEach(function (v) { if (v.id === videoId) 제목 = v.title; }); } catch (e) {}
+  }
+  if (본문.length < 200) {
+    throw new Error(출처 === '유튜브 자막'
+      ? '이 영상에서 자막을 가져오지 못했습니다. 설교 원고나 자막 글(200자 이상)을 붙여넣고 다시 눌러주세요.'
+      : '붙여넣은 글이 너무 짧습니다. 200자 이상 붙여넣어 주세요.');
+  }
+  if (본문.length > 60000) 본문 = 본문.slice(0, 60000);
+
+  var prompt =
+    '아래는 한인 교회 청년부 주일 설교의 ' + (출처 === '유튜브 자막' ? '자막' : '원고(또는 녹취)') + '입니다. 정해진 형식으로 요약해 주세요.\n\n' +
+    (제목 ? '영상 제목: ' + 제목 + '\n\n' : '') +
+    '--- 시작 ---\n' + 본문 + '\n--- 끝 ---';
+
+  var out = '';
+  for (var tries = 0; tries < 2; tries++) {          // 형식이 어긋나면 한 번 더 시킵니다
+    var p2 = tries === 0 ? prompt : prompt + '\n\n※ 이전 답이 형식에 맞지 않았습니다. 핵심 대지는 정확히 3개, 주요 메시지는 3~5줄로, 지정한 항목 이름 그대로 다시 써 주세요.';
+    try {
+      out = String(AI_(p2, { system: 설교요약_지침, temperature: 0.3, maxTokens: 3000 }) || '');
+    } catch (e) {
+      var msg = String((e && e.message) || e || '');
+      if (/429|quota|RESOURCE_EXHAUSTED|rate/i.test(msg)) throw new Error('Gemini 사용량이 잠시 많습니다. 1분쯤 뒤에 다시 눌러주세요.');
+      if (/[가-힣]/.test(msg)) throw e;                 // 이미 한국어로 된 안내는 그대로
+      throw new Error('Gemini 요약에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
+    out = out.replace(/^\s*```[a-z]*\s*/i, '').replace(/\s*```\s*$/, '').replace(/\*\*/g, '').trim();
+    if (설교요약형식맞나_(out)) break;
+  }
+  if (!out) throw new Error('Gemini가 응답하지 않았습니다. 다시 눌러주세요.');
+  if (!설교요약형식맞나_(out)) {
+    // 형식이 완벽하지 않아도 관리자가 화면에서 고칠 수 있으니 결과는 그대로 넘깁니다
+    return { ok: true, text: out, videoId: videoId, source: 출처, formatWarning: true };
+  }
+  return { ok: true, text: out, videoId: videoId, source: 출처 };
+}
+
+/** 관리자가 확인 · 수정한 요약 글을 저장합니다 (설교자 · 본문 · 핵심 대지 · 주요 메시지는 글에서 읽어 함께 채웁니다) */
+function saveSermonSummary(key, videoId, text, title, date) {
+  if (!isAdmin_(key)) throw new Error('관리자만 고칠 수 있습니다.');
+  videoId = 유튜브영상ID추출_(videoId);
+  if (!videoId) throw new Error('영상을 찾지 못했습니다. 영상을 먼저 확정해주세요.');
+  text = String(text || '').trim();
+  if (!text) throw new Error('저장할 요약 내용을 적어주세요.');
+  if (text.length > 8000) throw new Error('요약이 너무 깁니다 (8000자 이하로 줄여주세요).');
+
+  var P = 설교요약글파싱_(text);
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var sh = 설교시트_(), v = sh.getDataRange().getValues();
+
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][SM_ID] || '').trim() !== videoId) continue;
+    var r = v[i];
+    // 글에서 읽어낸 값이 있을 때만 바꾸고, 못 읽은 칸은 예전 값을 그대로 둡니다
+    sh.getRange(i + 1, SM_설교자 + 1, 1, 4).setValues([[
+      P.preacher || r[SM_설교자] || '',
+      P.passage || r[SM_본문] || '',
+      P.points.length ? P.points.slice(0, 4).join('\n') : (r[SM_대지] || ''),
+      P.messages.length ? P.messages.slice(0, 6).join('\n') : (r[SM_메시지] || '')
+    ]]);
+    sh.getRange(i + 1, SM_시각 + 1, 1, 3).setValues([[now, r[SM_모델] || '직접입력', '완료']]);
+    sh.getRange(i + 1, SM_요약 + 1).setValue(text);
+    캐시비움_();
+    return getSermonAdmin(key);
+  }
+
+  // 아직 요약 행이 없는 영상 — 새로 만듭니다
+  var 제목 = String(title || '').trim();
+  var 올린날 = String(date || '').trim();
+  if (!제목 || !올린날) {
+    try { 유튜브영상들_().forEach(function (x) { if (x.id === videoId) { 제목 = 제목 || x.title; 올린날 = 올린날 || x.date; } }); } catch (e) {}
+  }
+  sh.appendRow([videoId, (제목 || '설교').slice(0, 150), 올린날 || ymd_(new Date()),
+    P.preacher.slice(0, 40), P.passage.slice(0, 80), P.points.slice(0, 4).join('\n'), P.messages.slice(0, 6).join('\n'),
+    now, '직접입력', '완료', '', '', text]);
+  캐시비움_();
   return getSermonAdmin(key);
 }
 
