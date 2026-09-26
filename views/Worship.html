@@ -941,7 +941,6 @@ body .pe .fc,
     border-color: rgba(255,255,255,.16) !important;
     color: #F4F1EC !important;
   }
-  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
   body button:disabled, body .submit:disabled, body .btn:disabled {
     background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
     border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
@@ -984,6 +983,44 @@ body .pe .fc,
   body .stch b, body .stch .evn { color: #FFFFFF !important; }
   body .stch .wd, body .stch .sat { color: #E4E0DA !important; }
   body .stcc .tp .fc { background: rgba(255,255,255,.22) !important; color: #FFD9C4 !important; }
+
+  /* ---------- 곡 정보 · Key · BPM · 솔로 — 밝은 칸 안은 진한 글씨 ---------- */
+  body .kb { background: #FFFFFF !important; color: #141414 !important; font-weight: 800 !important; }
+  body .kb.bpm { background: rgba(255,255,255,.88) !important; color: #141414 !important; }
+  body .kb.solok { background: #F59E0B !important; color: #1A1206 !important; }
+  body .solo {
+    background: rgba(245,158,11,.20) !important; border: 1px solid rgba(245,158,11,.55) !important;
+  }
+  body .solo .sot { color: #FFD79B !important; }
+  body .solo .nm {
+    background: #FFFFFF !important; border-color: #F2D29A !important; color: #141414 !important;
+  }
+  body .solo .nm *, body .solo .nm em { color: #141414 !important; }
+  body .solo .nm .fc { background: #F59E0B !important; color: #FFFFFF !important; }
+  body .soi { background: #F59E0B !important; color: #FFFFFF !important; }
+  body .smeta { color: #E4E0DA !important; }
+  body .sform { color: #EDEAE5 !important; }
+  body .solosum, body .solosum * { color: #FFFFFF !important; }
+  body .verse .vr {
+    background: rgba(var(--tone-rgb),.32) !important; color: #E4D7FF !important; font-weight: 800 !important;
+  }
+
+  /* ---------- 입력칸 · 드롭다운은 전부 같은 유리로 (흰 칸이 남지 않게) ---------- */
+  body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  body select, body textarea {
+    background-color: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body select option, body select optgroup { background: #FFFFFF; color: #1A1917; }
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body input:focus, body select:focus, body textarea:focus {
+    border-color: rgba(var(--tone-rgb,210,81,31),.9) !important;
+    background-color: rgba(255,255,255,.15) !important;
+  }
+  body input:disabled, body select:disabled, body textarea:disabled {
+    color: #CFC9C1 !important; opacity: 1 !important;
+  }
 </style>
 <!--#include Theme-->
 </head>

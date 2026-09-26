@@ -259,7 +259,6 @@ body .stagehead.empty,
     border-color: rgba(255,255,255,.16) !important;
     color: #F4F1EC !important;
   }
-  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
   body button:disabled, body .submit:disabled, body .btn:disabled {
     background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
     border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
@@ -299,6 +298,71 @@ body .stagehead.empty,
   body .tn.guest { background: rgba(var(--tone-rgb,210,81,31),.26) !important; color: #FFC0A1 !important; }
   body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
   body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
+
+  /* ---------- 주차 카드 — 할 일 있는 칸만 또렷하게, 빈 칸은 흐리게 ---------- */
+  body .stagehead {
+    background: linear-gradient(135deg, rgba(var(--tone-rgb),.30), rgba(var(--tone-rgb),.14)) !important;
+    border: 1px solid rgba(var(--tone-rgb),.55) !important;
+    color: #FFFFFF !important; box-shadow: 0 4px 16px rgba(0,0,0,.25) !important;
+  }
+  body .stagehead .t { color: #FFFFFF !important; font-weight: 800 !important; }
+  body .stagehead .c {
+    background: #FFFFFF !important; color: #1A1917 !important; font-weight: 800 !important;
+  }
+  body .stagehead .cv { color: #FFFFFF !important; opacity: .8 !important; }
+  /* 대상자가 없는 주차 — 흐리게 가라앉힙니다 */
+  body .stagehead.empty {
+    background: rgba(255,255,255,.05) !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    box-shadow: none !important; opacity: .62 !important;
+  }
+  body .stagehead.empty .t { color: #C7C1B9 !important; font-weight: 700 !important; }
+  body .stagehead.empty .c {
+    background: rgba(255,255,255,.18) !important; color: #E9E5DF !important; font-weight: 750 !important;
+  }
+  body .stagehead.empty .cv { color: #C7C1B9 !important; opacity: .6 !important; }
+  body .stage.open .stagehead { box-shadow: 0 6px 22px rgba(0,0,0,.35) !important; opacity: 1 !important; }
+
+  /* ---------- 주차 칸 (1주~4주) — 끝낸 주 · 다음 주 · 아직인 주 ---------- */
+  body .weeks .wk {
+    background: rgba(255,255,255,.06) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: #B5AFA7 !important; font-weight: 700 !important; opacity: .75;
+  }
+  body .weeks .wk small { color: #9E9890 !important; opacity: 1 !important; font-weight: 600 !important; }
+  /* 이미 끝낸 주 — 색을 채워 또렷하게 */
+  body .weeks .wk.on {
+    background: linear-gradient(135deg, rgba(var(--tone-rgb),.85), rgba(var(--tone-rgb),.62)) !important;
+    border-color: rgba(var(--tone-rgb),.95) !important;
+    color: #FFFFFF !important; font-weight: 800 !important; opacity: 1;
+    box-shadow: 0 2px 10px rgba(0,0,0,.3) !important;
+  }
+  body .weeks .wk.on small { color: rgba(255,255,255,.92) !important; }
+  /* 이번에 해야 하는 주 — 테두리로 강조 */
+  body .weeks .wk.next {
+    background: rgba(var(--tone-rgb),.18) !important;
+    border: 2px solid rgba(var(--tone-rgb),1) !important;
+    color: #FFFFFF !important; font-weight: 800 !important; opacity: 1;
+    box-shadow: 0 0 0 3px rgba(var(--tone-rgb),.22) !important;
+  }
+  body .weeks .wk.next small { color: #EFECE7 !important; }
+
+  /* ---------- 입력칸 · 드롭다운은 전부 같은 유리로 (흰 칸이 남지 않게) ---------- */
+  body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  body select, body textarea {
+    background-color: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body select option, body select optgroup { background: #FFFFFF; color: #1A1917; }
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body input:focus, body select:focus, body textarea:focus {
+    border-color: rgba(var(--tone-rgb,210,81,31),.9) !important;
+    background-color: rgba(255,255,255,.15) !important;
+  }
+  body input:disabled, body select:disabled, body textarea:disabled {
+    color: #CFC9C1 !important; opacity: 1 !important;
+  }
 </style>
 <!--#include Theme-->
 </head>

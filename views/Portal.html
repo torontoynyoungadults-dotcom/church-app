@@ -817,7 +817,6 @@ body .mcardlink,
     border-color: rgba(255,255,255,.16) !important;
     color: #F4F1EC !important;
   }
-  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
   body button:disabled, body .submit:disabled, body .btn:disabled {
     background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
     border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
@@ -881,6 +880,40 @@ body .mcardlink,
   body .bulbtn.ai .bt b { color: #FFFFFF; font-size: 16px; }
   body .bulbtn.ai .bt small { color: #DCD7D0; font-size: 13.5px; line-height: 1.65; }
   body .bulbtn.ai .ba { color: #FFFFFF; }
+
+  /* ---------- 출석률 뱃지 — 어두운 바탕에 선명한 색 ---------- */
+  body .ratebadge, body .rate, body .attrate {
+    font-weight: 800 !important; border-radius: 8px !important; padding: 3px 9px !important;
+    font-size: 13px !important; white-space: nowrap;
+  }
+  body .ratebadge.hi { background: rgba(22,163,74,.9) !important; color: #FFFFFF !important; }
+  body .ratebadge.mid { background: rgba(202,138,4,.92) !important; color: #FFFFFF !important; }
+  body .ratebadge.low { background: rgba(220,38,38,.92) !important; color: #FFFFFF !important; }
+  /* 소속 · 역할 글씨를 또렷하게 */
+  body .dirrow .sub, body .dirrow .meta, body .mmrow .sub,
+  body .rolepill, body .dtag, body .dchip {
+    color: #EDEAE5 !important; font-weight: 700 !important;
+  }
+  body .rolepill, body .dtag, body .dchip {
+    background: rgba(255,255,255,.16) !important; border-color: rgba(255,255,255,.24) !important;
+  }
+
+  /* ---------- 입력칸 · 드롭다운은 전부 같은 유리로 (흰 칸이 남지 않게) ---------- */
+  body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  body select, body textarea {
+    background-color: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body select option, body select optgroup { background: #FFFFFF; color: #1A1917; }
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body input:focus, body select:focus, body textarea:focus {
+    border-color: rgba(var(--tone-rgb,210,81,31),.9) !important;
+    background-color: rgba(255,255,255,.15) !important;
+  }
+  body input:disabled, body select:disabled, body textarea:disabled {
+    color: #CFC9C1 !important; opacity: 1 !important;
+  }
 </style>
 </head>
 <body>

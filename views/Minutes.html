@@ -212,7 +212,6 @@ body .fcard:hover,
     border-color: rgba(255,255,255,.16) !important;
     color: #F4F1EC !important;
   }
-  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
   body button:disabled, body .submit:disabled, body .btn:disabled {
     background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
     border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
@@ -246,6 +245,23 @@ body .fcard:hover,
   body .tn.guest { background: rgba(var(--tone-rgb,210,81,31),.26) !important; color: #FFC0A1 !important; }
   body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
   body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
+
+  /* ---------- 입력칸 · 드롭다운은 전부 같은 유리로 (흰 칸이 남지 않게) ---------- */
+  body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  body select, body textarea {
+    background-color: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body select option, body select optgroup { background: #FFFFFF; color: #1A1917; }
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body input:focus, body select:focus, body textarea:focus {
+    border-color: rgba(var(--tone-rgb,210,81,31),.9) !important;
+    background-color: rgba(255,255,255,.15) !important;
+  }
+  body input:disabled, body select:disabled, body textarea:disabled {
+    color: #CFC9C1 !important; opacity: 1 !important;
+  }
 </style>
 </head>
 <body>

@@ -258,7 +258,6 @@ body .toggle button .k,
   body .ynfoot .cp { color: #CFC9C1 !important; }
 
   /* 밝은 회색 박스도 유리로 (가독성) */
-  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
   body button:disabled, body .submit:disabled, body .btn:disabled {
     background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
     border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
@@ -292,6 +291,59 @@ body .toggle button .k,
   body .tn.guest { background: rgba(var(--tone-rgb,210,81,31),.26) !important; color: #FFC0A1 !important; }
   body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
   body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
+
+  /* ---------- 출결 버튼 — 눌린 것이 한눈에 보이게 ---------- */
+  body .toggle button {
+    background: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    color: #E4E0DA !important;
+    font-weight: 750 !important;
+  }
+  body .toggle button.on-present {
+    background: #16A34A !important; border-color: #16A34A !important;
+    color: #FFFFFF !important; font-weight: 800 !important;
+    box-shadow: 0 2px 10px rgba(22,163,74,.45) !important;
+  }
+  body .toggle button.on-absent {
+    background: #DC2626 !important; border-color: #DC2626 !important;
+    color: #FFFFFF !important; font-weight: 800 !important;
+    box-shadow: 0 2px 10px rgba(220,38,38,.45) !important;
+  }
+  body .toggle button.on-present *, body .toggle button.on-absent * { color: #FFFFFF !important; }
+
+  /* ---------- 출석률 뱃지 — 어두운 바탕에 선명한 색 ---------- */
+  body .ratebadge, body .rate, body .attrate {
+    font-weight: 800 !important; border-radius: 8px !important; padding: 3px 9px !important;
+    font-size: 13px !important; white-space: nowrap;
+  }
+  body .ratebadge.hi { background: rgba(22,163,74,.9) !important; color: #FFFFFF !important; }
+  body .ratebadge.mid { background: rgba(202,138,4,.92) !important; color: #FFFFFF !important; }
+  body .ratebadge.low { background: rgba(220,38,38,.92) !important; color: #FFFFFF !important; }
+  /* 소속 · 역할 글씨를 또렷하게 */
+  body .dirrow .sub, body .dirrow .meta, body .mmrow .sub,
+  body .rolepill, body .dtag, body .dchip {
+    color: #EDEAE5 !important; font-weight: 700 !important;
+  }
+  body .rolepill, body .dtag, body .dchip {
+    background: rgba(255,255,255,.16) !important; border-color: rgba(255,255,255,.24) !important;
+  }
+
+  /* ---------- 입력칸 · 드롭다운은 전부 같은 유리로 (흰 칸이 남지 않게) ---------- */
+  body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  body select, body textarea {
+    background-color: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body select option, body select optgroup { background: #FFFFFF; color: #1A1917; }
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body input:focus, body select:focus, body textarea:focus {
+    border-color: rgba(var(--tone-rgb,210,81,31),.9) !important;
+    background-color: rgba(255,255,255,.15) !important;
+  }
+  body input:disabled, body select:disabled, body textarea:disabled {
+    color: #CFC9C1 !important; opacity: 1 !important;
+  }
 </style>
 <!--#include Theme-->
 </head>
@@ -618,9 +670,8 @@ function selectHtml(id, options, current) {
 
 function attendBadge(m) {
   if (m.rate === null || m.rate === undefined) return '';
-  var color = m.rate >= 80 ? 'var(--good)' : m.rate >= 60 ? 'var(--absent)' : 'var(--danger)';
-  var bg = m.rate >= 80 ? 'var(--good-bg)' : m.rate >= 60 ? 'var(--absent-bg)' : '#FBE9E6';
-  return '<span class="ratebadge" style="background:' + bg + ';color:' + color + ';">' +
+  var lv = m.rate >= 80 ? 'hi' : m.rate >= 60 ? 'mid' : 'low';
+  return '<span class="ratebadge ' + lv + '">' +
     m.rate + '% · ' + m.present + '/' + m.totalMeetings + '</span>';
 }
 
