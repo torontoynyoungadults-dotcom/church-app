@@ -256,6 +256,8 @@
   .acard.a-dir  { --mc: #8E96F2; --mc-soft: rgba(142,150,242,.17); }
   .acard.a-push { --mc: #F0A3B4; --mc-soft: rgba(240,163,180,.16); }
   .acard.a-cal  { --mc: #B592F0; --mc-soft: rgba(181,146,240,.17); }
+  .acard.a-perm { --mc: #D2511F; --mc-soft: rgba(210,81,31,.15); }
+  .acard.a-app  { --mc: #8E96F2; --mc-soft: rgba(142,150,242,.17); }
 
   .seclabel.adm { display: flex; align-items: center; gap: 6px; margin-top: 26px; }
   .seclabel.adm svg { width: 17px; height: 17px; color: #B592F0; }
@@ -1270,7 +1272,9 @@ var MENU_ICON = {
   'a-dir': '<rect x="4" y="3.5" width="16" height="17" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M7.6 17c.7-2.1 2.4-3.3 4.4-3.3s3.7 1.2 4.4 3.3"/>',
   'a-cells': '<circle cx="8" cy="8.5" r="2.8"/><circle cx="16" cy="8.5" r="2.8"/><path d="M2.8 19c0-2.9 2.3-4.8 5.2-4.8s5.2 1.9 5.2 4.8"/><path d="M15 14.3c3 0 6.2 1.6 6.2 4.7"/>',
   'a-push': '<path d="M18 8.5a6 6 0 10-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5z"/><path d="M13.7 19a2 2 0 01-3.4 0"/>',
-  'a-home': '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>'
+  'a-home': '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
+  'a-perm': '<rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/><circle cx="12" cy="15" r="1.5" fill="currentColor" stroke="none"/>',
+  'a-app': '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>'
 };
 function menuIcon(key) {
   return '<span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +

@@ -7233,13 +7233,24 @@ function 포털관리메뉴_(r, token) {
         warn: !(st.calendar && st.calendar.publicOk) }] });
   }
 
-  /* 10. AI 설정 — 맨 마지막 순서 */
+  /* 10. AI 설정 */
   if (커미티) {
     out.push({ key: 'ai', title: 'AI 설정', desc: '모델 고르기 · 묵상 · 설교 요약 · 번역', url: base + '#ai',
       stats: [
         { n: (AI있나_() ? (AI켜짐_() ? '켜짐' : '꺼짐') : '없음'), l: '상태', warn: !AI켜짐_() },
         { n: AI모델_().replace(/^gemini-/, ''), l: '모델' }
       ] });
+  }
+
+  /* 11. 권한 관리 */
+  if (커미티) {
+    out.push({ key: 'perm', title: '권한 관리', desc: '사람 · 팀 계정에 메뉴 권한 주기', url: base + '#perm',
+      stats: [{ n: 팀계정목록_().length, l: '팀 계정' }] });
+  }
+
+  /* 12. 앱 기능 관리 — 맨 마지막 순서 */
+  if (커미티) {
+    out.push({ key: 'app', title: '앱 기능 관리', desc: '메뉴 순서 · AI · 일정 · 알림 · 권한 한곳에', url: base + '#app', stats: [] });
   }
 
   return 메뉴순서적용_(out, 'admin');
@@ -7275,13 +7286,13 @@ function 메뉴순서적용_(out, kind) {
 function getMenuOrder(token) {
   if (!isAdmin_(token) && !커미티토큰_(token)) throw new Error('커미티 · 관리자만 볼 수 있습니다.');
   var 포털기본 = ['album', 'leader', 'team', 'expense', 'newfamily', 'worship', 'mission', 'forms', 'minutes', 'bulletinEdit', 'acct'];
-  var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'dir', 'push', 'cal', 'ai'];
+  var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'dir', 'push', 'cal', 'ai', 'perm', 'app'];
   var titleOf = {
     album: '포토 앨범', leader: '셀모임 보고서', team: '사역 보고서 / 사역팀 관리', expense: '지출환급신청서',
     newfamily: '새가족 관리', worship: '찬양방송팀 허브', mission: '선교팀 관리', forms: '신청서 관리',
     minutes: '회의록 · 할 일', bulletinEdit: '주보 편집', acct: '회계 관리',
     cell: '셀 관리', nf: '새가족 관리', tr: '제자훈련 관리', mis: '선교팀 관리', dir: '교적 관리',
-    push: '알림 관리', cal: '일정 관리', ai: 'AI 설정'
+    push: '알림 관리', cal: '일정 관리', ai: 'AI 설정', perm: '권한 관리', app: '앱 기능 관리'
   };
   function withTitles(list, fallback) {
     var have = list.length ? list : fallback;
