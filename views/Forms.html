@@ -16,12 +16,12 @@
   .fcard:hover { background: var(--sunken); }
   .fcard .fb { flex: 1; min-width: 0; }
   .fcard .ft { font-size: 15.5px; font-weight: 800; letter-spacing: -0.02em; }
-  .fcard .fm { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; }
+  .fcard .fm { font-size: 13.5px; color: var(--ink-3); margin-top: 3px; }
   .fcard .fn { flex: none; text-align: center; min-width: 54px; }
   .fcard .fn b { display: block; font-size: 20px; font-weight: 800; line-height: 1.1; }
-  .fcard .fn span { font-size: 10.5px; color: var(--ink-3); font-weight: 750; }
+  .fcard .fn span { font-size: 11.5px; color: var(--ink-3); font-weight: 750; }
 
-  .st { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+  .st { display: inline-block; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
   .st.준비중 { background: var(--sunken); color: var(--ink-3); }
   .st.받는중 { background: var(--good-bg); color: var(--good); }
   .st.마감  { background: #FBE9E2; color: #B24A22; }
@@ -37,22 +37,22 @@
   }
   .tpl button:hover { border-color: var(--tone); }
   .tpl .i { font-size: 20px; }
-  .tpl .n { font-size: 14px; font-weight: 800; }
-  .tpl .d { font-size: 11.5px; color: var(--ink-3); line-height: 1.45; }
+  .tpl .n { font-size: 15px; font-weight: 800; }
+  .tpl .d { font-size: 12.5px; color: var(--ink-3); line-height: 1.55; }
   .tpl button { position: relative; }
-  .tpl .mytag { position: absolute; top: 8px; right: 8px; font-size: 9.5px; font-weight: 800;
+  .tpl .mytag { position: absolute; top: 8px; right: 8px; font-size: 10.5px; font-weight: 800;
     background: var(--tone); color: #fff; border-radius: 5px; padding: 2px 6px; }
-  .tpl .tdel { position: absolute; bottom: 7px; right: 9px; font-size: 10.5px; color: var(--ink-4); font-weight: 700; }
+  .tpl .tdel { position: absolute; bottom: 7px; right: 9px; font-size: 11.5px; color: var(--ink-4); font-weight: 700; }
   .tpl .tdel:hover { color: var(--danger); }
 
   /* 문항 만들기 */
   .q { border: 1px solid var(--hair-2); border-radius: 14px; padding: 12px 13px; margin-bottom: 9px; background: #fff; }
   .q.sel { border-color: var(--tone); box-shadow: 0 0 0 3px rgba(210,81,31,.1); }
   .qhead { display: flex; align-items: center; gap: 8px; }
-  .qhead .qi { font-size: 15px; width: 26px; text-align: center; flex: none; }
-  .qhead .qn { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .qhead .qt { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
-  .qbtn { border: none; background: none; cursor: pointer; font-size: 15px; color: var(--ink-3); padding: 3px 5px; font-family: inherit; }
+  .qhead .qi { font-size: 16px; width: 26px; text-align: center; flex: none; }
+  .qhead .qn { flex: 1; min-width: 0; font-size: 15.5px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qhead .qt { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+  .qbtn { border: none; background: none; cursor: pointer; font-size: 16px; color: var(--ink-3); padding: 3px 5px; font-family: inherit; }
   .qbtn:hover { color: var(--ink-1); }
   .qbody { margin-top: 10px; border-top: 1px solid var(--hair); padding-top: 11px; }
   .qrow { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -64,48 +64,48 @@
   .addq { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 4px; }
   .addq button {
     background: #fff; border: 1px dashed var(--hair-2); border-radius: 11px; padding: 10px 6px;
-    font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink-2); cursor: pointer;
+    font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--ink-2); cursor: pointer;
     display: flex; flex-direction: column; align-items: center; gap: 3px;
   }
   .addq button:hover { border-color: var(--tone); color: var(--tone); }
-  .addq .i { font-size: 15px; }
+  .addq .i { font-size: 16px; }
   .req { color: var(--danger); }
 
   /* 결과 */
   .rstat { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-  .rstat .b { background: #fff; border: 1px solid var(--hair); border-radius: 12px; padding: 9px 13px; font-size: 12px; color: var(--ink-3); }
+  .rstat .b { background: #fff; border: 1px solid var(--hair); border-radius: 12px; padding: 9px 13px; font-size: 13px; color: var(--ink-3); }
   .rstat .b b { display: block; font-size: 19px; color: var(--ink-1); }
   .fbars { margin-bottom: 14px; }
-  .fbars .bl { font-size: 13.5px; font-weight: 750; margin-bottom: 6px; }
-  .fbar { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; font-size: 12.5px; }
+  .fbars .bl { font-size: 14.5px; font-weight: 750; margin-bottom: 6px; }
+  .fbar { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; font-size: 13.5px; }
   .fbar .bn { width: 110px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
   .fbar .bg { flex: 1; height: 16px; background: var(--sunken); border-radius: 5px; overflow: hidden; }
   .fbar .bg i { display: block; height: 100%; background: var(--tone); border-radius: 5px; }
   .fbar .bv { width: 40px; flex: none; text-align: right; font-weight: 750; font-variant-numeric: tabular-nums; }
   .tscroll { overflow-x: auto; border-radius: 12px; border: 1px solid var(--hair); background: #fff; }
-  table.res { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table.res th { text-align: left; background: #F7F4EF; color: var(--ink-3); font-weight: 750; font-size: 11.5px; padding: 9px 9px; white-space: nowrap; }
+  table.res { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.res th { text-align: left; background: #F7F4EF; color: var(--ink-3); font-weight: 750; font-size: 12.5px; padding: 9px 9px; white-space: nowrap; }
   table.res td { padding: 9px; border-top: 1px solid var(--hair); vertical-align: top; white-space: nowrap; }
   table.res td.wrap { white-space: pre-wrap; min-width: 160px; }
-  .drop { border: none; background: none; color: var(--ink-4); cursor: pointer; font-size: 15px; font-family: inherit; }
+  .drop { border: none; background: none; color: var(--ink-4); cursor: pointer; font-size: 16px; font-family: inherit; }
   .drop:hover { color: var(--danger); }
 
   .bar2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
   .bar2 .sp { flex: 1; }
   .backb {
     display: inline-flex; align-items: center; gap: 5px; background: var(--night-2); border: 1px solid var(--hair-night);
-    color: #D6D1C9; border-radius: 99px; padding: 7px 14px 7px 11px; font: 750 13.5px inherit; font-family: inherit; cursor: pointer;
+    color: #F5F3EF; border-radius: 99px; padding: 7px 14px 7px 11px; font: 750 14.5px inherit; font-family: inherit; cursor: pointer;
   }
-  .lnk { font-size: 12.5px; color: var(--ink-3); word-break: break-all; }
+  .lnk { font-size: 13.5px; color: var(--ink-3); word-break: break-all; }
 
   /* 체크 상자 */
-  .lkchg { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.55; cursor: pointer; }
+  .lkchg { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.65; cursor: pointer; }
   .lkchg input[type=checkbox] {
     -webkit-appearance: checkbox; appearance: auto; width: 18px; height: 18px; min-height: 0;
     margin: 2px 0 0; padding: 0; border: none; border-radius: 0; box-shadow: none; background: none;
     flex: none; accent-color: #D2511F;
   }
-  .lkchg em { display: block; font-style: normal; color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+  .lkchg em { display: block; font-style: normal; color: var(--ink-3); font-size: 13px; margin-top: 2px; }
 
   /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
   body .panel {
@@ -115,19 +115,19 @@
     box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
     -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
   }
-  body .panel .chip { color: #F3EFE8 !important; }
+  body .panel .chip { color: #FFFFFF !important; }
   body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
-  body .panel .empty, body .panel .meta { color: #ADA69E !important; }
-  body .panel label, body .panel .fl, body .panel .k { color: #C4BEB6 !important; }
-  body .panel b, body .panel strong { color: #F6F4F0; }
+  body .panel .empty, body .panel .meta { color: #E9E5DF !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #F2EFEA !important; }
+  body .panel b, body .panel strong { color: #FFFFFF; }
   body .panel input, body .panel select, body .panel textarea {
     background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
-    color: #F3EFE8 !important;
+    color: #FFFFFF !important;
   }
-  body .panel input::placeholder, body .panel textarea::placeholder { color: #7E786F !important; }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #B7B0A7 !important; }
   body .panel .picklist button {
     background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
-    color: #D6D1C9 !important;
+    color: #F5F3EF !important;
   }
   body .panel .picklist button.picked {
     background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
@@ -135,7 +135,7 @@
   }
   body .panel .btn:not(.accent):not(.danger) {
     background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
-    color: #E8E4DE !important;
+    color: #FFFFFF !important;
   }
   body .panel .btn.accent, body .panel .submit {
     background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
@@ -152,22 +152,122 @@
   }
   body .notice b, body .banner b, body .callout b,
   body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
-    color: #F6F4F0 !important;
+    color: #FFFFFF !important;
   }
   body .notice p, body .banner p, body .callout p, body .subnotice p,
   body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
-    color: #ADA69E !important;
+    color: #E9E5DF !important;
   }
   body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
   body .bar { background: rgba(255,255,255,.12) !important; }
-  body table th { background: rgba(255,255,255,.06) !important; color: #B9B3AB !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #EDEAE5 !important; }
   body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
+
+  /* ============ 가독성 최우선 — 어두운 유리 위 글씨는 흰색 ============ */
+body .tpl button,
+  body /* 문항 만들기 */
+  .q,
+  body .addq button,
+  body .rstat .b,
+  body .tscroll {
+    background: rgba(255,255,255,.075) !important;
+    border-color: rgba(255,255,255,.15) !important;
+    color: #F4F1EC !important;
+    box-shadow: none !important;
+  }
+body .tpl button b,
+  body /* 문항 만들기 */
+  .q b,
+  body .addq button b,
+  body .rstat .b b,
+  body .tscroll b { color: #FFFFFF !important; }
+body .tpl button .k,
+  body /* 문항 만들기 */
+  .q .k,
+  body .addq button .k,
+  body .rstat .b .k,
+  body .tscroll .k, body .tpl button .meta,
+  body /* 문항 만들기 */
+  .q .meta,
+  body .addq button .meta,
+  body .rstat .b .meta,
+  body .tscroll .meta { color: #E4E0DA !important; }
+
+  body .panel .picklist button .t b, body .picklist button .t b { color: #FFFFFF !important; }
+  body .panel .picklist button .t span, body .picklist button .t span { color: #DED9D2 !important; }
+  body .picklist button.picked .t b, body .picklist button.picked .t span { color: #FFFFFF !important; }
+  body .panel .closing { color: #E9E5DF !important; }
+  body .panel .closing b { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .lede, body .panel .fnote,
+  body .panel .empty, body .panel .meta, body .panel .desc, body .panel .note,
+  body .panel .cap, body .panel small, body .panel .msg, body .panel .fs { color: #E4E0DA !important; }
+  body .panel > p, body .panel li { color: #ECE9E4; }
+  body .panel h1, body .panel h2, body .panel h3, body .panel h4,
+  body .panel .tit, body .panel .ttl, body .panel .nm { color: #FFFFFF !important; }
+  body .panel input::placeholder, body .panel textarea::placeholder,
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel a:not(.btn) { color: #FFC9AB; }
+  body .panel hr, body .panel .divider { border-color: rgba(255,255,255,.18) !important; }
+  body .panel option, body .panel optgroup { color: #1A1917; }
+
+  /* 어두운 유리 위에서는 글씨 변수 자체를 밝은 쪽으로 (가독성 최우선) */
+  body .shell, body .shell * {
+    --ink-1: #FFFFFF; --ink-2: #F0EDE8; --ink-3: #DCD7D0; --ink-4: #C2BCB4;
+    --night-ink: #FFFFFF; --night-sub: #D9D4CD;
+    --hair: rgba(255,255,255,.15); --hair-2: rgba(255,255,255,.22);
+  }
+  body option, body optgroup { color: #1A1917; background: #FFFFFF; }
+  body .ynfoot .cp { color: #CFC9C1 !important; }
+
+  /* 밝은 회색 박스도 유리로 (가독성) */
+body .fcard:hover,
+  body .st.준비중,
+  body .st.보관,
+  body .fbar .bg {
+    background: rgba(255,255,255,.085) !important;
+    border-color: rgba(255,255,255,.16) !important;
+    color: #F4F1EC !important;
+  }
+  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
+  body button:disabled, body .submit:disabled, body .btn:disabled {
+    background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
+    border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
+  }
+  body .btn.accent, body .dirbtn, body .pwsubmit { color: #FFFFFF !important; }
+  body .wk.on, body .wk.on * { color: #FFFFFF !important; }
+
+  /* 유리 위 흰 버튼·탭·칩 — 글씨와 배경 짝 맞추기 (가독성) */
+  body .btn:not(.accent):not(.danger):not(.primary):not(.ghost) {
+    background: rgba(255,255,255,.13) !important;
+    border-color: rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body .tabs button { color: #DCD7D0 !important; }
+  body .tabs button.on {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #FFFFFF !important;
+  }
+  body .st.준비중, body .st.보관 { background: rgba(255,255,255,.16) !important; color: #FFFFFF !important; }
+  body .st.받는중 { background: #1D6B4B !important; color: #FFFFFF !important; }
+  body .st.마감 { background: #8C3416 !important; color: #FFFFFF !important; }
+
+  /* 배경 없는 버튼은 브라우저 기본 검정 글씨가 되므로 밝게 (가독성) */
+  body .seg button, body .shell button:not([class]) { color: #DCD7D0 !important; }
+  body .seg button.on { color: #FFFFFF !important; }
+
+  /* 상태색 칩·위험 버튼도 어두운 유리 위에서 또렷하게 */
+  body .btn.danger { background: rgba(255,255,255,.12) !important; color: #FF9E90 !important;
+                     border-color: rgba(255,158,144,.45) !important; }
+  body .tn.off, body .tp.off { background: rgba(255,120,100,.22) !important; color: #FFB3A6 !important; }
+  body .tn.guest { background: rgba(var(--tone-rgb,210,81,31),.26) !important; color: #FFC0A1 !important; }
+  body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
+  body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
 </style>
 </head>
 <body>
 <div class="shell">
   <header>
-    <img src="/logo.png" alt="Youngnak">
+    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
     <h1>신청서 관리</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; FORMS</p>
   </header>
@@ -338,19 +438,19 @@ function drawEdit() {
         '<input type="number" id="fLimit" min="0" max="9999" value="' + (F.limit || 0) + '"></div>' +
       '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:2px 0 10px;">' +
         '<input type="checkbox" id="fEdit"' + (F.editable !== false ? ' checked' : '') + '>' +
-        '<span>낸 뒤에도 고칠 수 있게<em style="display:block;color:var(--ink-3);font-size:12px;">끄면 한 번 내면 수정할 수 없습니다</em></span></label>' +
+        '<span>낸 뒤에도 고칠 수 있게<em style="display:block;color:var(--ink-3);font-size:13px;">끄면 한 번 내면 수정할 수 없습니다</em></span></label>' +
       '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;">' +
         '<input type="checkbox" id="fCount"' + (F.showCount ? ' checked' : '') + '>' +
         '<span>신청 인원을 신청자에게도 보여주기</span></label>' +
       '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;">' +
         '<input type="checkbox" id="fNotify"' + (F.notify !== false ? ' checked' : '') + '>' +
-        '<span>신청이 들어오면 알림 받기<em style="display:block;color:var(--ink-3);font-size:12px;">담당자 휴대폰으로 알림이 갑니다</em></span></label>' +
+        '<span>신청이 들어오면 알림 받기<em style="display:block;color:var(--ink-3);font-size:13px;">담당자 휴대폰으로 알림이 갑니다</em></span></label>' +
       '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;">' +
         '<input type="checkbox" id="fMail"' + (F.mail ? ' checked' : '') + '>' +
-        '<span>알림을 이메일로도 받기<em style="display:block;color:var(--ink-3);font-size:12px;">신청이 들어올 때마다 담당자 이메일로 갑니다</em></span></label>' +
+        '<span>알림을 이메일로도 받기<em style="display:block;color:var(--ink-3);font-size:13px;">신청이 들어올 때마다 담당자 이메일로 갑니다</em></span></label>' +
       '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0;">' +
         '<input type="checkbox" id="fAuto"' + (F.autoClose !== false ? ' checked' : '') + '>' +
-        '<span>정원이 차면 저절로 마감하기<em style="display:block;color:var(--ink-3);font-size:12px;">정원을 정했을 때만 씁니다</em></span></label>' +
+        '<span>정원이 차면 저절로 마감하기<em style="display:block;color:var(--ink-3);font-size:13px;">정원을 정했을 때만 씁니다</em></span></label>' +
     '</div>' +
     '<div class="panel"><span class="chip">문항</span>' +
       '<p class="hint">이름 · 연락처 · 성별 · 셀은 로그인 정보에서 자동으로 채워집니다. 그 밖에 받을 것만 만들어주세요.</p>' +
@@ -596,7 +696,7 @@ function drawResults(r) {
     if (s.type === 'number') {
       return '<div class="fbars"><div class="bl">' + esc(s.label) + '</div>' +
         '<div style="font-size:22px;font-weight:800;">' + s.sum + (s.unit ? ' ' + esc(s.unit) : '') +
-        ' <span style="font-size:12.5px;font-weight:600;color:var(--ink-3);">(' + s.n + '명 합계)</span></div></div>';
+        ' <span style="font-size:13.5px;font-weight:600;color:var(--ink-3);">(' + s.n + '명 합계)</span></div></div>';
     }
     var max = 1;
     s.items.forEach(function (x) { if (x.n > max) max = x.n; });

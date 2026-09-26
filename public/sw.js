@@ -22,6 +22,10 @@ self.addEventListener('fetch', function (event) {
   }));
 });
 
+let BADGE = 0;
+function bumpBadge() {
+  try { BADGE += 1; if (self.navigator && self.navigator.setAppBadge) self.navigator.setAppBadge(BADGE); } catch (e) {}
+}
 self.addEventListener('push', function (event) {
   var d = {};
   try { d = event.data ? event.data.json() : {}; } catch (e) { d = { body: (event.data && event.data.text()) || '' }; }
@@ -35,11 +39,15 @@ self.addEventListener('push', function (event) {
     requireInteraction: !!d.keep,
     data: { url: d.url || '/?page=portal' }
   };
+  bumpBadge();
   event.waitUntil(self.registration.showNotification(title, opts));
 });
 
+function clearBadge() {
+  try { BADGE = 0; if (self.navigator && self.navigator.clearAppBadge) self.navigator.clearAppBadge(); } catch (e) {}
+}
 self.addEventListener('notificationclick', function (event) {
-  event.notification.close();
+  event.notification.close(); clearBadge();
   var url = (event.notification.data && event.notification.data.url) || '/?page=portal';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {

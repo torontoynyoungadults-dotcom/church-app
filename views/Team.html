@@ -18,7 +18,7 @@
   }
   .teamcard .tname { font-size: 21px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.25; }
   .teamcard .tdept {
-    display: inline-block; background: var(--tone); color: #fff; font-size: 10px; font-weight: 800;
+    display: inline-block; background: var(--tone); color: #fff; font-size: 11px; font-weight: 800;
     padding: 4px 11px; border-radius: 99px; margin-top: 10px;
     letter-spacing: 0.08em; text-transform: uppercase;
   }
@@ -28,15 +28,15 @@
   .teamcard .tcell { flex: 1 1 0; min-width: 0; padding-right: 14px; }
   .teamcard .tcell + .tcell { border-left: 1px solid var(--hair-night); padding-left: 14px; }
   .teamcard .tcell .k {
-    font-size: 9.5px; color: var(--night-sub); font-weight: 800;
+    font-size: 10.5px; color: var(--night-sub); font-weight: 800;
     letter-spacing: 0.1em; text-transform: uppercase;
   }
-  .teamcard .tcell .v { font-size: 13.5px; font-weight: 750; margin-top: 3px; }
+  .teamcard .tcell .v { font-size: 14.5px; font-weight: 750; margin-top: 3px; }
 
   .linkbar { display: flex; align-items: center; gap: 12px; }
   .dirbtn {
     width: auto !important; background: var(--ink-1) !important; color: #fff;
-    border-radius: var(--r-sm) !important; font-size: 13px !important; padding: 9px 16px !important;
+    border-radius: var(--r-sm) !important; font-size: 14px !important; padding: 9px 16px !important;
     box-shadow: var(--sh-1) !important;
   }
   .dirbtn.on { background: var(--tone) !important; }
@@ -44,19 +44,19 @@
   /* 팀원 상태 행 */
   .mrow { padding: 12px 13px; margin-bottom: 8px; }
   .mrow .mtop { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
-  .mrow .mname { font-size: 15px; font-weight: 800; }
+  .mrow .mname { font-size: 16px; font-weight: 800; }
   .mrow .mx { margin-left: auto; }
 
   .dcard { padding: 12px 13px; margin-bottom: 8px; }
   .dcard .dhead { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .dcard .dname { font-size: 14.5px; font-weight: 800; }
+  .dcard .dname { font-size: 15.5px; font-weight: 800; }
 
-  .closing { text-align: center; padding: 4px 8px 2px; font-size: 12.5px; color: var(--ink-2); line-height: 1.85; }
-  .closing b { display: block; font-size: 14.5px; color: var(--ink-1); margin-bottom: 6px; }
+  .closing { text-align: center; padding: 4px 8px 2px; font-size: 13.5px; color: var(--ink-2); line-height: 1.85; }
+  .closing b { display: block; font-size: 15.5px; color: var(--ink-1); margin-bottom: 6px; }
   .done { text-align: center; padding: 38px 20px; }
   .done .mark { font-size: 36px; }
   .done h2 { font-size: 19px; font-weight: 800; margin: 13px 0 6px; color: var(--tone); }
-  .done p { color: var(--ink-3); font-size: 13.5px; margin: 0 0 18px; }
+  .done p { color: var(--ink-3); font-size: 14.5px; margin: 0 0 18px; }
   .skel.row { height: 46px; margin-bottom: 8px; }
 
   /* ---------- 유리 느낌 (배경이 비치는 카드) ---------- */
@@ -67,23 +67,23 @@
     box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
     -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
   }
-  body .panel .chip { color: #F3EFE8 !important; }
-  body .panel .hint, .panel .sub, .panel .fnote, .panel .closing { color: #ADA69E !important; }
-  body .panel .closing b { color: #F3EFE8; }
-  body .panel label, .panel .fl { color: #C4BEB6 !important; }
+  body .panel .chip { color: #FFFFFF !important; }
+  body .panel .hint, .panel .sub, .panel .fnote, .panel .closing { color: #E9E5DF !important; }
+  body .panel .closing b { color: #FFFFFF; }
+  body .panel label, .panel .fl { color: #F2EFEA !important; }
   body .panel input, .panel select, .panel textarea {
     background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
-    color: #F3EFE8 !important;
+    color: #FFFFFF !important;
   }
-  body .panel input::placeholder, .panel textarea::placeholder { color: #7E786F !important; }
+  body .panel input::placeholder, .panel textarea::placeholder { color: #B7B0A7 !important; }
   body .panel .picklist button, .panel .mrow, .panel .dcard {
     background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
-    color: #D6D1C9 !important;
+    color: #F5F3EF !important;
   }
   body .panel .picklist button.picked {
     background: linear-gradient(135deg, #34A855, #2E9A4B) !important; border-color: transparent !important; color: #fff !important;
   }
-  body .panel .mrow .mname, .panel .dcard .dname { color: #F3EFE8; }
+  body .panel .mrow .mname, .panel .dcard .dname { color: #FFFFFF; }
   /* 팀 카드 — 초록 그라데이션 */
   body .teamcard {
     background:
@@ -99,7 +99,7 @@
   .ttabs { display: flex; gap: 6px; margin: 0 12px 12px; }
   .ttabs button {
     flex: 1; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.055);
-    color: #B9B3AB; border-radius: 12px; padding: 11px 8px; font: 800 14px inherit; font-family: inherit;
+    color: #EDEAE5; border-radius: 12px; padding: 11px 8px; font: 800 15px inherit; font-family: inherit;
     cursor: pointer; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   }
   .ttabs button.on {
@@ -110,10 +110,10 @@
   .mmrow { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.1); }
   .mmrow:first-of-type { border-top: none; }
   .mmrow .mmn { flex: 1; min-width: 0; }
-  .mmrow .mmn b { display: block; font-size: 15px; color: #F3EFE8; }
-  .mmrow .mmn small { display: block; font-size: 12px; color: #948E86; margin-top: 2px; }
+  .mmrow .mmn b { display: block; font-size: 16px; color: #FFFFFF; }
+  .mmrow .mmn small { display: block; font-size: 13px; color: #E3DFD9; margin-top: 2px; }
   .mmrow .btn { flex: none; }
-  .mrole { display: inline-block; font-size: 11px; font-weight: 750; background: rgba(46,154,75,.22);
+  .mrole { display: inline-block; font-size: 12px; font-weight: 750; background: rgba(46,154,75,.22);
     color: #9FE0B4; border-radius: 6px; padding: 2px 7px; margin-right: 4px; }
 
   /* 안내 박스 · 카드 · 통계 · 줄 버튼도 같은 유리로 */
@@ -127,23 +127,87 @@
   }
   body .notice b, body .banner b, body .callout b,
   body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
-    color: #F6F4F0 !important;
+    color: #FFFFFF !important;
   }
   body .notice p, body .banner p, body .callout p, body .subnotice p,
   body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
-    color: #ADA69E !important;
+    color: #E9E5DF !important;
   }
   body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
   body .bar { background: rgba(255,255,255,.12) !important; }
-  body table th { background: rgba(255,255,255,.06) !important; color: #B9B3AB !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #EDEAE5 !important; }
   body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
+
+  /* ============ 가독성 최우선 — 어두운 유리 위 글씨는 흰색 ============ */
+
+  body .panel .picklist button .t b, body .picklist button .t b { color: #FFFFFF !important; }
+  body .panel .picklist button .t span, body .picklist button .t span { color: #DED9D2 !important; }
+  body .picklist button.picked .t b, body .picklist button.picked .t span { color: #FFFFFF !important; }
+  body .panel .closing { color: #E9E5DF !important; }
+  body .panel .closing b { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .lede, body .panel .fnote,
+  body .panel .empty, body .panel .meta, body .panel .desc, body .panel .note,
+  body .panel .cap, body .panel small, body .panel .msg, body .panel .fs { color: #E4E0DA !important; }
+  body .panel > p, body .panel li { color: #ECE9E4; }
+  body .panel h1, body .panel h2, body .panel h3, body .panel h4,
+  body .panel .tit, body .panel .ttl, body .panel .nm { color: #FFFFFF !important; }
+  body .panel input::placeholder, body .panel textarea::placeholder,
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel a:not(.btn) { color: #FFC9AB; }
+  body .panel hr, body .panel .divider { border-color: rgba(255,255,255,.18) !important; }
+  body .panel option, body .panel optgroup { color: #1A1917; }
+
+  /* 어두운 유리 위에서는 글씨 변수 자체를 밝은 쪽으로 (가독성 최우선) */
+  body .shell, body .shell * {
+    --ink-1: #FFFFFF; --ink-2: #F0EDE8; --ink-3: #DCD7D0; --ink-4: #C2BCB4;
+    --night-ink: #FFFFFF; --night-sub: #D9D4CD;
+    --hair: rgba(255,255,255,.15); --hair-2: rgba(255,255,255,.22);
+  }
+  body option, body optgroup { color: #1A1917; background: #FFFFFF; }
+  body .ynfoot .cp { color: #CFC9C1 !important; }
+
+  /* 밝은 회색 박스도 유리로 (가독성) */
+  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
+  body button:disabled, body .submit:disabled, body .btn:disabled {
+    background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
+    border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
+  }
+  body .btn.accent, body .dirbtn, body .pwsubmit { color: #FFFFFF !important; }
+  body .wk.on, body .wk.on * { color: #FFFFFF !important; }
+
+  /* 유리 위 흰 버튼·탭·칩 — 글씨와 배경 짝 맞추기 (가독성) */
+  body .btn:not(.accent):not(.danger):not(.primary):not(.ghost) {
+    background: rgba(255,255,255,.13) !important;
+    border-color: rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body .tabs button { color: #DCD7D0 !important; }
+  body .tabs button.on {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #FFFFFF !important;
+  }
+  body .st.준비중, body .st.보관 { background: rgba(255,255,255,.16) !important; color: #FFFFFF !important; }
+  body .st.받는중 { background: #1D6B4B !important; color: #FFFFFF !important; }
+  body .st.마감 { background: #8C3416 !important; color: #FFFFFF !important; }
+
+  /* 배경 없는 버튼은 브라우저 기본 검정 글씨가 되므로 밝게 (가독성) */
+  body .seg button, body .shell button:not([class]) { color: #DCD7D0 !important; }
+  body .seg button.on { color: #FFFFFF !important; }
+
+  /* 상태색 칩·위험 버튼도 어두운 유리 위에서 또렷하게 */
+  body .btn.danger { background: rgba(255,255,255,.12) !important; color: #FF9E90 !important;
+                     border-color: rgba(255,158,144,.45) !important; }
+  body .tn.off, body .tp.off { background: rgba(255,120,100,.22) !important; color: #FFB3A6 !important; }
+  body .tn.guest { background: rgba(var(--tone-rgb,210,81,31),.26) !important; color: #FFC0A1 !important; }
+  body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
+  body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
 </style>
 <!--#include Theme-->
 </head>
 <body>
 <div class="shell">
   <header>
-    <img src="/logo.png" alt="Youngnak">
+    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
     <h1>팀 보고서 및 팀 관리</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; MINISTRY</p>
   </header>
@@ -425,7 +489,7 @@ function onTeamChange() {
   el('submitBtn').textContent = '보고서 제출';
 
   if (!t) {
-    el('teamCard').innerHTML = '<div class="tname" style="font-size:16px;color:#8E8880;">팀을 선택해주세요</div>';
+    el('teamCard').innerHTML = '<div class="tname" style="font-size:16px;color:#E3DFD9;">팀을 선택해주세요</div>';
     el('memberStates').innerHTML = '';
     return;
   }

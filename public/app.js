@@ -152,3 +152,24 @@
     } catch (e) { return false; }
   };
 })();
+
+
+/* ============================================================
+   앱 아이콘 뱃지 — 안 읽은 공지 · 안 끝낸 할 일 개수를 홈 화면 아이콘에 표시
+   (지원하지 않는 기기에서는 아무 일도 일어나지 않습니다)
+   ============================================================ */
+window.YNBadge = {
+  can: function () { return ('setAppBadge' in navigator); },
+  set: function (n) {
+    try {
+      n = Number(n) || 0;
+      if (!('setAppBadge' in navigator)) return;
+      if (n > 0) navigator.setAppBadge(n); else navigator.clearAppBadge();
+      try { localStorage.setItem('ynBadge', String(n)); } catch (e) {}
+    } catch (e) {}
+  },
+  clear: function () {
+    try { if ('clearAppBadge' in navigator) navigator.clearAppBadge(); } catch (e) {}
+    try { localStorage.setItem('ynBadge', '0'); } catch (e) {}
+  }
+};

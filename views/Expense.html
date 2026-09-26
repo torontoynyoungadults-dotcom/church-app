@@ -12,7 +12,7 @@
   .steps div { flex: 1; height: 4px; border-radius: 99px; background: var(--night-3); }
   .steps div.on { background: var(--tone); }
   .steplabel {
-    text-align: center; font-size: 10.5px; color: var(--night-sub); letter-spacing: .2em;
+    text-align: center; font-size: 11.5px; color: var(--night-sub); letter-spacing: .2em;
     text-transform: uppercase; font-weight: 700; margin: -6px 0 12px;
   }
 
@@ -20,13 +20,13 @@
   ol.notices { margin: 0 0 6px; padding: 0; list-style: none; counter-reset: n; }
   ol.notices li {
     counter-increment: n; position: relative; padding: 11px 2px 11px 32px;
-    font-size: 13.5px; line-height: 1.78; border-top: 1px solid var(--hair); color: var(--ink-2);
+    font-size: 14.5px; line-height: 1.88; border-top: 1px solid var(--hair); color: var(--ink-2);
   }
   ol.notices li:first-child { border-top: none; }
   ol.notices li:before {
     content: counter(n); position: absolute; left: 0; top: 12px;
     width: 21px; height: 21px; border-radius: 50%; background: var(--tone-soft);
-    color: var(--tone); font-size: 11px; font-weight: 800;
+    color: var(--tone); font-size: 12px; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
   }
 
@@ -52,13 +52,13 @@
   .check.on .box { background: var(--tone); border-color: var(--tone); }
   .check.on .box:after { opacity: 1; transform: rotate(45deg) scale(1); }
   .check .lbl {
-    font-size: 14px !important; font-weight: 750; line-height: 1.5;
+    font-size: 15px !important; font-weight: 750; line-height: 1.6;
     color: var(--ink-1) !important; letter-spacing: 0 !important; text-transform: none !important;
     margin: 0 !important;
   }
 
   /* 예 / 아니오 */
-  .qbig { font-size: 16px; font-weight: 750; line-height: 1.62; margin: 2px 0 16px; letter-spacing: -0.018em; }
+  .qbig { font-size: 16px; font-weight: 750; line-height: 1.72; margin: 2px 0 16px; letter-spacing: -0.018em; }
   .yn { display: flex; gap: 9px; }
   .yn button {
     flex: 1; padding: 18px 8px; font-size: 16px; font-weight: 800; font-family: inherit; cursor: pointer;
@@ -69,7 +69,7 @@
   .yn button.no.on { background: var(--bad); border-color: var(--bad); }
   .stop {
     margin-top: 14px; background: var(--bad-bg); border-radius: var(--r-md); padding: 15px 16px;
-    font-size: 13.5px; color: #8E2A10; line-height: 1.8;
+    font-size: 14.5px; color: #8E2A10; line-height: 1.8;
   }
   .stop b { color: #6E2009; }
   .stop.plain { background: var(--sunken); color: var(--ink-2); }
@@ -81,7 +81,7 @@
   .money { position: relative; }
   .money span.cur {
     position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
-    font-size: 14px; color: var(--ink-3); font-weight: 750; pointer-events: none; z-index: 1;
+    font-size: 15px; color: var(--ink-3); font-weight: 750; pointer-events: none; z-index: 1;
   }
   .money input { padding-left: 30px; text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -93,11 +93,11 @@
   .itemhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .itemno {
     display: inline-flex; align-items: center; gap: 7px;
-    font-size: 11.5px; font-weight: 800; color: var(--tone);
+    font-size: 12.5px; font-weight: 800; color: var(--tone);
     background: var(--tone-soft); border-radius: 99px; padding: 5px 13px;
   }
   .itemdel {
-    border: none; background: none; color: var(--ink-3); font-size: 12.5px; font-weight: 750;
+    border: none; background: none; color: var(--ink-3); font-size: 13.5px; font-weight: 750;
     cursor: pointer; font-family: inherit; padding: 4px 6px;
   }
   .itemdel:hover { color: var(--bad); }
@@ -105,11 +105,11 @@
     display: flex; align-items: center; justify-content: space-between;
     background: #F7F5F2; border-radius: var(--r-sm); padding: 9px 13px; margin: 0 0 13px;
   }
-  .subtotal .k { font-size: 10.5px; color: var(--ink-3); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-  .subtotal .v { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .subtotal .k { font-size: 11.5px; color: var(--ink-3); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  .subtotal .v { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
   .additem {
-    width: 100%; padding: 14px; font-size: 13.5px; font-weight: 800; font-family: inherit; cursor: pointer;
+    width: 100%; padding: 14px; font-size: 14.5px; font-weight: 800; font-family: inherit; cursor: pointer;
     background: transparent; border: 1.5px dashed #C7C1B7; border-radius: var(--r-md); color: var(--tone);
     transition: border-color .15s, background .15s;
   }
@@ -119,19 +119,19 @@
     background: var(--ink-1); border-radius: var(--r-md); padding: 15px 17px; margin-top: 12px;
     display: flex; align-items: center; justify-content: space-between;
   }
-  .total .t { font-size: 10.5px; color: #9A948C; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-  .total .t small { display: block; text-transform: none; letter-spacing: 0; font-size: 10.5px; margin-top: 3px; }
+  .total .t { font-size: 11.5px; color: #E3DFD9; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+  .total .t small { display: block; text-transform: none; letter-spacing: 0; font-size: 11.5px; margin-top: 3px; }
   .total .v { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 
   .reasonwarn {
     background: var(--tone-soft); border-radius: var(--r-sm); padding: 10px 13px; margin-bottom: 8px;
-    font-size: 12.5px; color: var(--tone); line-height: 1.7; font-weight: 650;
+    font-size: 13.5px; color: var(--tone); line-height: 1.8; font-weight: 650;
   }
 
   /* 영수증 */
   .pickbtn {
     display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
-    padding: 12px; font-size: 13.5px; font-weight: 750; font-family: inherit; cursor: pointer;
+    padding: 12px; font-size: 14.5px; font-weight: 750; font-family: inherit; cursor: pointer;
     background: #fff; border: 1.5px dashed #C7C1B7; border-radius: var(--r-md); color: var(--tone);
     transition: border-color .15s, background .15s;
   }
@@ -144,11 +144,11 @@
   }
   .file .ic {
     width: 29px; height: 29px; border-radius: 7px; flex: none; background: var(--tone-soft);
-    color: var(--tone); font-size: 9.5px; font-weight: 800;
+    color: var(--tone); font-size: 10.5px; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
   }
-  .file .fn { flex: 1; font-size: 12.5px; font-weight: 650; word-break: break-all; line-height: 1.45; }
-  .file .fs { font-size: 10.5px; color: var(--ink-3); font-weight: 750; white-space: nowrap; }
+  .file .fn { flex: 1; font-size: 13.5px; font-weight: 650; word-break: break-all; line-height: 1.55; }
+  .file .fs { font-size: 11.5px; color: var(--ink-3); font-weight: 750; white-space: nowrap; }
   .file .x {
     border: none; background: none; color: var(--ink-3); font-size: 19px; line-height: 1;
     cursor: pointer; padding: 0 2px; font-family: inherit;
@@ -156,7 +156,7 @@
   .file.up .fn { color: var(--ink-3); }
 
   .backlink {
-    background: none; border: none; color: var(--ink-3); font-size: 13px; font-family: inherit;
+    background: none; border: none; color: var(--ink-3); font-size: 14px; font-family: inherit;
     cursor: pointer; padding: 6px 0; font-weight: 650;
   }
 
@@ -167,19 +167,22 @@
     display: flex; align-items: center; justify-content: center;
   }
   .done h2 { font-size: 20px; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.025em; }
-  .done p { font-size: 13.5px; color: var(--ink-3); margin: 0 0 18px; line-height: 1.8; }
+  .done p { font-size: 14.5px; color: var(--ink-3); margin: 0 0 18px; line-height: 1.8; }
   .refno {
     background: var(--ink-1); color: #fff; border-radius: var(--r-md); padding: 15px;
     font-size: 21px; font-weight: 800; letter-spacing: .05em;
   }
-  .refno small { display: block; font-size: 10px; color: #9A948C; letter-spacing: .14em; margin-bottom: 5px; font-weight: 750; }
+  .refno small { display: block; font-size: 11px; color: #E3DFD9; letter-spacing: .14em; margin-bottom: 5px; font-weight: 750; }
+
+  /* 가독성: 아직 누를 수 없는 버튼도 글씨가 보이게 */
+  body .submit:disabled, body button:disabled { background: #7C766E !important; color: #FFFFFF !important; opacity: 1 !important; }
 </style>
 <!--#include Theme-->
 </head>
 <body>
 <div class="shell">
   <header>
-    <img src="/logo.png" alt="Youngnak">
+    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
     <h1>지출환급신청서</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; EXPENSE</p>
   </header>

@@ -11,31 +11,31 @@
   .member { padding: 11px 13px; margin-bottom: 7px; }
   .member.pending { border-color: var(--tone-line) !important; }
   .member-top { display: flex; align-items: center; gap: 9px; }
-  .member-name { font-size: 14.5px; font-weight: 700; flex: 1; min-width: 0; }
+  .member-name { font-size: 15.5px; font-weight: 700; flex: 1; min-width: 0; }
   .toggle { display: flex; gap: 5px; }
   .toggle button {
-    font-size: 12.5px; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--hair-2);
+    font-size: 13.5px; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--hair-2);
     background: #fff; color: var(--ink-3); cursor: pointer; font-family: inherit; font-weight: 650;
     transition: background .13s, border-color .13s, color .13s;
   }
   .toggle button.on-present { background: var(--good-bg); border-color: var(--good); color: var(--good); font-weight: 800; }
   .toggle button.on-absent { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); font-weight: 800; }
   .kill { border: none; background: none; color: var(--ink-4); font-size: 17px; cursor: pointer; padding: 0 2px; line-height: 1; font-family: inherit; }
-  .rdesc { font-size: 11.5px; color: var(--ink-3); margin: 5px 2px 0; line-height: 1.55; }
+  .rdesc { font-size: 12.5px; color: var(--ink-3); margin: 5px 2px 0; line-height: 1.65; }
   .reason { margin-top: 9px; display: none; }
   .reason.show { display: block; }
   .reason input { margin-top: 7px; display: none; }
   .reason input.show { display: block; }
   .roster-tools { display: flex; gap: 6px; margin-top: 10px; }
   .roster-tools input { flex: 1; }
-  .summary { font-size: 12px; color: var(--ink-3); margin: -3px 0 10px; font-weight: 650; }
+  .summary { font-size: 13px; color: var(--ink-3); margin: -3px 0 10px; font-weight: 650; }
 
   /* 셀 이름 · 셀방 */
   .cellbar { display: flex; align-items: stretch; gap: 7px; }
   #cellFixed {
     flex: 1 1 0; min-width: 0; background: #fff; border: 1px solid var(--hair-2);
     border-radius: var(--r-sm); box-shadow: var(--sh-1);
-    padding: 11px 13px; font-size: 15px; font-weight: 750;
+    padding: 11px 13px; font-size: 16px; font-weight: 750;
     display: flex; flex-direction: column; justify-content: center;
   }
   #roomBox {
@@ -44,21 +44,21 @@
     display: flex; flex-direction: column; justify-content: center;
   }
   #roomBox .roomlabel {
-    font-size: 9.5px; font-weight: 800; color: var(--ink-3);
-    letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.4;
+    font-size: 10.5px; font-weight: 800; color: var(--ink-3);
+    letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.5;
   }
   #roomBox #roomValue {
-    font-size: 14.5px; font-weight: 750; line-height: 1.35;
+    font-size: 15.5px; font-weight: 750; line-height: 1.45;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .linkbar { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
   .linkspacer { flex: 1; }
   .dirbtn {
     width: auto !important; background: var(--ink-1) !important; color: #fff;
-    border-radius: var(--r-sm) !important; font-size: 13px !important; padding: 9px 16px !important;
+    border-radius: var(--r-sm) !important; font-size: 14px !important; padding: 9px 16px !important;
     display: inline-flex; align-items: center; gap: 7px; box-shadow: var(--sh-1) !important;
   }
-  .dirbtn:before { content: "\1F464"; font-size: 12.5px; }
+  .dirbtn:before { content: "\1F464"; font-size: 13.5px; }
   .dirbtn.on { background: var(--tone) !important; }
 
   /* 셀원 정보 카드 */
@@ -66,17 +66,17 @@
   .dcard .dhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
   .dcard .dwho { display: flex; align-items: center; gap: 10px; }
   .dcard .photorow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: -2px 0 10px 56px; }
-  .dcard .photorow label { cursor: pointer; color: var(--tone) !important; font-weight: 750; font-size: 12.5px; }
-  .dcard .photorow .msg { margin: 0; font-size: 12px; }
-  .dcard .dname { font-size: 14.5px; font-weight: 800; }
-  .dcard .empty-info { font-size: 12px; padding: 4px 0; text-align: left; }
+  .dcard .photorow label { cursor: pointer; color: var(--tone) !important; font-weight: 750; font-size: 13.5px; }
+  .dcard .photorow .msg { margin: 0; font-size: 13px; }
+  .dcard .dname { font-size: 15.5px; font-weight: 800; }
+  .dcard .empty-info { font-size: 13px; padding: 4px 0; text-align: left; }
   .editbox { border-top: 1px solid var(--hair); margin-top: 10px; padding-top: 10px; }
   .editbox .efield { margin-bottom: 8px; }
   .editbox .efield label {
-    display: block; font-size: 10.5px; color: var(--ink-3); font-weight: 800;
+    display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 800;
     letter-spacing: .05em; text-transform: uppercase; margin-bottom: 4px;
   }
-  .editbox input, .editbox select { padding: 9px 11px; font-size: 13px; }
+  .editbox input, .editbox select { padding: 9px 11px; font-size: 14px; }
 
   /* 비밀번호 */
   .pwbox { width: 190px; margin: 0 auto; display: block; }
@@ -86,9 +86,9 @@
   /* 마무리 */
   .closing {
     text-align: center; padding: 4px 8px 2px;
-    font-size: 12.5px; color: var(--ink-2); line-height: 1.85;
+    font-size: 13.5px; color: var(--ink-2); line-height: 1.85;
   }
-  .closing b { display: block; font-size: 14.5px; color: var(--ink-1); margin-bottom: 6px; letter-spacing: -0.018em; }
+  .closing b { display: block; font-size: 15.5px; color: var(--ink-1); margin-bottom: 6px; letter-spacing: -0.018em; }
 
   .choices { display: flex; gap: 7px; }
   .choices button {
@@ -97,7 +97,7 @@
     display: flex; flex-direction: column; align-items: center; gap: 5px; box-shadow: var(--sh-1);
   }
   .choices button .emo { font-size: 22px; line-height: 1; }
-  .choices button .txt { font-size: 12.5px; font-weight: 650; }
+  .choices button .txt { font-size: 13.5px; font-weight: 650; }
   .choices button.picked {
     border-color: var(--tone); background: rgba(var(--tone-rgb), .055);
     box-shadow: 0 0 0 1px var(--tone) inset; font-weight: 800;
@@ -106,7 +106,7 @@
   .done { text-align: center; padding: 38px 20px; }
   .done .mark { font-size: 38px; }
   .done h2 { font-size: 20px; font-weight: 800; margin: 14px 0 6px; color: var(--tone); }
-  .done p { color: var(--ink-3); font-size: 13.5px; margin: 0 0 20px; }
+  .done p { color: var(--ink-3); font-size: 14.5px; margin: 0 0 20px; }
   .done .acts { display: flex; gap: 7px; justify-content: center; }
 
   .banner .acts { display: flex; gap: 7px; margin-top: 10px; }
@@ -118,31 +118,31 @@
     border-radius: var(--r-xl, 22px); padding: 18px 20px; margin: 0 12px 12px;
     box-shadow: 0 10px 28px rgba(196,67,26,.28), inset 0 1px 0 rgba(255,255,255,.18);
   }
-  .dgbanner .k { font-size: 10.5px; letter-spacing: .16em; font-weight: 800; color: rgba(255,255,255,.7); margin: 0 0 5px; }
+  .dgbanner .k { font-size: 11.5px; letter-spacing: .16em; font-weight: 800; color: rgba(255,255,255,.7); margin: 0 0 5px; }
   .dgbanner .t { font-size: 16px; font-weight: 800; margin: 0 0 4px; }
-  .dgbanner .d { font-size: 12.5px; line-height: 1.7; word-break: keep-all; color: rgba(255,255,255,.86); margin: 0; }
+  .dgbanner .d { font-size: 13.5px; line-height: 1.8; word-break: keep-all; color: rgba(255,255,255,.86); margin: 0; }
   .dgline {
     display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px;
     padding: 9px 12px; border-radius: var(--r-sm); background: rgba(var(--tone-rgb), .06);
-    border: 1px solid rgba(var(--tone-rgb), .18); font-size: 12.5px; color: var(--ink-2);
+    border: 1px solid rgba(var(--tone-rgb), .18); font-size: 13.5px; color: var(--ink-2);
   }
   .dgline b { color: var(--tone); font-weight: 800; }
-  .dgline .dgk { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: var(--ink-3); }
+  .dgline .dgk { font-size: 11.5px; font-weight: 800; letter-spacing: .08em; color: var(--ink-3); }
   #dgForm { margin-top: 10px; }
   .dgrow { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 7px;
     background: #fff; border: 1px solid var(--hair-2); border-radius: var(--r-sm); box-shadow: var(--sh-1); }
-  .dgrow .n { flex: 1; min-width: 0; font-weight: 750; font-size: 14px; }
-  .dgrow .u { font-size: 12px; color: var(--ink-3); font-weight: 650; }
+  .dgrow .n { flex: 1; min-width: 0; font-weight: 750; font-size: 15px; }
+  .dgrow .u { font-size: 13px; color: var(--ink-3); font-weight: 650; }
   .dgpick { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
   .dgpick button {
-    font-size: 12.5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--hair-2);
+    font-size: 13.5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--hair-2);
     background: #fff; color: var(--ink-2); cursor: pointer; font-family: inherit; font-weight: 650;
   }
   .dgpick button.on { border-color: var(--tone); color: var(--tone); background: rgba(var(--tone-rgb), .07); font-weight: 800; }
   .dgset { display: flex; gap: 6px; }
   .dgset input[type=text] { flex: 1.3; min-width: 0; }
   .dgset input[type=date] { flex: 1; min-width: 0; }
-  .dglabel { font-size: 11px; font-weight: 800; color: var(--ink-3); letter-spacing: .06em; margin: 12px 0 6px; }
+  .dglabel { font-size: 12px; font-weight: 800; color: var(--ink-3); letter-spacing: .06em; margin: 12px 0 6px; }
   .skel.row { height: 46px; margin-bottom: 8px; }
 
   /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
@@ -153,19 +153,19 @@
     box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
     -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
   }
-  body .panel .chip { color: #F3EFE8 !important; }
+  body .panel .chip { color: #FFFFFF !important; }
   body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
-  body .panel .empty, body .panel .meta { color: #ADA69E !important; }
-  body .panel label, body .panel .fl, body .panel .k { color: #C4BEB6 !important; }
-  body .panel b, body .panel strong { color: #F6F4F0; }
+  body .panel .empty, body .panel .meta { color: #E9E5DF !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #F2EFEA !important; }
+  body .panel b, body .panel strong { color: #FFFFFF; }
   body .panel input, body .panel select, body .panel textarea {
     background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
-    color: #F3EFE8 !important;
+    color: #FFFFFF !important;
   }
-  body .panel input::placeholder, body .panel textarea::placeholder { color: #7E786F !important; }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #B7B0A7 !important; }
   body .panel .picklist button {
     background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
-    color: #D6D1C9 !important;
+    color: #F5F3EF !important;
   }
   body .panel .picklist button.picked {
     background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
@@ -173,7 +173,7 @@
   }
   body .panel .btn:not(.accent):not(.danger) {
     background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
-    color: #E8E4DE !important;
+    color: #FFFFFF !important;
   }
   body .panel .btn.accent, body .panel .submit {
     background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
@@ -190,30 +190,122 @@
   }
   body .notice b, body .banner b, body .callout b,
   body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
-    color: #F6F4F0 !important;
+    color: #FFFFFF !important;
   }
   body .notice p, body .banner p, body .callout p, body .subnotice p,
   body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
-    color: #ADA69E !important;
+    color: #E9E5DF !important;
   }
   body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
   body .bar { background: rgba(255,255,255,.12) !important; }
-  body table th { background: rgba(255,255,255,.06) !important; color: #B9B3AB !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #EDEAE5 !important; }
   body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
+
+  /* ============ 가독성 최우선 — 어두운 유리 위 글씨는 흰색 ============ */
+body .toggle button,
+  body #cellFixed,
+  body #roomBox,
+  body .choices button,
+  body .dgrow,
+  body .dgpick button {
+    background: rgba(255,255,255,.075) !important;
+    border-color: rgba(255,255,255,.15) !important;
+    color: #F4F1EC !important;
+    box-shadow: none !important;
+  }
+body .toggle button b,
+  body #cellFixed b,
+  body #roomBox b,
+  body .choices button b,
+  body .dgrow b,
+  body .dgpick button b { color: #FFFFFF !important; }
+body .toggle button .k,
+  body #cellFixed .k,
+  body #roomBox .k,
+  body .choices button .k,
+  body .dgrow .k,
+  body .dgpick button .k, body .toggle button .meta,
+  body #cellFixed .meta,
+  body #roomBox .meta,
+  body .choices button .meta,
+  body .dgrow .meta,
+  body .dgpick button .meta { color: #E4E0DA !important; }
+
+  body .panel .picklist button .t b, body .picklist button .t b { color: #FFFFFF !important; }
+  body .panel .picklist button .t span, body .picklist button .t span { color: #DED9D2 !important; }
+  body .picklist button.picked .t b, body .picklist button.picked .t span { color: #FFFFFF !important; }
+  body .panel .closing { color: #E9E5DF !important; }
+  body .panel .closing b { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .lede, body .panel .fnote,
+  body .panel .empty, body .panel .meta, body .panel .desc, body .panel .note,
+  body .panel .cap, body .panel small, body .panel .msg, body .panel .fs { color: #E4E0DA !important; }
+  body .panel > p, body .panel li { color: #ECE9E4; }
+  body .panel h1, body .panel h2, body .panel h3, body .panel h4,
+  body .panel .tit, body .panel .ttl, body .panel .nm { color: #FFFFFF !important; }
+  body .panel input::placeholder, body .panel textarea::placeholder,
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel a:not(.btn) { color: #FFC9AB; }
+  body .panel hr, body .panel .divider { border-color: rgba(255,255,255,.18) !important; }
+  body .panel option, body .panel optgroup { color: #1A1917; }
+
+  /* 어두운 유리 위에서는 글씨 변수 자체를 밝은 쪽으로 (가독성 최우선) */
+  body .shell, body .shell * {
+    --ink-1: #FFFFFF; --ink-2: #F0EDE8; --ink-3: #DCD7D0; --ink-4: #C2BCB4;
+    --night-ink: #FFFFFF; --night-sub: #D9D4CD;
+    --hair: rgba(255,255,255,.15); --hair-2: rgba(255,255,255,.22);
+  }
+  body option, body optgroup { color: #1A1917; background: #FFFFFF; }
+  body .ynfoot .cp { color: #CFC9C1 !important; }
+
+  /* 밝은 회색 박스도 유리로 (가독성) */
+  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
+  body button:disabled, body .submit:disabled, body .btn:disabled {
+    background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
+    border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
+  }
+  body .btn.accent, body .dirbtn, body .pwsubmit { color: #FFFFFF !important; }
+  body .wk.on, body .wk.on * { color: #FFFFFF !important; }
+
+  /* 유리 위 흰 버튼·탭·칩 — 글씨와 배경 짝 맞추기 (가독성) */
+  body .btn:not(.accent):not(.danger):not(.primary):not(.ghost) {
+    background: rgba(255,255,255,.13) !important;
+    border-color: rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body .tabs button { color: #DCD7D0 !important; }
+  body .tabs button.on {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #FFFFFF !important;
+  }
+  body .st.준비중, body .st.보관 { background: rgba(255,255,255,.16) !important; color: #FFFFFF !important; }
+  body .st.받는중 { background: #1D6B4B !important; color: #FFFFFF !important; }
+  body .st.마감 { background: #8C3416 !important; color: #FFFFFF !important; }
+
+  /* 배경 없는 버튼은 브라우저 기본 검정 글씨가 되므로 밝게 (가독성) */
+  body .seg button, body .shell button:not([class]) { color: #DCD7D0 !important; }
+  body .seg button.on { color: #FFFFFF !important; }
+
+  /* 상태색 칩·위험 버튼도 어두운 유리 위에서 또렷하게 */
+  body .btn.danger { background: rgba(255,255,255,.12) !important; color: #FF9E90 !important;
+                     border-color: rgba(255,158,144,.45) !important; }
+  body .tn.off, body .tp.off { background: rgba(255,120,100,.22) !important; color: #FFB3A6 !important; }
+  body .tn.guest { background: rgba(var(--tone-rgb,210,81,31),.26) !important; color: #FFC0A1 !important; }
+  body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
+  body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
 </style>
 <!--#include Theme-->
 </head>
 <body>
 <div class="shell">
   <header>
-    <img src="/logo.png" alt="Youngnak Young Adults">
+    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak Young Adults"></a>
     <h1>셀모임 보고서</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; CELL REPORT</p>
   </header>
 
   <div class="panel" id="lock" style="display:none;">
     <div style="text-align:center;padding:14px 4px 8px;">
-      <p style="font-size:14px;color:var(--muted);margin:0 0 18px;line-height:1.7;">
+      <p style="font-size:15px;color:var(--muted);margin:0 0 18px;line-height:1.8;">
         셀장님께 안내된 <b style="color:var(--ink);">숫자 비밀번호</b>를 입력해주세요.<br>
         본인 셀의 보고서만 작성·조회할 수 있습니다.</p>
       <input type="password" id="cellPw" class="pwbox" placeholder="••••"
@@ -244,7 +336,7 @@
 
     <div class="panel">
       <span class="chip">셀 이름</span>
-      <span id="masterTag" style="display:none;background:#1C1C1C;color:#fff;font-size:11px;
+      <span id="masterTag" style="display:none;background:#1C1C1C;color:#fff;font-size:12px;
         font-weight:700;padding:4px 10px;border-radius:6px;margin-left:6px;">양육팀 · 전체 셀</span>
       <div class="cellbar">
         <div id="cellFixed"></div>
@@ -277,7 +369,7 @@
           <button type="button" class="btn" style="flex:1;" onclick="toggleDgForm()">닫기</button>
           <button type="button" class="btn orange" style="flex:2;" id="dgSave" onclick="doSetDelegate()">대리 작성자 지정</button>
         </div>
-        <p class="msg" id="dgMsg" style="min-height:18px;font-size:12.5px;"></p>
+        <p class="msg" id="dgMsg" style="min-height:18px;font-size:13.5px;"></p>
       </div>
 
       <div id="dirPanel" style="display:none;">
@@ -293,7 +385,7 @@
           <button type="button" class="btn" style="flex:1;" onclick="toggleMailForm()">취소</button>
           <button type="button" class="btn orange" style="flex:1;" onclick="doChangeEmail()">저장</button>
         </div>
-        <p class="msg" id="mailMsg" style="min-height:18px;font-size:12.5px;"></p>
+        <p class="msg" id="mailMsg" style="min-height:18px;font-size:13.5px;"></p>
       </div>
 
       <div id="pwForm" style="display:none;">
@@ -306,7 +398,7 @@
           <button type="button" class="btn" style="flex:1;" onclick="togglePwForm()">취소</button>
           <button type="button" class="btn orange" style="flex:1;" onclick="doChangePw()">변경하기</button>
         </div>
-        <p class="msg" id="pwFormMsg" style="min-height:18px;font-size:12.5px;"></p>
+        <p class="msg" id="pwFormMsg" style="min-height:18px;font-size:13.5px;"></p>
       </div>
     </div>
 
@@ -587,7 +679,7 @@ function renderDirectory() {
           '<button type="button" class="btn" style="flex:1;" onclick="toggleEdit(' + i + ')">취소</button>' +
           '<button type="button" class="btn orange" style="flex:1;" onclick="doSaveMemberInfo(' + i + ')">저장</button>' +
         '</div>' +
-        '<p class="msg" id="editMsg' + i + '" style="min-height:16px;font-size:12px;"></p>' +
+        '<p class="msg" id="editMsg' + i + '" style="min-height:16px;font-size:13px;"></p>' +
       '</div>' +
     '</div>';
   }).join('');
