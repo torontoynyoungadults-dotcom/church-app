@@ -187,17 +187,71 @@
   .tile.a-home { --mc: #D8D2C8; --mc-soft: rgba(216,210,200,.12); }
   .tile.a-cells { --mc: #FFB37A; --mc-soft: rgba(255,179,122,.16); }
   /* 아이콘 알림 뱃지 */
+  .tbadge {
+    display: inline-block; min-width: 19px; height: 19px; line-height: 19px;
+    border-radius: 99px; background: #E0552A; color: #fff; font-size: 11px; font-weight: 800;
+    text-align: center; padding: 0 5px; flex: none; letter-spacing: 0;
+  }
   .tile { position: relative; }
   .tile .tbadge {
-    position: absolute; top: 9px; right: 9px; min-width: 19px; height: 19px; line-height: 19px;
-    border-radius: 99px; background: #E0552A; color: #fff; font-size: 11px; font-weight: 800;
-    text-align: center; padding: 0 5px; box-shadow: 0 2px 6px rgba(0,0,0,.35);
-  }
-  .bulbtn .tbadge, .cabtn .tbadge, .fmbtn .tbadge {
-    min-width: 19px; height: 19px; line-height: 19px; border-radius: 99px; background: #E0552A;
-    color: #fff; font-size: 11px; font-weight: 800; text-align: center; padding: 0 5px; flex: none;
+    position: absolute; top: 9px; right: 9px; box-shadow: 0 2px 6px rgba(0,0,0,.35);
   }
   .tile.a-push  { --mc: #F0A3B4; --mc-soft: rgba(240,163,180,.16); }
+  /* 관리 카드 — 숫자까지 한눈에 */
+  .tiles.adm { display: flex; flex-direction: column; gap: 9px; }
+  .acard {
+    --mc: #D8D2C8; --mc-soft: rgba(216,210,200,.12);
+    background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 15px; overflow: hidden;
+    -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
+    box-shadow: 0 5px 20px rgba(0,0,0,.22);
+  }
+  .acard .ac-hit {
+    display: flex; align-items: center; gap: 12px; padding: 13px 14px 11px;
+    text-decoration: none; color: var(--night-ink);
+  }
+  .acard .ac-ic {
+    width: 38px; height: 38px; border-radius: 12px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--mc-soft); color: var(--mc);
+  }
+  .acard .ac-ic svg { width: 20px; height: 20px; }
+  .acard .ac-b { flex: 1; min-width: 0; }
+  .acard .ac-t {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 15px; font-weight: 800; letter-spacing: -0.025em;
+  }
+  .acard .ac-t .tbadge { position: static; top: auto; right: auto; box-shadow: none; }
+  .acard .ac-d { display: block; font-size: 12px; color: var(--night-sub); margin-top: 2px; }
+  .acard .ac-go { flex: none; font-size: 20px; color: #7E786F; }
+  .acard .ac-ss {
+    display: flex; gap: 6px; padding: 0 14px 12px; flex-wrap: wrap;
+  }
+  .acard .ac-s {
+    flex: 1; min-width: 76px; background: rgba(255,255,255,.06); border-radius: 10px;
+    padding: 7px 10px; font-size: 11px; color: #948E86; font-weight: 650;
+  }
+  .acard .ac-s b {
+    display: block; font-size: 17px; font-weight: 800; color: #F3EFE8;
+    letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin-bottom: 1px;
+  }
+  .acard .ac-s.w { background: rgba(224,160,60,.15); }
+  .acard .ac-s.w b { color: #F3C583; }
+  .acard .ac-more {
+    display: block; padding: 10px 14px; border-top: 1px solid rgba(255,255,255,.08);
+    font-size: 12.5px; font-weight: 700; color: #B9B3AB; text-decoration: none;
+  }
+  .acard .ac-more:hover { background: rgba(255,255,255,.05); color: #F3EFE8; }
+  .acard.a-cell { --mc: #F07A4E; --mc-soft: rgba(240,122,78,.16); }
+  .acard.a-nf   { --mc: #4FC1C9; --mc-soft: rgba(79,193,201,.15); }
+  .acard.a-team { --mc: #5CC77A; --mc-soft: rgba(92,199,122,.15); }
+  .acard.a-acct { --mc: #E0B25A; --mc-soft: rgba(224,178,90,.16); }
+  .acard.a-tr   { --mc: #6EA8FF; --mc-soft: rgba(110,168,255,.16); }
+  .acard.a-mis  { --mc: #5FC4A8; --mc-soft: rgba(95,196,168,.15); }
+  .acard.a-dir  { --mc: #8E96F2; --mc-soft: rgba(142,150,242,.17); }
+  .acard.a-push { --mc: #F0A3B4; --mc-soft: rgba(240,163,180,.16); }
+  .acard.a-cal  { --mc: #B592F0; --mc-soft: rgba(181,146,240,.17); }
+
   .seclabel.adm { display: flex; align-items: center; gap: 6px; margin-top: 26px; }
   .seclabel.adm svg { width: 17px; height: 17px; color: #B592F0; }
 
@@ -2168,15 +2222,33 @@ function renderMenus() {
   }).join('');
 }
 
-/** 커미티 전용 — 관리시스템의 각 영역으로 바로 */
+/** 커미티 · 새가족팀 · 회계팀 — 맡은 영역의 숫자를 한눈에 */
 function renderAdmin() {
   el('adminWrap').style.display = ADMIN.length ? 'block' : 'none';
   if (!ADMIN.length) return;
   el('adminTiles').innerHTML = ADMIN.map(function (m) {
-    return '<a class="tile a-' + esc(m.key) + '" href="' + esc(m.url) + '">' +
-      tileBadge('a-' + m.key) + tileIcon('a-' + m.key) + '<span class="tt">' + esc(m.title) + '</span>' +
-      '<span class="td">' + esc(m.desc) + '</span></a>';
+    var stats = (m.stats || []).map(function (x) {
+      return '<span class="ac-s' + (x.warn ? ' w' : '') + '"><b>' + esc(x.n) + '</b>' + esc(x.l) + '</span>';
+    }).join('');
+    var more = (m.more || []).map(function (x) {
+      return '<a class="ac-more" href="' + esc(x.u) + '">' + esc(x.t) + ' \u203A</a>';
+    }).join('');
+    return '<div class="acard a-' + esc(m.key) + '">' +
+      '<a class="ac-hit" href="' + esc(m.url) + '">' +
+        '<span class="ac-ic">' + adminIcon(m.key) + '</span>' +
+        '<span class="ac-b"><span class="ac-t">' + esc(m.title) + tileBadge('a-' + m.key) + '</span>' +
+        '<span class="ac-d">' + esc(m.desc) + '</span></span>' +
+        '<span class="ac-go">\u203A</span></a>' +
+      (stats ? '<div class="ac-ss">' + stats + '</div>' : '') +
+      more +
+    '</div>';
   }).join('');
+}
+
+function adminIcon(key) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+    'stroke-linecap="round" stroke-linejoin="round">' +
+    (MENU_ICON['a-' + key] || MENU_ICON.admin) + '</svg>';
 }
 
 function showProfile(on) {

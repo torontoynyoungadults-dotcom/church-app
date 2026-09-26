@@ -2825,6 +2825,11 @@ function getAdminBootstrap(key) {
 /** 첫 화면(메뉴) 카드에 보여줄 요약 숫자 — 가볍게 계산합니다 */
 function getHomeStats(key) {
   requireAdmin_(key);
+  return 홈통계_();
+}
+
+/** 권한 확인 없이 숫자만 (포털 · 관리 화면이 함께 씁니다) */
+function 홈통계_() {
 
   // 셀: 전체 출석률 + 이번 주 제출 현황
   var 출결 = rows_(SHEET_출결기록);
@@ -2852,11 +2857,17 @@ function getHomeStats(key) {
       submitted: cellsList.filter(function (c) { return 제출[c.name]; }).length,
       weekOf: 이번주
     },
-    newFamily: {
-      active: nf.filter(function (n) { return /주차대상$/.test(n.stage); }).length,
-      ready: nf.filter(function (n) { return n.stage === '셀배정대상'; }).length,
-      settled: nf.filter(function (n) { return n.stage === '셀배정완료'; }).length
-    },
+    newFamily: (function () {
+      var t = ymd_(new Date());
+      return {
+        active: nf.filter(function (n) { return /주차대상$/.test(n.stage); }).length,
+        ready: nf.filter(function (n) { return n.stage === '셀배정대상'; }).length,
+        settled: nf.filter(function (n) { return n.stage === '셀배정완료'; }).length,
+        week: nf.filter(function (n) {
+          return n.joinedAt && (parseYmd_(t) - parseYmd_(n.joinedAt)) / 86400000 <= 7;
+        }).length
+      };
+    })(),
     team: {
       count: teams.length,
       reported: teams.filter(function (t) { return 보고팀[t.name]; }).length,
@@ -6755,7 +6766,7 @@ function 포털메뉴_(r, token) {
       url: base + '?page=team&t=' + encodeURIComponent(token),
       note: r.teams.join(', ') });
   }
-  if (has('팀장') || 커미티) {
+  if (has('팀장') || 커미티 || 지출공개_()) {
     out.push({ key: 'expense', title: '지출환급신청서', desc: '영수증 첨부 · 환급 신청',
       url: base + '?page=expense', note: '' });
   }
@@ -6792,26 +6803,124 @@ function 포털메뉴_(r, token) {
  * 커미티 칸 — 관리 페이지의 각 영역으로 바로 들어갑니다 (#영역).
  * 포털에서 본인 확인이 끝났으므로 관리자 비밀번호를 다시 묻지 않습니다.
  */
-function 포털관리메뉴_(r) {
-  if (r.roles.indexOf('커미티') === -1) return [];
-  var base = (앱주소_() || '') + '?page=admin&key=' + encodeURIComponent(설정값_('관리자키') || '');
-  return [
-    ['cell', '셀 (소그룹) 관리', '출석 · 보고서'],
-    ['nf', '새가족 관리', '4주 과정 · 정착'],
-    ['team', '사역팀 관리', '팀 보고서 · 팀원'],
-    ['tr', '제자훈련 관리', '출석 · 수료'],
-    ['mis', '선교팀 관리', '서류 · 항공'],
-    ['cells', '셀 신청 · 편성', '신청 현황 · 배정 · 공개'],
-    ['cal', '일정 관리', '공개 · 커미티'],
-    ['acct', '회계 관리', '지출 · Cheque'],
-    ['dir', '교적 관리', '검색 · 수정'],
-    ['push', '알림 관리', '푸시 켜기 · 직접 보내기'],
-    ['home', '관리 전체', '관리시스템 첫 화면']
-  ].map(function (x) {
-    var url = x[0] === 'cells' ? (앱주소_() || '') + '?page=cells&key=' + encodeURIComponent(설정값_('관리자키') || '')
-      : base + (x[0] === 'home' ? '' : '#' + x[0]);
-    return { key: x[0], title: x[1], desc: x[2], url: url };
-  });
+function 포털관리메뉴_(r, token) {
+  var has = function (x) { return r.roles.indexOf(x) !== -1; };
+  var 커미티 = has('커미티');
+  var 새가족팀 = has('새가족팀'), 회계팀 = has('회계팀');
+  if (!커미티 && !새가족팀 && !회계팀) return [];
+
+  var app = 앱주소_() || '';
+  var akey = encodeURIComponent(설정값_('관리자키') || '');
+  var base = app + '?page=admin&key=' + akey;
+  var st = {};
+  try { st = 홈통계_(); } catch (e) { st = {}; }
+  var out = [];
+
+  /* 1. 셀 관리 */
+  if (커미티) {
+    var c = st.cell || {};
+    out.push({ key: 'cell', title: '셀 관리', desc: '출석 · 보고서 · 편성', url: base + '#cell',
+      stats: [
+        { n: (c.rate == null ? '—' : c.rate + '%'), l: '출석률' },
+        { n: (c.submitted || 0) + '/' + (c.count || 0), l: '이번 주 제출', warn: (c.submitted || 0) < (c.count || 0) },
+        { n: (st.directory && st.directory.withCell) || 0, l: '셀 소속' }
+      ],
+      more: [{ t: '셀 신청 · 편성', u: app + '?page=cells&key=' + akey }] });
+  }
+
+  /* 2. 새가족 관리 — 새가족팀도 봅니다 */
+  if (커미티 || 새가족팀) {
+    var n = st.newFamily || {};
+    out.push({ key: 'nf', title: '새가족 관리', desc: '4주 과정 · 셀 배정 · 정착',
+      url: app + '?page=newfamily&t=' + encodeURIComponent(token || ''),
+      stats: [
+        { n: n.active || 0, l: '과정 중' },
+        { n: n.ready || 0, l: '배정 대기', warn: !!(n.ready) },
+        { n: n.week || 0, l: '이번 주 새가족' }
+      ] });
+  }
+
+  /* 3. 사역팀 관리 */
+  if (커미티) {
+    var t = st.team || {};
+    out.push({ key: 'team', title: '사역팀 관리', desc: '팀 보고서 · 팀원', url: base + '#team',
+      stats: [
+        { n: (t.reported || 0) + '/' + (t.count || 0), l: '보고', warn: (t.reported || 0) < (t.count || 0) },
+        { n: t.members || 0, l: '팀원' }
+      ] });
+  }
+
+  /* 4. 회계 관리 — 회계팀도 봅니다 */
+  if (커미티 || 회계팀) {
+    var e = st.expense || {};
+    out.push({ key: 'acct', title: '회계 관리', desc: '지출 신청 · 헌금봉투 · Cheque',
+      url: app + '?page=admin&scope=acct&key=' + encodeURIComponent(회계키_()),
+      stats: [
+        { n: e.open || 0, l: '처리할 지출', warn: !!(e.open) },
+        { n: 헌금대기수_(), l: '봉투 신청', warn: !!헌금대기수_() },
+        { n: '$' + (e.outstanding || 0), l: '미지급' }
+      ] });
+  }
+
+  /* 5. 제자훈련 관리 */
+  if (커미티) {
+    var d = st.training || {};
+    out.push({ key: 'tr', title: '제자훈련 관리', desc: '출석 · 수료', url: base + '#tr',
+      stats: [
+        { n: d.total || 0, l: '인원' },
+        { n: (d.week || 0) + '/' + (d.weeks || 0), l: '주차' },
+        { n: (d.avg == null ? '—' : d.avg + '%'), l: '평균 출석' }
+      ] });
+  }
+
+  /* 6. 선교팀 관리 */
+  if (커미티) {
+    var m = st.mission || {};
+    out.push({ key: 'mis', title: '선교팀 관리', desc: '서류 · 항공 · 일정',
+      url: app + '?page=mission&t=' + encodeURIComponent(token || ''),
+      stats: [
+        { n: m.active || 0, l: '진행 중' },
+        { n: m.gaps || 0, l: '역할 비었음', warn: !!(m.gaps) }
+      ] });
+  }
+
+  /* 7. 교적 관리 */
+  if (커미티) {
+    var dir = st.directory || {};
+    out.push({ key: 'dir', title: '교적 관리', desc: '검색 · 수정', url: base + '#dir',
+      stats: [
+        { n: dir.total || 0, l: '전체' },
+        { n: dir.noCell || 0, l: '셀 없음' }
+      ] });
+  }
+
+  /* 8. 알림 관리 */
+  if (커미티) {
+    out.push({ key: 'push', title: '알림 관리', desc: '푸시 · 공지 · 직접 보내기', url: base + '#push',
+      stats: [{ n: 푸시행들_().length, l: '알림 켠 기기' }] });
+  }
+
+  /* 9. 일정 관리 */
+  if (커미티) {
+    out.push({ key: 'cal', title: '일정 관리', desc: '공개 · 리더 · 커미티', url: base + '#cal',
+      stats: [{ n: (st.calendar && st.calendar.publicOk) ? '연결됨' : '연결 안 됨', l: '공개 캘린더',
+        warn: !(st.calendar && st.calendar.publicOk) }] });
+  }
+
+  return out;
+}
+
+/** 헌금봉투 발급을 기다리는 사람 수 */
+function 헌금대기수_() {
+  var n = 0, 본 = {};
+  var rows = rows_(SHEET_헌금신청);
+  for (var i = rows.length - 1; i >= 0; i--) {
+    var nm = String(rows[i][EV_이름]).trim();
+    if (!nm || 본[nm]) continue;
+    본[nm] = 1;
+    if (String(rows[i][EV_상태] || '발급중').trim() === '발급중') n++;
+  }
+  return n;
 }
 
 /* ---- 본인 확인 ---- */
@@ -7215,7 +7324,7 @@ function portalViewAs(token, name) {
     me: 내정보_(who, r),
     roles: r.roles,
     menus: menus,
-    admin: 포털관리메뉴_(r),
+    admin: 포털관리메뉴_(r, token),
     committee: r.roles.indexOf('커미티') !== -1,
     leader: 볼캘린더_(r.roles).리더,
     hasCalendar: 달력있나_(r.roles)
@@ -7240,7 +7349,7 @@ function 포털자료_(token) {
     me: 내정보_(me, r),
     roles: r.roles,
     menus: 포털메뉴_(r, token),
-    admin: 포털관리메뉴_(r),
+    admin: 포털관리메뉴_(r, token),
     leader: 볼캘린더_(r.roles).리더,
     hasCalendar: 달력있나_(r.roles),
     googleReady: 구글준비됨_(),
@@ -11322,4 +11431,18 @@ function 포털뱃지_(todos) {
     else if (id.indexOf('cellapp-in-') === 0) add('a-cells');
   });
   return b;
+}
+
+/** 지출환급신청서를 팀장 말고 누구나 낼 수 있게 열어둘지 (회계팀이 정합니다) */
+function 지출공개_() { return String(설정값_('지출신청공개') || 'OFF').trim().toUpperCase() === 'ON'; }
+
+function setExpenseOpen(key, on) {
+  requireAcct_(key);
+  설정저장_('지출신청공개', on ? 'ON' : 'OFF');
+  return { ok: true, on: 지출공개_() };
+}
+
+function getExpenseOpen(key) {
+  requireAcct_(key);
+  return { on: 지출공개_() };
 }
