@@ -1008,6 +1008,10 @@ function doGet(e) {
         key: isAdmin_(p.key) ? (설정값_('관리자키') || '') : '' }, 'mission');
   }
 
+  if (page === 'album') {
+    return render_('Album', '포토 앨범', { t: p.t || '', id: p.id || '' }, 'album');
+  }
+
   return render_('Leader', '셀모임 보고서', {
     cell: p.cell || '', date: p.date || '', action: p.action || '', t: p.t || ''
   }, 'leader');
@@ -6961,6 +6965,10 @@ function 포털메뉴_(r, token) {
   var 커미티 = has('커미티');
   var out = [];
 
+  // 사진 앨범 — 교인이면 누구나 봅니다 (셀장 · 팀장 · 커미티만 올릴 수 있습니다)
+  out.push({ key: 'album', title: '포토 앨범', desc: '셀 · 사역팀 · 행사 사진 모아보기',
+    url: base + '?page=album&t=' + encodeURIComponent(token), note: '' });
+
   if (has('셀장') || 커미티 || r.cells.length) {
     var 대리 = r.delegate || {};
     out.push({ key: 'leader', title: '셀모임 보고서', desc: '주일 셀모임 출결 · 기도제목 제출',
@@ -12761,6 +12769,53 @@ function minutesSync(token, id) {
   return { ok: true, added: 추가, total: 뽑음.length };
 }
 
+/**
+ * 회의록 본문을 Gemini 로 분석 — 핵심 요약과 할 일(담당자 · 기한)을 뽑아 미리 보여줍니다.
+ * (문서에서 자동으로 찾는 할일찾기_ 와 달리, 시트에 바로 쓰지 않고 화면에만 보여줍니다.
+ *  마음에 드는 항목은 화면에서 "할 일 넣기" 로 직접 추가할 수 있습니다.)
+ */
+function minutesAiAnalyze(token, id) {
+  if (!커미티토큰_(token)) throw new Error('회의록 AI 분석은 커미티만 쓸 수 있습니다.');
+  var m = 회의하나_(id);
+  if (!m) throw new Error('회의록을 찾지 못했습니다.');
+  AI확인_();
+
+  var text = '';
+  try { text = 문서내보내기_(m.docId, 'text/plain'); } catch (e) { throw new Error('문서를 읽지 못했습니다: ' + (e.message || e)); }
+  text = String(text || '').trim();
+  if (!text) throw new Error('문서에 내용이 없습니다.');
+  if (text.length > 12000) text = text.slice(0, 12000);
+
+  var 기준 = /^\d{4}-\d{2}-\d{2}$/.test(m.date) ? m.date : ymd_(new Date());
+  var prompt =
+    '다음은 교회 청년부 커미티 회의록입니다. 회의일은 ' + 기준 + ' 입니다.\n\n' +
+    '--- 회의록 본문 ---\n' + text + '\n--- 끝 ---\n\n' +
+    '아래 JSON 형식으로만 답하세요. 다른 말은 쓰지 마세요.\n' +
+    '{\n' +
+    '  "summary": "회의 전체 핵심 내용을 3~5줄로 요약 (한 줄에 한 문장, \\n 으로 구분)",\n' +
+    '  "actionItems": [\n' +
+    '    { "who": "담당자 이름 — 문서에 없으면 빈 문자열", "what": "해야 할 일을 한 문장으로", "due": "기한 YYYY-MM-DD — 알 수 없으면 빈 문자열" }\n' +
+    '  ]\n' +
+    '}\n\n' +
+    '· actionItems 는 회의록에서 실제로 언급된 할 일만 담고, 없으면 빈 배열로 주세요. 지어내지 마세요.\n' +
+    '· 기한이 "다음 주", "9/30" 처럼 적혀 있으면 회의일(' + 기준 + ') 기준으로 계산해 YYYY-MM-DD 로 바꿔 주세요. 확신이 없으면 빈 문자열로 두세요.';
+
+  var d = AIJSON_(prompt, {
+    system: '당신은 한국 교회 청년부 커미티의 회의 진행을 돕는 꼼꼼한 비서입니다. 회의록에 없는 내용은 지어내지 않습니다.',
+    temperature: 0.3, maxTokens: 1600
+  });
+
+  var items = (d.actionItems || []).map(function (x) {
+    return {
+      who: String((x && x.who) || '').trim().slice(0, 40),
+      what: String((x && x.what) || '').trim().slice(0, 200),
+      due: /^\d{4}-\d{2}-\d{2}$/.test(String((x && x.due) || '')) ? x.due : ''
+    };
+  }).filter(function (x) { return x.what; }).slice(0, 20);
+
+  return { ok: true, summary: String(d.summary || '').trim().slice(0, 1200), actionItems: items, model: AI모델_() };
+}
+
 function minutesEdit(token, id, d) {
   if (!커미티토큰_(token)) throw new Error('커미티만 고칠 수 있습니다.');
   d = d || {};
@@ -12914,6 +12969,28 @@ function AIJSON_(prompt, o) {
   var i = t.indexOf('{'), j = t.lastIndexOf('}');
   if (i >= 0 && j > i) { try { return JSON.parse(t.slice(i, j + 1)); } catch (e2) {} }
   throw new Error('AI 응답을 읽지 못했습니다. 다시 한 번 눌러주세요.');
+}
+
+/**
+ * 새가족 코멘트 · 셀 보고서 · 사역팀 보고서 등 여러 화면에서 공통으로 쓰는
+ * "AI 맞춤법/포맷 정리" — 화면마다 로그인 방식(토큰)이 달라서 특정 역할로 막지 않고,
+ * 로그인된 화면(토큰이 있는 화면)에서만 부를 수 있게 합니다.
+ */
+function aiPolishText(token, text) {
+  if (!String(token || '').trim()) throw new Error('로그인 정보가 없습니다. 새로고침 후 다시 시도해주세요.');
+  text = String(text || '').trim();
+  if (!text) throw new Error('다듬을 내용이 없습니다.');
+  AI확인_();
+  text = text.slice(0, 4000);
+  var prompt =
+    '다음은 교회 청년부 활동 중에 쓴 글입니다. 한국어 맞춤법과 띄어쓰기를 바르게 고치고, 문장을 자연스럽게 다듬어 주세요.\n' +
+    '여러 항목으로 나눌 수 있는 내용이면 짧은 불렛포인트(· 로 시작하는 줄)로 구조화하고, 아니면 문단 그대로 두어도 됩니다.\n' +
+    '원래 뜻 · 사실관계 · 존댓말(또는 반말) 어투는 절대 바꾸거나 새로 지어내지 마세요.\n' +
+    '다듬은 글 내용만 답하세요. 인사말, 설명, 따옴표는 붙이지 마세요.\n\n' +
+    '--- 원문 ---\n' + text;
+  var out = String(AI_(prompt, { temperature: 0.3, maxTokens: 1200 }) || '').trim();
+  if (!out) throw new Error('AI가 응답하지 않았습니다. 다시 눌러주세요.');
+  return { ok: true, text: out };
 }
 
 /* ---- 관리 화면 ---- */
@@ -13521,4 +13598,284 @@ function checkYoutube(key) {
   설정저장_('유튜브채널ID', '');            // 다시 찾게 합니다
   var list = 유튜브영상들_();
   return { ok: true, count: list.length, first: list.length ? list[0].title : '', id: 유튜브채널ID_() };
+}
+
+/* =========================================================
+   포토 앨범 — 셀 · 사역팀 · 전체 행사 사진을 모아 봅니다
+   보기: 교인이면 누구나 (포털 토큰만 있으면)
+   만들기 · 올리기 · 고치기: 커미티는 전부, 셀장은 자기 셀, 팀장은 자기 팀만
+   (전체 행사 앨범은 커미티만 만듭니다)
+   ========================================================= */
+
+var SHEET_앨범 = '포토앨범';
+var SHEET_앨범사진 = '포토앨범사진';
+var HEAD_앨범 = ['ID', '제목', '카테고리', '대상', '설명', '대표사진', '만든이', '만든날짜'];
+var AB_ID = 0, AB_제목 = 1, AB_카테고리 = 2, AB_대상 = 3, AB_설명 = 4, AB_대표 = 5, AB_만든이 = 6, AB_만든날짜 = 7;
+var HEAD_앨범사진 = ['ID', '앨범ID', '파일ID', '파일명', '올린이', '등록시각'];
+var AP_ID = 0, AP_앨범 = 1, AP_파일 = 2, AP_이름 = 3, AP_올린이 = 4, AP_시각 = 5;
+var 앨범카테고리 = ['셀', '사역팀', '행사'];
+
+var 앨범준비됨_ = false;
+function 앨범시트준비_() {
+  if (앨범준비됨_) return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var 새로 = false;
+  if (!ss.getSheetByName(SHEET_앨범)) { createSheet_(ss, SHEET_앨범, HEAD_앨범); 새로 = true; }
+  if (!ss.getSheetByName(SHEET_앨범사진)) { createSheet_(ss, SHEET_앨범사진, HEAD_앨범사진); 새로 = true; }
+  for (var i = 1; i <= HEAD_앨범.length; i++) ensureColumn_(ss, SHEET_앨범, i, HEAD_앨범[i - 1]);
+  for (var j = 1; j <= HEAD_앨범사진.length; j++) ensureColumn_(ss, SHEET_앨범사진, j, HEAD_앨범사진[j - 1]);
+  if (새로) 캐시비움_();
+  앨범준비됨_ = true;
+}
+function 앨범시트_(name) { 앨범시트준비_(); return sheet_(name); }
+
+function 앨범폴더_() {
+  var id = 설정값_('앨범폴더');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  var folder = DriveApp.createFolder('청년부 포토 앨범');
+  설정저장_('앨범폴더', folder.getId());
+  return folder;
+}
+/** 앨범 하나마다 드라이브에 폴더를 따로 둡니다 (아이디로 — 제목이 바뀌어도 안 꼬입니다) */
+function 앨범파일폴더_(albumId) {
+  var root = 앨범폴더_();
+  var it = root.getFoldersByName(albumId);
+  return it.hasNext() ? it.next() : root.createFolder(albumId);
+}
+
+function 앨범카테고리정리_(k) {
+  k = String(k || '').trim();
+  return 앨범카테고리.indexOf(k) !== -1 ? k : '행사';
+}
+
+/** 이 토큰이 이 카테고리 · 대상의 앨범을 만들거나 고칠 수 있는지 (커미티는 전부 통과) */
+function 앨범권한_(token, category, target) {
+  var me = 포털본인_(token);
+  if (!me) return false;
+  var r = 포털역할_(me.name);
+  if (r.roles.indexOf('커미티') !== -1) return true;
+  category = 앨범카테고리정리_(category);
+  target = String(target || '').trim();
+  if (category === '셀') return r.cells.indexOf(target) !== -1;
+  if (category === '사역팀') return r.teams.indexOf(target) !== -1;
+  return false;   // '행사' (전체 행사)는 커미티만
+}
+
+function 앨범하나_(id) {
+  id = String(id || '').trim();
+  var found = null;
+  rows_(SHEET_앨범).forEach(function (r) {
+    if (String(r[AB_ID]).trim() === id) {
+      found = {
+        id: id, title: String(r[AB_제목] || '').trim(),
+        category: 앨범카테고리정리_(r[AB_카테고리]), target: String(r[AB_대상] || '').trim(),
+        desc: String(r[AB_설명] || '').trim(), cover: String(r[AB_대표] || '').trim(),
+        by: String(r[AB_만든이] || '').trim(), at: String(r[AB_만든날짜] || '').trim()
+      };
+    }
+  });
+  return found;
+}
+
+/** 한 앨범의 사진 목록 — 올린 순서대로 */
+function 앨범사진목록_(albumId) {
+  albumId = String(albumId || '').trim();
+  return rows_(SHEET_앨범사진).filter(function (r) { return String(r[AP_앨범]).trim() === albumId; })
+    .map(function (r) {
+      var fid = String(r[AP_파일] || '').trim();
+      return {
+        id: String(r[AP_ID]).trim(), file: fid,
+        name: String(r[AP_이름] || '').trim(), by: String(r[AP_올린이] || '').trim(),
+        at: String(r[AP_시각] || '').trim(),
+        thumb: 사진주소_(fid, 480), full: 사진주소_(fid, 1600)
+      };
+    })
+    .sort(function (a, b) { return a.at < b.at ? -1 : (a.at > b.at ? 1 : 0); });
+}
+
+/** 목록 화면 줄 하나 — 대표 사진 · 장수만 (사진 전체를 다 안 보내 가볍습니다) */
+function 앨범요약_(row, token) {
+  var m = {
+    id: String(row[AB_ID]).trim(), title: String(row[AB_제목] || '').trim(),
+    category: 앨범카테고리정리_(row[AB_카테고리]), target: String(row[AB_대상] || '').trim(),
+    desc: String(row[AB_설명] || '').trim(), by: String(row[AB_만든이] || '').trim(),
+    at: String(row[AB_만든날짜] || '').trim()
+  };
+  var photos = 앨범사진목록_(m.id);
+  var cover = String(row[AB_대표] || '').trim();
+  if (!cover || !photos.some(function (p) { return p.file === cover; })) {
+    cover = photos.length ? photos[photos.length - 1].file : '';
+  }
+  m.cover = 사진주소_(cover, 480);
+  m.count = photos.length;
+  m.canEdit = 앨범권한_(token, m.category, m.target);
+  return m;
+}
+
+/** 앨범 목록 + 내가 새 앨범을 만들 수 있는 셀 · 사역팀 (첫 화면에서 씁니다) */
+function albumInit(token) {
+  var me = requirePortal_(token);
+  앨범시트준비_();
+  var r = 포털역할_(me.name);
+  var 커미티 = r.roles.indexOf('커미티') !== -1;
+  var list = rows_(SHEET_앨범).map(function (row) { return 앨범요약_(row, token); })
+    .sort(function (a, b) { return a.at < b.at ? 1 : (a.at > b.at ? -1 : 0); });
+  return {
+    me: me.name,
+    committee: 커미티,
+    myCells: 커미티 ? getCells().map(function (c) { return c.name; }) : r.cells,
+    myTeams: 커미티 ? 사역팀목록_().map(function (t) { return t.name; }) : r.teams,
+    list: list
+  };
+}
+
+/** 앨범 한 편 — 사진 전체와 함께 */
+function albumOpen(token, id) {
+  var me = requirePortal_(token);
+  var a = 앨범하나_(id);
+  if (!a) throw new Error('앨범을 찾지 못했습니다. 이미 지워졌을 수 있습니다.');
+  return {
+    me: me.name,
+    canEdit: 앨범권한_(token, a.category, a.target),
+    album: { id: a.id, title: a.title, category: a.category, target: a.target,
+      desc: a.desc, by: a.by, at: a.at, cover: a.cover },
+    photos: 앨범사진목록_(a.id)
+  };
+}
+
+/** 새 앨범 만들기 */
+function albumCreate(token, d) {
+  var me = requirePortal_(token);
+  d = d || {};
+  var category = 앨범카테고리정리_(d.category);
+  var target = category === '행사' ? '' : String(d.target || '').trim().slice(0, 40);
+  if (category !== '행사' && !target) throw new Error((category === '셀' ? '셀' : '사역팀') + '을 골라주세요.');
+  if (!앨범권한_(token, category, target)) throw new Error('이 앨범을 만들 권한이 없습니다.');
+  var title = String(d.title || '').trim().slice(0, 60);
+  if (!title) throw new Error('앨범 제목을 적어주세요.');
+  var desc = String(d.desc || '').trim().slice(0, 300);
+
+  var id = 'AB' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  앨범시트_(SHEET_앨범).appendRow([id, title, category, target, desc, '', me.name, now]);
+  캐시비움_();
+  return { ok: true, id: id };
+}
+
+/** 앨범 제목 · 설명 고치기 */
+function albumEdit(token, id, d) {
+  var a = 앨범하나_(id);
+  if (!a) throw new Error('앨범을 찾지 못했습니다.');
+  if (!앨범권한_(token, a.category, a.target)) throw new Error('이 앨범을 고칠 권한이 없습니다.');
+  d = d || {};
+  var sh = 앨범시트_(SHEET_앨범), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][AB_ID]).trim() !== a.id) continue;
+    var title = String(d.title || '').trim().slice(0, 60);
+    if (title) sh.getRange(i + 1, AB_제목 + 1).setValue(title);
+    if (d.desc != null) sh.getRange(i + 1, AB_설명 + 1).setValue(String(d.desc).trim().slice(0, 300));
+    캐시비움_();
+    return { ok: true };
+  }
+  throw new Error('앨범을 찾지 못했습니다.');
+}
+
+/** 앨범과 앨범 안의 사진 · 드라이브 폴더까지 통째로 지웁니다 */
+function albumDelete(token, id) {
+  var a = 앨범하나_(id);
+  if (!a) throw new Error('앨범을 찾지 못했습니다.');
+  if (!앨범권한_(token, a.category, a.target)) throw new Error('이 앨범을 지울 권한이 없습니다.');
+
+  앨범사진목록_(a.id).forEach(function (p) { try { DriveApp.getFileById(p.file).setTrashed(true); } catch (e) {} });
+  try { 앨범파일폴더_(a.id).setTrashed(true); } catch (e) {}
+
+  var sh = 앨범시트_(SHEET_앨범), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][AB_ID]).trim() === a.id) sh.deleteRow(i + 1);
+  }
+  var ps = 앨범시트_(SHEET_앨범사진), pv = ps.getDataRange().getValues();
+  for (var j = pv.length - 1; j >= 1; j--) {
+    if (String(pv[j][AP_앨범]).trim() === a.id) ps.deleteRow(j + 1);
+  }
+  캐시비움_();
+  return { ok: true };
+}
+
+/** 사진 한 장 올리기 — 여러 장은 화면에서 이 함수를 여러 번 부릅니다 */
+function albumUpload(token, id, fileName, dataUrl) {
+  var me = requirePortal_(token);
+  var a = 앨범하나_(id);
+  if (!a) throw new Error('앨범을 찾지 못했습니다.');
+  if (!앨범권한_(token, a.category, a.target)) throw new Error('이 앨범에 사진을 올릴 권한이 없습니다.');
+
+  var m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(String(dataUrl || ''));
+  if (!m) throw new Error('사진 파일만 올릴 수 있습니다.');
+  var bytes = Utilities.base64Decode(m[2]);
+  if (bytes.length > 8 * 1024 * 1024) throw new Error('사진 한 장은 8MB까지 올릴 수 있습니다.');
+
+  var safe = String(fileName || '사진.jpg').replace(/[\\\/:*?"<>|]/g, '_').slice(0, 80);
+  var file = 앨범파일폴더_(a.id).createFile(Utilities.newBlob(bytes, m[1], safe));
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  var fid = file.getId();
+
+  var pid = 'AP' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  앨범시트_(SHEET_앨범사진).appendRow([pid, a.id, fid, safe, me.name, now]);
+
+  // 이 앨범의 첫 사진이면 자동으로 대표 사진이 됩니다
+  if (!a.cover) {
+    var sh = 앨범시트_(SHEET_앨범), v = sh.getDataRange().getValues();
+    for (var i = 1; i < v.length; i++) {
+      if (String(v[i][AB_ID]).trim() === a.id) { sh.getRange(i + 1, AB_대표 + 1).setValue(fid); break; }
+    }
+  }
+  캐시비움_();
+  return { id: pid, file: fid, name: safe, by: me.name, at: now,
+    thumb: 사진주소_(fid, 480), full: 사진주소_(fid, 1600) };
+}
+
+/** 대표 사진(커버) 지정 */
+function albumSetCover(token, id, fileId) {
+  var a = 앨범하나_(id);
+  if (!a) throw new Error('앨범을 찾지 못했습니다.');
+  if (!앨범권한_(token, a.category, a.target)) throw new Error('이 앨범을 고칠 권한이 없습니다.');
+  fileId = String(fileId || '').trim();
+  var 있나 = 앨범사진목록_(a.id).some(function (p) { return p.file === fileId; });
+  if (!있나) throw new Error('이 앨범의 사진이 아닙니다.');
+  var sh = 앨범시트_(SHEET_앨범), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][AB_ID]).trim() === a.id) { sh.getRange(i + 1, AB_대표 + 1).setValue(fileId); break; }
+  }
+  캐시비움_();
+  return { ok: true };
+}
+
+/** 사진 한 장 지우기 (대표 사진이었으면 남은 것 중 하나로 자동 교체) */
+function albumDeletePhoto(token, id, photoId) {
+  var a = 앨범하나_(id);
+  if (!a) throw new Error('앨범을 찾지 못했습니다.');
+  if (!앨범권한_(token, a.category, a.target)) throw new Error('이 앨범을 고칠 권한이 없습니다.');
+  photoId = String(photoId || '').trim();
+
+  var sh = 앨범시트_(SHEET_앨범사진), v = sh.getDataRange().getValues();
+  var fid = '';
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][AP_앨범]).trim() === a.id && String(v[i][AP_ID]).trim() === photoId) {
+      fid = String(v[i][AP_파일] || '').trim();
+      sh.deleteRow(i + 1);
+    }
+  }
+  if (fid) { try { DriveApp.getFileById(fid).setTrashed(true); } catch (e) {} }
+  캐시비움_();
+
+  if (fid && a.cover === fid) {
+    var remain = 앨범사진목록_(a.id);
+    var newCover = remain.length ? remain[remain.length - 1].file : '';
+    var ash = 앨범시트_(SHEET_앨범), av = ash.getDataRange().getValues();
+    for (var j = 1; j < av.length; j++) {
+      if (String(av[j][AB_ID]).trim() === a.id) { ash.getRange(j + 1, AB_대표 + 1).setValue(newCover); break; }
+    }
+    캐시비움_();
+  }
+  return { ok: true };
 }

@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* 포토 앨범 — 구조만 정의합니다. 색 · 여백은 Theme 이 맡습니다 */
+  :root { --accent: #D9862F; --tone-rgb: 210,81,31; }
+  * { box-sizing: border-box; }
+
+  /* ---- 카테고리 탭 ---- */
+  .atabs { display: flex; gap: 7px; margin: 0 16px 12px; }
+  .atabs button {
+    flex: 1; padding: 11px 6px; border-radius: 12px; font: 800 14.5px inherit; font-family: inherit;
+    cursor: pointer; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.07); color: #DCD7D0;
+  }
+  .atabs button.on { background: linear-gradient(135deg, var(--tone), var(--accent)); border-color: transparent; color: #fff; }
+
+  /* ---- 앨범 목록 (썸네일 그리드) ---- */
+  .albgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 11px; }
+  .albcard {
+    position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; border-radius: 15px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.06); cursor: pointer; padding: 0;
+    font-family: inherit; text-align: left;
+  }
+  .albcard img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .albcard .noph {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 30px; opacity: .35;
+  }
+  .albcard:after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 68%;
+    background: linear-gradient(to top, rgba(10,9,8,.86), rgba(10,9,8,0));
+    pointer-events: none;
+  }
+  .albcard .actag {
+    position: absolute; top: 9px; left: 9px; z-index: 1; font-size: 11px; font-weight: 800;
+    padding: 3px 9px; border-radius: 99px; color: #fff; letter-spacing: .01em;
+  }
+  .actag.ac-cell { background: #D2511F; }
+  .actag.ac-team { background: #2E7D5B; }
+  .actag.ac-event { background: #5C4FB0; }
+  .albcard .albn {
+    position: absolute; left: 11px; right: 11px; bottom: 10px; z-index: 1;
+  }
+  .albcard .albn b { display: block; font-size: 14.5px; font-weight: 800; color: #fff; line-height: 1.4;
+    letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .albcard .albn span { display: block; font-size: 12px; color: #E3DFD9; margin-top: 2px; }
+
+  /* ---- 앨범 상세 ---- */
+  .mtop { display: flex; align-items: center; gap: 8px; margin: 0 16px 12px; }
+  .mtop .back { flex: none; } .mtop .sp { flex: 1; }
+  .albtitle { margin: 9px 0 3px; font-size: 20px; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
+  .upbtn { display: block; text-align: center; cursor: pointer; }
+
+  .phgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .phcell { position: relative; aspect-ratio: 1 / 1; border-radius: 11px; overflow: hidden; background: rgba(255,255,255,.06); }
+  .phcell img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; display: block; }
+  .phcov {
+    position: absolute; top: 5px; left: 5px; font-size: 10.5px; font-weight: 800; color: #1C1C1C;
+    background: #F3C14A; padding: 2px 6px; border-radius: 99px; pointer-events: none;
+  }
+  .phbar { position: absolute; top: 4px; right: 4px; display: flex; gap: 4px; }
+  .phbar button {
+    width: 24px; height: 24px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px;
+    background: rgba(10,9,8,.62); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .phbar button:active { background: rgba(10,9,8,.85); }
+
+  /* ---- 업로드 진행 목록 ---- */
+  .upqueue { display: grid; gap: 6px; margin-top: 10px; }
+  .upitem { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #E3DFD9; }
+  .upitem .un { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .upitem .us { flex: none; font-weight: 800; }
+  .upitem.ok .us { color: #7ED6A0; }
+  .upitem.err .us { color: #FF9E90; }
+
+  /* ---- 새 앨범 만들기 ---- */
+  .catpick { display: flex; gap: 8px; }
+  .catpick button {
+    flex: 1; padding: 11px 6px; border-radius: 12px; font: 800 14px inherit; font-family: inherit; cursor: pointer;
+    border: 1.5px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: #F5F3EF;
+  }
+  .catpick button.on { border-color: var(--tone); background: rgba(var(--tone-rgb),.28); color: #fff; }
+
+  /* ---- 사진 크게 보기 ---- */
+  #lightbox {
+    position: fixed; inset: 0; background: rgba(8,7,6,.94); z-index: 1000;
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  #lightbox.on { display: flex; }
+  #lightbox img { max-width: 100%; max-height: 82vh; border-radius: 12px; }
+  #lightbox .lbclose { position: absolute; top: 14px; right: 20px; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; }
+  #lightbox .lbnav {
+    position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 50%;
+    border: none; background: rgba(255,255,255,.14); color: #fff; font-size: 24px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #lightbox .lbnav.prev { left: 10px; } #lightbox .lbnav.next { right: 10px; }
+  #lightbox .lbcap { position: absolute; left: 0; right: 0; bottom: 16px; text-align: center; color: #E3DFD9; font-size: 13px; }
+
+  /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
+  body .panel {
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: var(--night-ink) !important;
+    box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+  }
+  body .panel .chip { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
+  body .panel .empty, body .panel .meta { color: #E9E5DF !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #F2EFEA !important; }
+  body .panel b, body .panel strong { color: #FFFFFF; }
+  body .panel input, body .panel select, body .panel textarea {
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
+    color: #FFFFFF !important;
+  }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel .btn:not(.accent):not(.danger) {
+    background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
+    color: #FFFFFF !important;
+  }
+  body .panel .btn.accent, body .panel .submit {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
+  }
+  body .panel .btn.danger {
+    background: rgba(255,255,255,.12) !important; color: #FF9E90 !important;
+    border-color: rgba(255,158,144,.45) !important;
+  }
+
+  /* 어두운 유리 위에서는 글씨 변수 자체를 밝은 쪽으로 (가독성 최우선) */
+  body .shell, body .shell * {
+    --ink-1: #FFFFFF; --ink-2: #F0EDE8; --ink-3: #DCD7D0; --ink-4: #C2BCB4;
+    --night-ink: #FFFFFF; --night-sub: #D9D4CD;
+    --hair: rgba(255,255,255,.15); --hair-2: rgba(255,255,255,.22);
+  }
+  body option, body optgroup { color: #1A1917; background: #FFFFFF; }
+  body .ynfoot .cp { color: #CFC9C1 !important; }
+
+  body .btn:not(.accent):not(.danger):not(.primary):not(.ghost) {
+    background: rgba(255,255,255,.13) !important;
+    border-color: rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body button:disabled, body .submit:disabled, body .btn:disabled {
+    background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
+    border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
+  }
+  body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  body select, body textarea {
+    background-color: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body select option, body select optgroup { background: #FFFFFF; color: #1A1917; }
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body input:focus, body select:focus, body textarea:focus {
+    border-color: rgba(var(--tone-rgb,210,81,31),.9) !important;
+    background-color: rgba(255,255,255,.15) !important;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
+    <h1>포토 앨범</h1>
+    <p class="meta">YNTORONTO &nbsp;·&nbsp; ALBUM</p>
+  </header>
+  <div id="root"><div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div></div>
+  <footer></footer>
+</div>
+<div id="lightbox" onclick="closeViewer()">
+  <span class="lbclose" onclick="closeViewer()">&times;</span>
+  <button type="button" class="lbnav prev" onclick="viewPrev(event)">&#8249;</button>
+  <img id="lbImg" src="" alt="" onclick="event.stopPropagation();">
+  <button type="button" class="lbnav next" onclick="viewNext(event)">&#8250;</button>
+  <p id="lbCap" class="lbcap"></p>
+</div>
+<!--#include Theme-->
+<script>
+var P = window.__PREFILL__ || {};
+var TOKEN = P.t || '';
+var D = null;      // albumInit 결과 (목록 화면)
+var A = null;       // 지금 열어 본 앨범 (상세 화면)
+var TAB = '전체';
+var CR_CAT = '셀';
+var VIEW_I = -1;
+
+function el(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function jsq(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function say(id, t, k) { var m = el(id); if (m) { m.className = 'msg' + (k ? ' ' + k : ''); m.textContent = t || ''; } }
+function 월일(s) { var m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[2]) + '월 ' + (+m[3]) + '일' : (s || ''); }
+function catClass(c) { return c === '셀' ? 'cell' : (c === '사역팀' ? 'team' : 'event'); }
+
+function boot() {
+  if (!TOKEN) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">포털에서 "포토 앨범" 으로 들어와 주세요.</p>' +
+      '<a class="btn full" href="/">포털로 가기</a></div>';
+    return;
+  }
+  load(function () { if (P.id) openAlbum(P.id); else draw(); });
+}
+
+function load(then) {
+  callServer('albumInit', [TOKEN], function (r) { D = r; A = null; (then || draw)(); }, function (e) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || e) + '</p>' +
+      '<a class="btn full" href="/">포털로 가기</a></div>';
+  });
+}
+
+/* ============ 목록 화면 ============ */
+
+function canCreate() { return !!(D && (D.committee || (D.myCells && D.myCells.length) || (D.myTeams && D.myTeams.length))); }
+
+function filtered() {
+  if (!D) return [];
+  if (TAB === '전체') return D.list;
+  return D.list.filter(function (a) { return a.category === TAB; });
+}
+
+function draw() {
+  A = null;
+  var h = '<div class="atabs">' + ['전체', '셀', '사역팀', '행사'].map(function (t) {
+    return '<button class="' + (TAB === t ? 'on' : '') + '" onclick="setTab(\'' + t + '\')">' + t + '</button>';
+  }).join('') + '</div>';
+
+  h += '<div class="panel">';
+  if (canCreate()) h += '<button class="btn accent full" onclick="openCreate()">+ 새 앨범 만들기</button>';
+  var list = filtered();
+  var top = canCreate() ? '14px' : '0';
+  if (!list.length) {
+    h += '<p class="empty" style="margin-top:' + top + ';">' +
+      (TAB === '전체' ? '아직 등록된 앨범이 없습니다.' : '이 카테고리의 앨범이 아직 없습니다.') + '</p>';
+  } else {
+    h += '<div class="albgrid" style="margin-top:' + top + ';">' + list.map(albumCardHtml).join('') + '</div>';
+  }
+  h += '</div>';
+  el('root').innerHTML = h;
+}
+
+function setTab(t) { TAB = t; draw(); window.scrollTo(0, 0); }
+
+function albumCardHtml(a) {
+  return '<button type="button" class="albcard" onclick="openAlbum(\'' + jsq(a.id) + '\')">' +
+    (a.cover ? '<img src="' + esc(a.cover) + '" alt="">' : '<span class="noph">📷</span>') +
+    '<span class="actag ac-' + catClass(a.category) + '">' + esc(a.category) + '</span>' +
+    '<span class="albn"><b>' + esc(a.title) + '</b><span>' + esc(a.target || '전체 행사') + ' · 사진 ' + a.count + '장</span></span>' +
+    '</button>';
+}
+
+/* ============ 앨범 상세 ============ */
+
+function openAlbum(id) {
+  el('root').innerHTML = '<div class="panel"><i class="skel line" style="width:50%;"></i><i class="skel line"></i></div>';
+  window.scrollTo(0, 0);
+  callServer('albumOpen', [TOKEN, id], function (r) { A = r; paintAlbum(); }, function (e) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || e) + '</p>' +
+      '<button class="btn full" onclick="draw()">목록으로</button></div>';
+  });
+}
+
+function paintAlbum() {
+  var a = A.album;
+  var h = '<div class="mtop">' +
+    '<button class="btn mini back" onclick="draw()">‹ 목록</button><span class="sp"></span>' +
+    (A.canEdit ? '<button class="btn mini" onclick="openEdit()">고치기</button>' : '') +
+    '</div>';
+
+  h += '<div class="panel">' +
+    '<span class="actag ac-' + catClass(a.category) + '" style="position:static;display:inline-block;">' +
+      esc(a.category) + (a.target ? ' · ' + esc(a.target) : '') + '</span>' +
+    '<div class="albtitle">' + esc(a.title) + '</div>' +
+    (a.desc ? '<p class="hint">' + esc(a.desc) + '</p>' : '') +
+    '<p class="meta">' + esc(a.by) + ' · ' + esc(월일(a.at)) + ' · 사진 ' + A.photos.length + '장</p>';
+
+  if (A.canEdit) {
+    h += '<label class="btn accent full upbtn" style="margin-top:10px;">사진 올리기 (여러 장 한번에 선택)' +
+      '<input type="file" accept="image/*" multiple style="display:none;" onchange="onPicked(this)"></label>' +
+      '<div id="upqueue"></div><p class="msg" id="upMsg"></p>';
+  }
+  h += '</div>';
+
+  h += '<div class="panel"><span class="chip">사진 ' + A.photos.length + '장</span>';
+  if (!A.photos.length) h += '<p class="empty">아직 올라온 사진이 없습니다.</p>';
+  else {
+    h += '<div class="phgrid" id="phgrid">' +
+      A.photos.map(function (p, i) { return photoCellHtml(p, i, a.cover); }).join('') + '</div>';
+  }
+  h += '</div>';
+
+  el('root').innerHTML = h;
+}
+
+function photoCellHtml(p, i, cover) {
+  var isCover = p.file === cover;
+  return '<div class="phcell">' +
+    '<img src="' + esc(p.thumb) + '" alt="" onclick="viewPhoto(' + i + ')">' +
+    (isCover ? '<span class="phcov">★ 대표</span>' : '') +
+    (A.canEdit ? '<div class="phbar">' +
+      (isCover ? '' : '<button type="button" onclick="setCover(\'' + jsq(p.file) + '\')" title="대표 사진으로">★</button>') +
+      '<button type="button" onclick="removePhoto(\'' + jsq(p.id) + '\')" title="지우기">✕</button>' +
+      '</div>' : '') +
+    '</div>';
+}
+
+/* ---------- 사진 크게 보기 ---------- */
+
+function viewPhoto(i) { VIEW_I = i; paintViewer(); }
+function paintViewer() {
+  var p = A && A.photos[VIEW_I];
+  if (!p) { closeViewer(); return; }
+  el('lbImg').src = p.full;
+  el('lbCap').textContent = (VIEW_I + 1) + ' / ' + A.photos.length + (p.by ? '  ·  ' + p.by : '');
+  el('lightbox').className = 'on';
+}
+function closeViewer() { el('lightbox').className = ''; el('lbImg').src = ''; VIEW_I = -1; }
+function viewPrev(ev) { ev.stopPropagation(); if (VIEW_I > 0) { VIEW_I--; paintViewer(); } }
+function viewNext(ev) { ev.stopPropagation(); if (A && VIEW_I < A.photos.length - 1) { VIEW_I++; paintViewer(); } }
+
+/* ---------- 대표 사진 · 삭제 ---------- */
+
+function setCover(fileId) {
+  callServer('albumSetCover', [TOKEN, A.album.id, fileId], function () {
+    A.album.cover = fileId; paintAlbum();
+  }, function (e) { alert(e.message || e); });
+}
+function removePhoto(id) {
+  if (!confirm('이 사진을 지울까요?')) return;
+  callServer('albumDeletePhoto', [TOKEN, A.album.id, id], function () { openAlbum(A.album.id); },
+    function (e) { alert(e.message || e); });
+}
+
+/* ---------- 여러 장 올리기 ---------- */
+
+/** 사진이 너무 크면 줄여서 올립니다 */
+function toDataUrl(file, done) {
+  var rd = new FileReader();
+  rd.onerror = function () { done(null); };
+  rd.onload = function () {
+    var url = rd.result;
+    if (!/^data:image\/(jpeg|jpg|png|webp)/i.test(String(url))) { done(url); return; }
+    var img = new Image();
+    img.onerror = function () { done(url); };
+    img.onload = function () {
+      var W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+      var max = 2000;
+      if (Math.max(W, H) <= max && String(url).length < 3500000) { done(url); return; }
+      var s = Math.min(1, max / Math.max(W, H));
+      try {
+        var cv = document.createElement('canvas');
+        cv.width = Math.round(W * s); cv.height = Math.round(H * s);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        done(cv.toDataURL('image/jpeg', 0.88));
+      } catch (e) { done(url); }
+    };
+    img.src = url;
+  };
+  rd.readAsDataURL(file);
+}
+
+function onPicked(input) {
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  if (files.length > 30) {
+    say('upMsg', '한 번에 30장까지 올릴 수 있습니다. 나머지는 나눠서 올려주세요.', 'err');
+    files = files.slice(0, 30);
+  } else say('upMsg', '');
+
+  var q = el('upqueue');
+  q.innerHTML = '<div class="upqueue">' + files.map(function (f, i) {
+    return '<div class="upitem" id="up_' + i + '"><span class="un">' + esc(f.name || '사진') + '</span><span class="us">대기중…</span></div>';
+  }).join('') + '</div>';
+
+  var left = files.length, fail = 0;
+  files.forEach(function (f, i) {
+    var row = el('up_' + i);
+    toDataUrl(f, function (dataUrl) {
+      if (!dataUrl) { fail++; afterOne(row, false, '읽지 못함'); return; }
+      callServer('albumUpload', [TOKEN, A.album.id, f.name || '사진.jpg', dataUrl], function (r) {
+        A.photos.push(r);
+        if (!A.album.cover) A.album.cover = r.file;
+        afterOne(row, true, '완료');
+      }, function (e) { fail++; afterOne(row, false, (e && e.message) || '실패'); });
+    });
+  });
+
+  function afterOne(row, ok, label) {
+    left--;
+    if (row) { row.className = 'upitem ' + (ok ? 'ok' : 'err'); row.querySelector('.us').textContent = label; }
+    if (left === 0) {
+      say('upMsg', fail ? ('사진 ' + (files.length - fail) + '장을 올렸습니다. (' + fail + '건 실패)') : (files.length + '장을 다 올렸습니다.'), fail ? 'err' : 'ok');
+      paintAlbum();
+    }
+  }
+}
+
+/* ---------- 앨범 정보 고치기 ---------- */
+
+function openEdit() {
+  var a = A.album;
+  var h = '<div class="panel"><span class="chip">앨범 정보 고치기</span>' +
+    '<label class="fl">제목</label><input type="text" id="eTitle" value="' + esc(a.title) + '">' +
+    '<label class="fl" style="margin-top:8px;">설명</label><textarea id="eDesc" rows="3">' + esc(a.desc) + '</textarea>' +
+    '<button class="btn accent full" style="margin-top:10px;" onclick="saveEdit()">저장</button>' +
+    '<button class="btn full" style="margin-top:7px;" onclick="paintAlbum()">취소</button>' +
+    '<button class="btn danger full" style="margin-top:7px;" onclick="deleteAlbum()">이 앨범 지우기</button>' +
+    '<p class="msg" id="eMsg"></p></div>';
+  el('root').innerHTML = h;
+  window.scrollTo(0, 0);
+}
+function saveEdit() {
+  var title = el('eTitle').value.trim();
+  if (!title) { say('eMsg', '앨범 제목을 적어주세요.', 'err'); return; }
+  callServer('albumEdit', [TOKEN, A.album.id, { title: title, desc: el('eDesc').value.trim() }],
+    function () { openAlbum(A.album.id); }, function (e) { say('eMsg', e.message || e, 'err'); });
+}
+function deleteAlbum() {
+  if (!confirm('이 앨범과 안의 사진을 모두 지울까요? 되돌릴 수 없습니다.')) return;
+  callServer('albumDelete', [TOKEN, A.album.id], function () { load(); }, function (e) { say('eMsg', e.message || e, 'err'); });
+}
+
+/* ---------- 새 앨범 만들기 ---------- */
+
+function openCreate() {
+  var cats = [];
+  if (D.committee) cats = ['셀', '사역팀', '행사'];
+  else {
+    if (D.myCells && D.myCells.length) cats.push('셀');
+    if (D.myTeams && D.myTeams.length) cats.push('사역팀');
+  }
+  if (!cats.length) return;
+  CR_CAT = cats[0];
+
+  var h = '<div class="panel"><span class="chip">새 앨범 만들기</span>' +
+    '<div class="catpick" id="crCat">' + cats.map(function (c) {
+      return '<button type="button" class="' + (c === CR_CAT ? 'on' : '') + '" onclick="crSetCat(\'' + c + '\')">' + esc(c) + '</button>';
+    }).join('') + '</div>' +
+    '<div id="crTargetWrap" style="margin-top:10px;">' + crTargetHtml(CR_CAT) + '</div>' +
+    '<label class="fl" style="margin-top:10px;">앨범 제목</label>' +
+    '<input type="text" id="crTitle" placeholder="예) 9월 셀모임 사진" maxlength="60">' +
+    '<label class="fl" style="margin-top:8px;">설명 (선택)</label>' +
+    '<textarea id="crDesc" rows="2" placeholder="짧은 설명을 적어주세요" maxlength="300"></textarea>' +
+    '<button class="btn accent full" style="margin-top:10px;" onclick="createAlbum()">앨범 만들기</button>' +
+    '<button class="btn full" style="margin-top:7px;" onclick="draw()">취소</button>' +
+    '<p class="msg" id="crMsg"></p></div>';
+  el('root').innerHTML = h;
+  window.scrollTo(0, 0);
+}
+
+function crSetCat(c) {
+  CR_CAT = c;
+  [].slice.call(el('crCat').children).forEach(function (b) { b.className = b.textContent.trim() === c ? 'on' : ''; });
+  el('crTargetWrap').innerHTML = crTargetHtml(c);
+}
+
+function crTargetHtml(cat) {
+  if (cat === '행사') return '<p class="hint" style="margin:0;">전체 행사 앨범은 별도 대상 없이 만들어집니다.</p>';
+  var opts = cat === '셀' ? (D.myCells || []) : (D.myTeams || []);
+  if (!opts.length) return '<p class="msg err" style="margin:0;">' + (cat === '셀' ? '셀장' : '팀장') + '으로 맡고 계신 곳이 없습니다.</p>';
+  return '<label class="fl">' + (cat === '셀' ? '셀 선택' : '사역팀 선택') + '</label>' +
+    '<select id="crTarget">' + opts.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('') + '</select>';
+}
+
+function createAlbum() {
+  var title = el('crTitle').value.trim();
+  if (!title) { say('crMsg', '앨범 제목을 적어주세요.', 'err'); return; }
+  var target = CR_CAT === '행사' ? '' : (el('crTarget') ? el('crTarget').value : '');
+  if (CR_CAT !== '행사' && !target) { say('crMsg', '대상을 골라주세요.', 'err'); return; }
+  callServer('albumCreate', [TOKEN, { category: CR_CAT, target: target, title: title, desc: el('crDesc').value.trim() }],
+    function (r) { load(function () { openAlbum(r.id); }); },
+    function (e) { say('crMsg', e.message || e, 'err'); });
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+</script>
+</body>
+</html>

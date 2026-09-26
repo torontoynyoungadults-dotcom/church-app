@@ -765,6 +765,13 @@ body .photoempty,
     color: #F4F1EC !important;
     box-shadow: none !important;
   }
+body .nfopts button.on,
+  #lock .panel .nfopts button.on,
+  body .fmopts button.on {
+    background: var(--tone) !important;
+    border-color: var(--tone) !important;
+    color: #fff !important;
+  }
 body .photoempty b,
   body .tagline span b,
   body /* 발급 조건 동의 */
@@ -1124,11 +1131,11 @@ body .mcardlink,
       <span class="bt"><b>주보보기</b></span><span class="ba">›</span>
     </a>
     <div class="aibtns">
-      <a class="bulbtn ai dev" href="?page=devotion">
+      <a class="bulbtn ai dev" id="btnDevotion" href="?page=devotion">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="M12 8c0-3 2.4-5 5.6-5C17.6 6 15.2 8 12 8z"/><path d="M12 11.5c0-2.6-2-4.4-4.8-4.4-.2 2.7 1.9 4.4 4.8 4.4z"/></svg></span>
         <span class="bt"><b>오늘의 묵상</b></span><span class="ba">›</span>
       </a>
-      <a class="bulbtn ai ser" href="?page=sermons">
+      <a class="bulbtn ai ser" id="btnSermons" href="?page=sermons">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="5" width="18.4" height="14" rx="3.2"/><path d="M10.4 9.4l4.8 2.6-4.8 2.6z"/></svg></span>
         <span class="bt"><b>지난 설교</b></span><span class="ba">›</span>
       </a>
@@ -1251,6 +1258,7 @@ var MENU_ICON = {
   bulletin: '<path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/>',
   bulletinEdit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   minutes: '<rect x="4.5" y="3" width="15" height="18" rx="2.4"/><path d="M8 8.5h8"/><path d="M8 12.5h8"/><path d="M8 16.5h4.5"/>',
+  album: '<rect x="3" y="7" width="18" height="13" rx="2.6"/><path d="M8.2 7l1.5-2.3h4.6L15.8 7"/><circle cx="12" cy="13.6" r="3.4"/>',
   'a-ai': '<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9.5" cy="10.5" r="1.3"/><circle cx="14.5" cy="10.5" r="1.3"/><path d="M9 15c1.8 1.2 4.2 1.2 6 0"/>',
   'a-cell': '<circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9.2 5 2.2 5 5.4"/>',
   'a-nf': '<path d="M12 21V11"/><path d="M12 11c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5z"/><path d="M12 14c0-3-2.3-5-5.5-5-.2 3.1 2.2 5 5.5 5z"/>',
@@ -1546,17 +1554,26 @@ function goNewcomerGoogle() {
     goingGoogle(u, 'nfStart');
   }, function (e) { say('nfStartMsg', (e && e.message) || '이동하지 못했습니다.', 'err'); });
 }
+var NF_OPT_LIST = {};   // nfPickHit 에서 값을 다시 찾아보기 위해 key 별 목록을 기억해 둡니다
+
 function nfOpts(id, key, list, cur) {
   NF_PICK[key] = cur || '';
-  el(id).innerHTML = list.map(function (o) {
+  NF_OPT_LIST[key] = list;
+  // 카카오톡 · 인스타그램 등 인앱 브라우저에서 컨테이너에 위임한 클릭(closest)이 씹히는 경우가 있어,
+  // 다른 선택 버튼들과 똑같이 버튼 하나하나에 onclick 을 직접 적어 둡니다.
+  el(id).innerHTML = list.map(function (o, i) {
     var label = Array.isArray(o) ? o[0] : o, val = Array.isArray(o) ? o[1] : o;
-    return '<button type="button" data-v="' + esc(val) + '" class="' + (val === cur ? 'on' : '') + '">' + esc(label) + '</button>';
+    return '<button type="button" class="' + (val === cur ? 'on' : '') +
+      '" onclick="nfPickHit(\'' + id + '\',\'' + key + '\',' + i + ')">' + esc(label) + '</button>';
   }).join('');
-  el(id).onclick = function (ev) {
-    var b = ev.target.closest('button'); if (!b) return;
-    NF_PICK[key] = b.getAttribute('data-v');
-    [].slice.call(el(id).children).forEach(function (x) { x.className = x === b ? 'on' : ''; });
-  };
+}
+
+function nfPickHit(id, key, i) {
+  var o = NF_OPT_LIST[key][i];
+  var val = Array.isArray(o) ? o[1] : o;
+  NF_PICK[key] = val;
+  var box = el(id);
+  [].slice.call(box.children).forEach(function (x, j) { x.className = (j === i) ? 'on' : ''; });
 }
 function showNewcomerForm(mine) {
   clearTimeout(_bootT);
@@ -2261,6 +2278,9 @@ function paint(res) {
   HAS_CAL = !!res.hasCalendar;
   CAL_COM = !!res.committee;
   CAL_LEAD = !!res.leader || CAL_COM;
+  // 오늘의 묵상 · 지난 설교는 로그인 토큰을 넘겨줘야 그 화면에서 다시 로그인을 묻지 않습니다
+  var dv = el('btnDevotion'); if (dv) dv.href = '?page=devotion&t=' + encodeURIComponent(TOKEN);
+  var sv = el('btnSermons'); if (sv) sv.href = '?page=sermons&t=' + encodeURIComponent(TOKEN);
   renderAs();
   renderGNote(res);
   renderHero();

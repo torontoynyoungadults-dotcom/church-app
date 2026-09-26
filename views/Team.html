@@ -10,6 +10,11 @@
   .pwbox { width: 190px; margin: 0 auto; display: block; }
   .pwsubmit { width: 190px !important; margin: 10px auto 0; display: block; }
 
+  /* 라벨 옆 AI 정리 버튼 */
+  .flrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .flrow .chip { margin: 0; }
+  .aipolish { font-size: 12.5px !important; padding: 5px 10px !important; }
+
   /* 팀 카드 */
   .teamcard {
     background: var(--night-2); color: var(--night-ink);
@@ -354,14 +359,18 @@
     </div>
 
     <div class="panel">
-      <span class="chip">최근 사역<span class="req">*</span></span>
+      <div class="flrow"><span class="chip">최근 사역<span class="req">*</span></span>
+        <button type="button" class="btn mini aipolish" id="aiBtn_recent" onclick="aiPolish('recent',this,'aiMsg_recent')">&#10024; AI 맞춤법/포맷 정리</button></div>
       <p class="hint">이번 달 또는 지난 달에 진행한 사역을 적어주세요.</p>
       <textarea id="recent" placeholder="진행한 사역, 은혜로웠던 점, 아쉬웠던 점"></textarea>
+      <p class="msg" id="aiMsg_recent"></p>
     </div>
 
     <div class="panel">
-      <span class="chip">앞으로의 사역</span>
+      <div class="flrow"><span class="chip">앞으로의 사역</span>
+        <button type="button" class="btn mini aipolish" id="aiBtn_upcoming" onclick="aiPolish('upcoming',this,'aiMsg_upcoming')">&#10024; AI 맞춤법/포맷 정리</button></div>
       <textarea id="upcoming" placeholder="준비 중인 사역, 계획, 필요한 협조"></textarea>
+      <p class="msg" id="aiMsg_upcoming"></p>
     </div>
 
     <div class="panel">
@@ -372,8 +381,10 @@
     </div>
 
     <div class="panel">
-      <span class="chip">기도제목 &middot; 커미티 요청</span>
+      <div class="flrow"><span class="chip">기도제목 &middot; 커미티 요청</span>
+        <button type="button" class="btn mini aipolish" id="aiBtn_prayer" onclick="aiPolish('prayer',this,'aiMsg_prayer')">&#10024; AI 맞춤법/포맷 정리</button></div>
       <textarea id="prayer" placeholder="팀의 기도제목, 커미티에 요청하고 싶은 사항"></textarea>
+      <p class="msg" id="aiMsg_prayer"></p>
     </div>
 
     <div class="panel">
@@ -412,6 +423,26 @@ var TOKEN = '', IS_MASTER = false, TEAMS = [], OPT = {};
 var states = {}, picked = {}, editingId = null, expense = '아니오', PRELOADED = null;
 
 function el(id) { return document.getElementById(id); }
+
+/** [✨ AI 맞춤법/포맷 정리] — 입력창 글을 Gemini 로 다듬어 그 자리에 바꿔 넣습니다 */
+function aiPolish(id, btn, msgId, growFn) {
+  var t = el(id), msg = msgId ? el(msgId) : null;
+  if (!t) return;
+  var text = t.value.trim();
+  if (!text) { if (msg) { msg.className = 'msg err'; msg.textContent = '먼저 내용을 적어주세요.'; } return; }
+  var orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '정리하는 중…';
+  if (msg) { msg.className = 'msg'; msg.textContent = ''; }
+  callServer('aiPolishText', [TOKEN, text], function (r) {
+    t.value = (r && r.text) || text;
+    if (typeof growFn === 'function') growFn(t);
+    btn.disabled = false; btn.textContent = orig;
+    if (msg) { msg.className = 'msg ok'; msg.textContent = 'AI가 다듬었습니다. 마음에 안 드시면 직접 고쳐 쓰셔도 됩니다.'; }
+  }, function (e) {
+    btn.disabled = false; btn.textContent = orig;
+    if (msg) { msg.className = 'msg err'; msg.textContent = e.message || 'AI 정리에 실패했습니다.'; }
+  });
+}
 
 /** 소속 목록을 "팀 · 역할, 팀2" 형태의 한 줄로 */
 function belongText(list) {

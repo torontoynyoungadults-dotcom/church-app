@@ -7,6 +7,11 @@
   :root { --accent: #C4431A; --tone-rgb: 196,67,26; --orange: #C4431A; }
   * { box-sizing: border-box; }
 
+  /* 라벨 옆 AI 정리 버튼 */
+  .flrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .flrow .chip { margin: 0; }
+  .aipolish { font-size: 12.5px !important; padding: 5px 10px !important; }
+
   /* 출결 */
   .member { padding: 11px 13px; margin-bottom: 7px; }
   .member.pending { border-color: var(--tone-line) !important; }
@@ -487,8 +492,10 @@ body .toggle button .k,
     </div>
 
     <div class="panel">
-      <span class="chip">기도제목 · 특이사항</span>
+      <div class="flrow"><span class="chip">기도제목 · 특이사항</span>
+        <button type="button" class="btn mini aipolish" id="aiBtn_notes" onclick="aiPolish('notes',this,'aiMsg_notes')">&#10024; AI 맞춤법/포맷 정리</button></div>
       <textarea id="notes" style="min-height:104px;" placeholder="공유하고 싶으신 부분이 있다면 자유롭게 작성해 주세요.&#10;&#10;- 셀원 또는 본인의 중보기도 제목&#10;- 양육팀/목사님 심방이나 상담이 필요한 사항&#10;- 기타 셀 운영 관련 특이사항"></textarea>
+      <p class="msg" id="aiMsg_notes"></p>
     </div>
 
     <div class="panel">
@@ -562,6 +569,26 @@ function currentCell() {
   return i === '' ? null : cells[i];
 }
 function el(id) { return document.getElementById(id); }
+
+/** [✨ AI 맞춤법/포맷 정리] — 입력창 글을 Gemini 로 다듬어 그 자리에 바꿔 넣습니다 */
+function aiPolish(id, btn, msgId, growFn) {
+  var t = el(id), msg = msgId ? el(msgId) : null;
+  if (!t) return;
+  var text = t.value.trim();
+  if (!text) { if (msg) { msg.className = 'msg err'; msg.textContent = '먼저 내용을 적어주세요.'; } return; }
+  var orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '정리하는 중…';
+  if (msg) { msg.className = 'msg'; msg.textContent = ''; }
+  callServer('aiPolishText', [TOKEN, text], function (r) {
+    t.value = (r && r.text) || text;
+    if (typeof growFn === 'function') growFn(t);
+    btn.disabled = false; btn.textContent = orig;
+    if (msg) { msg.className = 'msg ok'; msg.textContent = 'AI가 다듬었습니다. 마음에 안 드시면 직접 고쳐 쓰셔도 됩니다.'; }
+  }, function (e) {
+    btn.disabled = false; btn.textContent = orig;
+    if (msg) { msg.className = 'msg err'; msg.textContent = e.message || 'AI 정리에 실패했습니다.'; }
+  });
+}
 
 /** 소속 목록을 "팀 · 역할, 팀2" 형태의 한 줄로 */
 function belongText(list) {

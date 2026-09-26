@@ -79,6 +79,22 @@
   .titem .tx { flex: none; background: none; border: none; color: #C7C1B9; font-size: 19px;
     line-height: 1; cursor: pointer; padding: 0 2px; font-family: inherit; }
 
+  /* ---- Gemini 요약 · 할 일 추출 ---- */
+  .ai-summary { font-size: 14.5px; line-height: 1.85; color: #F4F1EC; }
+  .ai-summary p { margin: 0 0 6px; }
+  .aitlist { display: grid; gap: 8px; margin-top: 10px; }
+  .aitask {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 13px; border-radius: 13px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
+  }
+  .aitask .ab { flex: 1; min-width: 0; }
+  .aitask .ab b { display: block; font-size: 15px; font-weight: 750; color: #FFFFFF; line-height: 1.6; }
+  .aitask .tm { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .aitask .tg { font-size: 12.5px; font-weight: 800; padding: 3px 9px; border-radius: 7px;
+    background: rgba(255,255,255,.14); color: #FFFFFF; }
+  .aitask .tg.who { background: rgba(var(--tone-rgb),.32); }
+  .aitask .tg.none { background: rgba(255,255,255,.1); color: #C7C1B9; }
+
   /* ---- 할 일 넣기 ---- */
   .trow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
   .trow.one { grid-template-columns: 1fr; }
@@ -282,6 +298,7 @@ var D = null;          // 목록 자료
 var M = null;          // 지금 열어 본 회의록
 var TAB = 'list';
 var ALLDOC = false;
+var AI_RESULT = null, AI_BUSY = false, AI_ERR = '';   // Gemini 요약 · 할일 추출
 
 function el(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -386,6 +403,7 @@ function mineHtml() {
 function openMeet(id) {
   el('root').innerHTML = '<div class="panel"><i class="skel line" style="width:50%;"></i><i class="skel line"></i></div>';
   window.scrollTo(0, 0);
+  AI_RESULT = null; AI_BUSY = false; AI_ERR = '';
   callServer('minutesOpen', [TOKEN, id], function (r) { M = r; ALLDOC = false; paint(); }, function (e) {
     el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || e) + '</p>' +
       '<button class="btn full" onclick="load()">목록으로</button></div>';
@@ -417,6 +435,9 @@ function paint() {
       (ALLDOC ? '' : '<button class="btn morebtn" onclick="ALLDOC=true;paint();">본문 전체 보기 ▾</button>');
   }
   h += '</div>';
+
+  /* Gemini 요약 · 할일 추출 (커미티만) */
+  if (M.canEdit) h += '<div class="panel">' + aiCardHtml() + '</div>';
 
   /* 할 일 */
   h += '<div class="panel"><span class="chip">이 회의의 할 일</span>';
@@ -500,6 +521,62 @@ function syncMeet() {
     say('sMsg', r.added ? ('할 일 ' + r.added + '건을 새로 찾았습니다.') : '새로 찾은 할 일은 없습니다.', 'ok');
     openMeet(M.meet.id);
   }, function (e) { say('sMsg', e.message || e, 'err'); });
+}
+
+/* ---------- Gemini 요약 · 할일 추출 ---------- */
+
+function aiCardHtml() {
+  if (AI_BUSY) {
+    return '<span class="chip">✨ Gemini 요약 · 할 일</span>' +
+      '<p class="hint">문서를 분석하는 중입니다… 잠시만 기다려 주세요.</p>' +
+      '<i class="skel line" style="width:70%;"></i><i class="skel line" style="width:45%;"></i>';
+  }
+  if (!AI_RESULT) {
+    return '<span class="chip">✨ Gemini 요약 · 할 일</span>' +
+      '<p class="hint">회의록 본문을 Gemini 로 분석해 핵심 요약과 할 일(담당자 · 기한)을 뽑아 봅니다.</p>' +
+      (AI_ERR ? '<p class="msg err">' + esc(AI_ERR) + '</p>' : '') +
+      '<button class="btn accent full" onclick="aiAnalyzeMeet()">Gemini 요약 &amp; 할일 추출</button>';
+  }
+  var lines = String(AI_RESULT.summary || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+  var sumHtml = lines.length ? lines.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('')
+    : '<p class="empty" style="margin:0;">요약할 내용이 없습니다.</p>';
+  var items = AI_RESULT.actionItems || [];
+  var itemsHtml = items.length
+    ? '<div class="aitlist">' + items.map(function (t, i) {
+        return '<div class="aitask">' +
+          '<div class="ab"><b>' + esc(t.what) + '</b><div class="tm">' +
+            (t.who ? '<span class="tg who">' + esc(t.who) + '</span>' : '<span class="tg none">담당자 없음</span>') +
+            (t.due ? '<span class="tg">' + esc(월일(t.due)) + '</span>' : '') +
+          '</div></div>' +
+          '<button class="btn mini" onclick="addAiTask(' + i + ')">할 일에 담기</button>' +
+        '</div>';
+      }).join('') + '</div>'
+    : '<p class="empty">뽑아낸 할 일이 없습니다.</p>';
+  return '<span class="chip">✨ Gemini 요약 · 할 일</span>' +
+    '<div class="ai-summary">' + sumHtml + '</div>' +
+    '<p class="hint" style="margin-top:10px;">Gemini 가 찾은 할 일 — 마음에 드는 것만 눌러서 위 "이 회의의 할 일" 목록에 담으세요.</p>' +
+    itemsHtml +
+    '<button class="btn mini" style="margin-top:10px;" onclick="aiAnalyzeMeet()">다시 분석하기</button>';
+}
+
+function aiAnalyzeMeet() {
+  AI_BUSY = true; AI_ERR = ''; paint();
+  callServer('minutesAiAnalyze', [TOKEN, M.meet.id], function (r) {
+    AI_BUSY = false; AI_RESULT = r; paint();
+  }, function (e) {
+    AI_BUSY = false; AI_ERR = e.message || String(e); paint();
+  });
+}
+
+/** Gemini 가 찾은 할 일 하나를 실제 "이 회의의 할 일" 목록에 저장합니다 */
+function addAiTask(i) {
+  var t = AI_RESULT && AI_RESULT.actionItems && AI_RESULT.actionItems[i];
+  if (!t) return;
+  callServer('minutesTaskSave', [TOKEN, { meet: M.meet.id, what: t.what, who: t.who, due: t.due }], function () {
+    AI_RESULT.actionItems.splice(i, 1);
+    // 위쪽 "이 회의의 할 일" 목록도 새로 고치되, Gemini 결과 카드는 그대로 둡니다
+    callServer('minutesOpen', [TOKEN, M.meet.id], function (r) { M = r; paint(); }, function () { paint(); });
+  }, function (e) { alert(e.message || e); });
 }
 
 function editMeet() {
