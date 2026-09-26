@@ -12,30 +12,6 @@
   .flrow .chip { margin: 0; }
   .aipolish { font-size: 12.5px !important; padding: 5px 10px !important; }
 
-  /* 셀모임 자료 — 사진 다중 첨부 · 좌/중앙/우 배치 · 드래그 순서 변경 */
-  .medialist { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
-  .mitem {
-    display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 12px;
-    background: var(--sunken, rgba(0,0,0,.04)); cursor: grab;
-  }
-  .mitem:active { cursor: grabbing; }
-  .mgrip { color: var(--ink-4, #9a9490); font-size: 13px; line-height: 1; letter-spacing: -2px; }
-  .mthumb { width: 52px; height: 52px; border-radius: 9px; object-fit: cover; flex-shrink: 0; background: #ddd; }
-  .mthumb.mload {
-    display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--ink-3, #999);
-    text-align: center; padding: 2px;
-  }
-  .malign { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
-  .malign button {
-    font-size: 11.5px; font-weight: 700; padding: 4px 8px; border-radius: 99px; border: 1px solid var(--hair-2, #ddd);
-    background: transparent; color: var(--ink-3, #888); cursor: pointer;
-  }
-  .malign button.on { background: var(--tone, var(--accent)); border-color: var(--tone, var(--accent)); color: #fff; }
-  .mrm {
-    border: none; background: transparent; color: var(--ink-4, #999); font-size: 20px; line-height: 1;
-    cursor: pointer; padding: 4px 6px; flex-shrink: 0;
-  }
-
   /* 출결 */
   .member { padding: 11px 13px; margin-bottom: 7px; }
   .member.pending { border-color: var(--tone-line) !important; }
@@ -532,15 +508,6 @@ body .toggle button .k,
     </div>
 
     <div class="panel">
-      <span class="chip">셀모임 자료 (사진)</span>
-      <p class="hint">나눔지 · 사진을 여러 장 올릴 수 있어요. 아래에서 순서를 끌어서 바꾸거나, 좌/중앙/우 배치를 골라주세요.</p>
-      <div id="mediaList" class="medialist"></div>
-      <button type="button" class="btn mini" id="mediaAddBtn" onclick="el('mediaInput').click()">📷 사진 추가</button>
-      <input type="file" id="mediaInput" accept="image/*" multiple style="display:none;" onchange="onMediaPicked(this)">
-      <p class="msg" id="mediaMsg"></p>
-    </div>
-
-    <div class="panel">
       <span class="chip">작성자<span class="req">*</span></span>
       <p class="hint" id="submitterHint">기본값은 셀장 이름입니다. 다른 분이 대신 작성한다면 이름을 바꿔주세요.</p>
       <input type="text" id="submitter" placeholder="작성자 이름">
@@ -595,7 +562,6 @@ var cells = [];
 var att = {};              // 셀원 이름 -> {status, reason, reasonOther}
 var picked = { condition: null, mood: null };
 var editingId = null;
-var MEDIA = [];            // 셀모임 자료 사진 — [{id, url, align, name, uploading}]
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -1209,8 +1175,6 @@ function resetForm() {
   picked = { condition: null, mood: null };
   editingId = null;
   el('notes').value = '';
-  MEDIA = [];
-  renderMedia();
   submitterTouched = false;
   renderChoices('condRow', CONDITIONS, 'condition');
   renderChoices('moodRow', MOODS, 'mood');
@@ -1227,8 +1191,6 @@ function loadExisting(rep) {
   picked.condition = rep.condition;
   picked.mood = rep.mood;
   el('notes').value = rep.notes;
-  MEDIA = (rep.media || []).map(function (m) { return { id: m.id, url: m.url, align: m.align || 'center' }; });
-  renderMedia();
   if (rep.submitter && !isDg(currentCell())) { el('submitter').value = rep.submitter; submitterTouched = true; }
   renderChoices('condRow', CONDITIONS, 'condition');
   renderChoices('moodRow', MOODS, 'mood');
@@ -1397,73 +1359,6 @@ function collect() {
   return out;
 }
 
-/* ---------- 셀모임 자료 (사진 다중 첨부 · 좌/중앙/우 배치 · 드래그 순서 변경) ---------- */
-
-function onMediaPicked(input) {
-  var files = Array.prototype.slice.call(input.files || []);
-  input.value = '';
-  if (MEDIA.length + files.length > 10) {
-    el('mediaMsg').textContent = '사진은 한 보고서에 10장까지 올릴 수 있습니다.';
-    files = files.slice(0, Math.max(0, 10 - MEDIA.length));
-  }
-  files.forEach(queueMedia);
-}
-
-function queueMedia(file) {
-  if (!/^image\//.test(file.type || '')) return;
-  var item = { id: '', url: '', align: 'center', name: file.name || '사진', uploading: true };
-  MEDIA.push(item);
-  renderMedia();
-
-  var rd = new FileReader();
-  rd.onload = function () {
-    var cell = currentCell();
-    callServer('uploadCellMaterialImage', [TOKEN, cell ? cell.name : '', rd.result, item.name], function (res) {
-      item.uploading = false; item.id = res.id; item.url = res.url;
-      renderMedia();
-    }, function (e) {
-      MEDIA.splice(MEDIA.indexOf(item), 1);
-      el('mediaMsg').textContent = e.message || '사진을 올리지 못했습니다.';
-      renderMedia();
-    });
-  };
-  rd.readAsDataURL(file);
-}
-
-function removeMedia(i) { MEDIA.splice(i, 1); renderMedia(); }
-function alignMedia(i, a) { MEDIA[i].align = a; renderMedia(); }
-
-var dragFrom = null;
-function mediaDragStart(i) { dragFrom = i; }
-function mediaDrop(i) {
-  if (dragFrom == null || dragFrom === i) return;
-  var m = MEDIA.splice(dragFrom, 1)[0];
-  MEDIA.splice(i, 0, m);
-  dragFrom = null;
-  renderMedia();
-}
-
-function renderMedia() {
-  var box = el('mediaList');
-  if (!box) return;
-  box.innerHTML = MEDIA.map(function (m, i) {
-    return '<div class="mitem" draggable="true" ondragstart="mediaDragStart(' + i + ')" ' +
-      'ondragover="event.preventDefault()" ondrop="mediaDrop(' + i + ')">' +
-      '<span class="mgrip">&#8942;&#8942;</span>' +
-      (m.uploading
-        ? '<span class="mthumb mload">올리는 중…</span>'
-        : '<img class="mthumb" src="' + esc(m.url) + '" alt="">') +
-      '<span class="malign">' +
-        ['left', 'center', 'right'].map(function (a) {
-          var lbl = a === 'left' ? '⬅ 좌' : a === 'right' ? '우 ➡' : '중앙';
-          return '<button type="button" class="' + (m.align === a ? 'on' : '') + '" onclick="alignMedia(' + i + ',\'' + a + '\')">' + lbl + '</button>';
-        }).join('') +
-      '</span>' +
-      '<button type="button" class="mrm" onclick="removeMedia(' + i + ')" aria-label="지우기">&times;</button>' +
-    '</div>';
-  }).join('') || '<p class="empty">아직 올린 사진이 없습니다.</p>';
-}
-
 el('submitBtn').onclick = function () {
   var date = el('meetingDate').value;
   if (!date) return showMsg('모임 날짜를 선택해주세요.', 'err');
@@ -1477,7 +1372,6 @@ el('submitBtn').onclick = function () {
   if (!picked.mood) return showMsg('셀모임 분위기를 선택해주세요.', 'err');
   var submitter = el('submitter').value.trim() || cell.leader;
   if (!submitter) return showMsg('작성자 이름을 입력해주세요.', 'err');
-  if (MEDIA.some(function (m) { return m.uploading; })) return showMsg('사진을 올리는 중입니다. 잠시 후 다시 눌러주세요.', 'err');
 
   var btn = this;
   btn.disabled = true;
@@ -1487,8 +1381,7 @@ el('submitBtn').onclick = function () {
   callServer('submitReport', [TOKEN, {
       reportId: editingId, meetingDate: date, cell: cell.name, submitter: submitter,
       attendance: attendance, condition: picked.condition, mood: picked.mood,
-      notes: el('notes').value.trim(),
-      media: MEDIA.filter(function (m) { return m.id; }).map(function (m) { return { id: m.id, url: m.url, align: m.align }; })
+      notes: el('notes').value.trim()
     }], function (res) { showDone(cell.name, date, res.reportId, !!editingId); }, function (e) {
       btn.disabled = false;
       btn.textContent = editingId ? '수정 내용 저장' : '보고서 제출';

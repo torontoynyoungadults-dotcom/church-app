@@ -466,12 +466,26 @@ function drawEdit() {
       '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;">' +
         '<input type="checkbox" id="fMail"' + (F.mail ? ' checked' : '') + '>' +
         '<span>알림을 이메일로도 받기<em style="display:block;color:var(--ink-3);font-size:13px;">신청이 들어올 때마다 담당자 이메일로 갑니다</em></span></label>' +
-      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0;">' +
+      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0 0 10px;">' +
         '<input type="checkbox" id="fAuto"' + (F.autoClose !== false ? ' checked' : '') + '>' +
         '<span>정원이 차면 저절로 마감하기<em style="display:block;color:var(--ink-3);font-size:13px;">정원을 정했을 때만 씁니다</em></span></label>' +
+      '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:0;">' +
+        '<input type="checkbox" id="fInvite"' + (F.inviteOnly ? ' checked' : '') + '>' +
+        '<span>초대 링크로만 신청받기<em style="display:block;color:var(--ink-3);font-size:13px;">켜면 포털 목록엔 안 뜨고, "신청 받는다고 알리기"로 보낸 링크를 받은 분만 들어올 수 있습니다</em></span></label>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">신청 결과 공유 범위</span>' +
+      [['team', '우리 팀 전체'], ['owner', '만든 사람 · 커미티만']].map(function (o) {
+        var on = (F.resultsShare || 'team') === o[0];
+        return '<label class="lkchg" style="margin:0 0 8px;"><input type="radio" name="fShare" value="' + o[0] + '"' +
+          (on ? ' checked' : '') + ' onchange="F.resultsShare=this.value" style="width:auto;">' + '<span>' + o[1] + '</span></label>';
+      }).join('') +
+      '<p class="hint">팀 오디션 · 면접처럼 개개인의 답을 팀원 전체가 보면 안 되는 신청서는 "만든 사람 · 커미티만"으로 해주세요.</p>' +
     '</div>' +
     '<div class="panel"><span class="chip">문항</span>' +
       '<p class="hint">이름 · 연락처 · 성별 · 셀은 로그인 정보에서 자동으로 채워집니다. 그 밖에 받을 것만 만들어주세요.</p>' +
+      '<button type="button" class="btn mini aipolish" onclick="aiSuggestQuestions()">&#10024; AI로 문항 제안</button>' +
+      '<p class="hint" style="margin:4px 0 10px;">제목만 적어도 괜찮습니다. AI가 어울릴 만한 문항을 만들어 밑에 더해드립니다.</p>' +
+      '<p class="msg" id="aiQMsg"></p>' +
       '<div id="qList"></div>' +
       '<p class="fl" style="margin:14px 0 6px;">문항 더하기</p>' +
       '<div class="addq" id="addQ"></div>' +
@@ -525,6 +539,18 @@ function drawAddButtons() {
   }).join('');
 }
 
+function aiSuggestQuestions() {
+  pullForm();
+  var m = el('aiQMsg');
+  if (!F.title || !F.title.trim()) { m.className = 'msg err'; m.textContent = '먼저 제목을 적어주세요.'; return; }
+  m.className = 'msg'; m.textContent = 'AI가 문항을 만드는 중…';
+  callServer('aiSuggestFormQuestions', [TOKEN, F.title, F.desc], function (qs) {
+    (qs || []).forEach(function (q) { F.questions.push(normQ(q, F.questions.length)); });
+    m.className = 'msg ok'; m.textContent = 'AI가 만든 문항 ' + (qs || []).length + '개를 아래에 더했습니다. 확인하고 고쳐주세요.';
+    drawQuestions();
+  }, function (e) { m.className = 'msg err'; m.textContent = e.message || 'AI 제안에 실패했습니다.'; });
+}
+
 function addQ(type) {
   pullForm();
   var q = normQ({ type: type, label: '', req: false }, F.questions.length);
@@ -550,6 +576,8 @@ function pullForm() {
   F.notify = el('fNotify').checked;
   F.mail = el('fMail') ? el('fMail').checked : false;
   F.autoClose = el('fAuto') ? el('fAuto').checked : true;
+  F.inviteOnly = el('fInvite') ? el('fInvite').checked : false;
+  F.resultsShare = F.resultsShare === 'owner' ? 'owner' : 'team';
   F.status = el('fStatus').value;
   pullQuestions();
 }

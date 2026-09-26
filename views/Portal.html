@@ -401,6 +401,30 @@
   }
   .mebtn svg { width: 18px; height: 18px; color: var(--tone); }
   .mebtn span { margin-left: auto; color: #837D75; font-size: 18px; }
+
+  .qsearch { position: relative; margin-top: 8px; }
+  .qsearch svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: #837D75; pointer-events: none; }
+  .qsearch input {
+    width: 100%; box-sizing: border-box; background: rgba(255,255,255,.05); border: 1px solid var(--hair-night);
+    border-radius: 12px; padding: 10px 12px 10px 36px; color: #E8E3DB; font-family: inherit; font-size: 14.5px;
+  }
+  .qsearch input::placeholder { color: #837D75; }
+  .qsdrop {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30;
+    background: #1C1B19; border: 1px solid var(--hair-night); border-radius: 12px; overflow: hidden;
+    max-height: 300px; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  }
+  .qsrow {
+    display: flex; align-items: center; gap: 10px; padding: 10px 13px; cursor: pointer; border-bottom: 1px solid var(--hair-night);
+  }
+  .qsrow:last-child { border-bottom: none; }
+  .qsrow:hover, .qsrow:active { background: rgba(255,255,255,.06); }
+  .qsrow .qsn { font-weight: 750; color: #F5F3EF; font-size: 14.5px; }
+  .qsrow .qsm { color: #837D75; font-size: 12.5px; margin-top: 2px; }
+  .qsempty { padding: 14px 13px; color: #837D75; font-size: 13.5px; text-align: center; }
+  .qsdetail .kv { padding: 9px 0; }
+  .qsdetail .link { color: var(--tone); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
   .pvbar { display: flex; align-items: center; gap: 10px; padding: 0 14px 12px; }
   .pvbar span { font-size: 17px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em; }
   .pvback {
@@ -1170,19 +1194,24 @@ body .mcardlink,
       <button type="button" class="mebtn" id="meBtn" onclick="showProfile(true)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.8 3.1-6.3 7-6.3s7 2.5 7 6.3"/></svg>
         내 정보 관리 <span>&rsaquo;</span></button>
+      <div class="qsearch">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="qsInput" placeholder="이름 · 전화번호 · 팀 · 셀로 찾기" autocomplete="off" oninput="qsInputChanged()" onfocus="qsInputChanged()">
+        <div id="qsDrop" class="qsdrop" style="display:none;"></div>
+      </div>
     </div>
 
     <div id="todoBox"></div>
 
     <a class="bulbtn in" href="?page=bulletin">
       <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
-      <span class="bt"><b data-i18n>주보보기</b></span><span class="ba">›</span>
+      <span class="bt"><b>주보보기</b></span><span class="ba">›</span>
     </a>
     <div id="sermonCardBox"></div>
     <div class="aibtns">
       <a class="bulbtn ai dev" id="btnDevotion" href="?page=devotion">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="M12 8c0-3 2.4-5 5.6-5C17.6 6 15.2 8 12 8z"/><path d="M12 11.5c0-2.6-2-4.4-4.8-4.4-.2 2.7 1.9 4.4 4.8 4.4z"/></svg></span>
-        <span class="bt"><b data-i18n>오늘의 묵상</b></span><span class="ba">›</span>
+        <span class="bt"><b>오늘의 묵상</b></span><span class="ba">›</span>
       </a>
     </div>
 
@@ -1192,13 +1221,20 @@ body .mcardlink,
         <div id="sermonModalBody"></div>
       </div>
     </div>
+
+    <div id="qsModal" class="ynmodal" style="display:none;" onclick="if(event.target===this)qsCloseModal()">
+      <div class="ynmodalcard">
+        <button type="button" class="ynmodalx" onclick="qsCloseModal()" aria-label="닫기">&times;</button>
+        <div id="qsModalBody"></div>
+      </div>
+    </div>
     <div id="cellAppBox"></div>
     <div id="formsBox"></div>
     <div id="pushBox"></div>
 
     <div id="calWrap" style="display:none;">
       <div class="calhead">
-        <p class="seclabel" data-i18n>청년부 일정</p>
+        <p class="seclabel">청년부 일정</p>
         <button type="button" class="caltog" id="calTog" onclick="toggleCal()">달력 펼치기 <i>▾</i></button>
       </div>
       <div class="panel calpeek" id="calPeek" style="margin-top:0;">
@@ -1217,12 +1253,12 @@ body .mcardlink,
     </div>
 
     <div id="menuWrap" style="display:none;">
-      <p class="seclabel" data-i18n>청년부 행정</p>
+      <p class="seclabel">청년부 행정</p>
       <div class="tiles" id="menus"></div>
     </div>
 
     <div id="adminWrap" style="display:none;">
-      <p class="seclabel adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg><span data-i18n>커미티 관리툴</span></p>
+      <p class="seclabel adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg><span>커미티 관리툴</span></p>
       <div class="tiles adm" id="adminTiles"></div>
     </div>
 
@@ -1786,7 +1822,6 @@ function renderTodos(res, boxId) {
       '</div>' +
       show.map(todoItem).join('') +
     '</div>';
-  try { if (window.YNI18N) YNI18N.apply(box); } catch (e) {}
 }
 
 function todoItem(t) {
@@ -1796,8 +1831,8 @@ function todoItem(t) {
     (meetId
       ? '<button class="tick" title="다 했어요" onclick="doneMeetTask(event,\'' + jsq(meetId) + '\')"></button>'
       : '<span class="tic">' + (t.icon || '•') + '</span>') +
-    '<span class="tib"><span class="tit" data-i18n>' + esc(t.title) + '</span>' +
-      (t.sub ? '<span class="tis" data-i18n>' + esc(t.sub) + '</span>' : '') +
+    '<span class="tib"><span class="tit">' + esc(t.title) + '</span>' +
+      (t.sub ? '<span class="tis">' + esc(t.sub) + '</span>' : '') +
       (t.step ? '<span class="tstep">' + stepBars(t.step) + '</span>' : '') +
     '</span>' +
     (t.url || t.id.indexOf('cellapp-') === 0 || t.id.indexOf('form-') === 0
@@ -1894,6 +1929,17 @@ function renderForms(res, boxId) {
 }
 
 function fmToken() { return NF_TOKEN && !TOKEN ? NF_TOKEN : TOKEN; }
+
+/** 초대 링크(?form=ID)로 들어온 경우 — 목록에 없어도(inviteOnly) 그 신청서를 바로 엽니다 */
+var DEEP_FORM_OPENED = false;
+function openDeepLinkedForm() {
+  if (DEEP_FORM_OPENED) return;
+  var id;
+  try { id = new URLSearchParams(location.search).get('form'); } catch (e) { id = null; }
+  if (!id) return;
+  DEEP_FORM_OPENED = true;
+  openFormPage(id);
+}
 
 function openFormPage(id) {
   FM_FROM = el('main').style.display !== 'none' ? 'main' : 'lock';
@@ -2346,10 +2392,10 @@ function paint(res) {
   try { renderTodos(res); } catch (e) {}
   try { renderForms(res); } catch (e) {}
   try { renderPush(); } catch (e) {}
+  openDeepLinkedForm();
   if (!VIEW) renderProfile();
   el('meBtn').style.display = VIEW ? 'none' : '';
   renderAdmin();
-  translateMenuLang();
   el('calWrap').style.display = HAS_CAL ? 'block' : 'none';
   if (HAS_CAL) { if (CAL_OPEN) loadCal(); loadPeek(); }
 }
@@ -2364,41 +2410,123 @@ function renderSermonCard() {
   box.innerHTML =
     '<button type="button" class="sermoncard" onclick="openSermonModal()">' +
       '<span class="sc-thumb"><img src="' + esc(thumb) + '" alt=""><span class="sc-play">&#9658;</span></span>' +
-      '<span class="sc-b"><span class="sc-k" data-i18n>설교 영상</span>' +
-        '<span class="sc-t" data-i18n>' + esc(SERMON.title || '설교 영상') + '</span>' +
-        '<span class="sc-d" data-i18n>' + esc(SERMON.pending ? '요약 준비 중 · 영상 보기' : (SERMON.preacher || SERMON.date || '')) + '</span></span>' +
+      '<span class="sc-b"><span class="sc-k">설교 영상</span>' +
+        '<span class="sc-t">' + esc(SERMON.title || '설교 영상') + '</span>' +
+        '<span class="sc-d">' + esc(SERMON.pending ? '요약 준비 중 · 영상 보기' : (SERMON.preacher || SERMON.date || '')) + '</span></span>' +
       '<span class="sc-go">&rsaquo;</span>' +
     '</button>';
-  try { if (window.YNI18N) YNI18N.apply(box); } catch (e) {}
 }
 
 function openSermonModal() {
   if (!SERMON || !SERMON.id) return;
-  var short3 = (SERMON.short3 || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
-  var pts = (SERMON.points || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
-  var msgs = (SERMON.messages || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
-  var apply = (SERMON.apply || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
+  var short3 = (SERMON.short3 || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
+  var pts = (SERMON.points || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
+  var msgs = (SERMON.messages || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
+  var apply = (SERMON.apply || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
   var body = el('sermonModalBody');
   body.innerHTML =
     '<div class="sermonyt"><iframe src="https://www.youtube.com/embed/' + encodeURIComponent(SERMON.id) +
       '" title="설교 영상" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>' +
     '<div class="sermonmeta">' +
-      '<h3 data-i18n>' + esc(SERMON.title || '설교') + '</h3>' +
+      '<h3>' + esc(SERMON.title || '설교') + '</h3>' +
       '<div class="sm-sub">' + [SERMON.preacher, SERMON.passage, SERMON.date].filter(Boolean).map(esc).join(' · ') + '</div>' +
       (SERMON.pending
-        ? '<p class="sm-pending" data-i18n>아직 AI 요약이 없습니다. 영상으로 먼저 은혜 나누시고, 요약은 곧 올라옵니다.</p>'
-        : (short3 ? '<div class="sm-h" data-i18n>3줄 요약</div><ul>' + short3 + '</ul>' : '') +
-          (pts ? '<div class="sm-h" data-i18n>핵심 대지</div><ul>' + pts + '</ul>' : '') +
-          (msgs ? '<div class="sm-h" data-i18n>주요 메시지</div><ul>' + msgs + '</ul>' : '') +
-          (apply ? '<div class="sm-h" data-i18n>삶에 적용하기</div><ul>' + apply + '</ul>' : '')) +
+        ? '<p class="sm-pending">아직 AI 요약이 없습니다. 영상으로 먼저 은혜 나누시고, 요약은 곧 올라옵니다.</p>'
+        : (short3 ? '<div class="sm-h">3줄 요약</div><ul>' + short3 + '</ul>' : '') +
+          (pts ? '<div class="sm-h">핵심 대지</div><ul>' + pts + '</ul>' : '') +
+          (msgs ? '<div class="sm-h">주요 메시지</div><ul>' + msgs + '</ul>' : '') +
+          (apply ? '<div class="sm-h">삶에 적용하기</div><ul>' + apply + '</ul>' : '')) +
     '</div>';
   el('sermonModal').style.display = 'flex';
-  try { if (window.YNI18N) YNI18N.apply(body); } catch (e) {}
 }
 
 function closeSermonModal() {
   el('sermonModal').style.display = 'none';
   el('sermonModalBody').innerHTML = '';   // 영상 재생을 멈춥니다
+}
+
+/* ---------- 빠른 교인 검색 ---------- */
+var QS_TIMER = null, QS_SEQ = 0;
+
+function qsInputChanged() {
+  var q = el('qsInput').value.trim();
+  clearTimeout(QS_TIMER);
+  if (!q) { qsHideDrop(); return; }
+  var mySeq = ++QS_SEQ;
+  QS_TIMER = setTimeout(function () {
+    callServer('quickMemberSearch', [TOKEN, q], function (r) {
+      if (mySeq !== QS_SEQ) return;
+      qsDrawDrop(r.list || []);
+    }, function () { if (mySeq === QS_SEQ) qsHideDrop(); });
+  }, 220);
+}
+
+function qsDrawDrop(list) {
+  var box = el('qsDrop');
+  if (!list.length) { box.innerHTML = '<div class="qsempty">일치하는 교인이 없습니다.</div>'; box.style.display = 'block'; return; }
+  box.innerHTML = list.map(function (p) {
+    var meta = [p.cell, (p.teams || []).map(function (t) { return t.team; }).join(', ')].filter(function (x) { return x; }).join(' · ');
+    return '<div class="qsrow" onclick="qsOpenDetail(\'' + esc(p.name).replace(/'/g, "\\'") + '\')">' +
+      '<div><div class="qsn">' + esc(p.name) + '</div>' +
+      (meta ? '<div class="qsm">' + esc(meta) + '</div>' : '') + '</div></div>';
+  }).join('');
+  box.style.display = 'block';
+}
+
+function qsHideDrop() {
+  var box = el('qsDrop');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+}
+
+document.addEventListener('click', function (e) {
+  var box = el('qsDrop');
+  if (box && box.style.display !== 'none' && !e.target.closest('.qsearch')) qsHideDrop();
+});
+
+function qsOpenDetail(name) {
+  qsHideDrop();
+  el('qsInput').value = '';
+  el('qsModalBody').innerHTML = '<p class="empty">불러오는 중…</p>';
+  el('qsModal').style.display = 'flex';
+  callServer('quickMemberDetail', [TOKEN, name], function (p) { qsDrawDetail(p); },
+    function (e) { el('qsModalBody').innerHTML = '<p class="msg err">' + esc(e.message || e) + '</p>'; });
+}
+
+function qsDrawDetail(p) {
+  var row = function (k, v) { return '<div class="kv"><div class="k">' + k + '</div><div class="v' + (v ? '' : ' dim') + '">' + (v || '—') + '</div></div>'; };
+  var cellLink = p.cell ? '<span class="link" onclick="qsOpenGroup(\'cell\',\'' + esc(p.cell).replace(/'/g, "\\'") + '\')">' + esc(p.cell) + '</span>' : '';
+  var teamLinks = (p.teams || []).map(function (t) {
+    return '<span class="link" onclick="qsOpenGroup(\'team\',\'' + esc(t.team).replace(/'/g, "\\'") + '\')">' + esc(t.team) + '</span>' + (t.role ? ' (' + esc(t.role) + ')' : '');
+  }).join(', ');
+  el('qsModalBody').innerHTML = '<div class="qsdetail">' +
+    '<p class="pvbar" style="padding:0 0 10px;"><span style="font-size:17px;font-weight:800;color:#FFFFFF;">' + esc(p.name) + '</span></p>' +
+    row('전화번호', esc(p.phone)) +
+    row('이메일', esc(p.email)) +
+    row('카카오톡', esc(p.kakao)) +
+    row('소속 셀', cellLink) +
+    row('사역팀', teamLinks) +
+    '</div>';
+}
+
+function qsOpenGroup(kind, name) {
+  el('qsModalBody').innerHTML = '<p class="empty">불러오는 중…</p>';
+  callServer('quickGroupMembers', [TOKEN, kind, name], function (r) { qsDrawGroup(kind, name, r.list || []); },
+    function (e) { el('qsModalBody').innerHTML = '<p class="msg err">' + esc(e.message || e) + '</p>'; });
+}
+
+function qsDrawGroup(kind, name, list) {
+  el('qsModalBody').innerHTML = '<div class="qsdetail">' +
+    '<p class="pvbar" style="padding:0 0 10px;"><span style="font-size:17px;font-weight:800;color:#FFFFFF;">' + esc(name) + '</span></p>' +
+    (list.length ? list.map(function (m) {
+      return '<div class="qsrow" style="border-radius:10px;" onclick="qsOpenDetail(\'' + esc(m.name).replace(/'/g, "\\'") + '\')">' +
+        '<div><div class="qsn">' + esc(m.name) + '</div>' + (m.role ? '<div class="qsm">' + esc(m.role) + '</div>' : '') + '</div></div>';
+    }).join('') : '<p class="empty">명단이 없습니다.</p>') +
+    '</div>';
+}
+
+function qsCloseModal() {
+  el('qsModal').style.display = 'none';
+  el('qsModalBody').innerHTML = '';
 }
 
 /* ---------- 커미티 — 다른 사람 화면으로 보기 ---------- */
@@ -2608,15 +2736,12 @@ function tileBadge(key) {
 }
 
 /** 맡고 계신 일 — 작은 타일 (한 줄에 3개) */
-var MENU_TR = {}, ADMIN_TR = {};
-
 function renderMenus() {
   el('menuWrap').style.display = MENUS.length ? 'block' : 'none';
   if (!MENUS.length) return;
   el('menus').innerHTML = MENUS.map(function (m) {
     var ro = VIEW && VIEW_NOLINK;
-    var tr = MENU_TR[m.key] || {};
-    var title = tr.title || m.title, desc = tr.desc || m.desc;
+    var title = m.title, desc = m.desc;
     return '<a class="tile ' + esc(m.key) + (ro ? ' ro' : '') + (VIEW && !ro ? ' as' : '') + '"' +
       (ro ? ' onclick="roTap()"' : ' href="' + esc(m.url) + '"') + ' title="' + esc(desc) + '">' +
       tileBadge(m.key) + tileIcon(m.key) + '<span class="tt">' + esc(title) + '</span>' +
@@ -2629,8 +2754,7 @@ function renderAdmin() {
   el('adminWrap').style.display = ADMIN.length ? 'block' : 'none';
   if (!ADMIN.length) return;
   el('adminTiles').innerHTML = ADMIN.map(function (m) {
-    var tr = ADMIN_TR[m.key] || {};
-    var title = tr.title || m.title, desc = tr.desc || m.desc;
+    var title = m.title, desc = m.desc;
     var stats = (m.stats || []).map(function (x) {
       return '<span class="ac-s' + (x.warn ? ' w' : '') + '"><b>' + esc(x.n) + '</b>' + esc(x.l) + '</span>';
     }).join('');
@@ -2648,26 +2772,6 @@ function renderAdmin() {
     '</div>';
   }).join('');
 }
-
-/** [KR|EN] \uC774 \uB20C\uB9AC\uBA74 \uBA54\uB274 \uD0C0\uC77C\uC758 \uC81C\uBAA9 \u00B7 \uC124\uBA85\uC744 \uD1B5\uC9F8\uB85C \uC601\uC5B4\uB85C \uC62E\uACA8 \uB2E4\uC2DC \uADF8\uB9BD\uB2C8\uB2E4 */
-function translateMenuLang() {
-  var lang = window.YNI18N && YNI18N.lang();
-  if (lang !== 'en') { MENU_TR = {}; ADMIN_TR = {}; renderMenus(); renderAdmin(); return; }
-  var items = [];
-  MENUS.forEach(function (m) { items.push(m.title, m.desc || ''); });
-  var mLen = MENUS.length;
-  ADMIN.forEach(function (m) { items.push(m.title, m.desc || ''); });
-  if (!items.length) return;
-  YNI18N.translateBatch(items, function (out) {
-    if ((window.YNI18N && YNI18N.lang()) !== 'en') return;   // \uADF8 \uC0AC\uC774 \uB2E4\uC2DC KR \uB85C \uBC14\uB00C\uC5C8\uC73C\uBA74 \uBC84\uB9BD\uB2C8\uB2E4
-    var mt = {}, at = {};
-    MENUS.forEach(function (m, i) { mt[m.key] = { title: out[i * 2] || m.title, desc: out[i * 2 + 1] || m.desc }; });
-    ADMIN.forEach(function (m, i) { var j = mLen + i; at[m.key] = { title: out[j * 2] || m.title, desc: out[j * 2 + 1] || m.desc }; });
-    MENU_TR = mt; ADMIN_TR = at;
-    renderMenus(); renderAdmin();
-  });
-}
-document.addEventListener('ynlangchange', translateMenuLang);
 
 function adminIcon(key) {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +

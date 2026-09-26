@@ -1594,6 +1594,64 @@ function getDirectory(key) {
   };
 }
 
+/* ---------- 포털 빠른 교인 검색 (내 정보 관리 아래, 로그인한 아무 청년부원이나 사용) ---------- */
+
+/** 민감하지 않은 정보만 남긴 카드 — 검색결과/상세모달용 */
+function 교인카드_(p) {
+  return {
+    name: p.name,
+    phone: p.phone || '',
+    email: p.email || '',
+    kakao: p.kakao || '',
+    cell: p.cell || '',
+    cells: p.cells || [],
+    teams: (p.teams || []).map(function (t) { return { team: t.team, role: t.role }; }),
+    missions: (p.missions || []).map(function (t) { return { team: t.team, role: t.role }; })
+  };
+}
+
+function quickMemberSearch(token, q) {
+  requirePortal_(token);
+  q = String(q || '').trim();
+  if (q.length < 1) return { list: [] };
+  var qDigits = q.replace(/[^0-9]/g, '');
+  var list = 교적전체_().filter(function (p) {
+    if (p.notFound) return false;
+    if (p.name && p.name.indexOf(q) !== -1) return true;
+    if (qDigits && p.phone && String(p.phone).replace(/[^0-9]/g, '').indexOf(qDigits) !== -1) return true;
+    if (p.cells && p.cells.some(function (c) { return c.indexOf(q) !== -1; })) return true;
+    if (p.teams && p.teams.some(function (t) { return t.team.indexOf(q) !== -1; })) return true;
+    return false;
+  }).slice(0, 20);
+  return { list: list.map(교인카드_) };
+}
+
+function quickMemberDetail(token, name) {
+  requirePortal_(token);
+  var p = 교적전체_().filter(function (x) { return x.name === String(name || '').trim(); })[0];
+  if (!p) throw new Error('교인을 찾을 수 없습니다.');
+  return 교인카드_(p);
+}
+
+/** kind: 'cell' | 'team' — 그 셀/팀 소속 명단 (이름 · 역할만) */
+function quickGroupMembers(token, kind, name) {
+  requirePortal_(token);
+  name = String(name || '').trim();
+  var list = 교적전체_();
+  if (kind === 'cell') {
+    return { list: list.filter(function (p) { return p.cells && p.cells.indexOf(name) !== -1; })
+      .map(function (p) { return { name: p.name, role: '' }; }) };
+  }
+  if (kind === 'team') {
+    var out = [];
+    list.forEach(function (p) {
+      (p.teams || []).forEach(function (t) { if (t.team === name) out.push({ name: p.name, role: t.role }); });
+    });
+    return { list: out };
+  }
+  throw new Error('알 수 없는 종류입니다.');
+}
+
 /* ---------- 교적 내보내기 ---------- */
 
 var 교적내보내기헤더 = ['이름', '영문이름', '성별', '생년월일', '전화번호', '이메일', '카카오톡', '주소',
@@ -1711,26 +1769,35 @@ function 교적카드Html_(p, photo) {
     ? esc_(p.cells.join(', '))
     : '소속 셀 없음' + (p.cellStatus ? ' <span class="r">' + esc_(p.cellStatus) + '</span>' : '');
 
+  // 한 장(Letter)에 딱 맞도록: 밝고 산뜻한 배경 + 포인트 컬러, 4개 섹션을 2열로 배치
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
-    '@page { size: A4; margin: 17mm 16mm; }' +
-    'body { font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; color: #1A1917; margin: 0; }' +
-    '.top { display: flex; align-items: center; gap: 22px; border-bottom: 2.5px solid #1A1917; padding-bottom: 20px; }' +
-    '.ph { width: 104px; height: 104px; border-radius: 52px; object-fit: cover; flex: none; }' +
-    '.phx { width: 104px; height: 104px; border-radius: 52px; background: #F1EFEB; flex: none; }' +
-    '.nm { font-size: 30pt; font-weight: 800; letter-spacing: -1.2pt; line-height: 1.1; }' +
-    '.en { font-size: 13pt; color: #6E6962; margin-top: 5px; letter-spacing: .3pt; }' +
-    '.tag { display: inline-block; font-size: 9pt; font-weight: 700; background: #1A1917; color: #fff;' +
-      ' padding: 3px 11px; border-radius: 20px; margin: 9px 5px 0 0; }' +
-    '.org { font-size: 9pt; color: #8B857C; letter-spacing: 2pt; margin-bottom: 9px; font-weight: 700; }' +
-    'h2 { font-size: 10pt; letter-spacing: 2.4pt; color: #8B857C; margin: 26px 0 9px; font-weight: 800; }' +
+    '@page { size: letter; margin: 13mm 15mm; }' +
+    '* { box-sizing: border-box; }' +
+    'body { font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; color: #22201C; margin: 0; background: #FFFFFF; }' +
+    '.sheet { border: 1.5px solid #ECE7DE; border-radius: 18px; padding: 22px 26px 18px; background:' +
+      ' linear-gradient(180deg, #FFFDF9 0%, #FFFFFF 90px); }' +
+    '.org { font-size: 8.5pt; color: #B08A3E; letter-spacing: 2.2pt; margin-bottom: 8px; font-weight: 800; }' +
+    '.top { display: flex; align-items: center; gap: 18px; border-bottom: 2px solid #F4C766;' +
+      ' padding-bottom: 16px; margin-bottom: 4px; }' +
+    '.ph { width: 78px; height: 78px; border-radius: 39px; object-fit: cover; flex: none;' +
+      ' border: 3px solid #F4C766; }' +
+    '.phx { width: 78px; height: 78px; border-radius: 39px; flex: none; border: 3px solid #F4C766;' +
+      ' background: linear-gradient(135deg,#FFF3D6,#FDE8B8); }' +
+    '.nm { font-size: 22pt; font-weight: 800; letter-spacing: -0.8pt; line-height: 1.15; color: #1E1B16; }' +
+    '.en { font-size: 10.5pt; color: #8B857C; margin-top: 2px; letter-spacing: .2pt; }' +
+    '.tag { display: inline-block; font-size: 8pt; font-weight: 700; color: #9A5B00; background: #FEF1D2;' +
+      ' border: 1px solid #F4C766; padding: 2.5px 10px; border-radius: 20px; margin: 7px 5px 0 0; }' +
+    '.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 22px; margin-top: 6px; }' +
+    'h2 { font-size: 8.5pt; letter-spacing: 2pt; color: #B08A3E; margin: 14px 0 6px; font-weight: 800;' +
+      ' text-transform: uppercase; }' +
     'table { width: 100%; border-collapse: collapse; }' +
-    'th, td { text-align: left; vertical-align: top; padding: 9px 4px; border-bottom: 1px solid #E4E1DB; font-size: 11.5pt; }' +
-    'th { width: 118px; color: #8B857C; font-weight: 700; font-size: 10pt; }' +
+    'th, td { text-align: left; vertical-align: top; padding: 5.5px 4px; border-bottom: 1px solid #F1EDE3; font-size: 10pt; }' +
+    'th { width: 92px; color: #A39D8F; font-weight: 700; font-size: 8.7pt; }' +
     'td { font-weight: 500; }' +
-    '.r { color: #8B857C; font-size: 9.5pt; font-weight: 400; }' +
-    '.foot { margin-top: 30px; border-top: 1px solid #E4E1DB; padding-top: 11px;' +
-      ' font-size: 8.5pt; color: #A39D95; display: flex; justify-content: space-between; }' +
-    '</style></head><body>' +
+    '.r { color: #A39D8F; font-size: 8.3pt; font-weight: 400; }' +
+    '.foot { margin-top: 14px; border-top: 1px solid #F1EDE3; padding-top: 9px;' +
+      ' font-size: 8pt; color: #B7B0A4; display: flex; justify-content: space-between; }' +
+    '</style></head><body><div class="sheet">' +
 
     '<div class="org">TORONTO YOUNGNAK CHURCH &nbsp;·&nbsp; YOUNG ADULTS</div>' +
     '<div class="top">' +
@@ -1741,30 +1808,32 @@ function 교적카드Html_(p, photo) {
       '</div>' +
     '</div>' +
 
-    '<h2>연락처</h2><table>' +
-      줄('전화번호', esc_(p.phone)) + 줄('이메일', esc_(p.email)) +
-      줄('카카오톡', esc_(p.kakao)) + 줄('주소', esc_(p.address)) +
-    '</table>' +
+    '<div class="grid2">' +
+      '<div><h2>연락처</h2><table>' +
+        줄('전화번호', esc_(p.phone)) + 줄('이메일', esc_(p.email)) +
+        줄('카카오톡', esc_(p.kakao)) + 줄('주소', esc_(p.address)) +
+      '</table></div>' +
+      '<div><h2>인적사항</h2><table>' +
+        줄('생년월일', esc_(p.birthdayDisplay)) + 줄('성별', esc_(p.gender)) +
+        줄('세례여부', esc_(p.baptized)) + 줄('헌금봉투번호', esc_(p.envelopeNo)) +
+      '</table></div>' +
+    '</div>' +
 
-    '<h2>인적사항</h2><table>' +
-      줄('생년월일', esc_(p.birthdayDisplay)) + 줄('성별', esc_(p.gender)) +
-      줄('세례여부', esc_(p.baptized)) + 줄('헌금봉투번호', esc_(p.envelopeNo)) +
-    '</table>' +
-
-    '<h2>교회 등록</h2><table>' +
-      줄('청년부 등록일', esc_(p.joinedAt)) + 줄('멤버십 등록일', esc_(p.memberSince)) +
-      줄('첫 셀모임 출석', esc_(p.firstSeen)) +
-    '</table>' +
-
-    '<h2>소속 · 사역</h2><table>' +
-      줄('소속 셀', 셀) + 줄('셀 출석률', 출석) + 줄('사역팀', 팀) + 줄('선교팀', 선교) +
-      줄('제자훈련', (esc_(p.discipleship) || '') +
-        (p.trainingRate ? ' <span class="r">' + esc_(p.trainingRate) + '</span>' : '')) +
-    '</table>' +
+    '<div class="grid2">' +
+      '<div><h2>교회 등록</h2><table>' +
+        줄('청년부 등록일', esc_(p.joinedAt)) + 줄('멤버십 등록일', esc_(p.memberSince)) +
+        줄('첫 셀모임 출석', esc_(p.firstSeen)) +
+      '</table></div>' +
+      '<div><h2>소속 · 사역</h2><table>' +
+        줄('소속 셀', 셀) + 줄('셀 출석률', 출석) + 줄('사역팀', 팀) + 줄('선교팀', 선교) +
+        줄('제자훈련', (esc_(p.discipleship) || '') +
+          (p.trainingRate ? ' <span class="r">' + esc_(p.trainingRate) + '</span>' : '')) +
+      '</table></div>' +
+    '</div>' +
 
     '<div class="foot"><span>토론토영락교회 청년1부 교적</span>' +
       '<span>출력 ' + ymd_(new Date()) + '</span></div>' +
-    '</body></html>';
+    '</div></body></html>';
 }
 
 /** 커미티 — 교적 정보 저장 (셀 소속과 무관하게 누구나) */
@@ -2630,7 +2699,9 @@ function getNewFamilies(token) {
     cells: getCells().map(function (c) { return c.name; }),
     canNotify: 커미티토큰_(token),
     notifyEmails: 새가족알림주소_().join(', '),
-    notifySet: !!String(설정값_('새가족등록알림이메일') || '').trim()
+    notifySet: !!String(설정값_('새가족등록알림이메일') || '').trim(),
+    assignNotifyEmails: 셀배정알림주소_().join(', '),
+    assignNotifySet: !!String(설정값_('셀배정알림이메일') || '').trim()
   };
 }
 
@@ -2792,18 +2863,16 @@ function 배정대상알림_() {
   var 신규 = 대기.filter(function (n) { return 보냄.indexOf(n.name) === -1; });
   if (!신규.length) return { sent: [] };
 
-  // 사역팀 시트에서 양육부 팀장 이메일 찾기
-  var 양육 = 사역팀목록_().filter(function (t) {
-    return t.dept === '양육부' && t.email;
-  })[0];
+  // 커미티가 지정한 셀 배정 알림 주소 (없으면 양육부 팀장/관리자 이메일로 대체)
+  var 받는이 = 셀배정알림주소_();
+  var to = 받는이[0];
   var admin = 설정값_('알림받을이메일');
-  var to = (양육 && 양육.email) || admin;
   if (!to) return { sent: [] };
 
   var url = (앱주소_() || '') + '?page=newfamily';
   MailApp.sendEmail({
-    to: to,
-    cc: (admin && admin !== to) ? admin : '',
+    to: 받는이.join(', '),
+    cc: (admin && 받는이.indexOf(admin) === -1) ? admin : '',
     subject: '[새가족] 셀 배정 대상 ' + 신규.length + '명 안내',
     name: '토론토영락교회 청년1부',
     htmlBody: 배정알림Html_(신규, url),
@@ -3454,6 +3523,40 @@ function getTeamReports(token, teamName) {
     .filter(function (r) { return String(r[TR_팀]).trim() === String(teamName).trim(); })
     .map(function (r) { return buildTeamReport_(r, stIdx); })
     .sort(function (a, b) { return (b.period || '').localeCompare(a.period || ''); });
+}
+
+/** 팀 분위기 AI 분석 — 지금 고른 분위기 · 메모와 최근 몇 달의 흐름을 보고 팀장이 참고할 짧은 분석을 만듭니다 */
+function teamMoodAI(token, teamName, mood, moodNote) {
+  requireTeam_(token, teamName);
+  mood = String(mood || '').trim();
+  moodNote = String(moodNote || '').trim().slice(0, 1000);
+  if (!mood) throw new Error('팀 분위기를 먼저 선택해주세요.');
+  AI확인_();
+
+  var hist = getTeamReports(token, teamName).slice(0, 6)
+    .map(function (r) { return r.period + ': ' + (r.mood || '(미기록)') + (r.moodNote ? ' — ' + r.moodNote : ''); })
+    .join('\n');
+
+  var prompt =
+    '다음은 교회 청년부 사역팀 "' + teamName + '"의 분위기 기록입니다. 팀장(작성자)이 참고할 짧은 분석을 만들어 주세요.\n\n' +
+    '이번 달 분위기: ' + mood + (moodNote ? ' — ' + moodNote : '') + '\n\n' +
+    '최근 기록(최신순, 이번 달 포함 안 됨):\n' + (hist || '(이전 기록 없음)') + '\n\n' +
+    '아래 JSON 으로만 답하세요.\n' +
+    '{\n' +
+    '  "trend": "흐름을 한 문장으로 (예: 최근 안정적으로 유지되고 있습니다 / 최근 조금씩 지쳐가는 흐름입니다)",\n' +
+    '  "insight": "적혀 있는 내용만 근거로, 왜 그렇게 보이는지 1~2문장",\n' +
+    '  "suggestion": "팀장이 이번 주 해볼 만한 실천 한두 가지"\n' +
+    '}\n\n' +
+    '· 적혀 있지 않은 내용을 추측해서 지어내지 마세요. 특정 팀원을 콕 집어 평가하지 마세요.\n' +
+    '· 이전 기록이 없으면 trend 는 "아직 흐름을 볼 기록이 없습니다" 처럼 정직하게 답하고, insight 는 이번 달 내용만으로 답하세요.';
+
+  var d = AIJSON_(prompt, { temperature: 0.4, maxTokens: 700 });
+  return {
+    ok: true,
+    trend: String((d && d.trend) || '').trim().slice(0, 200),
+    insight: String((d && d.insight) || '').trim().slice(0, 400),
+    suggestion: String((d && d.suggestion) || '').trim().slice(0, 400)
+  };
 }
 
 function submitTeamReport__원래(token, data) {
@@ -7532,6 +7635,27 @@ function 새가족알림주소_() {
   return to.filter(function (x, i) { return x && to.indexOf(x) === i; });
 }
 
+/** 새 셀 배정 대상이 등록됐을 때 알림을 받을 주소 (새가족 관리에서 커미티가 적습니다 — 등록 알림과는 별도 주소) */
+function 셀배정알림주소_() {
+  var set = String(설정값_('셀배정알림이메일') || '').split(/[,;\s]+/).filter(function (x) { return /@/.test(x); });
+  if (set.length) return set;
+  var 양육 = 사역팀목록_().filter(function (t) { return t.dept === '양육부' && t.email; })[0];
+  var admin = String(설정값_('알림받을이메일') || '').trim();
+  var to = [];
+  if (양육 && 양육.email) to.push(양육.email);
+  if (admin) to.push(admin);
+  return to.filter(function (x, i) { return x && to.indexOf(x) === i; });
+}
+
+function saveAssignNotify(token, emails) {
+  requireNewFamily_(token);
+  if (!커미티토큰_(token)) throw new Error('알림 받을 이메일은 커미티만 바꿀 수 있습니다.');
+  var list = String(emails || '').split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+  list.forEach(function (x) { if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)) throw new Error('이메일 형식을 확인해주세요: ' + x); });
+  설정저장_('셀배정알림이메일', list.join(', '));
+  return list.join(', ');
+}
+
 function 커미티토큰_(token) {
   if (isAdmin_(token) || 마스터_(token)) return true;
   var me = 포털본인_(token);
@@ -9634,7 +9758,7 @@ function 주보새틀_(date) {
     news: {
       scheduleTitle: '', schedule: '', events: 주보일정이어받기_(p, date),
       prayers: p && p.news ? (p.news.prayers || []) : [],
-      announcements: [{ title: '환영 인사', body: 기본환영문, link: '', qr: 'auto', qrImage: null }]
+      announcements: 주보공지이어받기_(p)
     },
     servants: p && p.servants ? p.servants : 주보기본섬김이_(),
     status: '새 주보'
@@ -9675,6 +9799,14 @@ function 주보일정이어받기_(p, date) {
 
 var 기본환영문 = '토론토 영락교회 청년부 예배에 오신 모든 분들을 주님의 이름으로 환영합니다. ' +
   '처음 오셨거나 등록을 원하시는 분들은 목사님 또는 새가족팀에게 문의해 주세요.';
+
+/** 지난 주일 주보의 광고를 이어받아 초안으로 넣습니다 (환영 인사는 항상 맨 앞, 매번 새로 적습니다) */
+function 주보공지이어받기_(p) {
+  var welcome = { title: '환영 인사', body: 기본환영문, link: '', qr: 'auto', qrImage: null };
+  var prevList = (p && p.news && p.news.announcements) ? p.news.announcements : [];
+  var carried = prevList.filter(function (a) { return a.title !== '환영 인사' && (a.title || a.body); });
+  return [welcome].concat(carried);
+}
 
 function 주보기본섬김이_() {
   var y = new Date().getFullYear() % 100, m = new Date().getMonth();
@@ -11072,7 +11204,9 @@ function 신청서풀기_(r) {
     limit: Number(body.limit) || 0,
     notify: !!body.notify,
     mail: !!body.mail,
-    autoClose: body.autoClose !== false
+    autoClose: body.autoClose !== false,
+    resultsShare: body.resultsShare === 'owner' ? 'owner' : 'team',
+    inviteOnly: !!body.inviteOnly
   };
 }
 
@@ -11132,6 +11266,19 @@ function 신청서만질수있나_(who, f) {
   return !!(f.team && who.teams.indexOf(f.team) !== -1);
 }
 
+/**
+ * 신청 결과(응답)를 볼 수 있나 — 신청서를 "고칠" 권한과는 별도 기준입니다.
+ * f.resultsShare === 'owner' 면 팀 오디션처럼 만든 사람 · 커미티만 결과를 보고,
+ * 'team'(기본값) 이면 지금처럼 같은 팀 전체가 볼 수 있습니다.
+ */
+function 신청서결과볼수있나_(who, f) {
+  if (!f) return false;
+  if (who.committee) return true;
+  if (f.owner === who.name) return true;
+  if (f.resultsShare === 'owner') return false;
+  return !!(f.team && who.teams.indexOf(f.team) !== -1);
+}
+
 /** 신청하는 분 — 교적 교인 또는 새가족 */
 function 폼신청자_(token) {
   if (String(token || '').indexOf(새가족접두) === 0) {
@@ -11183,6 +11330,7 @@ function myForms(token) {
   var out = [];
   신청서들_().forEach(function (f) {
     if (f.status === '준비중' || f.status === '보관') return;
+    if (f.inviteOnly) return;                              // 초대 링크로만 들어갈 수 있어 목록엔 안 보입니다
     if (f.target === '교인' && who.kind !== 'member') return;
     if (f.target === '새가족' && who.kind !== 'newcomer') return;
     var mine = 내답_(f.id, who.name, who.email);
@@ -11416,6 +11564,37 @@ function formGet(token, id) {
   return { form: f, count: 답행들_(f.id).length };
 }
 
+/**
+ * AI 문항 제안 — 제목만 있어도(설명이 비어 있어도) 신청서에 맞을 문항을 제안합니다.
+ * 만드는 화면에서 "✨ AI로 문항 제안" 버튼이 부릅니다.
+ */
+function aiSuggestFormQuestions(token, title, desc) {
+  신청서관리자_(token);
+  AI확인_();
+  title = String(title || '').trim();
+  if (!title) throw new Error('먼저 신청서 제목을 적어주세요.');
+  desc = String(desc || '').trim();
+
+  var kinds = 문항종류().filter(function (t) { return t.key !== 'section'; })
+    .map(function (t) { return t.key; }).join(', ');
+  var prompt = '교회 청년부에서 쓸 신청서(구글폼 같은 것)의 문항을 제안해주세요.\n' +
+    '제목: ' + title + (desc ? '\n설명: ' + desc : '\n설명: (아직 없음 — 제목만 보고 짐작해서 만들어주세요)') + '\n' +
+    '아래 JSON 형식으로만 답해주세요. 문항은 5개 안팎, 이름/연락처는 신청서에 이미 기본으로 들어가니 넣지 마세요.\n' +
+    '{"questions":[{"type":"' + kinds.split(', ')[0] + '","label":"문항 제목","help":"설명(선택, 없으면 빈 문자열)","req":true,"opts":["선택지1","선택지2"]}]}\n' +
+    'type 은 다음 중 하나만: ' + kinds + ' (opts 는 choice · checks 일 때만 채우고, 나머지는 빈 배열)';
+
+  var r = AIJSON_(prompt, { system: '너는 교회 청년부 행정을 돕는 도우미다. 한국어로, 신청서 문항만 JSON으로 정확히 답한다.' });
+  var qs = (r && r.questions) || [];
+  var valid = 문항종류().map(function (t) { return t.key; });
+  return qs.slice(0, 10).map(function (q, i) {
+    var type = valid.indexOf(String(q.type)) !== -1 ? String(q.type) : 'text';
+    var opts = (q.opts || []).map(function (o) { return String(o).trim(); }).filter(function (o) { return o; });
+    if ((type === 'choice' || type === 'checks') && !opts.length) opts = ['예', '아니오'];
+    return { id: 'q' + (i + 1), type: type, label: String(q.label || '').trim() || ('문항 ' + (i + 1)),
+      help: String(q.help || '').trim(), req: q.req !== false, opts: opts, other: false, min: '', max: '', unit: '' };
+  });
+}
+
 /** 새로 만들거나 고칩니다 */
 function formSave(token, data) {
   var who = 신청서관리자_(token);
@@ -11462,7 +11641,9 @@ function formSave(token, data) {
     limit: Math.max(0, Math.min(Number(data.limit) || 0, 9999)),
     notify: !!data.notify,
     mail: !!data.mail,
-    autoClose: data.autoClose !== false
+    autoClose: data.autoClose !== false,
+    resultsShare: String(data.resultsShare) === 'owner' ? 'owner' : 'team',
+    inviteOnly: !!data.inviteOnly
   };
   var status = 신청서상태.indexOf(String(data.status)) !== -1 ? String(data.status) : (old ? old.status : '준비중');
   var team = String(data.team || '').trim().slice(0, 40);
@@ -11522,7 +11703,7 @@ function formResults(token, id) {
   var who = 신청서관리자_(token);
   var f = 신청서찾기_(id);
   if (!f) throw new Error('없는 신청서입니다.');
-  if (!신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  if (!신청서결과볼수있나_(who, f)) throw new Error('이 신청서 결과는 만든 사람과 커미티만 볼 수 있습니다.');
   var rows = 답행들_(f.id).sort(function (a, b) { return (a.at || '').localeCompare(b.at || ''); });
 
   // 객관식 · 복수선택은 몇 명이 골랐는지 세어 줍니다
@@ -11564,7 +11745,7 @@ function formResults(token, id) {
 function formDropAnswer(token, id, name) {
   var who = 신청서관리자_(token);
   var f = 신청서찾기_(id);
-  if (!f || !신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  if (!f || !신청서결과볼수있나_(who, f)) throw new Error('권한이 없습니다.');
   var sh = 신청답시트_(), v = sh.getDataRange().getValues();
   for (var i = v.length - 1; i >= 1; i--) {
     if (String(v[i][FA_폼]).trim() === f.id && String(v[i][FA_이름]).trim() === String(name).trim()) sh.deleteRow(i + 1);
@@ -11577,7 +11758,7 @@ function formDropAnswer(token, id, name) {
 function formExport(token, id) {
   var who = 신청서관리자_(token);
   var f = 신청서찾기_(id);
-  if (!f || !신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
+  if (!f || !신청서결과볼수있나_(who, f)) throw new Error('권한이 없습니다.');
   var rows = 답행들_(f.id).sort(function (a, b) { return (a.at || '').localeCompare(b.at || ''); });
   var qs = (f.questions || []).filter(function (q) { return q.type !== 'section'; });
 
@@ -12541,7 +12722,7 @@ function announceForm(token, id, target, opts) {
   if (!신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
   opts = opts || {};
   var names = 대상사람_(target || (f.target === '새가족' ? '전체' : '전체'));
-  var url = 앱주소_() + '?page=portal';
+  var url = 앱주소_() + '?page=portal' + (f.inviteOnly ? '&form=' + encodeURIComponent(f.id) : '');
   var body = (f.desc ? f.desc.split('\n')[0].slice(0, 120) : '') +
     (f.closeAt ? (f.desc ? '\n' : '') + f.closeAt + ' 까지 신청해주세요.' : '');
 
@@ -12577,8 +12758,8 @@ function announceForm(token, id, target, opts) {
    ============================================================ */
 
 var SHEET_회의록 = '회의록';
-var HEAD_회의록 = ['ID', '제목', '문서ID', '회의날짜', '등록자', '등록시각', '마지막읽음', '상태', '팀'];
-var MN_ID = 0, MN_제목 = 1, MN_문서 = 2, MN_날짜 = 3, MN_등록자 = 4, MN_등록 = 5, MN_읽음 = 6, MN_상태 = 7, MN_팀 = 8;
+var HEAD_회의록 = ['ID', '제목', '문서ID', '회의날짜', '등록자', '등록시각', '마지막읽음', '상태', '팀', '본문'];
+var MN_ID = 0, MN_제목 = 1, MN_문서 = 2, MN_날짜 = 3, MN_등록자 = 4, MN_등록 = 5, MN_읽음 = 6, MN_상태 = 7, MN_팀 = 8, MN_본문 = 9;
 
 /**
  * 회의록 접근 권한 — 커미티/관리자는 전체를 보고, 그 외에는 자기 사역팀(팀장 · 팀원)
@@ -12590,7 +12771,7 @@ function 회의록권한_(token) {
   if (ta) return { name: ta.name, committee: false, teams: [ta.name] };
   var me = requirePortal_(token);
   var mine = 사역팀목록_().filter(function (t) {
-    return t.leader === me.name || (t.members || []).indexOf(me.name) !== -1;
+    return t.leader === me.name || (t.members || []).some(function (mm) { return mm.name === me.name; });
   }).map(function (t) { return t.name; });
   return { name: me.name, committee: false, teams: mine };
 }
@@ -12612,7 +12793,25 @@ var MT_ID = 0, MT_회의 = 1, MT_담당 = 2, MT_할일 = 3, MT_마감 = 4, MT_�
 function 회의록시트_() {
   var sh = 주보시트_(SHEET_회의록, HEAD_회의록);
   try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_회의록.length).setValues([HEAD_회의록]); 캐시비움_(); } } catch (e) {}
+  try { ensureColumn_(SpreadsheetApp.getActiveSpreadsheet(), SHEET_회의록, MN_본문 + 1, '본문'); } catch (e) {}
   return sh;
+}
+
+/**
+ * 구글 문서 없이 앱 안에서 바로 쓴 회의록 본문 — **굵게**, ==강조==, 줄바꿈만 지원하는
+ * 가벼운 서식입니다(구글 문서 HTML과 달리 태그를 직접 받지 않아 안전합니다).
+ */
+function 회의직접HTML_(text) {
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var h = esc(text);
+  h = h.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>').replace(/==([\s\S]+?)==/g, '<mark>$1</mark>');
+  return h.split(/\n{2,}/).map(function (para) {
+    return '<p>' + para.split(/\n/).join('<br>') + '</p>';
+  }).join('');
 }
 function 회의할일시트_() {
   var sh = 주보시트_(SHEET_회의할일, HEAD_회의할일);
@@ -12866,7 +13065,8 @@ function 회의록들_() {
       at: String(r[MN_등록] || '').trim(),
       read: String(r[MN_읽음] || '').trim(),
       status: String(r[MN_상태] || '').trim() || '보임',
-      team: String(r[MN_팀] || '').trim()
+      team: String(r[MN_팀] || '').trim(),
+      body: String(r[MN_본문] || '')
     };
   }).filter(function (n) { return n.status !== '숨김'; })
     .sort(function (a, b) { return (b.date || '') < (a.date || '') ? -1 : 1; });
@@ -12924,7 +13124,8 @@ function minutesList(token) {
     list: visible.map(function (m) {
       var c = 수[m.id] || { all: 0, open: 0, mine: 0 };
       return { id: m.id, title: m.title, date: m.date, by: m.by, read: m.read, team: m.team,
-        docUrl: 'https://docs.google.com/document/d/' + m.docId + '/edit',
+        writeMode: !m.docId,
+        docUrl: m.docId ? ('https://docs.google.com/document/d/' + m.docId + '/edit') : '',
         tasks: c.all, open: c.open, mine: c.mine };
     })
   };
@@ -12935,19 +13136,23 @@ function minutesOpen(token, id) {
   var who = 폼신청자_(token);
   var m = 회의하나_(id);
   var perm = 회의록접근확인_(token, m);
-  var body = '', err = '';
-  try {
-    body = 회의록HTML_(문서본문_(m.docId));
-  } catch (e) {
-    err = e.message || '문서를 읽지 못했습니다.';
+  var body = '', err = '', writeMode = !m.docId;
+  if (writeMode) {
+    body = 회의직접HTML_(m.body || '');
+  } else {
+    try {
+      body = 회의록HTML_(문서본문_(m.docId));
+    } catch (e) {
+      err = e.message || '문서를 읽지 못했습니다.';
+    }
   }
   return {
     canEdit: true,
     committee: perm.committee,
     me: who.name,
-    meet: { id: m.id, title: m.title, date: m.date, by: m.by, read: m.read, team: m.team,
-      docUrl: 'https://docs.google.com/document/d/' + m.docId + '/edit' },
-    html: body, err: err,
+    meet: { id: m.id, title: m.title, date: m.date, by: m.by, read: m.read, team: m.team, writeMode: writeMode,
+      docUrl: m.docId ? ('https://docs.google.com/document/d/' + m.docId + '/edit') : '' },
+    html: body, rawBody: writeMode ? (m.body || '') : '', err: err,
     tasks: 회의할일들_(m.id).sort(function (a, b) {
       if (a.done !== b.done) return a.done ? 1 : -1;
       return (a.due || '9999') < (b.due || '9999') ? -1 : 1;
@@ -12963,7 +13168,7 @@ function 회의하나_(id) {
     if (String(r[MN_ID]).trim() === id) {
       found = { id: id, title: String(r[MN_제목] || '').trim(), docId: String(r[MN_문서] || '').trim(),
         date: 날짜문자열_(r[MN_날짜]), by: String(r[MN_등록자] || '').trim(), read: String(r[MN_읽음] || '').trim(),
-        team: String(r[MN_팀] || '').trim() };
+        team: String(r[MN_팀] || '').trim(), body: String(r[MN_본문] || '') };
     }
   });
   return found;
@@ -12990,11 +13195,12 @@ function minutesAdd(token, d) {
   var perm = 회의록권한_(token);
   if (!perm.committee && !perm.teams.length) throw new Error('회의록은 커미티나 사역팀만 등록할 수 있습니다.');
   d = d || {};
-  var docId = 문서ID_(d.url || d.docId || '');
-  if (!docId) throw new Error('구글 문서 주소를 넣어주세요. (docs.google.com/document/d/... 형태)');
+  var writeMode = !d.url && !d.docId && String(d.mode || '') === 'write';
+  var docId = writeMode ? '' : 문서ID_(d.url || d.docId || '');
+  if (!writeMode && !docId) throw new Error('구글 문서 주소를 넣어주세요. (docs.google.com/document/d/... 형태) 또는 "앱에서 바로 쓰기"를 골라주세요.');
 
   var 이미 = null;
-  회의록들_().forEach(function (m) { if (m.docId === docId) 이미 = m; });
+  if (docId) 회의록들_().forEach(function (m) { if (m.docId === docId) 이미 = m; });
   if (이미) throw new Error('이미 등록된 문서입니다: ' + 이미.title);
 
   // 커미티는 팀을 골라 그 팀 전용으로도 올릴 수 있고, 비워두면 커미티 전체 회의록이 됩니다.
@@ -13011,18 +13217,67 @@ function minutesAdd(token, d) {
     }
   }
 
-  var info = 문서정보_(docId);
+  var info = writeMode ? {} : 문서정보_(docId);
   var title = String(d.title || '').trim() || String(info.name || '').trim() || '회의록';
   var date = /^\d{4}-\d{2}-\d{2}$/.test(String(d.date || '')) ? d.date : ymd_(new Date());
   var id = 'M' + Date.now().toString(36);
+  var body = writeMode ? String(d.body || '').slice(0, 40000) : '';
 
   회의록시트_().appendRow([id, title, docId, date, perm.name,
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'), '', '보임', team]);
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'), '', '보임', team, body]);
   캐시비움_();
 
+  if (writeMode) {
+    var found0 = { added: 0 };
+    try { found0 = 회의직접할일뽑기_(id, body, date); } catch (e) {}
+    return { ok: true, id: id, found: found0.added || 0 };
+  }
   var got = { added: 0, kept: 0 };
   try { got = minutesSync(token, id); } catch (e) { /* 문서를 못 읽어도 등록은 남깁니다 */ }
   return { ok: true, id: id, found: got.added || 0 };
+}
+
+/** 앱에서 바로 쓴 회의록을 고칩니다 (구글 문서 없이 만든 것만) */
+function minutesSaveBody(token, id, body) {
+  var m = 회의하나_(id);
+  회의록접근확인_(token, m);
+  if (m.docId) throw new Error('구글 문서와 연결된 회의록은 여기서 고칠 수 없습니다. 구글 문서에서 고쳐주세요.');
+  body = String(body || '').slice(0, 40000);
+
+  var sh = 회의록시트_(), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][MN_ID]).trim() === m.id) { sh.getRange(i + 1, MN_본문 + 1).setValue(body); break; }
+  }
+  캐시비움_();
+
+  var 결과 = { added: 0 };
+  try { 결과 = 회의직접할일뽑기_(m.id, body, m.date); } catch (e) {}
+  return minutesOpen(token, id);
+}
+
+/** 문서가 아니라 직접 쓴 글에서 할 일을 뽑아 (아직 없는 것만) 더합니다 — minutesSync 와 같은 규칙 */
+function 회의직접할일뽑기_(meetId, rawText, dateStr) {
+  var text = String(rawText || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+  var names = 회의사람들_().sort(function (a, b) { return b.length - a.length; });
+  var 기준 = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? new Date(dateStr + 'T12:00:00') : new Date();
+  var 뽑음 = 할일찾기_(text, names, 기준);
+
+  var 있는것 = {};
+  회의할일들_(meetId).forEach(function (t) { 있는것[할일열쇠_(t.what)] = t; });
+
+  var sh = 회의할일시트_();
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var 추가 = 0;
+  뽑음.forEach(function (t) {
+    var k = 할일열쇠_(t.할일);
+    if (있는것[k]) return;
+    있는것[k] = 1;
+    sh.appendRow(['T' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      meetId, t.담당, t.할일, t.마감, t.끝남 ? '완료' : '', t.끝남 ? now : '', '문서', now, '본문에서 뽑음']);
+    추가++;
+  });
+  캐시비움_();
+  return { added: 추가, total: 뽑음.length };
 }
 
 /** 문서를 다시 읽어 할 일을 새로 뽑습니다 (이미 있는 것은 그대로 둡니다) */
@@ -13079,13 +13334,19 @@ function minutesSync(token, id) {
  * (문서에서 자동으로 찾는 할일찾기_ 와 달리, 시트에 바로 쓰지 않고 화면에만 보여줍니다.
  *  마음에 드는 항목은 화면에서 "할 일 넣기" 로 직접 추가할 수 있습니다.)
  */
+/** 회의록 본문의 순수 텍스트 — 구글 문서든 앱에서 바로 쓴 것이든 같은 모양으로 돌려줍니다 */
+function 회의록텍스트_(m) {
+  if (!m.docId) return String(m.body || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+  return 문서내보내기_(m.docId, 'text/plain');
+}
+
 function minutesAiAnalyze(token, id) {
   var m = 회의하나_(id);
   회의록접근확인_(token, m);
   AI확인_();
 
   var text = '';
-  try { text = 문서내보내기_(m.docId, 'text/plain'); } catch (e) { throw new Error('문서를 읽지 못했습니다: ' + (e.message || e)); }
+  try { text = 회의록텍스트_(m); } catch (e) { throw new Error('문서를 읽지 못했습니다: ' + (e.message || e)); }
   text = String(text || '').trim();
   if (!text) throw new Error('문서에 내용이 없습니다.');
   if (text.length > 12000) text = text.slice(0, 12000);
@@ -13574,14 +13835,17 @@ function devotionHome(token) {
    틀리지 않고 똑같이 보입니다.
    ========================================================= */
 var SHEET_오늘묵상확정 = '오늘묵상확정';
-var HEAD_오늘묵상확정 = ['날짜', '구절표기', '본문텍스트', '작성시각', '작성자'];
-var TV_날짜 = 0, TV_구절 = 1, TV_본문 = 2, TV_시각 = 3, TV_작성자 = 4;
+var HEAD_오늘묵상확정 = ['날짜', '구절표기', '본문텍스트', '작성시각', '작성자', '해설', '질문', '적용', '기도'];
+var TV_날짜 = 0, TV_구절 = 1, TV_본문 = 2, TV_시각 = 3, TV_작성자 = 4, TV_해설 = 5, TV_질문 = 6, TV_적용 = 7, TV_기도 = 8;
 
 function 오늘묵상확정시트_() {
   var sh = 주보시트_(SHEET_오늘묵상확정, HEAD_오늘묵상확정);
   try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_오늘묵상확정.length).setValues([HEAD_오늘묵상확정]); 캐시비움_(); } } catch (e) {}
   return sh;
 }
+
+/** 줄바꿈으로 저장해 둔 여러 줄을 배열로 (해설·질문·적용 칸에 씁니다) */
+function 오늘묵상줄배열_(v) { return String(v || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); }
 
 /** 그 날짜에 관리자가 확정해 둔 말씀이 있으면 돌려줍니다 (없으면 null) */
 function 오늘묵상확정_(date) {
@@ -13590,8 +13854,12 @@ function 오늘묵상확정_(date) {
   var found = null;
   rows_(SHEET_오늘묵상확정).forEach(function (r) {
     if (String(r[TV_날짜] || '').trim() === date) {
-      found = { date: date, verse: String(r[TV_구절] || '').trim(), text: String(r[TV_본문] || '').trim(),
-        at: String(r[TV_시각] || '').trim(), by: String(r[TV_작성자] || '').trim() };
+      found = {
+        date: date, verse: String(r[TV_구절] || '').trim(), text: String(r[TV_본문] || '').trim(),
+        at: String(r[TV_시각] || '').trim(), by: String(r[TV_작성자] || '').trim(),
+        explain: 오늘묵상줄배열_(r[TV_해설]), questions: 오늘묵상줄배열_(r[TV_질문]),
+        apply: 오늘묵상줄배열_(r[TV_적용]), prayer: String(r[TV_기도] || '').trim()
+      };
     }
   });
   return found;
@@ -13603,14 +13871,21 @@ function listTodayVerses(key) {
   var all = rows_(SHEET_오늘묵상확정)
     .filter(function (r) { return String(r[TV_날짜] || '').trim(); })
     .map(function (r) {
-      return { date: String(r[TV_날짜]).trim(), verse: String(r[TV_구절] || '').trim(), text: String(r[TV_본문] || '').trim() };
+      return {
+        date: String(r[TV_날짜]).trim(), verse: String(r[TV_구절] || '').trim(), text: String(r[TV_본문] || '').trim(),
+        explain: 오늘묵상줄배열_(r[TV_해설]), questions: 오늘묵상줄배열_(r[TV_질문]),
+        apply: 오늘묵상줄배열_(r[TV_적용]), prayer: String(r[TV_기도] || '').trim()
+      };
     });
   all.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
   return { today: ymd_(new Date()), list: all.slice(0, 30) };
 }
 
-/** 하루치 말씀을 넣거나 고칩니다 — 같은 날짜면 덮어씁니다 */
-function saveTodayVerse(key, date, verse, text) {
+/**
+ * 하루치 말씀을 넣거나 고칩니다 — 같은 날짜면 덮어씁니다.
+ * explain·questions·apply 는 배열이나 줄바꿈 붙은 문자열 둘 다 받습니다. prayer 는 문자열입니다.
+ */
+function saveTodayVerse(key, date, verse, text, explain, questions, apply, prayer) {
   if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 할 수 있습니다.');
   date = String(date || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('날짜를 골라주세요.');
@@ -13618,20 +13893,100 @@ function saveTodayVerse(key, date, verse, text) {
   text = String(text || '').trim().slice(0, 4000);
   if (!verse) throw new Error('구절 표기를 적어주세요. (예: 요한복음 3:16)');
   if (!text) throw new Error('본문 텍스트를 적어주세요.');
+  var 줄로 = function (v) { return (Array.isArray(v) ? v : 오늘묵상줄배열_(v)).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 6).join('\n'); };
+  explain = 줄로(explain); questions = 줄로(questions); apply = 줄로(apply);
+  prayer = String(prayer || '').trim().slice(0, 500);
 
   var who = isAdmin_(key) ? '관리자' : (커미티이름_(key) || '커미티');
   var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var row = [date, verse, text, now, who, explain, questions, apply, prayer];
   var sh = 오늘묵상확정시트_(), v = sh.getDataRange().getValues();
   for (var i = 1; i < v.length; i++) {
     if (String(v[i][TV_날짜] || '').trim() === date) {
-      sh.getRange(i + 1, 1, 1, HEAD_오늘묵상확정.length).setValues([[date, verse, text, now, who]]);
+      sh.getRange(i + 1, 1, 1, HEAD_오늘묵상확정.length).setValues([row]);
       캐시비움_();
       return listTodayVerses(key);
     }
   }
-  sh.appendRow([date, verse, text, now, who]);
+  sh.appendRow(row);
   캐시비움_();
   return listTodayVerses(key);
+}
+
+/**
+ * 두란노 매일성경(https://www.duranno.com/qt/view/bible.asp) 에서 그 날짜의 본문을 그대로 가져옵니다.
+ * 페이지 제목(h1)에 "책 장:절~절*소제목*" 형태로 구절 표기가, 표(<tr><td>절번호</td><td>본문</td></tr>) 안에
+ * 절별 본문이 들어 있습니다. 두란노가 사이트 구성을 바꾸면 이 부분만 손보면 됩니다 — 실패하면 관리자가
+ * 직접 입력할 수 있도록 명확한 안내 메시지를 던집니다.
+ */
+function 두란노QT가져오기_(date) {
+  date = String(date || ymd_(new Date())).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('날짜 형식이 올바르지 않습니다. (예: 2026-09-26)');
+
+  var html = 유튜브가져오기_('https://www.duranno.com/qt/view/bible.asp?qtDate=' + encodeURIComponent(date));
+
+  var hm = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (!hm) throw new Error('두란노에서 오늘의 본문 제목을 찾지 못했습니다. 사이트 구성이 바뀐 것 같습니다. 구절과 본문을 직접 입력해주세요.');
+  var h1글 = 엔티티풀기_(hm[1].replace(/<[^>]+>/g, '').trim());
+  // "역대상 15 : 16~29*하나님의 임재를 사모하는 예배자*" — 별표(*) 사이는 소제목이라 구절 표기에서 뗍니다
+  var verse = h1글.replace(/\*[\s\S]*?\*\s*$/, '').trim();
+  if (!verse) throw new Error('두란노에서 구절 표기를 읽지 못했습니다. 구절과 본문을 직접 입력해주세요.');
+
+  var rows = [], re = /<tr[^>]*>\s*<td[^>]*>\s*(\d{1,3})\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, m;
+  while ((m = re.exec(html)) !== null) {
+    var t = 엔티티풀기_(m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+    if (t) rows.push(m[1] + '. ' + t);
+  }
+  var text = rows.join('\n');
+  if (text.length < 20) throw new Error('두란노에서 본문 내용을 읽지 못했습니다. 사이트 구성이 바뀐 것 같습니다. 구절과 본문을 직접 입력해주세요.');
+  return { date: date, verse: verse.slice(0, 80), text: text.slice(0, 6000) };
+}
+
+/** 오늘의 본문(구절+본문 텍스트)으로 해설·질문·적용·기도 4가지를 AI 로 만듭니다 */
+function 오늘묵상AI만들기_(verse, text) {
+  AI확인_();
+  verse = String(verse || '').trim().slice(0, 80);
+  text = String(text || '').trim().slice(0, 6000);
+  if (!verse || !text) throw new Error('구절 표기와 본문을 먼저 채워주세요.');
+
+  var prompt =
+    '다음은 청년부가 오늘 함께 읽는 QT(매일성경) 본문입니다. 묵상 자료를 만들어 주세요.\n\n' +
+    '본문 구절: ' + verse + '\n\n--- 본문 ---\n' + text + '\n--- 본문 끝 ---\n\n' +
+    '아래 JSON 으로만 답하세요.\n' +
+    '{\n' +
+    '  "explain": ["쉬운 해설 2~3줄. 한 줄에 한 문장씩", "..."],\n' +
+    '  "questions": ["삶에 적용할 질문 2~3개", "..."],\n' +
+    '  "apply": ["이번 주 실천할 적용 2~3가지. \\"이번 주 나는 ~합니다\\" 처럼 구체적인 행동으로", "..."],\n' +
+    '  "prayer": "본문을 따라 드리는 짧은 기도 한두 줄"\n' +
+    '}\n\n' +
+    '· explain · questions · apply 는 각각 2개에서 3개로 해주세요.\n' +
+    '· 본문에 없는 내용을 지어내지 마세요.';
+
+  var d = AIJSON_(prompt, { system: 묵상_지침, temperature: 0.5, maxTokens: 1400 });
+  var 줄들 = function (arr) { return ((arr) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4); };
+  return {
+    explain: 줄들(d && d.explain),
+    questions: 줄들(d && d.questions),
+    apply: 줄들(d && d.apply),
+    prayer: String((d && d.prayer) || '').trim().slice(0, 500)
+  };
+}
+
+/** 관리 화면 "가져오기" 버튼 — 두란노에서 본문을 긁어오고, 되면 AI 로 4가지 묵상 자료까지 만들어 미리 보여줍니다.
+ *  (실제 저장은 관리자가 확인한 뒤 saveTodayVerse 를 따로 눌러야 합니다) */
+function adminFetchTodayQT(key, date) {
+  if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 할 수 있습니다.');
+  var qt = 두란노QT가져오기_(date);
+  var ai = { explain: [], questions: [], apply: [], prayer: '' };
+  var aiError = '';
+  try { ai = 오늘묵상AI만들기_(qt.verse, qt.text); } catch (e) { aiError = e.message || String(e); }
+  return Object.assign({}, qt, ai, { aiError: aiError });
+}
+
+/** 관리 화면 "AI 로 다시 만들기" 버튼 — 이미 채워둔(또는 고친) 구절·본문으로 4가지를 다시 만듭니다 */
+function adminMakeTodayVerseAI(key, verse, text) {
+  if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 할 수 있습니다.');
+  return 오늘묵상AI만들기_(verse, text);
 }
 
 function deleteTodayVerse(key, date) {
@@ -13789,13 +14144,50 @@ function 설교시트_() {
   return sh;
 }
 
-function 유튜브가져오기_(url) {
+function 유튜브가져오기_(url, opt) {
+  opt = opt || {};
+  var headers = Object.assign({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+    'Accept-Language': 'ko,en;q=0.8',
+    // 유럽/신규 브라우저에서 뜨는 "쿠키 동의" 안내 페이지를 건너뛰기 위한 쿠키
+    'Cookie': 'CONSENT=YES+1; SOCS=CAI'
+  }, opt.headers || {});
   var r = UrlFetchApp.fetch(url, {
-    method: 'get', muteHttpExceptions: true, followRedirects: true,
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept-Language': 'ko,en' }
+    method: opt.method || 'get',
+    muteHttpExceptions: true,
+    followRedirects: true,
+    contentType: opt.contentType,
+    payload: opt.payload,
+    headers: headers
   });
   if (r.getResponseCode() >= 300) throw new Error('유튜브를 읽지 못했습니다 (' + r.getResponseCode() + ').');
   return r.getContentText();
+}
+
+/** 문자열 안에서 "key":[ 또는 "key":{ 뒤를 괄호 짝을 맞춰가며 잘라냅니다 (중첩된 자료에도 안전) */
+function 균형JSON추출_(text, key) {
+  var needle = '"' + key + '":';
+  var idx = text.indexOf(needle);
+  if (idx === -1) return null;
+  var i = idx + needle.length;
+  while (i < text.length && /\s/.test(text[i])) i++;
+  var open = text[i];
+  var close = open === '[' ? ']' : (open === '{' ? '}' : null);
+  if (!close) return null;
+  var depth = 0, inStr = false, esc = false;
+  for (var p = i; p < text.length; p++) {
+    var ch = text[p];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === open) depth++;
+    else if (ch === close) { depth--; if (depth === 0) return text.slice(i, p + 1); }
+  }
+  return null;
 }
 
 /** @핸들 이나 주소에서 채널 ID(UC...) 를 찾아 설정에 적어 둡니다 */
@@ -13890,48 +14282,105 @@ function 엔티티풀기_(s) {
 
 /** timedtext XML(<text>...</text> 나열)을 하나의 글로 풀어줍니다 */
 function 자막XML풀기_(xml) {
+  xml = String(xml || '');
+  // 형식1: timedtext 의 옛 XML(<text>...</text> 나열)
   var 줄 = [];
   var re = /<text[^>]*>([\s\S]*?)<\/text>/g, hit;
   while ((hit = re.exec(xml)) !== null) {
     var t = 엔티티풀기_(엔티티풀기_(hit[1])).replace(/\s+/g, ' ').trim();
     if (t) 줄.push(t);
   }
-  return 줄.join(' ');
+  if (줄.length) return 줄.join(' ');
+
+  // 형식2: fmt=json3 (일부 영상은 XML 대신 이 형식만 내려줍니다)
+  try {
+    var d = JSON.parse(xml);
+    var events = d && d.events || [];
+    var 줄2 = [];
+    events.forEach(function (ev) {
+      (ev.segs || []).forEach(function (seg) {
+        var t2 = String(seg.utf8 || '').replace(/\s+/g, ' ').trim();
+        if (t2) 줄2.push(t2);
+      });
+    });
+    if (줄2.length) return 줄2.join(' ').replace(/\s*\n\s*/g, ' ').trim();
+  } catch (e) {}
+  return '';
+}
+
+/** captionTracks 배열 중 하나를 고릅니다: 사람이 단 한국어 → 자동생성 한국어 → 사람이 단 아무 언어 → 그 외 아무 자막 */
+function 자막트랙고르기_(tracks) {
+  tracks = tracks || [];
+  var 후보 = [
+    tracks.filter(function (t) { return /^ko(-|$)/.test(String(t.languageCode || t.lang || '')) && t.kind !== 'asr'; })[0],
+    tracks.filter(function (t) { return /^ko(-|$)/.test(String(t.languageCode || t.lang || '')) && t.kind === 'asr'; })[0],
+    tracks.filter(function (t) { return t.kind !== 'asr'; })[0],
+    tracks[0]
+  ].filter(Boolean);
+  return 후보[0] || null;
 }
 
 /**
- * 영상 자막 — 사람이 단 자막을 먼저 찾고, 없으면 유튜브가 자동으로 만든(ASR)
- * 한국어 자막이라도 가져옵니다. 시청 페이지에서 못 찾으면 timedtext 목록 API로 한 번 더 찾아봅니다.
+ * 영상 자막 — 사람이 단 자막을 먼저 찾고, 없으면 유튜브가 자동으로 만든(ASR) 자막이라도,
+ * 한국어가 아니어도 가져옵니다(AI가 요약할 때는 원문 언어라도 상관없습니다).
+ * 시청 페이지 스크래핑은 유튜브 쪽 사정으로 자주 깨지므로, 내부(Innertube) API를 1차로 쓰고
+ * 실패하면 시청 페이지 → timedtext 목록 API 순서로 한 번씩 더 찾아봅니다.
  */
 function 자막가져오기_(videoId) {
-  videoId = encodeURIComponent(videoId);
+  videoId = String(videoId || '').trim();
+  var enc = encodeURIComponent(videoId);
 
-  /* 1차: 시청 페이지에 박혀 있는 captionTracks (수동 자막 · 자동 생성 자막 둘 다 여기 있습니다) */
+  /* 1차: Innertube player API — 유튜브 앱(iOS)이 실제로 쓰는 내부 API라 페이지 구조가 바뀌어도 덜 깨집니다 */
   try {
-    var html = 유튜브가져오기_('https://www.youtube.com/watch?v=' + videoId + '&hl=ko');
-    var m = html.match(/"captionTracks"\s*:\s*(\[[\s\S]*?\])\s*,\s*"/);
-    if (m) {
-      var tracks = JSON.parse(m[1].replace(/\\u0026/g, '&'));
-      if (tracks && tracks.length) {
-        // 우선순위: 사람이 단 한국어 자막 → 자동 생성(ASR) 한국어 자막 → 그 외 아무 자막
-        var 후보 = [
-          tracks.filter(function (t) { return /^ko(-|$)/.test(String(t.languageCode || '')) && t.kind !== 'asr'; })[0],
-          tracks.filter(function (t) { return /^ko(-|$)/.test(String(t.languageCode || '')) && t.kind === 'asr'; })[0],
-          tracks[0]
-        ].filter(Boolean);
-        var 고른것 = 후보[0];
-        var base = 고른것 ? String(고른것.baseUrl || '').replace(/\\u0026/g, '&') : '';
-        if (base) {
-          var text1 = 자막XML풀기_(유튜브가져오기_(base));
-          if (text1) return text1;
+    var body = JSON.stringify({
+      videoId: videoId,
+      context: {
+        client: {
+          clientName: 'IOS',
+          clientVersion: '19.45.4',
+          deviceModel: 'iPhone16,2',
+          hl: 'ko',
+          gl: 'KR'
         }
+      }
+    });
+    var res = 유튜브가져오기_('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'post',
+      contentType: 'application/json',
+      payload: body,
+      headers: { 'X-YouTube-Client-Name': '5', 'X-YouTube-Client-Version': '19.45.4' }
+    });
+    var d = JSON.parse(res);
+    var tracks0 = d && d.captions && d.captions.playerCaptionsTracklistRenderer &&
+      d.captions.playerCaptionsTracklistRenderer.captionTracks;
+    var 고른것0 = 자막트랙고르기_(tracks0);
+    var base0 = 고른것0 ? String(고른것0.baseUrl || '') : '';
+    if (base0) {
+      var text0 = 자막XML풀기_(유튜브가져오기_(base0 + '&fmt=json3'));
+      if (!text0) text0 = 자막XML풀기_(유튜브가져오기_(base0));
+      if (text0) return text0;
+    }
+  } catch (e) {}
+
+  /* 2차: 시청 페이지에 박혀 있는 captionTracks (괄호 짝을 맞춰 잘라내므로 중첩 데이터에도 안전) */
+  try {
+    var html = 유튜브가져오기_('https://www.youtube.com/watch?v=' + enc + '&hl=ko&has_verified=1');
+    var tracksBlob = 균형JSON추출_(html, 'captionTracks');
+    if (tracksBlob) {
+      var tracks = JSON.parse(tracksBlob.replace(/\\u0026/g, '&'));
+      var 고른것 = 자막트랙고르기_(tracks);
+      var base = 고른것 ? String(고른것.baseUrl || '').replace(/\\u0026/g, '&') : '';
+      if (base) {
+        var text1 = 자막XML풀기_(유튜브가져오기_(base + '&fmt=json3'));
+        if (!text1) text1 = 자막XML풀기_(유튜브가져오기_(base));
+        if (text1) return text1;
       }
     }
   } catch (e) {}
 
-  /* 2차: timedtext 목록 API — 시청 페이지에 자막 정보가 안 실렸을 때(주로 자동 생성 전용 영상) */
+  /* 3차: timedtext 목록 API — 위 두 방법이 모두 안 통할 때(주로 자동 생성 전용 영상) */
   try {
-    var listXml = 유튜브가져오기_('https://video.google.com/timedtext?type=list&v=' + videoId);
+    var listXml = 유튜브가져오기_('https://video.google.com/timedtext?type=list&v=' + enc);
     var trackRe = /<track\b([^>]*)\/?>/g, tm, 목록 = [];
     while ((tm = trackRe.exec(listXml)) !== null) {
       var attrs = tm[1];
@@ -13939,14 +14388,9 @@ function 자막가져오기_(videoId) {
       var kind = (/kind="([^"]*)"/.exec(attrs) || [])[1] || '';
       if (lc) 목록.push({ lang: lc, kind: kind });
     }
-    var 순서 = [
-      목록.filter(function (t) { return /^ko(-|$)/.test(t.lang) && t.kind !== 'asr'; })[0],
-      목록.filter(function (t) { return /^ko(-|$)/.test(t.lang) && t.kind === 'asr'; })[0],
-      목록[0]
-    ].filter(Boolean);
-    var 고른트랙 = 순서[0];
+    var 고른트랙 = 자막트랙고르기_(목록);
     if (고른트랙) {
-      var url = 'https://video.google.com/timedtext?v=' + videoId + '&lang=' + encodeURIComponent(고른트랙.lang);
+      var url = 'https://video.google.com/timedtext?v=' + enc + '&lang=' + encodeURIComponent(고른트랙.lang);
       if (고른트랙.kind) url += '&kind=' + encodeURIComponent(고른트랙.kind);
       var text2 = 자막XML풀기_(유튜브가져오기_(url));
       if (text2) return text2;
@@ -14268,8 +14712,24 @@ function checkYoutube(key) {
 
 var SHEET_앨범 = '포토앨범';
 var SHEET_앨범사진 = '포토앨범사진';
-var HEAD_앨범 = ['ID', '제목', '카테고리', '대상', '설명', '대표사진', '만든이', '만든날짜'];
-var AB_ID = 0, AB_제목 = 1, AB_카테고리 = 2, AB_대상 = 3, AB_설명 = 4, AB_대표 = 5, AB_만든이 = 6, AB_만든날짜 = 7;
+var HEAD_앨범 = ['ID', '제목', '카테고리', '대상', '설명', '대표사진', '만든이', '만든날짜', '외부링크'];
+var AB_ID = 0, AB_제목 = 1, AB_카테고리 = 2, AB_대상 = 3, AB_설명 = 4, AB_대표 = 5, AB_만든이 = 6, AB_만든날짜 = 7, AB_외부링크 = 8;
+
+/** 구글포토 · 네이버 마이박스 같은 외부 앨범 링크 — [{label, url}, ...] 을 JSON 문자열로 저장/해석합니다 */
+function 앨범외부링크파싱_(v) {
+  try {
+    var arr = JSON.parse(v || '[]');
+    if (!Array.isArray(arr)) return [];
+    return arr.map(function (x) {
+      return { label: String((x && x.label) || '').trim().slice(0, 40), url: String((x && x.url) || '').trim().slice(0, 500) };
+    }).filter(function (x) { return x.url; }).slice(0, 10);
+  } catch (e) { return []; }
+}
+function 앨범외부링크검증_(links) {
+  return (Array.isArray(links) ? links : []).map(function (x) {
+    return { label: String((x && x.label) || '').trim().slice(0, 40), url: String((x && x.url) || '').trim().slice(0, 500) };
+  }).filter(function (x) { return /^https:\/\/[^\s]+$/i.test(x.url); }).slice(0, 10);
+}
 var HEAD_앨범사진 = ['ID', '앨범ID', '파일ID', '파일명', '올린이', '등록시각'];
 var AP_ID = 0, AP_앨범 = 1, AP_파일 = 2, AP_이름 = 3, AP_올린이 = 4, AP_시각 = 5;
 var 앨범카테고리 = ['셀', '사역팀', '행사'];
@@ -14329,7 +14789,8 @@ function 앨범하나_(id) {
         id: id, title: String(r[AB_제목] || '').trim(),
         category: 앨범카테고리정리_(r[AB_카테고리]), target: String(r[AB_대상] || '').trim(),
         desc: String(r[AB_설명] || '').trim(), cover: String(r[AB_대표] || '').trim(),
-        by: String(r[AB_만든이] || '').trim(), at: String(r[AB_만든날짜] || '').trim()
+        by: String(r[AB_만든이] || '').trim(), at: String(r[AB_만든날짜] || '').trim(),
+        links: 앨범외부링크파싱_(r[AB_외부링크])
       };
     }
   });
@@ -14397,7 +14858,7 @@ function albumOpen(token, id) {
     me: me.name,
     canEdit: 앨범권한_(token, a.category, a.target),
     album: { id: a.id, title: a.title, category: a.category, target: a.target,
-      desc: a.desc, by: a.by, at: a.at, cover: a.cover },
+      desc: a.desc, by: a.by, at: a.at, cover: a.cover, links: a.links },
     photos: 앨범사진목록_(a.id)
   };
 }
@@ -14413,15 +14874,16 @@ function albumCreate(token, d) {
   var title = String(d.title || '').trim().slice(0, 60);
   if (!title) throw new Error('앨범 제목을 적어주세요.');
   var desc = String(d.desc || '').trim().slice(0, 300);
+  var links = 앨범외부링크검증_(d.links);
 
   var id = 'AB' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
   var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-  앨범시트_(SHEET_앨범).appendRow([id, title, category, target, desc, '', me.name, now]);
+  앨범시트_(SHEET_앨범).appendRow([id, title, category, target, desc, '', me.name, now, JSON.stringify(links)]);
   캐시비움_();
   return { ok: true, id: id };
 }
 
-/** 앨범 제목 · 설명 고치기 */
+/** 앨범 제목 · 설명 · 외부 링크(구글포토 · 네이버 마이박스 등) 고치기 */
 function albumEdit(token, id, d) {
   var a = 앨범하나_(id);
   if (!a) throw new Error('앨범을 찾지 못했습니다.');
@@ -14433,6 +14895,7 @@ function albumEdit(token, id, d) {
     var title = String(d.title || '').trim().slice(0, 60);
     if (title) sh.getRange(i + 1, AB_제목 + 1).setValue(title);
     if (d.desc != null) sh.getRange(i + 1, AB_설명 + 1).setValue(String(d.desc).trim().slice(0, 300));
+    if (d.links != null) sh.getRange(i + 1, AB_외부링크 + 1).setValue(JSON.stringify(앨범외부링크검증_(d.links)));
     캐시비움_();
     return { ok: true };
   }
@@ -14539,14 +15002,10 @@ function albumDeletePhoto(token, id, photoId) {
   return { ok: true };
 }
 
-/* =========================================================
-   KR / EN 실시간 번역 — 공지사항 · 설교 요약처럼 매번 내용이 다른 글을
-   화면에서 영어로 바꿔 보여줄 때 씁니다. (고정 메뉴 문구는 화면 쪽 사전으로 처리합니다)
-   누구나 부를 수 있고(로그인 여부와 무관), 같은 문구 묶음은 6시간 동안 캐시해
-   Gemini 를 다시 부르지 않습니다.
-   ========================================================= */
-
-/** 문구 여러 개를 한 번에 영어로 옮깁니다. 순서 · 개수는 입력과 똑같이 돌려줍니다 */
+/**
+ * 문구 여러 개를 한 번에 영어로 옮깁니다. 순서 · 개수는 입력과 똑같이 돌려줍니다.
+ * (지출환급신청서의 "🌐 영어로 변환" 버튼이 씁니다 — 회계 처리에 영문 내역이 필요할 때가 있습니다)
+ */
 function translateBatch(items) {
   var flat = (Array.isArray(items) ? items : []).map(function (x) { return String(x == null ? '' : x); });
   if (!flat.length || !flat.some(function (x) { return x.trim(); })) return flat;
@@ -14560,7 +15019,7 @@ function translateBatch(items) {
 
   AI확인_();
   var body = flat.map(function (x, i) { return '[' + i + '] ' + x.replace(/\n/g, ' ⏎ ').slice(0, 800); }).join('\n');
-  var prompt = '다음은 한국 교회 청년부 앱 화면에 쓰이는 문구들입니다. 각 줄을 자연스럽고 간결한 영어로 옮겨 주세요.\n' +
+  var prompt = '다음은 한국 교회 청년부 앱에서 나온 문구입니다. 각 줄을 자연스럽고 간결한 영어로 옮겨 주세요.\n' +
     '줄 안의 ⏎ 표시는 줄바꿈 자리이니 그대로 두세요. 번호의 순서와 개수를 정확히 지켜서, ' +
     '아래 JSON 형식으로만 답하세요. 다른 말은 절대 쓰지 마세요.\n' +
     '{ "items": ["...", "...", ...] }\n\n' + body;

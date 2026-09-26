@@ -1268,130 +1268,7 @@ header .homelink:active { opacity: .7; }
 header .homelink { display: inline-block; line-height: 0; }
 header .homelink img { display: block; }
 
-/* ---------------------------------------------------------
-   KR / EN 언어 스위치 (모든 페이지 헤더 오른쪽 위)
-   --------------------------------------------------------- */
-.ynlang {
-  position: absolute; top: 14px; right: 62px; z-index: 5;
-  display: flex; height: 40px; border-radius: 999px; overflow: hidden;
-  background: var(--night-2); border: 1px solid var(--hair-night);
-  -webkit-tap-highlight-color: transparent;
-}
-.ynlang button {
-  border: none; background: none; cursor: pointer; font: 800 12px inherit; font-family: inherit;
-  padding: 0 12px; color: #B7B0A7; letter-spacing: .02em; -webkit-tap-highlight-color: transparent;
-}
-.ynlang button.on { background: var(--tone, #D2511F); color: #fff; }
-.ynlang button:disabled { cursor: default; }
 </style>
-<script>
-/* ============================================================
-   KR / EN 언어 전환 — window.YNI18N
-   · 헤더의 [KR|EN] 버튼(위 setup() 이 붙입니다)이 이걸 부릅니다.
-   · 고른 언어는 localStorage 에 저장되어 페이지를 옮겨도 그대로 유지됩니다.
-   · 화면마다 고정으로 박혀 있는 짧은 문구(메뉴 이름 등)는 [data-i18n] 로 표시해 두면
-     즉시(네트워크 없이) 바뀌고, 공지사항 · 설교 요약처럼 매번 다른 긴 글은
-     YNI18N.translateBatch() 로 Gemini 번역을 받아와 화면에서 직접 바꿔 끼웁니다.
-   ============================================================ */
-window.YNI18N = (function () {
-  var LKEY = 'ynLang';
-  // 화면에 고정으로 있는 짧은 문구 — [data-i18n] 로 표시해 둔 것만 여기서 즉시 바뀝니다
-  var DICT = {
-    '주보보기': 'Bulletin', '오늘의 묵상': "Today's Devotion", '설교 영상': 'Sermon',
-    '청년부 일정': 'Schedule', '청년부 행정': 'My Menu', '커미티 관리툴': 'Committee Tools',
-    '셀모임 보고서': 'Cell Report', '사역 보고서': 'Ministry Report',
-    '지출환급신청서': 'Expense Claim', '새가족 관리': 'New Family',
-    '찬양방송팀 허브': 'Worship & Media Hub', '선교팀 관리': 'Missions Team',
-    '신청서 관리': 'Forms', '회의록 · 할 일': 'Minutes & Tasks',
-    '주보 편집': 'Edit Bulletin', '회계 관리': 'Finance', '포토 앨범': 'Photo Album'
-  };
-
-  function lang() { try { return localStorage.getItem(LKEY) === 'en' ? 'en' : 'ko'; } catch (e) { return 'ko'; } }
-
-  function t(ko) {
-    if (lang() !== 'en') return ko;
-    var s = String(ko == null ? '' : ko).trim();
-    return DICT[s] || ko;
-  }
-
-  /**
-   * [data-i18n] 로 표시된 요소의 글자를 바꿉니다.
-   * 짧고 흔한 문구(DICT)는 즉시, 그 외(공지 · 설교 요약처럼 매번 다른 글)는
-   * Gemini 로 한 번에 옮겨와 채워 넣습니다 (한 번 옮긴 문구는 이 기기에 기억해 두어 다시 부르지 않습니다).
-   * root 를 주면 그 안쪽만(새로 그려 넣은 부분만) 처리합니다 — 안 주면 화면 전체.
-   */
-  function apply(root) {
-    var l = lang();
-    var nodes = (root || document).querySelectorAll('[data-i18n]');
-    var pending = [];
-    Array.prototype.forEach.call(nodes, function (el) {
-      if (el.dataset.i18nKo == null) el.dataset.i18nKo = el.textContent;
-      var ko = el.dataset.i18nKo;
-      if (l !== 'en') { el.textContent = ko; return; }
-      if (DICT[ko] != null) { el.textContent = DICT[ko]; return; }
-      if (el.dataset.i18nEn != null) { el.textContent = el.dataset.i18nEn; return; }
-      pending.push(el);
-    });
-    if (pending.length) {
-      translateBatch(pending.map(function (el) { return el.dataset.i18nKo; }), function (out) {
-        if (lang() !== 'en') return;   // 그 사이 다시 KR 로 바뀌었으면 버립니다
-        pending.forEach(function (el, i) {
-          var v = (out[i] || '').trim() || el.dataset.i18nKo;
-          el.dataset.i18nEn = v;
-          el.textContent = v;
-        });
-      });
-    }
-  }
-
-  /** 헤더 [KR|EN] 버튼의 눌린 표시를 지금 언어에 맞춥니다 */
-  function paint() {
-    var l = lang();
-    Array.prototype.forEach.call(document.querySelectorAll('.ynlang button'), function (b) {
-      b.className = (b.getAttribute('data-l') === l) ? 'on' : '';
-    });
-  }
-
-  function setLang(l) {
-    l = (l === 'en') ? 'en' : 'ko';
-    try { localStorage.setItem(LKEY, l); } catch (e) {}
-    paint();
-    apply();
-    try { document.dispatchEvent(new CustomEvent('ynlangchange', { detail: { lang: l } })); } catch (e) {}
-  }
-
-  /**
-   * 문구 여러 개를 한 번에 영어로 옮깁니다 (공지사항 · 설교 요약처럼 매번 내용이 다른 글).
-   * KR 로 되어 있으면 원문 그대로 즉시 돌려줍니다 (번역을 부르지 않습니다).
-   * 같은 문구 묶음은 이 브라우저에 캐시해 두어, 다시 눌러도 다시 부르지 않습니다.
-   */
-  function hash(s) {
-    var h = 0;
-    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
-    return String(h);
-  }
-  function translateBatch(items, done) {
-    items = items || [];
-    if (lang() !== 'en') { done(items.slice()); return; }
-    var ck = 'ynTrB:' + hash(items.join('␟'));
-    try {
-      var hit = localStorage.getItem(ck);
-      if (hit) { done(JSON.parse(hit)); return; }
-    } catch (e) {}
-    if (typeof callServer !== 'function') { done(items.slice()); return; }
-    callServer('translateBatch', [items], function (r) {
-      var out = Array.isArray(r) ? r : items.slice();
-      try { localStorage.setItem(ck, JSON.stringify(out)); } catch (e) {}
-      done(out);
-    }, function () { done(items.slice()); });
-  }
-
-  /** 언어가 바뀔 때마다 fn 을 불러 줍니다 (각 화면이 자기 몫의 동적 글을 다시 옮기고 싶을 때 씀) */
-  function onChange(fn) { document.addEventListener('ynlangchange', fn); if (lang() === 'en') fn(); }
-
-  return { lang: lang, setLang: setLang, t: t, apply: apply, paint: paint, translateBatch: translateBatch, onChange: onChange };
-})();
-</script>
 <script>
 (function () {
   /* 포털에서 구글로 로그인해 두었으면 그 표를 다른 페이지도 씁니다 */
@@ -1417,7 +1294,6 @@ window.YNI18N = (function () {
     } catch (e) { done(base); }
   }
   function setup() {
-    if (window.YNI18N) YNI18N.apply();   // 이 기기가 이미 EN 을 골라 두었으면 고정 문구를 바로 바꿉니다
     var home = P()._home;
     // 비밀번호 화면 → 구글 계정(포털)으로만 들어오게 합니다
     if (home) Array.prototype.forEach.call(document.querySelectorAll('#lock'), function (lk) {
@@ -1466,16 +1342,6 @@ window.YNI18N = (function () {
           here(function (u) { if (u) r.href = u; r.dataset.go = '1'; r.click(); });
         });
         h.appendChild(r);
-      }
-      if (!h.querySelector('.ynlang') && window.YNI18N) {
-        var lg = document.createElement('div');
-        lg.className = 'ynlang';
-        lg.innerHTML = '<button type="button" data-l="ko">KR</button><button type="button" data-l="en">EN</button>';
-        Array.prototype.forEach.call(lg.querySelectorAll('button'), function (b) {
-          b.addEventListener('click', function () { YNI18N.setLang(b.getAttribute('data-l')); });
-        });
-        h.appendChild(lg);
-        YNI18N.paint();
       }
     });
   }

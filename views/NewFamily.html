@@ -814,11 +814,22 @@ function renderNotify(res) {
     '<div class="frow"><div><input type="text" id="nfNotify" value="' + esc(res.notifyEmails || '') + '" placeholder="newfamily@example.com, pastor@example.com"></div>' +
     '<button class="btn accent" onclick="saveNotify()">저장</button></div>' +
     (res.notifySet ? '' : '<p class="hint" style="margin:6px 0 0;">아직 따로 정하지 않아, 새가족팀 · 양육부 팀 이메일과 알림 이메일로 보내고 있습니다.</p>') +
-    '<p class="msg" id="nfNotifyMsg"></p></div>';
+    '<p class="msg" id="nfNotifyMsg"></p></div>' +
+    '<div class="panel" style="margin-top:10px;"><span class="chip">셀 배정 대상 알림 이메일</span>' +
+    '<p class="hint">새가족이 셀 배정 대상으로 등록되면 이 주소로 메일이 갑니다. 여러 개는 쉼표로 나눠 주세요. (커미티만 보입니다)</p>' +
+    '<div class="frow"><div><input type="text" id="nfAssignNotify" value="' + esc(res.assignNotifyEmails || '') + '" placeholder="cellcare@example.com, pastor@example.com"></div>' +
+    '<button class="btn accent" onclick="saveAssignNotify()">저장</button></div>' +
+    (res.assignNotifySet ? '' : '<p class="hint" style="margin:6px 0 0;">아직 따로 정하지 않아, 양육부 팀 · 관리자 알림 이메일로 보내고 있습니다.</p>') +
+    '<p class="msg" id="nfAssignNotifyMsg"></p></div>';
 }
 function saveNotify() {
   var m = el('nfNotifyMsg'); m.className = 'msg'; m.textContent = '저장 중…';
   callServer('saveNewcomerNotify', [TOKEN, el('nfNotify').value], function (v) { el('nfNotify').value = v; m.className = 'msg ok'; m.textContent = '저장했습니다.'; },
+    function (e) { m.className = 'msg err'; m.textContent = e.message || '저장하지 못했습니다.'; });
+}
+function saveAssignNotify() {
+  var m = el('nfAssignNotifyMsg'); m.className = 'msg'; m.textContent = '저장 중…';
+  callServer('saveAssignNotify', [TOKEN, el('nfAssignNotify').value], function (v) { el('nfAssignNotify').value = v; m.className = 'msg ok'; m.textContent = '저장했습니다.'; },
     function (e) { m.className = 'msg err'; m.textContent = e.message || '저장하지 못했습니다.'; });
 }
 

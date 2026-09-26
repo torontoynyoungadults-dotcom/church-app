@@ -271,11 +271,30 @@ function draw() {
   var h = '';
 
   if (D.todayFixed) {
+    var tf = D.todayFixed;
     h += '<div class="panel"><span class="chip">오늘의 말씀</span>' +
-      '<p class="hint" style="margin-bottom:10px;">' + esc(D.todayFixed.date) + ' · 커미티가 정한 오늘의 본문입니다. 모두가 같은 말씀을 읽습니다.</p>' +
-      '<div class="fixedverse"><b>' + esc(D.todayFixed.verse) + '</b>' +
-      '<p>' + esc(D.todayFixed.text).replace(/\n/g, '<br>') + '</p></div>' +
-      '</div>';
+      '<p class="hint" style="margin-bottom:10px;">' + esc(tf.date) + ' · 커미티가 정한 오늘의 본문입니다. 모두가 같은 말씀을 읽습니다.</p>' +
+      '<div class="fixedverse"><b>' + esc(tf.verse) + '</b>' +
+      '<p>' + esc(tf.text).replace(/\n/g, '<br>') + '</p></div>';
+    if (tf.explain && tf.explain.length) {
+      h += '<div class="vsec"><h4>📖 쉬운 해설</h4><ul>';
+      tf.explain.forEach(function (t) { h += '<li>' + esc(t) + '</li>'; });
+      h += '</ul></div>';
+    }
+    if (tf.questions && tf.questions.length) {
+      h += '<div class="vsec"><h4>💬 나에게 묻기</h4><ol>';
+      tf.questions.forEach(function (t) { h += '<li>' + esc(t) + '</li>'; });
+      h += '</ol></div>';
+    }
+    if (tf.apply && tf.apply.length) {
+      h += '<div class="vsec"><h4>✅ 삶에 적용하기</h4><ul>';
+      tf.apply.forEach(function (t) { h += '<li>' + esc(t) + '</li>'; });
+      h += '</ul></div>';
+    }
+    if (tf.prayer) {
+      h += '<div class="vsec"><h4>🙏 함께 드리는 기도</h4><p class="vpray">' + esc(tf.prayer) + '</p></div>';
+    }
+    h += '</div>';
   }
 
   h += '<div class="panel">' +

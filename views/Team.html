@@ -52,6 +52,21 @@
   .mrow .mname { font-size: 16px; font-weight: 800; }
   .mrow .mx { margin-left: auto; }
 
+  /* 팀원 상태 — 아이콘 버튼 (드롭다운 대신) */
+  .stpick { display: flex; flex-wrap: wrap; gap: 6px; }
+  .stpick button {
+    display: flex !important; align-items: center; gap: 5px; padding: 7px 11px !important;
+    border-radius: 999px !important; font-family: inherit; font-size: 12.5px; font-weight: 750;
+    cursor: pointer; background: var(--surface) !important; border: 1px solid var(--hair-2) !important;
+    color: var(--ink-2); transition: border-color .13s, background .13s, transform .08s;
+  }
+  .stpick button:active { transform: scale(.96); }
+  .stpick button .emo { font-size: 14.5px; line-height: 1; }
+  .stpick button.picked {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #fff !important;
+  }
+
   .dcard { padding: 12px 13px; margin-bottom: 8px; }
   .dcard .dhead { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .dcard .dname { font-size: 15.5px; font-weight: 800; }
@@ -81,11 +96,11 @@
     color: #FFFFFF !important;
   }
   body .panel input::placeholder, .panel textarea::placeholder { color: #B7B0A7 !important; }
-  body .panel .picklist button, .panel .mrow, .panel .dcard {
+  body .panel .picklist button, .panel .stpick button, .panel .mrow, .panel .dcard {
     background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
     color: #F5F3EF !important;
   }
-  body .panel .picklist button.picked {
+  body .panel .picklist button.picked, .panel .stpick button.picked {
     background: linear-gradient(135deg, #34A855, #2E9A4B) !important; border-color: transparent !important; color: #fff !important;
   }
   body .panel .mrow .mname, .panel .dcard .dname { color: #FFFFFF; }
@@ -241,6 +256,15 @@
   body .rolepill, body .dtag, body .dchip {
     background: rgba(255,255,255,.16) !important; border-color: rgba(255,255,255,.24) !important;
   }
+  /* 새 팀원 역할 고르기(.rpc) — 원래 흰 배경 그대로라 이 어두운 유리 화면에서는 글씨가 안 보였습니다 */
+  body .rpc {
+    background: rgba(255,255,255,.10) !important; border-color: rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body .rpc.on {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #fff !important;
+  }
 
   /* ---------- 입력칸 · 드롭다운은 전부 같은 유리로 (흰 칸이 남지 않게) ---------- */
   body input:not([type=checkbox]):not([type=radio]):not([type=range]),
@@ -341,9 +365,11 @@
     </div>
 
     <div class="panel">
-      <span class="chip">팀원 변동</span>
+      <div class="flrow"><span class="chip">팀원 변동</span>
+        <button type="button" class="btn mini aipolish" id="aiBtn_change" onclick="aiPolish('change',this,'aiMsg_change')">&#10024; AI 편집</button></div>
       <p class="hint">새로 합류했거나 그만둔 팀원이 있다면 적어주세요.</p>
       <textarea id="change" placeholder="예: 김OO 합류 (베이스), 이OO 학업으로 잠시 쉼"></textarea>
+      <p class="msg" id="aiMsg_change"></p>
     </div>
 
     <div class="panel">
@@ -356,6 +382,9 @@
       <span class="chip">팀 분위기<span class="req">*</span></span>
       <div id="moodRow"></div>
       <textarea id="moodNote" style="margin-top:9px;" placeholder="분위기에 대해 조금 더 적어주세요 (선택)"></textarea>
+      <button type="button" class="btn mini" style="margin-top:9px;" onclick="analyzeMood()">&#128269; AI로 분위기 흐름 분석</button>
+      <p class="msg" id="aiMsg_mood"></p>
+      <div id="moodAiBox"></div>
     </div>
 
     <div class="panel">
@@ -471,6 +500,24 @@ function pickIt(key, i) {
   var box = el(key === '팀장컨디션' ? 'condRow' : 'moodRow');
   for (var j = 0; j < box.children.length; j++) box.children[j].className = (j === i) ? 'picked' : '';
   showMsg('', '');
+}
+
+function sayId(id, t, k) { var m = el(id); if (m) { m.className = 'msg' + (k ? ' ' + k : ''); m.textContent = t || ''; } }
+
+/** 팀 분위기 AI 분석 — 지금 고른 분위기 · 메모와 최근 몇 달의 흐름을 보고 짧은 분석을 만듭니다 */
+function analyzeMood() {
+  var t = currentTeam();
+  if (!t) return sayId('aiMsg_mood', '팀을 먼저 선택해주세요.', 'err');
+  if (!picked['팀분위기']) return sayId('aiMsg_mood', '팀 분위기를 먼저 선택해주세요.', 'err');
+  sayId('aiMsg_mood', '분석하는 중…');
+  el('moodAiBox').innerHTML = '';
+  callServer('teamMoodAI', [TOKEN, t.name, picked['팀분위기'], el('moodNote').value.trim()], function (r) {
+    sayId('aiMsg_mood', '');
+    el('moodAiBox').innerHTML =
+      '<div class="notice" style="margin-top:9px;"><b>' + esc(r.trend) + '</b>' +
+      (r.insight ? '<p style="margin:6px 0 0;">' + esc(r.insight) + '</p>' : '') +
+      (r.suggestion ? '<p style="margin:6px 0 0;">💡 ' + esc(r.suggestion) + '</p>' : '') + '</div>';
+  }, function (e) { sayId('aiMsg_mood', e.message || e, 'err'); });
 }
 
 /* ---------- 로그인 ---------- */
@@ -630,17 +677,17 @@ function renderMembers() {
       '<button type="button" class="rolepill' + (m.role ? '' : ' none') + '" style="cursor:pointer;font-family:inherit;border:none;" ' +
         'onclick="editRole(\'' + esc(jsq(m.name)) + '\')">' + esc(m.role || '역할 정하기') + ' ✎</button>' +
       '<button class="btn mini mx" onclick="doRemoveMember(\'' + esc(m.name) + '\')">제거</button></div>' +
-      '<select onchange="setState(\'' + esc(m.name) + '\', this.value)">' +
-        '<option value="">상태 선택</option>' +
+      '<div class="stpick" role="group" aria-label="' + esc(m.name) + '님 상태">' +
         OPT.팀원상태.map(function (p) {
-          return '<option value="' + esc(p[0]) + '"' + (states[m.name] === p[0] ? ' selected' : '') + '>' +
-            p[1] + '  ' + esc(p[0]) + '</option>';
+          return '<button type="button" class="' + (states[m.name] === p[0] ? 'picked' : '') + '" ' +
+            'onclick="setState(\'' + esc(jsq(m.name)) + '\',\'' + esc(jsq(p[0])) + '\')">' +
+            '<span class="emo">' + p[1] + '</span><span>' + esc(p[0]) + '</span></button>';
         }).join('') +
-      '</select></div>';
+      '</div></div>';
   }).join('');
 }
 
-function setState(name, v) { states[name] = v; showMsg('', ''); }
+function setState(name, v) { states[name] = v; showMsg('', ''); renderMembers(); }
 
 function doAddMember() {
   var t = currentTeam();

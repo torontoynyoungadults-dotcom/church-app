@@ -46,6 +46,12 @@
     letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .albcard .albn span { display: block; font-size: 12px; color: #E3DFD9; margin-top: 2px; }
 
+  /* ---- 외부 앨범 링크 (구글포토 · 네이버 마이박스 등) ---- */
+  .extlinks { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .linkrow { display: flex; gap: 6px; margin-bottom: 6px; }
+  .linkrow input { flex: 1; min-width: 0; }
+  .linkrow .lrm { flex: none; }
+
   /* ---- 앨범 상세 ---- */
   .mtop { display: flex; align-items: center; gap: 8px; margin: 0 16px 12px; }
   .mtop .back { flex: none; } .mtop .sp { flex: 1; }
@@ -275,6 +281,12 @@ function paintAlbum() {
     (a.desc ? '<p class="hint">' + esc(a.desc) + '</p>' : '') +
     '<p class="meta">' + esc(a.by) + ' · ' + esc(월일(a.at)) + ' · 사진 ' + A.photos.length + '장</p>';
 
+  if (a.links && a.links.length) {
+    h += '<div class="extlinks">' + a.links.map(function (l) {
+      return '<a class="btn mini" target="_blank" rel="noopener" href="' + esc(l.url) + '">🔗 ' + esc(l.label || '외부 앨범 보기') + '</a>';
+    }).join('') + '</div>';
+  }
+
   if (A.canEdit) {
     h += '<label class="btn accent full upbtn" style="margin-top:10px;">사진 올리기 (여러 장 한번에 선택)' +
       '<input type="file" accept="image/*" multiple style="display:none;" onchange="onPicked(this)"></label>' +
@@ -399,22 +411,43 @@ function onPicked(input) {
 
 /* ---------- 앨범 정보 고치기 ---------- */
 
+var ED_LINKS = [];
 function openEdit() {
   var a = A.album;
+  ED_LINKS = (a.links || []).map(function (l) { return { label: l.label, url: l.url }; });
   var h = '<div class="panel"><span class="chip">앨범 정보 고치기</span>' +
     '<label class="fl">제목</label><input type="text" id="eTitle" value="' + esc(a.title) + '">' +
     '<label class="fl" style="margin-top:8px;">설명</label><textarea id="eDesc" rows="3">' + esc(a.desc) + '</textarea>' +
+    '<label class="fl" style="margin-top:8px;">외부 앨범 링크 (구글포토 · 네이버 마이박스 등)</label>' +
+    '<div id="eLinks"></div>' +
+    '<button type="button" class="btn mini" onclick="edLinkAdd()">+ 링크 추가</button>' +
     '<button class="btn accent full" style="margin-top:10px;" onclick="saveEdit()">저장</button>' +
     '<button class="btn full" style="margin-top:7px;" onclick="paintAlbum()">취소</button>' +
     '<button class="btn danger full" style="margin-top:7px;" onclick="deleteAlbum()">이 앨범 지우기</button>' +
     '<p class="msg" id="eMsg"></p></div>';
   el('root').innerHTML = h;
+  drawEdLinks();
   window.scrollTo(0, 0);
 }
+function drawEdLinks() {
+  el('eLinks').innerHTML = ED_LINKS.map(function (l, i) {
+    return '<div class="linkrow">' +
+      '<input type="text" placeholder="이름 (예: 구글포토)" value="' + esc(l.label) + '" onchange="edLinkSet(' + i + ',\'label\',this.value)">' +
+      '<input type="url" placeholder="https://photos.app.goo.gl/…" value="' + esc(l.url) + '" onchange="edLinkSet(' + i + ',\'url\',this.value)">' +
+      '<button type="button" class="btn mini danger lrm" onclick="edLinkRemove(' + i + ')">✕</button></div>';
+  }).join('') || '<p class="hint" style="margin:0 0 8px;">아직 추가한 링크가 없습니다.</p>';
+}
+function edLinkAdd() { if (ED_LINKS.length >= 10) return; ED_LINKS.push({ label: '', url: '' }); drawEdLinks(); }
+function edLinkSet(i, k, v) { ED_LINKS[i][k] = v; }
+function edLinkRemove(i) { ED_LINKS.splice(i, 1); drawEdLinks(); }
+
 function saveEdit() {
   var title = el('eTitle').value.trim();
   if (!title) { say('eMsg', '앨범 제목을 적어주세요.', 'err'); return; }
-  callServer('albumEdit', [TOKEN, A.album.id, { title: title, desc: el('eDesc').value.trim() }],
+  var links = ED_LINKS.filter(function (l) { return (l.url || '').trim(); });
+  var bad = links.filter(function (l) { return !/^https:\/\//i.test(l.url.trim()); });
+  if (bad.length) { say('eMsg', '링크는 https:// 로 시작하는 주소여야 합니다.', 'err'); return; }
+  callServer('albumEdit', [TOKEN, A.album.id, { title: title, desc: el('eDesc').value.trim(), links: links }],
     function () { openAlbum(A.album.id); }, function (e) { say('eMsg', e.message || e, 'err'); });
 }
 function deleteAlbum() {
@@ -434,6 +467,7 @@ function openCreate() {
   if (!cats.length) return;
   CR_CAT = cats[0];
 
+  CR_LINKS = [];
   var h = '<div class="panel"><span class="chip">새 앨범 만들기</span>' +
     '<div class="catpick" id="crCat">' + cats.map(function (c) {
       return '<button type="button" class="' + (c === CR_CAT ? 'on' : '') + '" onclick="crSetCat(\'' + c + '\')">' + esc(c) + '</button>';
@@ -443,12 +477,28 @@ function openCreate() {
     '<input type="text" id="crTitle" placeholder="예) 9월 셀모임 사진" maxlength="60">' +
     '<label class="fl" style="margin-top:8px;">설명 (선택)</label>' +
     '<textarea id="crDesc" rows="2" placeholder="짧은 설명을 적어주세요" maxlength="300"></textarea>' +
+    '<label class="fl" style="margin-top:8px;">외부 앨범 링크 (선택 — 구글포토 · 네이버 마이박스 등)</label>' +
+    '<div id="crLinks"></div>' +
+    '<button type="button" class="btn mini" onclick="crLinkAdd()">+ 링크 추가</button>' +
     '<button class="btn accent full" style="margin-top:10px;" onclick="createAlbum()">앨범 만들기</button>' +
     '<button class="btn full" style="margin-top:7px;" onclick="draw()">취소</button>' +
     '<p class="msg" id="crMsg"></p></div>';
   el('root').innerHTML = h;
+  drawCrLinks();
   window.scrollTo(0, 0);
 }
+var CR_LINKS = [];
+function drawCrLinks() {
+  el('crLinks').innerHTML = CR_LINKS.map(function (l, i) {
+    return '<div class="linkrow">' +
+      '<input type="text" placeholder="이름 (예: 구글포토)" value="' + esc(l.label) + '" onchange="crLinkSet(' + i + ',\'label\',this.value)">' +
+      '<input type="url" placeholder="https://photos.app.goo.gl/…" value="' + esc(l.url) + '" onchange="crLinkSet(' + i + ',\'url\',this.value)">' +
+      '<button type="button" class="btn mini danger lrm" onclick="crLinkRemove(' + i + ')">✕</button></div>';
+  }).join('') || '<p class="hint" style="margin:0 0 8px;">아직 추가한 링크가 없습니다.</p>';
+}
+function crLinkAdd() { if (CR_LINKS.length >= 10) return; CR_LINKS.push({ label: '', url: '' }); drawCrLinks(); }
+function crLinkSet(i, k, v) { CR_LINKS[i][k] = v; }
+function crLinkRemove(i) { CR_LINKS.splice(i, 1); drawCrLinks(); }
 
 function crSetCat(c) {
   CR_CAT = c;
@@ -469,7 +519,10 @@ function createAlbum() {
   if (!title) { say('crMsg', '앨범 제목을 적어주세요.', 'err'); return; }
   var target = CR_CAT === '행사' ? '' : (el('crTarget') ? el('crTarget').value : '');
   if (CR_CAT !== '행사' && !target) { say('crMsg', '대상을 골라주세요.', 'err'); return; }
-  callServer('albumCreate', [TOKEN, { category: CR_CAT, target: target, title: title, desc: el('crDesc').value.trim() }],
+  var links = CR_LINKS.filter(function (l) { return (l.url || '').trim(); });
+  var bad = links.filter(function (l) { return !/^https:\/\//i.test(l.url.trim()); });
+  if (bad.length) { say('crMsg', '링크는 https:// 로 시작하는 주소여야 합니다.', 'err'); return; }
+  callServer('albumCreate', [TOKEN, { category: CR_CAT, target: target, title: title, desc: el('crDesc').value.trim(), links: links }],
     function (r) { load(function () { openAlbum(r.id); }); },
     function (e) { say('crMsg', e.message || e, 'err'); });
 }

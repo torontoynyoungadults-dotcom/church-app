@@ -40,6 +40,7 @@
   .doc ul, .doc ol { margin: 0 0 14px; padding-left: 22px; }
   .doc li { margin-bottom: 7px; }
   .doc b, .doc strong { color: #FFFFFF; }
+  .doc mark { background: rgba(var(--tone-rgb),.28); color: #FFFFFF; padding: 0 3px; border-radius: 3px; }
   .doc a { color: #C9B9FF; }
   .doc img { max-width: 100%; height: auto; border-radius: 12px; margin: 10px 0;
     border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); display: block; }
@@ -297,6 +298,8 @@ var TOKEN = P.t || '';
 var D = null;          // 목록 자료
 var M = null;          // 지금 열어 본 회의록
 var TAB = 'list';
+var ADDMODE = 'doc';
+var EDIT_BODY = false;
 var ALLDOC = false;
 var AI_RESULT = null, AI_BUSY = false, AI_ERR = '';   // Gemini 요약 · 할일 추출
 var SECTIONS = null, SEC_PICKED = '', SEC_BUSY = false, SEC_RESULT = null, SEC_ERR = '';   // 문서 안 날짜별 구간 골라 요약
@@ -344,27 +347,42 @@ function draw() {
   }
 
   var myTeams = D.myTeams || [];
+  var teamPick = (myTeams.length > 1 || D.committee)
+    ? '<label class="fl" style="margin-top:8px;">사역팀' + (D.committee ? ' (비우면 커미티 공용)' : '') + '</label>' +
+      '<select id="aTeam">' +
+        (D.committee ? '<option value="">— 커미티 공용 —</option>' : '') +
+        myTeams.map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('') +
+      '</select>'
+    : (myTeams.length === 1 ? '<input type="hidden" id="aTeam" value="' + esc(myTeams[0]) + '">' : '');
+
   h += '<div class="panel">' +
     '<span class="chip">회의록 등록</span>' +
-    '<p class="hint">구글 문서 주소를 붙여 넣으면 본문을 그대로 읽어 오고, ' +
-      '문서 안의 할 일을 찾아 담당자에게 보내 드립니다.</p>' +
-    '<label class="fl">구글 문서 주소</label>' +
-    '<input type="text" id="aUrl" placeholder="https://docs.google.com/document/d/...">' +
-    '<div class="trow" style="margin-top:8px;">' +
-      '<div><label class="fl">제목 (비우면 문서 제목)</label><input type="text" id="aTitle" placeholder="9월 커미티 회의"></div>' +
-      '<div><label class="fl">회의 날짜</label><input type="date" id="aDate" value="' + today() + '"></div>' +
+    '<div class="mtabs" style="margin:0 0 12px;">' +
+      '<button type="button" class="' + (ADDMODE === 'doc' ? 'on' : '') + '" onclick="ADDMODE=\'doc\';draw();">구글 문서 연결</button>' +
+      '<button type="button" class="' + (ADDMODE === 'write' ? 'on' : '') + '" onclick="ADDMODE=\'write\';draw();">앱에서 바로 쓰기</button>' +
     '</div>' +
-    (myTeams.length > 1 || D.committee
-      ? '<label class="fl" style="margin-top:8px;">사역팀' + (D.committee ? ' (비우면 커미티 공용)' : '') + '</label>' +
-        '<select id="aTeam">' +
-          (D.committee ? '<option value="">— 커미티 공용 —</option>' : '') +
-          myTeams.map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('') +
-        '</select>'
-      : (myTeams.length === 1 ? '<input type="hidden" id="aTeam" value="' + esc(myTeams[0]) + '">' : '')) +
+    (ADDMODE === 'write'
+      ? '<p class="hint">구글 문서 없이 여기서 바로 회의록을 적습니다. **굵게**, ==강조== 로 꾸밀 수 있고, 저장하면 할 일도 찾아 드립니다.</p>' +
+        '<label class="fl">제목</label><input type="text" id="aTitle" placeholder="9월 커미티 회의">' +
+        '<div class="trow" style="margin-top:8px;"><div><label class="fl">회의 날짜</label><input type="date" id="aDate" value="' + today() + '"></div></div>' +
+        (teamPick ? teamPick : '') +
+        '<label class="fl" style="margin-top:8px;">내용</label>' +
+        '<textarea id="aBody" rows="8" placeholder="회의 내용을 적어주세요. 할 일은 [ ] 김현세 주보 정리 (9/30) 처럼 적으면 자동으로 찾습니다."></textarea>' +
+        '<button type="button" class="btn mini aipolish" style="margin-top:6px;" onclick="aiPolish(\'aBody\',this,\'aBodyMsg\')">&#10024; AI 편집</button>' +
+        '<p class="msg" id="aBodyMsg"></p>'
+      : '<p class="hint">구글 문서 주소를 붙여 넣으면 본문을 그대로 읽어 오고, ' +
+          '문서 안의 할 일을 찾아 담당자에게 보내 드립니다.</p>' +
+        '<label class="fl">구글 문서 주소</label>' +
+        '<input type="text" id="aUrl" placeholder="https://docs.google.com/document/d/...">' +
+        '<div class="trow" style="margin-top:8px;">' +
+          '<div><label class="fl">제목 (비우면 문서 제목)</label><input type="text" id="aTitle" placeholder="9월 커미티 회의"></div>' +
+          '<div><label class="fl">회의 날짜</label><input type="date" id="aDate" value="' + today() + '"></div>' +
+        '</div>' +
+        teamPick) +
     '<button class="btn accent full" style="margin-top:10px;" onclick="addMeet()">등록하고 할 일 뽑기</button>' +
     '<p class="msg" id="aMsg"></p>' +
     '<p class="guide" style="margin-top:12px;">' +
-      '<b style="color:#fff;">문서에서 이렇게 적어 주시면 자동으로 찾습니다</b><br>' +
+      '<b style="color:#fff;">이렇게 적어 주시면 할 일을 자동으로 찾습니다</b><br>' +
       '· 네모칸으로 시작하는 줄 — <code>[ ] 김현세 주보 정리 (9/30)</code><br>' +
       '· <code>할 일</code> · <code>액션 아이템</code> · <code>TODO</code> 제목 아래의 목록 줄<br>' +
       '· 이름은 교적에 있는 이름으로, 날짜는 <code>9/30</code> · <code>9월 30일</code> · <code>다음 주</code> 모두 알아듣습니다' +
@@ -415,6 +433,7 @@ function openMeet(id) {
   window.scrollTo(0, 0);
   AI_RESULT = null; AI_BUSY = false; AI_ERR = '';
   SECTIONS = null; SEC_PICKED = ''; SEC_BUSY = false; SEC_RESULT = null; SEC_ERR = '';
+  EDIT_BODY = false;
   callServer('minutesOpen', [TOKEN, id], function (r) { M = r; ALLDOC = false; paint(); }, function (e) {
     el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || e) + '</p>' +
       '<button class="btn full" onclick="load()">목록으로</button></div>';
@@ -425,8 +444,8 @@ function paint() {
   var m = M.meet;
   var h = '<div class="mtop">' +
     '<button class="btn mini back" onclick="load()">‹ 목록</button><span class="sp"></span>' +
-    (M.canEdit ? '<button class="btn mini" onclick="syncMeet()">문서 다시 읽기</button>' : '') +
-    '<a class="btn mini" href="' + esc(m.docUrl) + '" target="_blank" rel="noopener">구글 문서 열기</a>' +
+    (M.canEdit && !m.writeMode ? '<button class="btn mini" onclick="syncMeet()">문서 다시 읽기</button>' : '') +
+    (m.writeMode ? '' : '<a class="btn mini" href="' + esc(m.docUrl) + '" target="_blank" rel="noopener">구글 문서 열기</a>') +
     '</div>';
 
   h += '<div class="panel">' +
@@ -436,7 +455,21 @@ function paint() {
       (m.read ? ' · 마지막 읽음 ' + esc(m.read) : '') + '</p>' +
     '<p class="msg" id="sMsg"></p>';
 
-  if (M.err) {
+  if (m.writeMode) {
+    if (EDIT_BODY) {
+      h += '<textarea id="mBody" rows="10">' + esc(M.rawBody || '') + '</textarea>' +
+        '<button type="button" class="btn mini aipolish" style="margin-top:6px;" onclick="aiPolish(\'mBody\',this,\'mBodyMsg\')">&#10024; AI 편집</button>' +
+        '<p class="msg" id="mBodyMsg"></p>' +
+        '<div class="trow" style="margin-top:8px;">' +
+          '<button class="btn accent" onclick="saveBody()">저장</button>' +
+          '<button class="btn" onclick="EDIT_BODY=false;paint();">취소</button>' +
+        '</div>';
+    } else {
+      h += (M.html ? '<div class="docwrap all"><div class="doc">' + M.html + '</div></div>'
+        : '<p class="empty">아직 내용이 없습니다.</p>') +
+        (M.canEdit ? '<button class="btn full" style="margin-top:10px;" onclick="EDIT_BODY=true;paint();">✎ 내용 고치기</button>' : '');
+    }
+  } else if (M.err) {
     h += '<p class="msg err">' + esc(M.err) + '</p>' +
       '<p class="guide">구글 문서에서 <b style="color:#fff;">공유 → 링크가 있는 모든 사용자(뷰어)</b> 로 바꾸시거나, ' +
       '이 시스템이 쓰는 구글 계정을 뷰어로 넣어 주세요.</p>';
@@ -450,7 +483,7 @@ function paint() {
 
   /* Gemini 요약 · 할일 추출 (커미티만) */
   if (M.canEdit) h += '<div class="panel">' + aiCardHtml() + '</div>';
-  if (M.canEdit) h += '<div class="panel">' + sectionCardHtml() + '</div>';
+  if (M.canEdit && !m.writeMode) h += '<div class="panel">' + sectionCardHtml() + '</div>';
 
   /* 할 일 */
   h += '<div class="panel"><span class="chip">이 회의의 할 일</span>';
@@ -517,16 +550,33 @@ function taskHtml(t, mine) {
 /* ============ 움직이는 부분 ============ */
 
 function addMeet() {
-  var url = el('aUrl').value.trim();
-  if (!url) { say('aMsg', '구글 문서 주소를 넣어주세요.', 'err'); return; }
-  say('aMsg', '문서를 읽는 중입니다…');
   var teamEl = el('aTeam');
-  callServer('minutesAdd', [TOKEN, { url: url, title: el('aTitle').value.trim(), date: el('aDate').value, team: teamEl ? teamEl.value : '' }],
+  var data = { title: el('aTitle').value.trim(), date: el('aDate').value, team: teamEl ? teamEl.value : '' };
+  if (ADDMODE === 'write') {
+    var body = el('aBody').value.trim();
+    if (!body) { say('aMsg', '내용을 적어주세요.', 'err'); return; }
+    data.mode = 'write'; data.body = body;
+    say('aMsg', '저장하는 중입니다…');
+  } else {
+    var url = el('aUrl').value.trim();
+    if (!url) { say('aMsg', '구글 문서 주소를 넣어주세요.', 'err'); return; }
+    data.url = url;
+    say('aMsg', '문서를 읽는 중입니다…');
+  }
+  callServer('minutesAdd', [TOKEN, data],
     function (r) {
       say('aMsg', '등록했습니다. 할 일 ' + (r.found || 0) + '건을 찾았습니다.', 'ok');
       load(function () { openMeet(r.id); });
     },
     function (e) { say('aMsg', e.message || e, 'err'); });
+}
+
+function saveBody() {
+  var body = el('mBody').value;
+  say('mBodyMsg', '저장하는 중…');
+  callServer('minutesSaveBody', [TOKEN, M.meet.id, body], function (r) {
+    M = r; EDIT_BODY = false; paint();
+  }, function (e) { say('mBodyMsg', e.message || e, 'err'); });
 }
 
 function syncMeet() {
