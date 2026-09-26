@@ -1503,7 +1503,8 @@ function todoItem(t) {
     '</span>' +
     (t.url || t.id.indexOf('cellapp-') === 0 || t.id.indexOf('form-') === 0
       ? '<span class="tigo">›</span>' : '') +
-    (t.hideable ? '<button class="tix" title="이 알림 치우기" onclick="hideTodoItem(event,\'' + jsq(t.id) + '\')">×</button>' : '');
+    (t.del ? '<button class="tix" title="모두에게서 이 공지를 내립니다" onclick="dropNotice(event,\'' + jsq(t.del) + '\')">×</button>'
+     : t.hideable ? '<button class="tix" title="이 알림 치우기" onclick="hideTodoItem(event,\'' + jsq(t.id) + '\')">×</button>' : '');
 
   var cls = 'ti ' + (t.tone === 'notice' ? 'tnotice' : (t.tone || 'info'));
   // 신청서 · 셀 신청은 포털 안에서 열립니다
@@ -1521,6 +1522,18 @@ function stepBars(s) {
   var out = '';
   for (var i = 1; i <= (s.all || 5); i++) out += '<i class="' + (i <= s.now ? 'on' : '') + '"></i>';
   return out;
+}
+
+/** 커미티 — 공지를 모두에게서 내립니다 */
+function dropNotice(ev, id) {
+  ev.preventDefault(); ev.stopPropagation();
+  if (!confirm('이 공지를 모두에게서 내릴까요?')) return false;
+  callServer('deleteNotice', [caToken(), id], function () {
+    TODOS = TODOS.filter(function (t) { return t.del !== id; });
+    if (SELF) SELF.todos = TODOS;
+    renderTodos({ todos: TODOS });
+  }, function (e) { alert((e && e.message) || '내리지 못했습니다.'); });
+  return false;
 }
 
 function hideTodoItem(ev, id) {

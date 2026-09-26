@@ -4184,7 +4184,7 @@ function sendReminders___원래(force) {
     기록.appendRow([키, c.name, new Date()]);
     sent.push(c.name);
     // 휴대폰 알림도 같이 (설정에서 꺼둘 수 있습니다)
-    알림_('셀보고', [c.leader], {
+    알림보내기_('셀보고', [c.leader], {
       title: '셀보고서를 기다리고 있습니다',
       body: c.name + ' — ' + 키 + ' 셀모임 보고서를 아직 안 쓰셨습니다.',
       url: url + '?page=leader', tag: '셀보고', keep: true
@@ -7233,7 +7233,7 @@ function registerNewcomer(link, data) {
       prevChurch: prevChurch, job: job, plan: plan, question: question, email: email }, isNew);
   } catch (e) {}
   // 새가족팀 · 커미티 휴대폰으로도 알려줍니다
-  알림_('새가족', 역할인사람_('새가족팀').concat(역할인사람_('커미티')), {
+  알림보내기_('새가족', 역할인사람_('새가족팀').concat(역할인사람_('커미티')), {
     title: isNew ? '새가족이 등록했습니다' : '새가족이 내용을 고쳤습니다',
     body: finalName + ' (' + gender + ') — ' + plan,
     url: 앱주소_() + '?page=newfamily', tag: '새가족', keep: true
@@ -8282,7 +8282,7 @@ function submitExpense(data) {
 
     var 건 = 지출쓰기_(data, { needReceipt: true, status: 'In Review', source: '신청서' });
     try { 지출접수메일_(건); } catch (e) {}
-    알림_('팀보고', 역할인사람_('회계팀').concat(역할인사람_('커미티')), {
+    알림보내기_('팀보고', 역할인사람_('회계팀').concat(역할인사람_('커미티')), {
       title: '지출 신청이 들어왔습니다',
       body: (건.no ? '#' + 건.no + ' · ' : '') + (data.team || data.name || '') + ' · $' + 건.total,
       url: 앱주소_() + '?page=expense', tag: '지출'
@@ -9452,7 +9452,7 @@ function saveBulletin(token, data, publish) {
   캐시비움_();
   // 새로 게시된 주보는 알림을 켠 모두에게 알려줍니다
   if (publish && !(지금 && 지금.status === '게시')) {
-    알림_('주보', '*', {
+    알림보내기_('주보', '*', {
       title: '이번 주 주보가 나왔습니다',
       body: 주보제목_(date, keep.occasion),
       url: 앱주소_() + '?page=bulletin', tag: '주보'
@@ -9972,7 +9972,7 @@ function submitCellApp(token, d) {
   캐시비움_();
 
   // 커미티 휴대폰으로 알려줍니다
-  알림_('셀신청', 역할인사람_('커미티'), {
+  알림보내기_('셀신청', 역할인사람_('커미티'), {
     title: '셀 신청이 들어왔습니다',
     body: name + ' — ' + join + (who.kind === 'newcomer' ? ' (새가족)' : ''),
     url: 앱주소_() + '?page=cells', tag: '셀신청'
@@ -10438,7 +10438,7 @@ function pushAdminInit(token) {
   var people = Object.keys(byName).sort(function (a, b) { return a.localeCompare(b, 'ko'); })
     .map(function (n) { return { name: n, devices: byName[n] }; });
   var kinds = 알림종류_().map(function (k) {
-    return { key: k.key, name: k.name, who: k.who, help: k.help, on: 알림켜짐_(k.key) };
+    return { key: k.key, name: k.name, who: k.who, help: k.help, on: 알림켜짐_(k.key), mail: 메일켜짐_(k.key) };
   });
   var roles = 역할맵_(), leaders = [], teamLeads = [], com = [];
   Object.keys(roles).forEach(function (n) {
@@ -10449,7 +10449,16 @@ function pushAdminInit(token) {
   return {
     kinds: kinds, people: people, total: rows.length,
     ready: !!String(설정값_('푸시공개키') || '').trim(),
-    groups: { 전체: people.length, 셀장: leaders.length, 팀장: teamLeads.length, 커미티: com.length }
+    groups: { 전체: people.length, 셀장: leaders.length, 팀장: teamLeads.length, 커미티: com.length },
+    schedule: 알림일정목록_(),
+    days: 알림요일,
+    targets: 알림대상목록_(),
+    notices: 공지들_(),
+    deadlines: 마감들_(),
+    missionTeams: (function () { try { return 선교팀목록_().map(function (t) { return t.name; }); } catch (e) { return []; } })(),
+    workTeams: 사역팀목록_().map(function (t) { return t.name; }),
+    missionItems: 선교마감항목(),
+    reminderOn: String(설정값_('리마인더사용') || 'ON').toUpperCase() !== 'OFF'
   };
 }
 
@@ -11234,7 +11243,8 @@ function listNotices(token) {
 
 function 할일하나_(o) {
   return { id: o.id, kind: o.kind, icon: o.icon || '', title: o.title, sub: o.sub || '',
-    url: o.url || '', tone: o.tone || 'info', hideable: o.hideable !== false, step: o.step || null };
+    url: o.url || '', tone: o.tone || 'info', hideable: o.hideable !== false, step: o.step || null,
+    del: o.del || '' };
 }
 
 /**
@@ -11260,8 +11270,10 @@ function 내할일_(token) {
     if (n.target && n.target !== '전체' && who.kind === 'member') {
       if (r.roles.indexOf(n.target) === -1 && r.teams.indexOf(n.target) === -1 && r.cells.indexOf(n.target) === -1) return;
     }
-    out.push(할일하나_({ id: 'notice-' + n.id, kind: 'notice', icon: '📢',
-      title: n.title, sub: n.body || (n.by ? n.by + ' 올림' : ''), url: n.url, tone: 'notice' }));
+    var it = 할일하나_({ id: 'notice-' + n.id, kind: 'notice', icon: '📢',
+      title: n.title, sub: n.body || (n.by ? n.by + ' 올림' : ''), url: n.url, tone: 'notice' });
+    if (커미티) it.del = n.id;          // 커미티는 모두에게서 내릴 수 있습니다
+    out.push(it);
   });
 
   if (who.kind === 'member') {
@@ -11305,9 +11317,30 @@ function 내할일_(token) {
       if (!예아니오_(x[MM_여권])) 빠진.push('여권 사본');
       if (!빠진.length) return;
       out.push(할일하나_({ id: 'mis-' + team + '-doc', kind: 'do', icon: '🌏',
-        title: team + ' 서류', sub: 빠진.join(' · ') + ' 를 아직 안 내셨습니다',
+        title: team + ' 서류', sub: 빠진.join(' · ') + ' 아직 안 내셨습니다',
         url: base + '?page=mission&t=' + encodeURIComponent(token), tone: 'warn' }));
     });
+
+    /* --- 4-2) 커미티가 정한 마감 (선교팀 · 사역팀) --- */
+    try {
+      var 내선교 = {};
+      rows_(SHEET_선교팀원).forEach(function (x2) {
+        if (String(x2[MM_이름]).trim() === who.name) 내선교[String(x2[MM_팀]).trim()] = String(x2[MM_역할] || '');
+      });
+      마감들_().forEach(function (d) {
+        var mine = (d.kind === '사역') ? (r.teams.indexOf(d.team) !== -1)
+          : (내선교[d.team] !== undefined && /팀장|회계|서기/.test(내선교[d.team] || ''));
+        if (!mine) return;
+        var days = Math.round((parseYmd_(d.due) - parseYmd_(today)) / 86400000);
+        if (days > 14) return;
+        out.push(할일하나_({ id: 'due-' + d.team + '-' + d.item, kind: 'do', icon: '\u23F0',
+          title: d.team + ' · ' + d.item,
+          sub: days < 0 ? ('마감 ' + (-days) + '일 지남 (' + d.due + ')')
+            : days === 0 ? ('오늘 마감 (' + d.due + ')') : (d.due + ' 마감 · ' + days + '일 남음'),
+          url: 앱주소_() + (d.kind === '사역' ? '?page=team' : '?page=mission&t=' + encodeURIComponent(token)),
+          tone: days <= 0 ? 'urgent' : (days <= 3 ? 'warn' : 'info') }));
+      });
+    } catch (e) {}
 
     /* --- 5) 지출 신청 진행 상황 --- */
     var 상태표 = {};
@@ -11428,6 +11461,7 @@ function 포털뱃지_(todos) {
     else if (id.indexOf('exp-') === 0) { if (t.tone === 'urgent') add('expense'); }
     else if (id.indexOf('nf-') === 0) { add('newfamily'); add('a-nf'); }
     else if (id.indexOf('form-') === 0) add('forms');
+    else if (id.indexOf('due-') === 0) { add('mission'); add('team'); }
     else if (id.indexOf('cellapp-in-') === 0) add('a-cells');
   });
   return b;
@@ -11445,4 +11479,418 @@ function setExpenseOpen(key, on) {
 function getExpenseOpen(key) {
   requireAcct_(key);
   return { on: 지출공개_() };
+}
+
+/* =========================================================
+   알림 2단계 — 보내는 시각 · 이메일 함께 보내기 · 받는 사람 분류 · 마감 알림
+   ========================================================= */
+
+var 알림작업 = [
+  { fn: '미제출리마인더', name: '셀보고 독려', help: '지난 주일 보고서를 안 낸 셀장에게', def: '월 08:00' },
+  { fn: '주일독려', name: '주일 셀보고 독려', help: '주일 저녁, 그날 보고서를 아직 안 낸 셀장에게', def: '일 16:30' },
+  { fn: '마감알림', name: '마감 알림', help: '사역팀 보고 · 선교팀 서류 마감을 앞두고', def: '매일 09:00' }
+];
+var 알림요일 = ['일', '월', '화', '수', '목', '금', '토', '매일'];
+
+/** 설정에 저장된 발송 일정 — 서버 시계가 읽어갑니다 */
+function 알림일정_() {
+  var out = {};
+  알림작업.forEach(function (j) {
+    out[j.fn] = String(설정값_('알림일정_' + j.fn) || j.def).trim();
+  });
+  return out;
+}
+
+function 알림일정목록_() {
+  var cur = 알림일정_();
+  return 알림작업.map(function (j) {
+    var v = String(cur[j.fn] || j.def);
+    var off = v.toUpperCase() === 'OFF';
+    var m = /^(\S+)\s+(\d{1,2}):(\d{2})$/.exec(v);
+    return { fn: j.fn, name: j.name, help: j.help, off: off,
+      day: m ? m[1] : '월', hour: m ? Number(m[2]) : 8, minute: m ? Number(m[3]) : 0, raw: v };
+  });
+}
+
+function saveNotifySchedule(token, fn, day, hour, minute, off) {
+  if (!커미티토큰_(token)) throw new Error('알림 설정은 커미티만 바꿀 수 있습니다.');
+  if (!알림작업.some(function (j) { return j.fn === fn; })) throw new Error('없는 알림입니다.');
+  if (off) { 설정저장_('알림일정_' + fn, 'OFF'); return { ok: true, schedule: 알림일정목록_() }; }
+  day = String(day || '월').trim();
+  if (알림요일.indexOf(day) === -1) throw new Error('요일을 골라주세요.');
+  var h = Math.max(0, Math.min(23, Number(hour) || 0));
+  var mi = Math.max(0, Math.min(59, Number(minute) || 0));
+  설정저장_('알림일정_' + fn, day + ' ' + ('0' + h).slice(-2) + ':' + ('0' + mi).slice(-2));
+  return { ok: true, schedule: 알림일정목록_() };
+}
+
+/* ---- 이메일도 같이 보내기 ---- */
+
+function 메일켜짐_(kind) {
+  return String(설정값_('알림메일_' + kind) || 'OFF').trim().toUpperCase() === 'ON';
+}
+
+function saveNotifyMail(token, kind, on) {
+  if (!커미티토큰_(token)) throw new Error('알림 설정은 커미티만 바꿀 수 있습니다.');
+  설정저장_('알림메일_' + kind, on ? 'ON' : 'OFF');
+  return pushAdminInit(token);
+}
+
+/** 이름 목록 → 이메일 목록 (교적에서) */
+function 이름메일_(names) {
+  if (names === '*') {
+    var all = [];
+    var 교적 = 교적맵_();
+    Object.keys(교적).forEach(function (n) { if (교적[n].email) all.push(교적[n].email); });
+    return all;
+  }
+  var 교적2 = 교적맵_(), out = [];
+  (names || []).forEach(function (n) {
+    var d = 교적2[n];
+    if (d && d.email) out.push(d.email);
+  });
+  return out.filter(function (x, i) { return out.indexOf(x) === i; });
+}
+
+/** 알림 한 번 — 푸시 + (켜져 있으면) 이메일 */
+function 알림보내기_(kind, names, msg) {
+  var r = 알림_(kind, names, msg);
+  if (메일켜짐_(kind)) {
+    try {
+      var to = 이름메일_(names);
+      if (to.length) {
+        MailApp.sendEmail({
+          to: to.join(','), name: '토론토영락교회 청년1부',
+          subject: '[청년1부] ' + (msg.title || ''),
+          htmlBody: 알림메일본문_(msg)
+        });
+        r.mail = to.length;
+      }
+    } catch (e) { r.mailError = e.message; }
+  }
+  return r;
+}
+
+function 알림메일본문_(msg) {
+  var url = msg.url || (앱주소_() + '?page=portal');
+  return '<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:520px;">' +
+    '<h2 style="color:#D2511F;margin:0 0 8px;">' + esc_(msg.title || '') + '</h2>' +
+    (msg.body ? '<p style="color:#333;font-size:15px;line-height:1.75;white-space:pre-wrap;margin:0 0 18px;">' +
+      esc_(msg.body) + '</p>' : '') +
+    '<a href="' + esc_(url) + '" style="display:inline-block;background:#D2511F;color:#fff;' +
+      'text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:700;">포털에서 보기</a>' +
+    '<p style="color:#999;font-size:12px;margin-top:22px;">토론토영락교회 청년1부</p></div>';
+}
+
+/* ---- 받는 사람 분류 ---- */
+
+/** 알림을 보낼 수 있는 그룹 목록 (화면의 드롭다운) */
+function 알림대상목록_() {
+  var out = [
+    { key: '전체', name: '알림 켠 모두', n: 푸시행들_().length },
+    { key: '셀장', name: '셀장', n: 역할인사람_('셀장').length },
+    { key: '팀장', name: '팀장', n: 역할인사람_('팀장').length },
+    { key: '커미티', name: '커미티', n: 역할인사람_('커미티').length },
+    { key: '새가족팀', name: '새가족팀', n: 역할인사람_('새가족팀').length },
+    { key: '회계팀', name: '회계팀', n: 역할인사람_('회계팀').length }
+  ];
+  // 사역팀별
+  사역팀목록_().forEach(function (t) {
+    out.push({ key: '팀:' + t.name, name: t.name, n: t.members.length + (t.leader ? 1 : 0), group: '사역팀' });
+  });
+  // 셀별
+  getCells().forEach(function (c) {
+    out.push({ key: '셀:' + c.name, name: c.name, n: c.members.length, group: '셀' });
+  });
+  // 선교팀별
+  try {
+    선교팀목록_().forEach(function (t) {
+      out.push({ key: '선교:' + t.name, name: t.name, n: (t.members || []).length, group: '선교팀' });
+    });
+  } catch (e) {}
+  // 신청서에 신청한 사람들 (수련회 참석자 · 제자훈련 신청자 등)
+  try {
+    신청서들_().forEach(function (f) {
+      if (f.status === '보관') return;
+      var n = 답행들_(f.id).length;
+      if (!n) return;
+      out.push({ key: '신청:' + f.id, name: f.title + ' 신청자', n: n, group: '신청서' });
+    });
+  } catch (e) {}
+  // 제자훈련
+  try {
+    var tr = rows_(SHEET_제자훈련).filter(function (r) { return String(r[0] || '').trim(); }).length;
+    if (tr) out.push({ key: '제자훈련', name: '제자훈련 참석자', n: tr, group: '기타' });
+  } catch (e) {}
+  return out;
+}
+
+/** 그룹 키 → 이름 목록 */
+function 대상사람_(key) {
+  key = String(key || '전체').trim();
+  if (key === '전체') return '*';
+  if (['셀장', '팀장', '커미티', '새가족팀', '회계팀'].indexOf(key) !== -1) return 역할인사람_(key);
+  if (key.indexOf('팀:') === 0) {
+    var tn = key.slice(2), out = [];
+    사역팀목록_().forEach(function (t) {
+      if (t.name !== tn) return;
+      if (t.leader) out.push(t.leader);
+      (t.members || []).forEach(function (m) { out.push(m.name || m); });
+    });
+    return out;
+  }
+  if (key.indexOf('셀:') === 0) {
+    var cn = key.slice(2), o2 = [];
+    getCells().forEach(function (c) {
+      if (c.name !== cn) return;
+      if (c.leader) o2.push(c.leader);
+      (c.members || []).forEach(function (m) { o2.push(m); });
+    });
+    return o2;
+  }
+  if (key.indexOf('선교:') === 0) {
+    var mn = key.slice(3), o3 = [];
+    rows_(SHEET_선교팀원).forEach(function (r) {
+      if (String(r[MM_팀]).trim() === mn) o3.push(String(r[MM_이름]).trim());
+    });
+    return o3;
+  }
+  if (key.indexOf('신청:') === 0) {
+    return 답행들_(key.slice(3)).map(function (a) { return a.name; });
+  }
+  if (key === '제자훈련') {
+    return rows_(SHEET_제자훈련).map(function (r) { return String(r[0] || '').trim(); })
+      .filter(function (x) { return x; });
+  }
+  // 이름을 직접 적은 경우
+  return key.split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+}
+
+/* ---- 지금 바로 보내기 ---- */
+
+/**
+ * 셀장에게 지금 보냅니다.
+ *   mode 'ask'  — "이번 주 보고서를 올려주세요" (독촉 아님, 먼저 부탁)
+ *   mode 'nudge'— "아직 안 내셨습니다" (안 낸 셀장에게만)
+ */
+function sendCellNoticeNow(token, mode) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 보낼 수 있습니다.');
+  var 키 = ymd_(이번주기준_());
+  var 제출됨 = {};
+  rows_(SHEET_응답원본).forEach(function (r) { if (ymd_(r[R_DATE]) === 키) 제출됨[String(r[R_CELL]).trim()] = true; });
+
+  var 받는사람 = [], 셀이름 = [];
+  getCells().forEach(function (c) {
+    if (!c.leader) return;
+    if (mode === 'nudge' && 제출됨[c.name]) return;
+    받는사람.push(c.leader);
+    셀이름.push(c.name);
+  });
+  if (!받는사람.length) return { sent: 0, none: true, msg: mode === 'nudge' ? '모든 셀이 보고서를 냈습니다.' : '셀장이 없습니다.' };
+
+  var r = 알림보내기_('셀보고', 받는사람, {
+    title: mode === 'nudge' ? '셀보고서를 기다리고 있습니다' : '이번 주 셀보고서를 올려주세요',
+    body: 월일_(키) + ' 셀모임 보고서' + (mode === 'nudge' ? ' — 아직 올라오지 않았습니다.' : ' 를 올려주세요.'),
+    url: 앱주소_() + '?page=leader', tag: '셀보고', keep: true
+  });
+  return { sent: r.sent || 0, mail: r.mail || 0, people: 받는사람.length, cells: 셀이름 };
+}
+
+/**
+ * 팀장에게 지금 보냅니다.
+ *   mode 'ask'  — "이번 달 사역 보고서를 올려주세요"
+ *   mode 'nudge'— 아직 안 낸 팀장에게만
+ */
+function sendTeamNoticeNow(token, mode) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 보낼 수 있습니다.');
+  var 달 = ymd_(new Date()).slice(0, 7);
+  var 낸팀 = {};
+  rows_(SHEET_사역보고서).forEach(function (r) {
+    if (String(r[TR_기준월] || '').slice(0, 7) === 달) 낸팀[String(r[TR_팀]).trim()] = true;
+  });
+  var 받는사람 = [], 팀 = [];
+  사역팀목록_().forEach(function (t) {
+    if (!t.leader) return;
+    if (mode === 'nudge' && 낸팀[t.name]) return;
+    받는사람.push(t.leader);
+    팀.push(t.name);
+  });
+  if (!받는사람.length) return { sent: 0, none: true, msg: mode === 'nudge' ? '모든 팀이 보고서를 냈습니다.' : '팀장이 없습니다.' };
+
+  var 달표시 = 달.slice(0, 4) + '년 ' + Number(달.slice(5, 7)) + '월';
+  var r = 알림보내기_('팀보고', 받는사람, {
+    title: mode === 'nudge' ? '사역 보고서를 기다리고 있습니다' : 달표시 + ' 사역 보고서를 올려주세요',
+    body: 달표시 + ' 팀 보고서' + (mode === 'nudge' ? ' 가 아직 올라오지 않았습니다.' : ' 를 올려주세요.'),
+    url: 앱주소_() + '?page=team', tag: '팀보고', keep: true
+  });
+  return { sent: r.sent || 0, mail: r.mail || 0, people: 받는사람.length, teams: 팀 };
+}
+
+/* ---- 공지 보내기 (포털 + 푸시 + 이메일) ---- */
+
+/**
+ * 커미티 공지 — 포털 첫 화면에 남기고, 고른 대로 푸시 · 이메일도 보냅니다.
+ */
+function sendNotice(token, d) {
+  if (!커미티토큰_(token)) throw new Error('공지는 커미티만 보낼 수 있습니다.');
+  d = d || {};
+  var title = String(d.title || '').trim().slice(0, 100);
+  if (!title) throw new Error('제목을 입력해주세요.');
+  var body = String(d.body || '').trim().slice(0, 2000);
+  var target = String(d.target || '전체').trim();
+  var url = String(d.url || '').trim();
+  var until = /^\d{4}-\d{2}-\d{2}$/.test(String(d.until || '')) ? d.until : '';
+
+  var who = 대상사람_(target);
+  var out = { push: 0, mail: 0, portal: false };
+
+  // 1) 포털 첫 화면에 남기기
+  if (d.portal !== false) {
+    var id = 'N' + Date.now().toString(36);
+    공지시트_().appendRow([id, title, body, target, url, 커미티이름_(token), ymd_(new Date()), until]);
+    캐시비움_();
+    out.portal = true;
+    out.id = id;
+  }
+
+  // 2) 푸시
+  if (d.push !== false && 알림켜짐_('공지')) {
+    var p = 푸시보내기_(who, { title: title, body: body,
+      url: url || (앱주소_() + '?page=portal'), tag: 'notice', keep: true });
+    out.push = p.sent || 0;
+  }
+
+  // 3) 이메일
+  if (d.mail) {
+    try {
+      var to = 이름메일_(who);
+      if (to.length) {
+        MailApp.sendEmail({ to: to.join(','), name: '토론토영락교회 청년1부',
+          subject: '[청년1부] ' + title, htmlBody: 알림메일본문_({ title: title, body: body, url: url }) });
+        out.mail = to.length;
+      }
+    } catch (e) { out.mailError = e.message; }
+  }
+  return out;
+}
+
+/* ---- 선교팀 · 사역팀 마감 ---- */
+
+var SHEET_마감 = '마감일';
+var HEAD_마감 = ['구분', '대상', '항목', '마감일', '메모', '정한이', '정한날'];
+var DL_구분 = 0, DL_대상 = 1, DL_항목 = 2, DL_날 = 3, DL_메모 = 4, DL_by = 5, DL_at = 6;
+
+function 마감시트_() {
+  var sh = 주보시트_(SHEET_마감, HEAD_마감);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_마감.length).setValues([HEAD_마감]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+/** 선교팀이 내야 하는 것들 */
+function 선교마감항목() { return ['예산안', '지출 결산', '핸드북', '선교 보고서', '서약서 · 여권']; }
+
+function 마감들_() {
+  return rows_(SHEET_마감).filter(function (r) { return String(r[DL_대상]).trim() && String(r[DL_항목]).trim(); })
+    .map(function (r) {
+      return { kind: String(r[DL_구분] || '선교').trim(), team: String(r[DL_대상]).trim(),
+        item: String(r[DL_항목]).trim(), due: 날짜문자열_(r[DL_날]),
+        memo: String(r[DL_메모] || '').trim(), by: String(r[DL_by] || '').trim() };
+    }).filter(function (x) { return x.due; })
+    .sort(function (a, b) { return a.due.localeCompare(b.due); });
+}
+
+function saveDeadline(token, kind, team, item, due, memo) {
+  if (!커미티토큰_(token)) throw new Error('마감일은 커미티만 정할 수 있습니다.');
+  team = String(team || '').trim(); item = String(item || '').trim();
+  if (!team || !item) throw new Error('팀과 항목을 골라주세요.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(due || ''))) throw new Error('마감일을 골라주세요.');
+  var sh = 마감시트_(), v = sh.getDataRange().getValues(), at = 0;
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][DL_대상]).trim() === team && String(v[i][DL_항목]).trim() === item) { at = i + 1; break; }
+  }
+  var row = [String(kind || '선교').trim(), team, item, due, String(memo || '').trim().slice(0, 200),
+    커미티이름_(token), ymd_(new Date())];
+  if (at) sh.getRange(at, 1, 1, row.length).setValues([row]);
+  else { sh.appendRow(row); at = sh.getLastRow(); }
+  sh.getRange(at, DL_날 + 1).setNumberFormat('@').setValue(due);
+  캐시비움_();
+  return { ok: true, list: 마감들_() };
+}
+
+function deleteDeadline(token, team, item) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 지울 수 있습니다.');
+  var sh = 마감시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][DL_대상]).trim() === String(team).trim() && String(v[i][DL_항목]).trim() === String(item).trim()) sh.deleteRow(i + 1);
+  }
+  캐시비움_();
+  return { ok: true, list: 마감들_() };
+}
+
+/** 그 팀에서 알림을 받을 사람 (선교팀은 팀장 · 회계 · 서기, 사역팀은 팀장) */
+function 마감받는사람_(d) {
+  if (d.kind === '사역') {
+    var out = [];
+    사역팀목록_().forEach(function (t) { if (t.name === d.team && t.leader) out.push(t.leader); });
+    return out;
+  }
+  var o2 = [];
+  rows_(SHEET_선교팀원).forEach(function (r) {
+    if (String(r[MM_팀]).trim() !== d.team) return;
+    var roles = String(r[MM_역할] || '');
+    if (/팀장|회계|서기/.test(roles)) o2.push(String(r[MM_이름]).trim());
+  });
+  if (!o2.length) {
+    rows_(SHEET_선교팀원).forEach(function (r) {
+      if (String(r[MM_팀]).trim() === d.team) o2.push(String(r[MM_이름]).trim());
+    });
+  }
+  return o2;
+}
+
+/**
+ * 마감 알림 — 매일 한 번 돕니다.
+ * 7일 전 · 3일 전 · 당일에 알리고, 지나면 독촉합니다 (3일마다).
+ */
+function 마감알림() {
+  if (String(설정값_('리마인더사용') || 'ON').toUpperCase() === 'OFF') return { sent: 0 };
+  var today = ymd_(new Date());
+  var sent = 0;
+  마감들_().forEach(function (d) {
+    var days = Math.round((parseYmd_(d.due) - parseYmd_(today)) / 86400000);
+    var 알릴까 = (days === 7 || days === 3 || days === 0 || (days < 0 && days % 3 === 0));
+    if (!알릴까) return;
+    var who = 마감받는사람_(d);
+    if (!who.length) return;
+    var 늦음 = days < 0;
+    var r = 알림보내기_(늦음 ? '팀보고' : '팀보고', who, {
+      title: d.team + ' · ' + d.item + (늦음 ? ' 제출이 늦었습니다' : (days === 0 ? ' 오늘 마감입니다' : ' 마감 ' + days + '일 전')),
+      body: '마감일 ' + d.due + (d.memo ? '\n' + d.memo : ''),
+      url: 앱주소_() + (d.kind === '사역' ? '?page=team' : '?page=mission'),
+      tag: 'due-' + d.team + '-' + d.item, keep: true
+    });
+    sent += r.sent || 0;
+  });
+  return { sent: sent };
+}
+
+/** 커미티가 손으로 지금 독촉 */
+function sendDeadlineNow(token, team, item) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 보낼 수 있습니다.');
+  var hit = null;
+  마감들_().forEach(function (d) {
+    if (d.team === String(team).trim() && d.item === String(item).trim()) hit = d;
+  });
+  if (!hit) throw new Error('없는 마감입니다.');
+  var who = 마감받는사람_(hit);
+  if (!who.length) return { sent: 0, none: true, msg: '알릴 사람이 없습니다. 팀원을 먼저 넣어주세요.' };
+  var today = ymd_(new Date());
+  var days = Math.round((parseYmd_(hit.due) - parseYmd_(today)) / 86400000);
+  var r = 알림보내기_('팀보고', who, {
+    title: hit.team + ' · ' + hit.item + (days < 0 ? ' 제출이 늦었습니다' : (days === 0 ? ' 오늘 마감입니다' : ' 마감 ' + days + '일 전')),
+    body: '마감일 ' + hit.due + (hit.memo ? '\n' + hit.memo : ''),
+    url: 앱주소_() + (hit.kind === '사역' ? '?page=team' : '?page=mission'),
+    tag: 'due-' + hit.team + '-' + hit.item, keep: true
+  });
+  return { sent: r.sent || 0, mail: r.mail || 0, people: who.length };
 }

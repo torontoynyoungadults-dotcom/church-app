@@ -643,6 +643,34 @@ header h1 { color: #F26B21 !important; }
 .pprow { display: flex; align-items: baseline; gap: 10px; padding: 9px 0; border-top: 1px solid var(--hair-2); font-size: 14px; }
 .pprow:first-of-type { border-top: none; }
 .pprow b { min-width: 74px; }
+/* 체크 상자 */
+.lkchg { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.55; cursor: pointer; }
+.lkchg input[type=checkbox] {
+  -webkit-appearance: checkbox; appearance: auto; width: 18px; height: 18px; min-height: 0;
+  margin: 2px 0 0; padding: 0; border: none; border-radius: 0; box-shadow: none; background: none;
+  flex: none; accent-color: #D2511F;
+}
+.lkchg em { display: block; font-style: normal; color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+/* 알림 관리 — 2단계 */
+.pktg { display: flex; align-items: center; gap: 5px; flex: none; }
+.tglab { font-size: 10.5px; color: var(--ink-3); font-weight: 750; }
+.tgl.sm { width: 40px; height: 23px; }
+.tgl.sm span { width: 17px; height: 17px; top: 3px; left: 3px; }
+.tgl.sm.on span { left: 20px; }
+.schrow { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--hair-2); flex-wrap: wrap; }
+.schrow:first-of-type { border-top: none; }
+.schset { display: flex; align-items: center; gap: 6px; flex: none; }
+.schset select { width: auto; min-width: 84px; padding: 7px 9px !important; font-size: 13px !important; }
+.schset input[type=time] { width: 116px; padding: 7px 9px !important; font-size: 13px !important; }
+.nowgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.nowgrid .btn { text-align: center; font-size: 11.5px; line-height: 1.5; padding: 11px 8px; height: auto; color: var(--ink-3); }
+.nowgrid .btn b { display: block; font-size: 13.5px; color: var(--ink-1); margin-top: 2px; }
+.ntrow { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--hair); }
+.ntrow:first-of-type { border-top: none; }
+.ntb { flex: 1; min-width: 0; }
+.ntb b { display: block; font-size: 14px; }
+.ntb small { display: block; font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.ntrow .btn { flex: none; }
 .pprow span { color: var(--ink-3); font-size: 12.5px; }
 </style>
 </head>
@@ -1558,6 +1586,14 @@ function go(sec, sub, fromHistory) {
   }
 }
 
+/** 메시지 한 줄 보여주기 */
+function say(id, text, kind) {
+  var m = el(id);
+  if (!m) return;
+  m.className = 'msg' + (kind ? ' ' + kind : '');
+  m.textContent = text || '';
+}
+
 /** 관리 화면은 포털에서 들어오는 하위 화면입니다 — 뒤로 가면 포털로 */
 function backToPortal() {
   location.href = location.pathname + '?page=portal';
@@ -1604,14 +1640,69 @@ function loadPushAdmin() {
 
 function drawPushAdmin(r) {
   PUSHA = r;
-  var g = r.groups || {};
+
+  /* 1. 알림 종류 — 푸시 / 이메일 각각 */
   var kinds = (r.kinds || []).map(function (k) {
     return '<div class="pkrow">' +
       '<div class="pkt"><b>' + esc(k.name) + '</b>' +
       '<small>' + esc(k.who) + ' &middot; ' + esc(k.help) + '</small></div>' +
-      '<button type="button" class="tgl' + (k.on ? ' on' : '') + '" onclick="togglePush(\'' + esc(k.key) + '\',' + (k.on ? 'false' : 'true') + ')">' +
-      '<span></span></button></div>';
+      '<div class="pktg">' +
+        '<span class="tglab">푸시</span>' +
+        '<button type="button" class="tgl sm' + (k.on ? ' on' : '') + '" onclick="togglePush(\'' + esc(k.key) + '\',' + (k.on ? 'false' : 'true') + ')"><span></span></button>' +
+        '<span class="tglab">메일</span>' +
+        '<button type="button" class="tgl sm' + (k.mail ? ' on' : '') + '" onclick="toggleMail(\'' + esc(k.key) + '\',' + (k.mail ? 'false' : 'true') + ')"><span></span></button>' +
+      '</div></div>';
   }).join('');
+
+  /* 2. 보내는 시각 */
+  var sched = (r.schedule || []).map(function (j) {
+    return '<div class="schrow">' +
+      '<div class="pkt"><b>' + esc(j.name) + '</b><small>' + esc(j.help) + '</small></div>' +
+      '<div class="schset">' +
+        '<select onchange="schSave(\'' + esc(j.fn) + '\')" id="sd_' + esc(j.fn) + '">' +
+          (r.days || []).map(function (d) {
+            return '<option value="' + esc(d) + '"' + (j.day === d ? ' selected' : '') + '>' + esc(d) + (d === '매일' ? '' : '요일') + '</option>';
+          }).join('') + '</select>' +
+        '<input type="time" id="st_' + esc(j.fn) + '" value="' +
+          ('0' + j.hour).slice(-2) + ':' + ('0' + j.minute).slice(-2) + '" onchange="schSave(\'' + esc(j.fn) + '\')">' +
+        '<button type="button" class="tgl sm' + (j.off ? '' : ' on') + '" title="켜고 끄기" onclick="schToggle(\'' + esc(j.fn) + '\',' + (j.off ? 'false' : 'true') + ')"><span></span></button>' +
+      '</div></div>';
+  }).join('');
+
+  /* 3. 받는 사람 드롭다운 */
+  var groups = {}, plain = [];
+  (r.targets || []).forEach(function (t) {
+    if (t.group) (groups[t.group] = groups[t.group] || []).push(t);
+    else plain.push(t);
+  });
+  var opt = function (t) {
+    return '<option value="' + esc(t.key) + '">' + esc(t.name) + ' (' + t.n + '명)</option>';
+  };
+  var targetOptions = plain.map(opt).join('') +
+    Object.keys(groups).map(function (g) {
+      return '<optgroup label="' + esc(g) + '">' + groups[g].map(opt).join('') + '</optgroup>';
+    }).join('') +
+    '<option value="__names">이름 직접 적기</option>';
+
+  /* 4. 올라와 있는 공지 */
+  var notices = (r.notices || []).length
+    ? r.notices.map(function (n) {
+        return '<div class="ntrow"><div class="ntb"><b>' + esc(n.title) + '</b>' +
+          '<small>' + esc(n.at) + ' · ' + esc(n.by || '') + ' · ' + esc(n.target) +
+          (n.until ? ' · ~' + esc(n.until) : '') + '</small></div>' +
+          '<button class="btn mini danger" onclick="delNotice(\'' + esc(n.id) + '\')">내리기</button></div>';
+      }).join('')
+    : '<p class="empty">포털에 올라간 공지가 없습니다.</p>';
+
+  /* 5. 마감일 */
+  var dls = (r.deadlines || []).length
+    ? r.deadlines.map(function (d) {
+        return '<div class="ntrow"><div class="ntb"><b>' + esc(d.team) + ' · ' + esc(d.item) + '</b>' +
+          '<small>' + esc(d.due) + (d.memo ? ' · ' + esc(d.memo) : '') + '</small></div>' +
+          '<button class="btn mini" onclick="dueNow(\'' + esc(d.team) + '\',\'' + esc(d.item) + '\')">지금 알림</button>' +
+          '<button class="btn mini danger" onclick="delDue(\'' + esc(d.team) + '\',\'' + esc(d.item) + '\')">지우기</button></div>';
+      }).join('')
+    : '<p class="empty">정해둔 마감일이 없습니다.</p>';
 
   var people = (r.people || []).length
     ? r.people.map(function (p) {
@@ -1620,38 +1711,153 @@ function drawPushAdmin(r) {
     : '<p class="empty">아직 알림을 켠 분이 없습니다. 포털 첫 화면에서 각자 "알림 켜기" 를 누르면 여기에 나옵니다.</p>';
 
   el('pushAdmin').innerHTML =
+    '<div class="panel"><span class="chip">지금 바로 보내기</span>' +
+      '<p class="hint">정해진 시각을 기다리지 않고 지금 보냅니다.</p>' +
+      '<div class="nowgrid">' +
+        '<button class="btn" onclick="nowSend(\'cell\',\'ask\')">셀장에게<br><b>보고서 올려주세요</b></button>' +
+        '<button class="btn" onclick="nowSend(\'cell\',\'nudge\')">안 낸 셀장에게<br><b>독촉</b></button>' +
+        '<button class="btn" onclick="nowSend(\'team\',\'ask\')">팀장에게<br><b>보고서 올려주세요</b></button>' +
+        '<button class="btn" onclick="nowSend(\'team\',\'nudge\')">안 낸 팀장에게<br><b>독촉</b></button>' +
+      '</div>' +
+      '<p class="msg" id="nowMsg"></p>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">보내는 요일 · 시각</span>' +
+      '<p class="hint">자동으로 나가는 알림의 시각입니다. 전체를 잠시 멈추려면 아래 스위치를 끄세요.</p>' +
+      sched +
+      '<div class="pkrow" style="border-top:1px solid var(--hair);margin-top:6px;">' +
+        '<div class="pkt"><b>자동 발송 전체</b><small>방학 기간에는 꺼두셔도 됩니다</small></div>' +
+        '<button type="button" class="tgl' + (r.reminderOn ? ' on' : '') + '" onclick="toggleReminder(' + (r.reminderOn ? 'false' : 'true') + ')"><span></span></button>' +
+      '</div>' +
+    '</div>' +
     '<div class="panel"><span class="chip">알림 종류</span>' +
-      '<p class="hint">꺼두면 그 알림은 아무에게도 가지 않습니다. 이메일 알림은 이 설정과 상관없이 그대로 나갑니다.</p>' +
+      '<p class="hint">푸시는 휴대폰 알림, 메일은 교적 이메일로 함께 보냅니다.</p>' +
       kinds +
       (r.ready ? '' : '<p class="msg" style="margin-top:10px;">알림 열쇠는 처음 보낼 때 저절로 만들어집니다.</p>') +
     '</div>' +
-    '<div class="panel"><span class="chip">직접 보내기</span>' +
+    '<div class="panel"><span class="chip">공지 보내기</span>' +
       '<div class="f"><label class="fl">받는 사람</label>' +
-        '<select id="pgTarget">' +
-          '<option value="전체">알림 켠 모두 (' + (g['전체'] || 0) + '명)</option>' +
-          '<option value="셀장">셀장 (' + (g['셀장'] || 0) + '명)</option>' +
-          '<option value="팀장">팀장 (' + (g['팀장'] || 0) + '명)</option>' +
-          '<option value="커미티">커미티 (' + (g['커미티'] || 0) + '명)</option>' +
-          '<option value="__names">이름 직접 적기</option>' +
-        '</select></div>' +
+        '<select id="pgTarget">' + targetOptions + '</select></div>' +
       '<div class="f" id="pgNamesBox" style="display:none;"><label class="fl">이름 (쉼표로 여러 명)</label>' +
         '<input type="text" id="pgNames" placeholder="예: 김현세, 강산"></div>' +
-      '<div class="f"><label class="fl">제목 *</label><input type="text" id="pgTitle" maxlength="60" placeholder="예: 오늘 셀모임 장소가 바뀌었습니다"></div>' +
-      '<div class="f"><label class="fl">내용</label><textarea id="pgBody" rows="3" maxlength="200" placeholder="알림에 함께 보일 한두 줄"></textarea></div>' +
-      '<div class="f"><label class="fl">누르면 열릴 화면</label>' +
-        '<select id="pgUrl">' +
-          '<option value="">포털 첫 화면</option>' +
-          '<option value="?page=bulletin">주보</option>' +
-          '<option value="?page=calendar">청년부 일정</option>' +
-          '<option value="?page=leader">셀보고</option>' +
-        '</select></div>' +
-      '<button class="btn accent full" onclick="sendPushMsg()">알림 보내기</button>' +
+      '<div class="f"><label class="fl">제목 *</label><input type="text" id="pgTitle" maxlength="100" placeholder="예: 10/11 사역 박람회 안내"></div>' +
+      '<div class="f"><label class="fl">내용</label><textarea id="pgBody" rows="4" maxlength="2000" placeholder="공지 내용"></textarea></div>' +
+      '<div class="frow" style="display:flex;gap:8px;">' +
+        '<div class="f" style="flex:1;"><label class="fl">누르면 열릴 화면</label>' +
+          '<select id="pgUrl">' +
+            '<option value="">포털 첫 화면</option>' +
+            '<option value="?page=bulletin">주보</option>' +
+            '<option value="?page=calendar">청년부 일정</option>' +
+            '<option value="?page=leader">셀보고</option>' +
+            '<option value="?page=team">사역 보고서</option>' +
+          '</select></div>' +
+        '<div class="f" style="flex:1;"><label class="fl">포털에서 내릴 날 (비우면 계속)</label>' +
+          '<input type="date" id="pgUntil"></div>' +
+      '</div>' +
+      '<label class="lkchg" style="margin:0 0 8px;"><input type="checkbox" id="pgPortal" checked>' +
+        '<span>포털 첫 화면에 공지로 올리기<em>커미티만 내릴 수 있습니다</em></span></label>' +
+      '<label class="lkchg" style="margin:0 0 8px;"><input type="checkbox" id="pgPush" checked>' +
+        '<span>휴대폰 알림으로 보내기</span></label>' +
+      '<label class="lkchg" style="margin:0 0 12px;"><input type="checkbox" id="pgMail">' +
+        '<span>이메일로도 보내기<em>교적에 이메일이 있는 분에게만 갑니다</em></span></label>' +
+      '<button class="btn accent full" onclick="sendPushMsg()">보내기</button>' +
       '<p class="msg" id="pgMsg"></p>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">포털에 올라간 공지</span>' + notices + '</div>' +
+    '<div class="panel"><span class="chip">마감일 · 제출 독촉</span>' +
+      '<p class="hint">마감 7일 전 · 3일 전 · 당일에 알리고, 지나면 3일마다 독촉합니다.</p>' +
+      '<div class="frow" style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<div class="f" style="flex:1;min-width:120px;"><label class="fl">구분</label>' +
+          '<select id="duKind" onchange="dueKind()"><option value="선교">선교팀</option><option value="사역">사역팀</option></select></div>' +
+        '<div class="f" style="flex:1;min-width:120px;"><label class="fl">팀</label>' +
+          '<select id="duTeam"></select></div>' +
+      '</div>' +
+      '<div class="frow" style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<div class="f" style="flex:1;min-width:120px;"><label class="fl">항목</label>' +
+          '<input type="text" id="duItem" list="duItems" placeholder="예: 예산안">' +
+          '<datalist id="duItems">' + (r.missionItems || []).map(function (i) {
+            return '<option value="' + esc(i) + '">'; }).join('') + '</datalist></div>' +
+        '<div class="f" style="flex:1;min-width:120px;"><label class="fl">마감일</label>' +
+          '<input type="date" id="duDue"></div>' +
+      '</div>' +
+      '<div class="f"><label class="fl">메모 (알림에 같이 나갑니다)</label><input type="text" id="duMemo" maxlength="200"></div>' +
+      '<button class="btn accent full" onclick="saveDue()">마감일 정하기</button>' +
+      '<p class="msg" id="duMsg"></p>' +
+      '<div style="margin-top:14px;">' + dls + '</div>' +
     '</div>' +
     '<div class="panel"><span class="chip">알림을 켠 분들 (' + (r.total || 0) + '대)</span>' + people + '</div>';
 
   var sel = el('pgTarget');
   sel.onchange = function () { el('pgNamesBox').style.display = sel.value === '__names' ? 'block' : 'none'; };
+  dueKind();
+}
+
+/* ---- 보내는 시각 ---- */
+function schSave(fn) {
+  var d = el('sd_' + fn).value, t = (el('st_' + fn).value || '08:00').split(':');
+  callServer('saveNotifySchedule', [KEY, fn, d, Number(t[0]), Number(t[1]), false],
+    function () { say('nowMsg', '보내는 시각을 바꿨습니다.', 'ok'); }, function (e) { alert(e.message); });
+}
+function schToggle(fn, off) {
+  if (off) {
+    callServer('saveNotifySchedule', [KEY, fn, '', 0, 0, true], function () { loadPushAdmin(); }, function (e) { alert(e.message); });
+  } else {
+    var d = el('sd_' + fn).value, t = (el('st_' + fn).value || '08:00').split(':');
+    callServer('saveNotifySchedule', [KEY, fn, d, Number(t[0]), Number(t[1]), false],
+      function () { loadPushAdmin(); }, function (e) { alert(e.message); });
+  }
+}
+function toggleReminder(on) {
+  callServer('setReminderState', [KEY, on], function () { loadPushAdmin(); }, function (e) { alert(e.message); });
+}
+function toggleMail(kind, on) {
+  callServer('saveNotifyMail', [KEY, kind, on], drawPushAdmin, function (e) { alert(e.message || '바꾸지 못했습니다.'); });
+}
+
+/* ---- 지금 보내기 ---- */
+function nowSend(what, mode) {
+  var label = (what === 'cell' ? '셀장' : '팀장') + '에게 ' + (mode === 'nudge' ? '독촉을' : '요청을') + ' 보낼까요?';
+  if (!confirm(label)) return;
+  say('nowMsg', '보내는 중…');
+  callServer(what === 'cell' ? 'sendCellNoticeNow' : 'sendTeamNoticeNow', [KEY, mode], function (r) {
+    if (r.none) { say('nowMsg', r.msg, 'ok'); return; }
+    say('nowMsg', r.people + '명에게 보냈습니다 — 휴대폰 알림 ' + r.sent + '대' +
+      (r.mail ? ', 이메일 ' + r.mail + '통' : '') + '.', 'ok');
+  }, function (e) { say('nowMsg', e.message || '보내지 못했습니다.', 'err'); });
+}
+
+/* ---- 공지 ---- */
+function delNotice(id) {
+  if (!confirm('이 공지를 포털에서 내릴까요?')) return;
+  callServer('deleteNotice', [KEY, id], function () { loadPushAdmin(); }, function (e) { alert(e.message); });
+}
+
+/* ---- 마감일 ---- */
+function dueKind() {
+  var k = el('duKind').value;
+  var list = (k === '사역' ? (PUSHA.workTeams || []) : (PUSHA.missionTeams || []));
+  el('duTeam').innerHTML = list.length
+    ? list.map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('')
+    : '<option value="">팀이 없습니다</option>';
+}
+function saveDue() {
+  var team = el('duTeam').value, item = el('duItem').value.trim(), due = el('duDue').value;
+  if (!team) { say('duMsg', '팀을 골라주세요.', 'err'); return; }
+  if (!item) { say('duMsg', '항목을 적어주세요.', 'err'); return; }
+  if (!due) { say('duMsg', '마감일을 골라주세요.', 'err'); return; }
+  say('duMsg', '저장하는 중…');
+  callServer('saveDeadline', [KEY, el('duKind').value, team, item, due, el('duMemo').value.trim()],
+    function () { el('duItem').value = ''; el('duMemo').value = ''; loadPushAdmin(); },
+    function (e) { say('duMsg', e.message || '저장하지 못했습니다.', 'err'); });
+}
+function delDue(team, item) {
+  if (!confirm(team + ' · ' + item + ' 마감일을 지울까요?')) return;
+  callServer('deleteDeadline', [KEY, team, item], function () { loadPushAdmin(); }, function (e) { alert(e.message); });
+}
+function dueNow(team, item) {
+  if (!confirm(team + ' · ' + item + ' 알림을 지금 보낼까요?')) return;
+  callServer('sendDeadlineNow', [KEY, team, item], function (r) {
+    alert(r.none ? r.msg : (r.people + '명에게 보냈습니다. (알림 ' + r.sent + '대' + (r.mail ? ', 메일 ' + r.mail + '통' : '') + ')'));
+  }, function (e) { alert(e.message || '보내지 못했습니다.'); });
 }
 
 function togglePush(kind, on) {
@@ -1659,19 +1865,30 @@ function togglePush(kind, on) {
 }
 
 function sendPushMsg() {
-  var m = el('pgMsg'), t = el('pgTarget').value;
+  var t = el('pgTarget').value;
   var target = t === '__names' ? el('pgNames').value.trim() : t;
   var title = el('pgTitle').value.trim();
-  if (!target) { m.className = 'msg err'; m.textContent = '받는 사람을 적어주세요.'; return; }
-  if (!title) { m.className = 'msg err'; m.textContent = '제목을 입력해주세요.'; return; }
-  m.className = 'msg'; m.textContent = '보내는 중…';
-  callServer('sendPushNow', [KEY, target, title, el('pgBody').value.trim(), el('pgUrl').value],
+  if (!target) { say('pgMsg', '받는 사람을 적어주세요.', 'err'); return; }
+  if (!title) { say('pgMsg', '제목을 입력해주세요.', 'err'); return; }
+  if (!el('pgPortal').checked && !el('pgPush').checked && !el('pgMail').checked) {
+    say('pgMsg', '포털 · 알림 · 이메일 중 하나는 골라주세요.', 'err'); return;
+  }
+  say('pgMsg', '보내는 중…');
+  callServer('sendNotice', [KEY, {
+      title: title, body: el('pgBody').value.trim(), target: target,
+      url: el('pgUrl').value, until: el('pgUntil').value,
+      portal: el('pgPortal').checked, push: el('pgPush').checked, mail: el('pgMail').checked
+    }],
     function (r) {
-      m.className = 'msg ok';
-      m.textContent = r.sent + '대에 보냈습니다.' + (r.failed ? ' (' + r.failed + '대 실패)' : '');
+      var parts = [];
+      if (r.portal) parts.push('포털에 올림');
+      if (r.push) parts.push('알림 ' + r.push + '대');
+      if (r.mail) parts.push('이메일 ' + r.mail + '통');
+      say('pgMsg', (parts.join(' · ') || '보냈습니다') + '.', 'ok');
       el('pgTitle').value = ''; el('pgBody').value = '';
+      setTimeout(loadPushAdmin, 800);
     },
-    function (e) { m.className = 'msg err'; m.textContent = e.message || '보내지 못했습니다.'; });
+    function (e) { say('pgMsg', e.message || '보내지 못했습니다.', 'err'); });
 }
 
 /* ===================== 일정 (구글 캘린더) ===================== */

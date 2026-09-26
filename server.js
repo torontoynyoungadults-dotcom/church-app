@@ -19,6 +19,10 @@ const scheduler = require('./lib/scheduler');
 const tasks = require('./lib/tasks');
 
 runtime.setScheduleSource(scheduler.names);
+// 발송 요일 · 시각은 설정 시트에서 읽어옵니다 (관리 화면에서 바꿉니다)
+scheduler.setScheduleReader(() => {
+  try { return runtime.run((api) => api.알림일정_()).result; } catch (e) { return null; }
+});
 
 const app = express();
 app.set('trust proxy', true);
