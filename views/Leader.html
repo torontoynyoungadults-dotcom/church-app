@@ -357,6 +357,15 @@ body .toggle button .k,
   body #roomBox .roomlabel, body .dgrow .u, body .dgpick button { color: #5A554E !important; }
   body #roomBox #roomValue, body .choices button .txt, body .dgrow .n { color: #111111 !important; }
   body .dgpick button.on { color: var(--tone) !important; }
+
+  /* 대리 신청자로 고른 이름 — 위의 여러 겹친 스타일을 뚫고 뚜렷하게 보이도록 마지막에 확정합니다 */
+  body .dgpick button.on {
+    background: #16A34A !important;
+    border-color: #16A34A !important;
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+    box-shadow: 0 2px 10px rgba(22,163,74,.4) !important;
+  }
 </style>
 <!--#include Theme-->
 </head>

@@ -7759,7 +7759,8 @@ function 포털자료_(token) {
     myCell: 내셀_(me.name),
     forms: myForms(token),
     todos: todos,
-    badges: 포털뱃지_(todos)
+    badges: 포털뱃지_(todos),
+    sermon: (function () { try { return 현재설교_(); } catch (e) { return null; } })()
   };
 }
 
@@ -13607,6 +13608,46 @@ function 유튜브채널ID_() {
   return found[1];
 }
 
+/** 재생목록 주소/ID 에서 재생목록 ID(PL··· 등) 를 뽑아냅니다 — 이미 ID만 넣은 경우도 받습니다 */
+function 유튜브재생목록ID_(raw) {
+  raw = String(raw || '').trim();
+  if (!raw) return '';
+  var m = raw.match(/[?&]list=([\w-]+)/);
+  if (m) return m[1];
+  if (/^[\w-]{10,}$/.test(raw)) return raw;
+  return '';
+}
+
+/** 재생목록에 올라온 영상들 (유튜브가 주는 RSS — 최근 올라온 순) */
+function 유튜브재생목록영상들_(playlistId) {
+  var xml = 유튜브가져오기_('https://www.youtube.com/feeds/videos.xml?playlist_id=' + encodeURIComponent(playlistId));
+  var out = [];
+  var 조각 = xml.split('<entry>');
+  for (var i = 1; i < 조각.length; i++) {
+    var e = 조각[i];
+    var vid = (e.match(/<yt:videoId>([^<]+)<\/yt:videoId>/) || [])[1];
+    var title = (e.match(/<title>([\s\S]*?)<\/title>/) || [])[1];
+    var pub = (e.match(/<published>([^<]+)<\/published>/) || [])[1];
+    if (!vid) continue;
+    out.push({
+      id: vid, title: 엔티티풀기_(String(title || '').trim()), date: String(pub || '').slice(0, 10),
+      url: 'https://www.youtube.com/watch?v=' + vid
+    });
+  }
+  return out;
+}
+
+/** 유튜브 URL 에서 영상 ID(11자) 를 뽑습니다 — 이미 ID만 온 경우도 받습니다 */
+function 유튜브영상ID추출_(raw) {
+  raw = String(raw || '').trim();
+  if (!raw) return '';
+  var m = raw.match(/[?&]v=([\w-]{11})/) || raw.match(/youtu\.be\/([\w-]{11})/) ||
+          raw.match(/\/shorts\/([\w-]{11})/) || raw.match(/\/embed\/([\w-]{11})/);
+  if (m) return m[1];
+  if (/^[\w-]{11}$/.test(raw)) return raw;
+  return '';
+}
+
 /** 채널에 올라온 최근 영상들 (유튜브가 주는 RSS — 보통 15개) */
 function 유튜브영상들_() {
   var id = 유튜브채널ID_();
@@ -13769,6 +13810,96 @@ function deleteSermon(token, id) {
   for (var i = v.length - 1; i >= 1; i--) if (String(v[i][SM_ID]).trim() === String(id).trim()) sh.deleteRow(i + 1);
   캐시비움_();
   return { ok: true };
+}
+
+/* ---------------------------------------------------------
+   포털 모달에 띄울 '지금 설교' 하나를 정합니다.
+   1) 관리자가 특정 영상으로 확정해 뒀으면 그것부터
+   2) 재생목록을 걸어 뒀으면 그 목록의 최신 영상
+   3) 둘 다 없으면 채널에서 설교로 보이는 가장 최근 영상
+   이미 AI 로 요약해 둔 영상이면 요약까지, 아직이면 영상 정보만(pending) 돌려줍니다.
+   모든 이용자가 같은 값을 받도록 여기 한 곳에서만 정합니다.
+   --------------------------------------------------------- */
+function 현재설교_() {
+  var 확정 = String(설정값_('설교확정영상') || '').trim();
+  var videoId = '', title = '', date = '';
+
+  if (확정) {
+    videoId = 확정;
+  } else {
+    // 확정된 영상이 없을 때만 유튜브를 읽습니다 — 포털을 열 때마다 매번 부르지 않도록 10분만 캐시합니다
+    var 캐시 = 캐시_();
+    var cached = 캐시 ? 캐시.get('현재설교자동') : null;
+    if (cached) {
+      try { var c = JSON.parse(cached); videoId = c.id; title = c.title; date = c.date; } catch (e) {}
+    }
+    if (!videoId) {
+      try {
+        var pid = 유튜브재생목록ID_(설정값_('유튜브재생목록'));
+        if (pid) {
+          var pv = 유튜브재생목록영상들_(pid);
+          if (pv.length) { videoId = pv[0].id; title = pv[0].title; date = pv[0].date; }
+        }
+        if (!videoId) {
+          var cv = 유튜브영상들_().filter(function (v) { return 설교같나_(v.title); });
+          if (cv.length) { videoId = cv[0].id; title = cv[0].title; date = cv[0].date; }
+        }
+        if (videoId && 캐시) {
+          try { 캐시.put('현재설교자동', JSON.stringify({ id: videoId, title: title, date: date }), 600); } catch (e) {}
+        }
+      } catch (e) { /* 유튜브를 못 읽어도 포털은 그대로 뜹니다 */ }
+    }
+  }
+  if (!videoId) return null;
+
+  var found = null;
+  rows_(SHEET_설교).forEach(function (r) { if (String(r[SM_ID] || '').trim() === videoId) found = 설교행_(r); });
+  if (found) return found;
+  return {
+    id: videoId, title: title, date: date, preacher: '', passage: '',
+    points: [], messages: [], at: '', url: 'https://www.youtube.com/watch?v=' + videoId, pending: true
+  };
+}
+
+/** '앱 기능 관리 → AI 및 말씀/설교 관리' 초기값 */
+function getSermonAdmin(key) {
+  if (!isAdmin_(key)) throw new Error('관리자만 볼 수 있습니다.');
+  var playlist = String(설정값_('유튜브재생목록') || '').trim();
+  var confirmed = String(설정값_('설교확정영상') || '').trim();
+  var list = [], err = '';
+  try {
+    var pid = 유튜브재생목록ID_(playlist);
+    if (pid) list = 유튜브재생목록영상들_(pid).slice(0, 12);
+  } catch (e) { err = e.message || ''; }
+  var current = null;
+  try { current = 현재설교_(); } catch (e) {}
+  return { playlist: playlist, confirmed: confirmed, list: list, err: err, current: current };
+}
+
+/** 재생목록 저장 (URL 이든 재생목록 ID 든 다 받습니다) */
+function saveSermonPlaylist(key, playlist) {
+  if (!isAdmin_(key)) throw new Error('관리자만 고칠 수 있습니다.');
+  설정저장_('유튜브재생목록', String(playlist || '').trim().slice(0, 300));
+  try { 캐시_() && 캐시_().remove('현재설교자동'); } catch (e) {}
+  return getSermonAdmin(key);
+}
+
+/** 특정 영상으로 확정 — 재생목록 · 채널에 뭐가 새로 올라와도 이 영상이 계속 뜹니다 */
+function confirmSermonVideo(key, urlOrId) {
+  if (!isAdmin_(key)) throw new Error('관리자만 고칠 수 있습니다.');
+  var id = 유튜브영상ID추출_(urlOrId);
+  if (!id) throw new Error('영상 주소나 ID를 정확히 넣어주세요.');
+  설정저장_('설교확정영상', id);
+  try { 캐시_() && 캐시_().remove('현재설교자동'); } catch (e) {}
+  return getSermonAdmin(key);
+}
+
+/** 확정 해제 — 재생목록(또는 채널) 최신 영상으로 다시 자동으로 돌아갑니다 */
+function clearSermonConfirm(key) {
+  if (!isAdmin_(key)) throw new Error('관리자만 고칠 수 있습니다.');
+  설정저장_('설교확정영상', '');
+  try { 캐시_() && 캐시_().remove('현재설교자동'); } catch (e) {}
+  return getSermonAdmin(key);
 }
 
 /** 매주 한 번 — 새 영상이 올라왔으면 알아서 요약합니다 (자막이 있을 때만) */

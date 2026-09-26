@@ -5340,10 +5340,13 @@ function drawAi() {
 
   /* 3) 유튜브 */
   h += '<div class="panel"><span class="chip">유튜브 채널</span>' +
-    '<p class="hint">설교 영상을 가져올 채널입니다. @핸들 이나 채널 주소를 넣어주세요.</p>' +
+    '<p class="hint">설교 영상을 가져올 채널입니다. @핸들 이나 채널 주소를 넣어주세요. (재생목록이 없을 때 여기서 최신 설교를 찾습니다)</p>' +
     '<input type="text" id="aiChannel" value="' + esc(AI.channel) + '" placeholder="@토론토영락교회청년부">' +
     '<button class="btn full" style="margin-top:9px;" onclick="saveChannel()">저장하고 채널 확인</button>' +
     '<p class="msg" id="aiCMsg"></p></div>';
+
+  /* 3.5) 설교 영상 확정 — 재생목록 + 수동 교정 */
+  h += '<div class="panel" id="sermonAdminBox"><p class="empty">불러오는 중…</p></div>';
 
   /* 4) 연결 확인 */
   h += '<div class="panel"><span class="chip">연결 확인</span>' +
@@ -5352,6 +5355,7 @@ function drawAi() {
     '<p class="msg" id="aiTMsg"></p></div>';
 
   el('aiAdmin').innerHTML = h;
+  loadSermonAdmin();
 }
 
 function modelBox() {
@@ -5409,6 +5413,99 @@ function testAi() {
   callServer('aiTest', [KEY, AI.model], function (r) {
     say('aiTMsg', '잘 됩니다. (' + r.model + ' · ' + r.ms + 'ms) — “' + r.text + '”', 'ok');
   }, function (e) { say('aiTMsg', e.message || e, 'err'); });
+}
+
+/* ---------------------------------------------------------
+   설교 영상 확정 — 재생목록 자동 연동 + 관리자 수동 교정
+   --------------------------------------------------------- */
+var SERMON_AD = null;
+
+function loadSermonAdmin() {
+  callServer('getSermonAdmin', [KEY], function (r) { SERMON_AD = r; drawSermonAdmin(); },
+    function (e) {
+      var box = el('sermonAdminBox');
+      if (box) box.innerHTML = '<span class="chip">설교 영상 확정</span><p class="msg err">' + esc(e.message || e) + '</p>';
+    });
+}
+
+function drawSermonAdmin() {
+  var box = el('sermonAdminBox');
+  if (!box || !SERMON_AD) return;
+  var s = SERMON_AD;
+  var cur = s.current;
+
+  var h = '<span class="chip">설교 영상 확정</span>' +
+    '<p class="hint">재생목록을 걸어두면 거기서 가장 최근 영상이 저절로 포털에 뜹니다. ' +
+    '특정 영상으로 고정하고 싶으면 아래에서 확정해주세요 — 확정한 영상은 재생목록에 뭐가 올라와도 계속 그대로 나옵니다.</p>';
+
+  h += '<div class="noteBox">' +
+    '<div class="noteRow"><b>지금 포털에 뜨는 영상</b></div>' +
+    (cur
+      ? '<div class="noteRow" style="justify-content:space-between;">' +
+          '<span>' + esc(cur.title || '(제목 없음)') + (cur.pending ? ' · 요약 준비중' : '') + '</span>' +
+          '<a class="btn mini" href="https://www.youtube.com/watch?v=' + esc(cur.id) + '" target="_blank" rel="noopener">영상 보기</a>' +
+        '</div>' +
+        (cur.pending ? '<div class="noteRow"><button type="button" class="btn mini accent" onclick="makeSermonSummary(\'' + esc(cur.id) + '\')">AI 요약 만들기</button></div>' : '') +
+        (s.confirmed ? '<div class="noteRow"><button type="button" class="btn mini danger" onclick="clearSermonConfirm()">확정 해제 (자동으로 되돌리기)</button></div>' : '')
+      : '<p class="empty">아직 뜨는 영상이 없습니다. 재생목록을 걸거나 영상을 확정해주세요.</p>') +
+    '<p class="msg" id="sermonMsg"></p></div>';
+
+  h += '<div class="noteBox">' +
+    '<div class="noteRow"><b>재생목록 자동 연동</b></div>' +
+    '<input type="text" id="sermonPlaylist" value="' + esc(s.playlist || '') + '" placeholder="재생목록 주소 (…&list=PL…) 또는 재생목록 ID">' +
+    '<button type="button" class="btn mini" style="margin-top:7px;" onclick="saveSermonPlaylist()">저장</button>' +
+    (s.err ? '<p class="msg err">' + esc(s.err) + '</p>' : '') +
+    (s.list && s.list.length
+      ? s.list.map(function (v) {
+          return '<div class="noteRow" style="justify-content:space-between;">' +
+            '<span>' + esc(v.title) + ' <span class="hint" style="display:inline;">(' + esc(v.date) + ')</span></span>' +
+            '<button type="button" class="btn mini" onclick="confirmSermonVideo(\'' + esc(v.id) + '\')">이 영상으로 확정</button>' +
+          '</div>';
+        }).join('')
+      : (s.playlist ? '<p class="empty">재생목록에서 영상을 찾지 못했습니다.</p>' : '')) +
+    '</div>';
+
+  h += '<div class="noteBox">' +
+    '<div class="noteRow"><b>영상 직접 확정</b></div>' +
+    '<p class="hint" style="margin:2px 0 8px;">유튜브 주소나 영상 ID를 붙여넣고 확정하세요.</p>' +
+    '<input type="text" id="sermonManual" placeholder="https://youtu.be/… 또는 영상 ID">' +
+    '<button type="button" class="btn mini accent" style="margin-top:7px;" onclick="confirmSermonManual()">확정</button>' +
+    '</div>';
+
+  box.innerHTML = h;
+}
+
+function saveSermonPlaylist() {
+  var v = el('sermonPlaylist').value.trim();
+  say('sermonMsg', '저장하는 중…');
+  callServer('saveSermonPlaylist', [KEY, v], function (r) { SERMON_AD = r; drawSermonAdmin(); say('sermonMsg', '저장했습니다.', 'ok'); },
+    function (e) { say('sermonMsg', e.message || e, 'err'); });
+}
+
+function confirmSermonVideo(id) {
+  say('sermonMsg', '확정하는 중…');
+  callServer('confirmSermonVideo', [KEY, id], function (r) { SERMON_AD = r; drawSermonAdmin(); say('sermonMsg', '확정했습니다. 포털에 바로 반영됩니다.', 'ok'); },
+    function (e) { say('sermonMsg', e.message || e, 'err'); });
+}
+
+function confirmSermonManual() {
+  var v = el('sermonManual').value.trim();
+  if (!v) { say('sermonMsg', '주소나 ID를 넣어주세요.', 'err'); return; }
+  confirmSermonVideo(v);
+}
+
+function clearSermonConfirm() {
+  say('sermonMsg', '해제하는 중…');
+  callServer('clearSermonConfirm', [KEY], function (r) { SERMON_AD = r; drawSermonAdmin(); say('sermonMsg', '해제했습니다.', 'ok'); },
+    function (e) { say('sermonMsg', e.message || e, 'err'); });
+}
+
+function makeSermonSummary(id) {
+  say('sermonMsg', 'AI가 요약 만드는 중… 자막 길이에 따라 10~30초 걸립니다.');
+  callServer('sermonMake', [KEY, id, ''], function () {
+    loadSermonAdmin();
+    say('sermonMsg', '요약을 만들었습니다.', 'ok');
+  }, function (e) { say('sermonMsg', e.message || e, 'err'); });
 }
 
 

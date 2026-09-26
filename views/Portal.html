@@ -911,6 +911,52 @@ body .mcardlink,
   body .bulbtn.ai .bt small { color: #DCD7D0; font-size: 13.5px; line-height: 1.65; }
   body .bulbtn.ai .ba { color: #FFFFFF; }
 
+  /* ---------- 이번 주 설교 카드 + 모달 ---------- */
+  .sermoncard {
+    display: flex; align-items: center; gap: 12px; margin: 0 16px 10px; padding: 10px;
+    border-radius: 14px; border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.06);
+    cursor: pointer; text-align: left; width: calc(100% - 32px); color: inherit; font: inherit;
+  }
+  .sermoncard .sc-thumb { flex: none; width: 88px; height: 50px; border-radius: 9px; overflow: hidden; background: #000; position: relative; }
+  .sermoncard .sc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sermoncard .sc-thumb .sc-play {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.25); color: #fff; font-size: 20px;
+  }
+  .sermoncard .sc-b { flex: 1; min-width: 0; }
+  .sermoncard .sc-k { font-size: 11.5px; font-weight: 800; color: #F0A38C; letter-spacing: .02em; }
+  .sermoncard .sc-t { display: block; font-size: 14.5px; font-weight: 800; color: #FFFFFF; margin-top: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sermoncard .sc-d { display: block; font-size: 12.5px; color: #C9C4BC; margin-top: 2px; }
+  .sermoncard .sc-go { flex: none; color: #C9C4BC; font-size: 18px; }
+
+  .ynmodal {
+    position: fixed; inset: 0; z-index: 80; background: rgba(10,9,8,.72);
+    display: flex; align-items: flex-end; justify-content: center; padding: 0;
+  }
+  .ynmodalcard {
+    position: relative; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+    background: #1C1A18; border-radius: 18px 18px 0 0; padding: 18px 16px 26px;
+    box-shadow: 0 -12px 40px rgba(0,0,0,.5);
+  }
+  @media (min-width: 620px) {
+    .ynmodal { align-items: center; padding: 20px; }
+    .ynmodalcard { border-radius: 18px; max-height: 85vh; }
+  }
+  .ynmodalx {
+    position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); color: #fff;
+    font-size: 20px; line-height: 1; cursor: pointer; z-index: 1;
+  }
+  .sermonyt { position: relative; width: 100%; padding-top: 56.25%; border-radius: 12px; overflow: hidden; background: #000; margin-top: 6px; }
+  .sermonyt iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .sermonmeta { margin-top: 14px; }
+  .sermonmeta h3 { margin: 0 0 4px; font-size: 17px; color: #fff; }
+  .sermonmeta .sm-sub { font-size: 13px; color: #C9C4BC; margin-bottom: 10px; }
+  .sermonmeta .sm-h { font-size: 12.5px; font-weight: 800; color: #F0A38C; margin: 14px 0 6px; }
+  .sermonmeta ul { margin: 0; padding-left: 18px; color: #EDEAE5; font-size: 14px; line-height: 1.7; }
+  .sermonmeta p.sm-pending { color: #C9C4BC; font-size: 13.5px; line-height: 1.7; margin-top: 10px; }
+
   /* ---------- 출석률 뱃지 — 어두운 바탕에 선명한 색 ---------- */
   body .ratebadge, body .rate, body .attrate {
     font-weight: 800 !important; border-radius: 8px !important; padding: 3px 9px !important;
@@ -1132,6 +1178,7 @@ body .mcardlink,
       <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
       <span class="bt"><b data-i18n>주보보기</b></span><span class="ba">›</span>
     </a>
+    <div id="sermonCardBox"></div>
     <div class="aibtns">
       <a class="bulbtn ai dev" id="btnDevotion" href="?page=devotion">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="M12 8c0-3 2.4-5 5.6-5C17.6 6 15.2 8 12 8z"/><path d="M12 11.5c0-2.6-2-4.4-4.8-4.4-.2 2.7 1.9 4.4 4.8 4.4z"/></svg></span>
@@ -1141,6 +1188,13 @@ body .mcardlink,
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="5" width="18.4" height="14" rx="3.2"/><path d="M10.4 9.4l4.8 2.6-4.8 2.6z"/></svg></span>
         <span class="bt"><b data-i18n>지난 설교</b></span><span class="ba">›</span>
       </a>
+    </div>
+
+    <div id="sermonModal" class="ynmodal" style="display:none;" onclick="if(event.target===this)closeSermonModal()">
+      <div class="ynmodalcard">
+        <button type="button" class="ynmodalx" onclick="closeSermonModal()" aria-label="닫기">&times;</button>
+        <div id="sermonModalBody"></div>
+      </div>
     </div>
     <div id="cellAppBox"></div>
     <div id="formsBox"></div>
@@ -1208,6 +1262,7 @@ body .mcardlink,
 <script>
 var PREFILL = (window.__PREFILL__ || {});
 var TOKEN = '', ME = null, MENUS = [], ROLES = [], ADMIN = [], editing = false;
+var SERMON = null;
 var _bootT = null, _goT = null, _stuck = false;   // "로그인 중" 에서 멈추지 않게 지켜보는 시계
 var BADGES = {};   // 아이콘에 붙는 알림 숫자
 
@@ -2285,6 +2340,8 @@ function paint(res) {
   // 오늘의 묵상 · 지난 설교는 로그인 토큰을 넘겨줘야 그 화면에서 다시 로그인을 묻지 않습니다
   var dv = el('btnDevotion'); if (dv) dv.href = '?page=devotion&t=' + encodeURIComponent(TOKEN);
   var sv = el('btnSermons'); if (sv) sv.href = '?page=sermons&t=' + encodeURIComponent(TOKEN);
+  SERMON = res.sermon || null;
+  renderSermonCard();
   renderAs();
   renderGNote(res);
   renderHero();
@@ -2299,6 +2356,46 @@ function paint(res) {
   translateMenuLang();
   el('calWrap').style.display = HAS_CAL ? 'block' : 'none';
   if (HAS_CAL) { if (CAL_OPEN) loadCal(); loadPeek(); }
+}
+
+/* ---------- 이번 주 설교 — 포털에서 바로 보기 ---------- */
+
+function renderSermonCard() {
+  var box = el('sermonCardBox');
+  if (!box) return;
+  if (!SERMON || !SERMON.id) { box.innerHTML = ''; return; }
+  var thumb = 'https://img.youtube.com/vi/' + encodeURIComponent(SERMON.id) + '/hqdefault.jpg';
+  box.innerHTML =
+    '<button type="button" class="sermoncard" onclick="openSermonModal()">' +
+      '<span class="sc-thumb"><img src="' + esc(thumb) + '" alt=""><span class="sc-play">&#9658;</span></span>' +
+      '<span class="sc-b"><span class="sc-k" data-i18n>이번 주 설교</span>' +
+        '<span class="sc-t">' + esc(SERMON.title || '설교 영상') + '</span>' +
+        '<span class="sc-d">' + esc(SERMON.pending ? '요약 준비 중 · 영상 보기' : (SERMON.preacher || SERMON.date || '')) + '</span></span>' +
+      '<span class="sc-go">&rsaquo;</span>' +
+    '</button>';
+}
+
+function openSermonModal() {
+  if (!SERMON || !SERMON.id) return;
+  var pts = (SERMON.points || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
+  var msgs = (SERMON.messages || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
+  el('sermonModalBody').innerHTML =
+    '<div class="sermonyt"><iframe src="https://www.youtube.com/embed/' + encodeURIComponent(SERMON.id) +
+      '" title="설교 영상" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>' +
+    '<div class="sermonmeta">' +
+      '<h3>' + esc(SERMON.title || '설교') + '</h3>' +
+      '<div class="sm-sub">' + [SERMON.preacher, SERMON.passage, SERMON.date].filter(Boolean).map(esc).join(' · ') + '</div>' +
+      (SERMON.pending
+        ? '<p class="sm-pending">아직 AI 요약이 없습니다. 영상으로 먼저 은혜 나누시고, 요약은 곧 올라옵니다.</p>'
+        : (pts ? '<div class="sm-h">핵심 대지</div><ul>' + pts + '</ul>' : '') +
+          (msgs ? '<div class="sm-h">주요 메시지</div><ul>' + msgs + '</ul>' : '')) +
+    '</div>';
+  el('sermonModal').style.display = 'flex';
+}
+
+function closeSermonModal() {
+  el('sermonModal').style.display = 'none';
+  el('sermonModalBody').innerHTML = '';   // 영상 재생을 멈춥니다
 }
 
 /* ---------- 커미티 — 다른 사람 화면으로 보기 ---------- */
