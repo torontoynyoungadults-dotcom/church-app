@@ -291,9 +291,14 @@
   .eacts:empty { display: none; }
   .eacts .ea { border: 1px solid #D9D4CC; background: #fff; color: #3A3835; border-radius: 9px; padding: 7px 12px; font: 700 12.5px 'Noto Sans KR', sans-serif; cursor: pointer; }
   .eacts .ea.del { color: #B23A1B; border-color: #EBC4B8; }
+  .eacts .ea.on { background: #1D7A56; border-color: #1D7A56; color: #fff; }
   /* PDF 버튼 */
   .pdfbtn { background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.25); border-radius: 10px; padding: 8px 11px; font: 700 12.5px 'Noto Sans KR', sans-serif; cursor: pointer; white-space: nowrap; }
   .vtop .right { display: flex; align-items: flex-end; gap: 8px; }
+  /* KR / EN — 공지사항만 영어로 옮겨 보여줍니다 */
+  .langtog { display: flex; border: 1px solid rgba(255,255,255,.25); border-radius: 10px; overflow: hidden; }
+  .langtog button { border: none; background: rgba(255,255,255,.1); color: #BDB8B1; font: 700 12px 'Noto Sans KR', sans-serif; padding: 8px 10px; cursor: pointer; }
+  .langtog button.on { background: #F26B21; color: #fff; }
   .pdfmsg { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #1C1C1C; color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 13px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
 
   /* PDF 한 장 (W 26.59cm × H 48.34cm 비율) */
@@ -314,6 +319,14 @@
   .pdfpage .sheet { padding-top: 14px; }
   .pdfpage .card { box-shadow: 0 12px 30px rgba(0,0,0,.35); }
   .pdfpage .pconn { position: absolute; left: 0; right: 0; top: 38%; text-align: center; z-index: 2; }
+
+  /* ---------------------------------------------------------
+     전역 AI 편집기 — 이 화면은 Theme.html 을 쓰지 않아 따로 둡니다.
+     --------------------------------------------------------- */
+  .aib { border: 1px solid #D8D3CB; background: #fff; color: var(--ink); border-radius: 9px; padding: 6px 11px; font: 700 12px 'Noto Sans KR', sans-serif; cursor: pointer; margin-top: 6px; }
+  .aipick { display: none; gap: 6px; flex-wrap: wrap; margin: 6px 0 2px; }
+  .aipick button { flex: none; padding: 6px 11px; border-radius: 999px; font: 700 12px 'Noto Sans KR', sans-serif; cursor: pointer; border: 1px solid #D8D3CB; background: #fff; color: var(--ink); }
+  .aipick button:active { background: #F2EEE7; }
 </style>
 </head>
 <body>
@@ -582,6 +595,8 @@ function paintViewer(data) {
   var b = data.bulletin, dates = data.dates || [];
   var h = '<div class="viewer"><div class="vwrap">' +
     '<div class="vtop"><a href="' + esc(HOME) + '" title="포털"><img src="/logo.png" alt="Youngnak"></a><div class="right">' +
+    '<div class="langtog"><button type="button" data-l="ko" onclick="bulLangSet(\'ko\')">KR</button>' +
+      '<button type="button" data-l="en" onclick="bulLangSet(\'en\')">EN</button></div>' +
     (b ? '<button type="button" class="pdfbtn" onclick="bulletinPdf(VIEW_B)">PDF 저장</button>' : '') +
     (dates.length ? '<div class="pick"><label>' + (dates.length > 1 ? '지난 주보 보기 ▾' : '게시된 주보') + '</label><select id="vdate" onchange="loadDate(this.value)">' + dates.map(function (d) {
       var vn = volNo(d.date);
@@ -599,6 +614,66 @@ function paintViewer(data) {
   el('root').innerHTML = h;
   if (b) document.title = bulletinTitle(b.date, b.occasion) + ' · 청년1부 주보';
   watchNav();
+  bulLangPaint();
+  applyNewsLang();
+}
+
+/* ================================================================
+   KR / EN — "소식 · 광고" (공지사항) 만 영어로 옮겨 보여줍니다.
+   고른 언어는 localStorage 에 저장되어(앱의 다른 화면과 같은 값을 씁니다)
+   페이지를 옮겨도 유지되고, 같은 공지 묶음은 이 브라우저에 캐시해 다시 부르지 않습니다.
+   ================================================================ */
+function bulLangGet() { try { return localStorage.getItem('ynLang') === 'en' ? 'en' : 'ko'; } catch (e) { return 'ko'; } }
+function bulLangPaint() {
+  Array.prototype.forEach.call(document.querySelectorAll('.langtog button'), function (btn) {
+    btn.className = (btn.getAttribute('data-l') === bulLangGet()) ? 'on' : '';
+  });
+}
+function bulHash(s) {
+  var hh = 0;
+  for (var i = 0; i < s.length; i++) { hh = ((hh << 5) - hh + s.charCodeAt(i)) | 0; }
+  return String(hh);
+}
+function bulLangSet(l) {
+  try { localStorage.setItem('ynLang', l === 'en' ? 'en' : 'ko'); } catch (e) {}
+  bulLangPaint();
+  applyNewsLang();
+}
+function applyNewsLang() {
+  var sec = document.getElementById('sec-news');
+  if (!sec || !VIEW_B) return;
+  var anns = ((VIEW_B.news && VIEW_B.news.announcements) || []).filter(function (a) { return a.title || a.body; });
+  var nodes = sec.querySelectorAll('.ann');
+  if (!anns.length || !nodes.length) return;
+
+  if (bulLangGet() !== 'en') {
+    Array.prototype.forEach.call(nodes, function (nd, i) {
+      var a = anns[i]; if (!a) return;
+      var bTag = nd.querySelector('.tx > b'), pTag = nd.querySelector('.tx > p');
+      if (bTag) bTag.innerHTML = emf(a.title);
+      if (pTag) pTag.innerHTML = emf(a.body);
+    });
+    return;
+  }
+
+  var flat = [];
+  anns.forEach(function (a) { flat.push(a.title || ''); flat.push(a.body || ''); });
+  var ck = 'ynTrB:' + bulHash(flat.join('␟'));
+  var cached = null;
+  try { var hit = localStorage.getItem(ck); if (hit) cached = JSON.parse(hit); } catch (e) {}
+  var apply = function (out) {
+    if (bulLangGet() !== 'en') return;
+    Array.prototype.forEach.call(nodes, function (nd, i) {
+      var bTag = nd.querySelector('.tx > b'), pTag = nd.querySelector('.tx > p');
+      if (bTag) bTag.textContent = out[i * 2] || anns[i].title || '';
+      if (pTag) pTag.textContent = out[i * 2 + 1] || anns[i].body || '';
+    });
+  };
+  if (cached) { apply(cached); return; }
+  callServer('translateBatch', [flat], function (out) {
+    try { localStorage.setItem(ck, JSON.stringify(out)); } catch (e) {}
+    apply(out);
+  }, function () { /* 번역이 안 되면 원문 그대로 둡니다 */ });
 }
 
 function loadDate(d) {
@@ -706,7 +781,25 @@ function paintActs() {
   if (!box) return;
   box.innerHTML = '<button type="button" class="ea" onclick="bulletinPdf(B)">PDF 저장</button>' +
     (INIT.canPublish && st === '게시' ? '<button type="button" class="ea" onclick="unpublish()">게시 취소</button>' : '') +
-    (INIT.canPublish && st ? '<button type="button" class="ea del" onclick="removeBulletin()">주보 삭제</button>' : '');
+    (INIT.canPublish && st ? '<button type="button" class="ea del" onclick="removeBulletin()">주보 삭제</button>' : '') +
+    (INIT.canPublish ? '<button type="button" class="ea' + (INIT.notifyOn ? ' on' : '') + '" onclick="toggleBulletinNotify()">게시 전 알림 ' + (INIT.notifyOn ? 'ON' : 'OFF') + '</button>' : '') +
+    (INIT.canPublish && st === '게시' ? '<button type="button" class="ea" onclick="sendBulletinNotifyNow()">주보 알림 발송</button>' : '');
+}
+function toggleBulletinNotify() {
+  callServer('saveBulletinNotifyAuto', [TOKEN, !INIT.notifyOn], function (r) {
+    INIT.notifyOn = r.on;
+    paintActs();
+    paintBar(r.on ? '게시하면 자동으로 알림을 보냅니다.' : '자동 알림을 껐습니다 — "주보 알림 발송" 버튼으로 직접 보내세요.');
+    setTimeout(function () { paintBar(); }, 2600);
+  }, function (e) { alert(e.message || '바꾸지 못했습니다.'); });
+}
+function sendBulletinNotifyNow() {
+  if (!confirm(bulletinTitle(B.date, B.occasion) + ' 주보 알림을 지금 보낼까요?')) return;
+  paintBar('알림을 보내는 중…');
+  callServer('sendBulletinNotifyNow', [TOKEN, B.date], function (r) {
+    paintBar('알림을 보냈습니다 — 휴대폰 ' + r.sent + '대' + (r.mail ? ', 이메일 ' + r.mail + '통' : '') + '.');
+    setTimeout(function () { paintBar(); }, 2800);
+  }, function (e) { paintBar(e.message || '보내지 못했습니다.', 'err'); });
 }
 function unpublish() {
   if (!confirm(bulletinTitle(B.date, B.occasion) + ' 주보의 게시를 취소할까요?\n임시저장 상태로 돌아가고, 로그인하지 않은 분은 더 이상 볼 수 없습니다.')) return;
@@ -972,14 +1065,59 @@ function paintPane() {
   if (TAB === 'sched' && !SCHED) loadSched();
 }
 
-function ta(val, oninput, ph, rows) {
-  return '<textarea rows="' + (rows || 2) + '" placeholder="' + esc(ph || '') + '" oninput="' + oninput + ';markDirty()">' + esc(val || '') + '</textarea>';
+function ta(val, oninput, ph, rows, id) {
+  return '<textarea' + (id ? ' id="' + id + '"' : '') + ' rows="' + (rows || 2) + '" placeholder="' + esc(ph || '') + '" oninput="' + oninput + ';markDirty()">' + esc(val || '') + '</textarea>';
 }
-function inp(val, oninput, ph, type) {
-  return '<input type="' + (type || 'text') + '" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '" oninput="' + oninput + ';markDirty()">';
+function inp(val, oninput, ph, type, id) {
+  return '<input' + (id ? ' id="' + id + '"' : '') + ' type="' + (type || 'text') + '" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '" oninput="' + oninput + ';markDirty()">';
 }
 function move(arr, i, d) { var j = i + d; if (j < 0 || j >= arr.length) return; var t = arr[i]; arr[i] = arr[j]; arr[j] = t; markDirty(); paintPane(); }
 function drop(arr, i, what) { if (!confirm((what || '이 항목') + '을(를) 지울까요?')) return; arr.splice(i, 1); markDirty(); paintPane(); }
+
+/* ---------------------------------------------------------
+   [✨ AI 편집] — 이 화면은 Theme.html 을 쓰지 않아 따로 둡니다.
+   맞춤법 교정 · 톤앤매너 정돈 · 불렛포인트 구조화 중 골라서 바로 적용합니다.
+   --------------------------------------------------------- */
+var AIPICK = {};
+function aiBtn(id, msgId) {
+  return '<button type="button" class="aib" onclick="aiPolish(\'' + id + '\',this,' + (msgId ? "'" + msgId + "'" : 'null') + ')">&#10024; AI 편집</button>' +
+    (msgId ? '<p class="msg" id="' + msgId + '"></p>' : '');
+}
+function aiPolish(id, btn, msgId, growFn) {
+  var t = el(id);
+  if (!t || !btn) return;
+  AIPICK[id] = { btn: btn, msgId: msgId, growFn: growFn };
+  var mid = 'aipick_' + id, m = el(mid);
+  if (!m) {
+    m = document.createElement('div');
+    m.id = mid; m.className = 'aipick';
+    m.innerHTML = [['', '전체 다듬기'], ['grammar', '맞춤법 교정'], ['tone', '톤앤매너 정돈'], ['bullets', '불렛포인트 정리']]
+      .map(function (o) { return '<button type="button" onclick="aiRun(\'' + id.replace(/'/g, "\\'") + '\',\'' + o[0] + '\')">' + o[1] + '</button>'; }).join('');
+    btn.insertAdjacentElement('afterend', m);
+  }
+  m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+}
+function aiRun(id, mode) {
+  var ctx = AIPICK[id] || {};
+  var t = el(id), msg = ctx.msgId ? el(ctx.msgId) : null, btn = ctx.btn;
+  var m = el('aipick_' + id); if (m) m.style.display = 'none';
+  if (!t) return;
+  var text = t.value.trim();
+  if (!text) { if (msg) { msg.className = 'msg err'; msg.textContent = '먼저 내용을 적어주세요.'; } return; }
+  var orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '정리하는 중…'; }
+  if (msg) { msg.className = 'msg'; msg.textContent = ''; }
+  callServer('aiPolishText', [TOKEN, text, mode], function (r) {
+    t.value = (r && r.text) || text;
+    try { t.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    if (typeof ctx.growFn === 'function') ctx.growFn(t);
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+    if (msg) { msg.className = 'msg ok'; msg.textContent = 'AI가 다듬었습니다. 마음에 안 드시면 직접 고쳐 쓰셔도 됩니다.'; }
+  }, function (e) {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+    if (msg) { msg.className = 'msg err'; msg.textContent = e.message || 'AI 정리에 실패했습니다.'; }
+  });
+}
 
 /* 1. 예배 순서 */
 var AUTO_KEYS = { praise: '찬양 콘티', final: '결단 찬양', prayer: '대표기도 스케줄' };
@@ -1179,7 +1317,8 @@ function paneNews() {
         '<button class="b ic" onclick="move(B.news.announcements,' + i + ',1)" ' + (i === n.announcements.length - 1 ? 'disabled' : '') + '>▼</button>' +
         '<button class="b ic del" onclick="drop(B.news.announcements,' + i + ',\'이 광고\')">✕</button></div>' +
         '<div class="ef"><label>제목</label>' + inp(a.title, 'B.news.announcements[' + i + '].title=this.value', '예: 여름 수련회') + '</div>' +
-        '<div class="ef"><label>내용</label>' + ta(a.body, 'B.news.announcements[' + i + '].body=this.value', '광고 내용', 3) + '</div>' +
+        '<div class="ef"><label>내용</label>' + ta(a.body, 'B.news.announcements[' + i + '].body=this.value', '광고 내용', 3, 'anBody' + i) +
+          aiBtn('anBody' + i, 'anBodyMsg' + i) + '</div>' +
         '<div class="two"><div class="ef"><label>신청폼 · 링크 (선택)</label>' + inp(a.link, 'B.news.announcements[' + i + '].link=this.value', 'https://forms.gle/…', 'url') + '</div>' +
         '<div class="ef"><label>QR 코드</label><select onchange="B.news.announcements[' + i + '].qr=this.value;markDirty();paintPane()">' +
           [['auto', '링크로 자동 생성'], ['image', 'QR 이미지 올리기'], ['none', '넣지 않기']].map(function (o) {
@@ -1206,9 +1345,10 @@ function paneNews() {
 
     '<div class="ecard"><h3>공동체 기도제목</h3>' +
     n.prayers.map(function (p, i) {
-      return '<div style="display:flex;gap:6px;margin-bottom:6px;">' + inp(p, 'B.news.prayers[' + i + ']=this.value', '기도제목') +
+      return '<div style="display:flex;gap:6px;margin-bottom:2px;">' + inp(p, 'B.news.prayers[' + i + ']=this.value', '기도제목', null, 'prayer' + i) +
         '<button class="b ic" onclick="move(B.news.prayers,' + i + ',-1)" ' + (i === 0 ? 'disabled' : '') + '>▲</button>' +
-        '<button class="b ic del" onclick="B.news.prayers.splice(' + i + ',1);markDirty();paintPane()">✕</button></div>';
+        '<button class="b ic del" onclick="B.news.prayers.splice(' + i + ',1);markDirty();paintPane()">✕</button></div>' +
+        '<div style="margin:0 0 6px;">' + aiBtn('prayer' + i, 'prayerMsg' + i) + '</div>';
     }).join('') +
     '<div class="rowbtns"><button class="b" onclick="B.news.prayers.push(\'\');markDirty();paintPane()">＋ 기도제목 추가</button></div></div>';
 }

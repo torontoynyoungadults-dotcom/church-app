@@ -591,6 +591,19 @@ function leaderLogin(password) {
 
   var cells = getCells();
 
+  // 팀 계정 — 계정 이름과 똑같은 셀 하나만 봅니다
+  var ta = 팀계정찾기_(password);
+  if (ta && ta.menus.indexOf('leader') !== -1) {
+    var taMine = cells.filter(function (c) { return c.name === ta.name; });
+    if (!taMine.length) throw new Error('"' + ta.name + '" 이름과 같은 셀이 없습니다. 계정 이름을 셀 이름과 똑같이 만들어주세요.');
+    return {
+      token: password, master: false, cells: taMine, photos: 셀사진_(taMine),
+      me: ta.name, delegate: {}, delegateFrom: {},
+      defaultDate: ymd_(이번주기준_()), startDate: 설정날짜_('셀시작일', '2026-09-13'),
+      today: ymd_(new Date())
+    };
+  }
+
   // 포털에서 넘어온 경우 — 이름·전화번호로 이미 본인 확인이 끝났습니다
   var me = 포털본인_(password);
   if (me) {
@@ -600,7 +613,7 @@ function leaderLogin(password) {
     if (!mine.length) throw new Error('맡고 계신 셀이 없습니다. 커미티에 문의해주세요.');
     return {
       token: password, master: 전체, cells: mine, photos: 셀사진_(mine),
-      me: me.name, delegate: 전체 ? {} : (r.delegate || {}),
+      me: me.name, delegate: 전체 ? {} : (r.delegate || {}), delegateFrom: 전체 ? {} : (r.delegateFrom || {}),
       defaultDate: ymd_(이번주기준_()), startDate: 설정날짜_('셀시작일', '2026-09-13'),
       today: ymd_(new Date())
     };
@@ -677,6 +690,27 @@ function 대리본인_(token, cellName) {
   var r = 포털역할_(me.name);
   if (r.roles.indexOf('커미티') !== -1) return '';
   return (r.delegate || {})[String(cellName || '').trim()] ? me.name : '';
+}
+
+/** 이 토큰이 이 셀에 대리 작성자로만 들어온 거면 그 지정 기간을 돌려줍니다 (아니면 null)
+ *  — 지정된 날부터 '까지' 날짜 사이의 주만 보고 쓸 수 있고, 그 밖의 지난 주 · 다른 분 이력은 볼 수 없습니다 */
+function 대리범위_(token, cellName) {
+  var name = 대리본인_(token, cellName);
+  if (!name) return null;
+  cellName = String(cellName || '').trim();
+  var found = 셀대리목록_().filter(function (d) { return d.cell === cellName && d.name === name; })[0];
+  if (!found) return null;
+  return { name: name, from: String(found.at || '').slice(0, 10), until: found.until };
+}
+
+/** 대리 작성자가 그 날짜의 보고서를 보거나 쓸 수 있는지 (기간 밖이면 막습니다) */
+function 대리기간확인_(token, cellName, date) {
+  var 범위 = 대리범위_(token, cellName);
+  if (!범위) return;
+  date = String(date || '').trim();
+  if ((범위.from && date < 범위.from) || (범위.until && date > 범위.until)) {
+    throw new Error('대리로 지정된 기간(' + 월일_(범위.from) + ' ~ ' + 월일_(범위.until) + ')의 보고서만 볼 수 있습니다. 이전 주차 · 다른 이력은 커미티에 문의해주세요.');
+  }
 }
 
 /** 셀장 본인만 할 수 있는 일 (대리 작성자는 막습니다) */
@@ -883,6 +917,8 @@ function acctLogin(password) {
 
 function isAcct_(key) {
   if (isAdmin_(key)) return true;
+  var ta = 팀계정찾기_(key);
+  if (ta && ta.menus.indexOf('acct') !== -1) return true;
   var k = 설정값_('회계팀키');
   return !!k && String(key || '').trim() === k;
 }
@@ -1010,6 +1046,10 @@ function doGet(e) {
 
   if (page === 'album') {
     return render_('Album', '포토 앨범', { t: p.t || '', id: p.id || '' }, 'album');
+  }
+
+  if (page === 'teamhub') {
+    return render_('TeamHub', '팀 계정', { t: p.t || '' }, 'portal');
   }
 
   return render_('Leader', '셀모임 보고서', {
@@ -2567,6 +2607,7 @@ function newFamilyLogin(password) {
 
 function requireNewFamily_(token) {
   if (isAdmin_(token) || 마스터_(token)) return;
+  if (포털권한_(token, '새가족')) return;   // 팀 계정도 여기서 함께 통과합니다
   if (포털해독_(token)) {
     if (포털권한_(token, '새가족')) return;
     throw new Error('새가족 관리 권한이 없습니다. 커미티에 문의해주세요.');
@@ -3200,6 +3241,17 @@ function teamLogin(password) {
   if (!password) throw new Error('비밀번호를 입력해주세요.');
   var teams = 사역팀목록_();
 
+  var ta = 팀계정찾기_(password);
+  if (ta && ta.menus.indexOf('team') !== -1) {
+    var taMine = teams.filter(function (t) { return t.name === ta.name; });
+    if (!taMine.length) throw new Error('"' + ta.name + '" 이름과 같은 사역팀이 없습니다. 계정 이름을 사역팀 이름과 똑같이 만들어주세요.');
+    return {
+      token: password, master: false, teams: taMine, photos: 팀사진_(taMine),
+      options: 사역팀선택지(),
+      reports: taMine.length === 1 ? getTeamReports(password, taMine[0].name) : []
+    };
+  }
+
   var me = 포털본인_(password);
   if (me) {
     var r = 포털역할_(me.name);
@@ -3725,12 +3777,20 @@ function submitReport__원래(token, data) {
   try {
     requireCell_(token, data && data.cell);
     var 대리 = 대리본인_(token, data.cell);
-    if (대리) data.submitter = 대리 + ' (대리)';
+    if (대리) {
+      data.submitter = 대리 + ' (대리)';
+      대리기간확인_(token, data.cell, data.meetingDate);
+    }
     validateReport_(data);
 
     var 기존코멘트 = ['', '', ''];
     if (data.reportId) {
       var old = findReportRow_(data.reportId);
+      if (old && 대리) {
+        // 대리 작성자는 자기 기간 안의, 이 셀의 보고서만 고칠 수 있습니다 (다른 주 · 다른 셀 이력 수정 방지)
+        if (String(old.row[R_CELL]).trim() !== String(data.cell).trim()) throw new Error('이 셀의 보고서가 아닙니다.');
+        대리기간확인_(token, data.cell, ymd_(old.row[R_DATE]));
+      }
       if (old) 기존코멘트 = [old.row[R_COMMENT], old.row[R_CBY], old.row[R_CAT]];
       purgeReport_(data.reportId);
     } else if (findReportByCellDate_(data.cell, data.meetingDate)) {
@@ -3872,6 +3932,7 @@ function buildReport_(row, attIdx) {
 
 function getExistingReport(token, cellName, date) {
   requireCell_(token, cellName);
+  대리기간확인_(token, cellName, date);
   var row = findReportByCellDate_(String(cellName).trim(), String(date).trim());
   return row ? buildReport_(row) : null;
 }
@@ -4630,6 +4691,8 @@ function 선교담당팀_(personName) {
 
 function requireMission_(token, teamName) {
   if (isAdmin_(token)) return;
+  var ta = 팀계정찾기_(token);
+  if (ta && ta.menus.indexOf('mission') !== -1 && (!teamName || String(teamName).trim() === ta.name)) return;
   var me = 포털본인_(token);
   if (me) {
     var r = 포털역할_(me.name);
@@ -4687,7 +4750,13 @@ function missionLogin(token) {
   var all = 선교팀목록_();
   var mine = all, who = '', 커미티 = isAdmin_(token), 편집 = {};
 
-  if (!커미티) {
+  var ta = !커미티 ? 팀계정찾기_(token) : null;
+  if (ta && ta.menus.indexOf('mission') !== -1) {
+    who = ta.name;
+    mine = all.filter(function (t) { return t.name === ta.name; });
+    if (!mine.length) throw new Error('"' + ta.name + '" 이름과 같은 선교팀이 없습니다. 계정 이름을 선교팀 이름과 똑같이 만들어주세요.');
+    mine.forEach(function (t) { 편집[t.name] = 1; });
+  } else if (!커미티) {
     var me = 포털본인_(token);
     if (!me) throw new Error('포털에서 다시 들어와 주세요.');
     who = me.name;
@@ -5129,18 +5198,22 @@ function 찬양권한_(token) {
   찬양시트준비_();
 
   var out;
+  var ta = 팀계정찾기_(token);
   if (isAdmin_(token)) {
     out = { name: '', canEdit: true, admin: true, committee: true };
+  } else if (ta && ta.menus.indexOf('worship') !== -1) {
+    out = { name: ta.name, canEdit: true, admin: false, committee: false };
   } else {
     var me = 포털본인_(token);
     if (!me) throw new Error('포털에서 다시 들어와 주세요.');
     var 명단 = 찬양명단_();
     var r = 포털역할_(me.name);
     var 커미티 = r.roles.indexOf('커미티') !== -1;
-    if (!명단[me.name] && !커미티) {
+    var 태그로찬양 = r.roles.indexOf('찬양팀') !== -1;   // 교적 "포털 역할"에서 손으로 켠 경우
+    if (!명단[me.name] && !커미티 && !태그로찬양) {
       throw new Error('찬양팀 · 방송팀에 속한 분만 볼 수 있습니다. 커미티에 문의해주세요.');
     }
-    out = { name: me.name, canEdit: 커미티 || 찬양팀장_(me.name), admin: false, committee: 커미티 };
+    out = { name: me.name, canEdit: 커미티 || 태그로찬양 || 찬양팀장_(me.name), admin: false, committee: 커미티 };
   }
   찬양권한캐시_[key] = out;
   return out;
@@ -6057,6 +6130,28 @@ function removeWorshipSheet(token, date, fileId) {
   return 한주_(date);
 }
 
+/* ---- 콘티 · 악보 알림 — 찬양팀에게 (버튼을 눌렀을 때만 나갑니다) ---- */
+
+/**
+ * what: 'setlist'(콘티) | 'sheet'(악보)
+ * team: true 면 찬양팀 전체, false 면 팀장(찬양팀 역할을 가진 분)에게만
+ */
+function sendWorshipNotify(token, date, what, team) {
+  var w = requireWorshipEdit_(token);
+  date = 날짜문자열_(date);
+  if (!알림켜짐_('콘티')) return { sent: 0, off: true, msg: '콘티 알림이 꺼져 있습니다 — 알림 관리에서 켜주세요.' };
+  var names = team === false ? 역할인사람_('찬양팀') : 찬양멤버들_().map(function (m) { return m.name; });
+  names = names.filter(function (n, i) { return n && names.indexOf(n) === i; });
+  if (!names.length) return { sent: 0, none: true, msg: '알림 받을 찬양팀원이 없습니다.' };
+  var isSheet = String(what) === 'sheet';
+  var r = 알림보내기_('콘티', names, {
+    title: isSheet ? '악보가 새로 올라왔습니다' : '이번 주 콘티가 준비됐습니다',
+    body: 월일_(date) + ' 예배 · ' + (isSheet ? '악보를 확인해주세요.' : '콘티를 확인해주세요.'),
+    url: 앱주소_() + '?page=worship&t=' + encodeURIComponent(token), tag: '콘티-' + date, keep: true
+  });
+  return { sent: r.sent || 0, mail: r.mail || 0, people: names.length, by: w.name };
+}
+
 /* ---- 녹음 — 연습 녹음 · 예배 녹음 (mp3 · m4a 올리기, 또는 구글 드라이브 링크) ----
    팀원 누구나 올릴 수 있고, 올린 사람 · 팀장 · 인도자 · 커미티가 지울 수 있습니다. */
 
@@ -6759,7 +6854,9 @@ function exportNewFamilies(key) {
    ========================================================= */
 
 var 포털접두 = 'YNP2.';
-var 역할종류 = ['커미티', '회계팀', '새가족팀'];
+// '주보팀' · '찬양팀' 도 교적 화면에서 손으로 더하거나 뺄 수 있습니다 (권한 관리 참고).
+// 선교팀은 팀마다 서류·항공 등 담당이 달라 "선교팀원" 명단(선교팀 관리 화면)에서 직접 넣어주세요.
+var 역할종류 = ['커미티', '회계팀', '새가족팀', '주보팀', '찬양팀'];
 
 /** 전화번호에서 숫자만 남기고 뒤 10자리 */
 function 전화키_(v) {
@@ -6846,6 +6943,13 @@ function requirePortal_(token) {
  * kind: '셀' | '팀' | '새가족'  (커미티는 모두 통과)
  */
 function 포털권한_(token, kind, target) {
+  var ta = 팀계정찾기_(token);
+  if (ta) {
+    var need = { '셀': 'leader', '팀': 'team', '새가족': 'newfamily' }[kind];
+    if (!need || ta.menus.indexOf(need) === -1) return false;
+    if (kind === '새가족') return true;                     // 새가족은 전체 권한
+    return String(target || '').trim() === ta.name;          // 셀 · 팀은 계정 이름과 같은 것만
+  }
   var me = 포털본인_(token);
   if (!me) return false;
   var r = 포털역할_(me.name);
@@ -6941,17 +7045,18 @@ function 포털역할계산_(name) {
 
   var myCells = getCells().filter(function (c) { return c.leader === name; })
     .map(function (c) { return c.name; });
-  // 대리 작성자로 지정된 셀 (기간이 지나면 저절로 빠집니다)
-  var delegate = {};
+  // 대리 작성자로 지정된 셀 (기간이 지나면 저절로 빠집니다) — 지정된 날부터 '까지' 사이만 봅니다
+  var delegate = {}, delegateFrom = {};
   셀대리목록_().forEach(function (d) {
     if (d.name !== name || myCells.indexOf(d.cell) !== -1) return;
     delegate[d.cell] = d.until;
+    delegateFrom[d.cell] = String(d.at || '').slice(0, 10);
     myCells.push(d.cell);
   });
   var myTeams = 사역팀목록_().filter(function (t) { return t.leader === name; })
     .map(function (t) { return t.name; });
 
-  return { name: name, roles: roles, cells: myCells, teams: myTeams, delegate: delegate };
+  return { name: name, roles: roles, cells: myCells, teams: myTeams, delegate: delegate, delegateFrom: delegateFrom };
 }
 
 function 역할있나_(name, role) {
@@ -7017,7 +7122,7 @@ function 포털메뉴_(r, token) {
     out.push({ key: 'acct', title: '회계 관리', desc: '지출 신청 · 예산 · Cheque',
       url: base + '?page=admin&scope=acct&key=' + encodeURIComponent(회계키_()), note: '' });
   }
-  return out;
+  return 메뉴순서적용_(out, 'portal');
 }
 
 /**
@@ -7137,7 +7242,62 @@ function 포털관리메뉴_(r, token) {
       ] });
   }
 
-  return out;
+  return 메뉴순서적용_(out, 'admin');
+}
+
+/* =========================================================
+   앱 기능 관리 — 메뉴 순서 변경
+   (포털 메인 메뉴 순서 / 커미티 관리툴 메뉴 순서 — 각각 따로 저장합니다)
+   ========================================================= */
+
+/** 저장된 순서(콤마로 이어붙인 key 목록) → 배열 */
+function 메뉴순서_(kind) {
+  return String(설정값_('메뉴순서_' + kind) || '').split(',')
+    .map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+}
+
+/** out 배열(각 항목에 .key)을 저장된 순서대로 재배열 — 순서에 없는 항목은 원래 자리 그대로 뒤에 남습니다 */
+function 메뉴순서적용_(out, kind) {
+  var order = 메뉴순서_(kind);
+  if (!order.length) return out;
+  var pos = {};
+  order.forEach(function (k, i) { pos[k] = i; });
+  return out.map(function (item, i) { return { item: item, i: i }; })
+    .sort(function (a, b) {
+      var pa = (a.item.key in pos) ? pos[a.item.key] : (1000 + a.i);
+      var pb = (b.item.key in pos) ? pos[b.item.key] : (1000 + b.i);
+      return pa - pb;
+    })
+    .map(function (x) { return x.item; });
+}
+
+/** 앱 기능 관리 — 메뉴 순서 화면 초기값 (지금 순서 그대로, 저장된 값이 없으면 기본 순서) */
+function getMenuOrder(token) {
+  if (!isAdmin_(token) && !커미티토큰_(token)) throw new Error('커미티 · 관리자만 볼 수 있습니다.');
+  var 포털기본 = ['album', 'leader', 'team', 'expense', 'newfamily', 'worship', 'mission', 'forms', 'minutes', 'bulletinEdit', 'acct'];
+  var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'dir', 'push', 'cal', 'ai'];
+  var titleOf = {
+    album: '포토 앨범', leader: '셀모임 보고서', team: '사역 보고서 / 사역팀 관리', expense: '지출환급신청서',
+    newfamily: '새가족 관리', worship: '찬양방송팀 허브', mission: '선교팀 관리', forms: '신청서 관리',
+    minutes: '회의록 · 할 일', bulletinEdit: '주보 편집', acct: '회계 관리',
+    cell: '셀 관리', nf: '새가족 관리', tr: '제자훈련 관리', mis: '선교팀 관리', dir: '교적 관리',
+    push: '알림 관리', cal: '일정 관리', ai: 'AI 설정'
+  };
+  function withTitles(list, fallback) {
+    var have = list.length ? list : fallback;
+    fallback.forEach(function (k) { if (have.indexOf(k) === -1) have.push(k); });
+    return have.filter(function (k) { return titleOf[k]; }).map(function (k) { return { key: k, title: titleOf[k] }; });
+  }
+  return { portal: withTitles(메뉴순서_('portal'), 포털기본), admin: withTitles(메뉴순서_('admin'), 관리기본) };
+}
+
+/** 앱 기능 관리 — 메뉴 순서 저장 (kind: 'portal' | 'admin') */
+function saveMenuOrder(token, kind, order) {
+  if (!isAdmin_(token) && !커미티토큰_(token)) throw new Error('커미티 · 관리자만 바꿀 수 있습니다.');
+  kind = (kind === 'admin') ? 'admin' : 'portal';
+  order = (Array.isArray(order) ? order : []).map(function (x) { return String(x || '').trim(); }).filter(function (x) { return x; });
+  설정저장_('메뉴순서_' + kind, order.join(','));
+  return { ok: true };
 }
 
 /** 헌금봉투 발급을 기다리는 사람 수 */
@@ -9292,6 +9452,8 @@ function 주보권한이름_(name) {
 
 function 주보등급_(token) {
   if (isAdmin_(token)) return { name: '커미티', edit: true, publish: true };
+  var ta = 팀계정찾기_(token);
+  if (ta && ta.menus.indexOf('bulletinEdit') !== -1) return { name: ta.name, edit: true, publish: false };
   var me = 포털본인_(token);
   if (!me) throw new Error(구글만안내);
   var g = 주보권한이름_(me.name);
@@ -9621,8 +9783,32 @@ function bulletinEditorInit(token) {
   return {
     me: who, canPublish: g.publish, sundays: 주보주일목록_(), defaultDate: date, list: 주보목록_(),
     team: 주보사람들_(), volBase: Number(설정값_('주보권기준연도')) || 1976,
-    draft: getBulletinDraft(token, date)
+    draft: getBulletinDraft(token, date), notifyOn: 주보알림자동_()
   };
+}
+
+/** 주보를 게시할 때 자동으로 알림을 보낼지 — 커미티(게시자)가 켜고 끕니다. 기본은 ON(기존 동작 유지) */
+function 주보알림자동_() { return String(설정값_('주보알림자동') || 'ON').trim().toUpperCase() !== 'OFF'; }
+
+function saveBulletinNotifyAuto(token, on) {
+  주보게시권한_(token);
+  설정저장_('주보알림자동', on ? 'ON' : 'OFF');
+  return { ok: true, on: 주보알림자동_() };
+}
+
+/** 이미 게시된 주보를 골라 지금 바로(수동으로) 알림을 보냅니다 */
+function sendBulletinNotifyNow(token, date) {
+  var who = 주보게시권한_(token);
+  var row = 주보찾기_(String(date || '').trim());
+  if (!row) throw new Error('그 날짜의 주보를 찾을 수 없습니다.');
+  var b = 주보풀기_(row);
+  if (b.status !== '게시') throw new Error('게시된 주보만 알림을 보낼 수 있습니다. 먼저 게시해 주세요.');
+  var r = 알림보내기_('주보', '*', {
+    title: '이번 주 주보 안내',
+    body: 주보제목_(b.date, b.occasion),
+    url: 앱주소_() + '?page=bulletin', tag: '주보', keep: true
+  });
+  return { ok: true, sent: r.sent || 0, mail: r.mail || 0, by: who };
 }
 
 /** 그 주 주보 — 저장된 게 있으면 그것, 없으면 새 틀 (자동 불러오기 포함) */
@@ -9688,8 +9874,8 @@ function saveBulletin(token, data, publish) {
     sh.getRange(at, 1, 1, row.length).setValues([row]);
   } finally { lock.releaseLock(); }
   캐시비움_();
-  // 새로 게시된 주보는 알림을 켠 모두에게 알려줍니다
-  if (publish && !(지금 && 지금.status === '게시')) {
+  // 새로 게시된 주보는 (자동 알림이 켜져 있으면) 알림을 켠 모두에게 알려줍니다
+  if (publish && !(지금 && 지금.status === '게시') && 주보알림자동_()) {
     알림보내기_('주보', '*', {
       title: '이번 주 주보가 나왔습니다',
       body: 주보제목_(date, keep.occasion),
@@ -10483,6 +10669,7 @@ function 알림종류_() {
     { key: '주보', name: '새 주보 · 공지', who: '알림을 켠 모두', help: '주보가 새로 게시되면' },
     { key: '새가족', name: '새가족 등록', who: '새가족팀 · 커미티', help: '새가족이 등록하거나 내용을 고쳤을 때' },
     { key: '셀신청', name: '셀 신청', who: '커미티', help: '셀 신청서가 들어왔을 때' },
+    { key: '콘티', name: '콘티 · 악보', who: '찬양팀', help: '콘티를 쓰거나 악보를 올리고 찬양팀에게 알릴 때' },
     { key: '공지', name: '커미티 직접 보내기', who: '고르는 대로', help: '관리 화면에서 손으로 보내는 알림' }
   ];
 }
@@ -10652,10 +10839,52 @@ function 푸시주소_() {
 }
 
 /** 알림 종류를 확인하고 보냅니다 (꺼져 있으면 아무 일도 하지 않습니다) */
+/** 커미티가 알림 종류별로 덧붙이는 안내 문구 — 내용 끝에 붙습니다 */
+function 알림문구_(kind) {
+  return String(설정값_('알림문구_' + kind) || '').trim();
+}
+
+function saveNotifyNote(token, kind, note) {
+  if (!커미티토큰_(token)) throw new Error('알림 문구는 커미티만 고칠 수 있습니다.');
+  if (!알림종류_().some(function (k) { return k.key === kind; })) throw new Error('없는 알림 종류입니다.');
+  설정저장_('알림문구_' + kind, String(note || '').trim().slice(0, 300));
+  return { ok: true, note: 알림문구_(kind) };
+}
+
+/** msg 에 그 알림 종류의 안내 문구를 붙입니다 (있으면) */
+function 알림문구붙이기_(kind, msg) {
+  var note = 알림문구_(kind);
+  if (!note) return msg;
+  var out = {};
+  for (var k in msg) out[k] = msg[k];
+  out.body = (out.body ? out.body + '\n\n' : '') + note;
+  return out;
+}
+
+/** 알림 종류별 샘플 문구 — 미리보기에 씁니다 */
+function 알림샘플_(kind) {
+  var samples = {
+    '셀보고': { title: '셀보고서를 기다리고 있습니다', body: '9/28 셀모임 보고서 — 아직 올라오지 않았습니다.' },
+    '팀보고': { title: '이번 달 사역 보고서를 올려주세요', body: '2026년 9월 팀 보고서를 올려주세요.' },
+    '주보': { title: '이번 주 주보가 나왔습니다', body: '9/28 주일 · 청년1부 주보' },
+    '새가족': { title: '새가족이 등록했습니다', body: '홍길동님이 새가족으로 등록했습니다.' },
+    '셀신청': { title: '셀 신청서가 들어왔습니다', body: '홍길동님이 셀 신청서를 냈습니다.' },
+    '공지': { title: '(공지 제목)', body: '(공지 내용)' },
+    '콘티': { title: '이번 주 콘티가 준비됐습니다', body: '9/28 예배 · 콘티를 확인해주세요.' }
+  };
+  return samples[kind] || { title: '(제목)', body: '(내용)' };
+}
+
+/** 알림 종류 하나의 미리보기 — 지금 문구를 붙이면 실제로 이렇게 나갑니다 */
+function notifyPreview(token, kind) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 볼 수 있습니다.');
+  return 알림문구붙이기_(kind, 알림샘플_(kind));
+}
+
 function 알림_(kind, names, msg) {
   try {
     if (!알림켜짐_(kind)) return { sent: 0, off: true };
-    return 푸시보내기_(names, msg);
+    return 푸시보내기_(names, 알림문구붙이기_(kind, msg));
   } catch (e) { return { sent: 0, failed: 0, error: e.message }; }
 }
 
@@ -10676,7 +10905,8 @@ function pushAdminInit(token) {
   var people = Object.keys(byName).sort(function (a, b) { return a.localeCompare(b, 'ko'); })
     .map(function (n) { return { name: n, devices: byName[n] }; });
   var kinds = 알림종류_().map(function (k) {
-    return { key: k.key, name: k.name, who: k.who, help: k.help, on: 알림켜짐_(k.key), mail: 메일켜짐_(k.key) };
+    return { key: k.key, name: k.name, who: k.who, help: k.help, on: 알림켜짐_(k.key), mail: 메일켜짐_(k.key),
+      note: 알림문구_(k.key) };
   });
   var roles = 역할맵_(), leaders = [], teamLeads = [], com = [];
   Object.keys(roles).forEach(function (n) {
@@ -10861,6 +11091,10 @@ function 신청마감사유_(f) {
 function 신청서관리자_(token) {
   if (isAdmin_(token) || 마스터_(token)) {
     return { name: '커미티', committee: true, teams: 사역팀목록_().map(function (t) { return t.name; }) };
+  }
+  var ta = 팀계정찾기_(token);
+  if (ta && ta.menus.indexOf('forms') !== -1) {
+    return { name: ta.name, committee: false, teams: [ta.name] };
   }
   var me = requirePortal_(token);
   var r = 포털역할_(me.name);
@@ -11865,10 +12099,11 @@ function 알림보내기_(kind, names, msg) {
     try {
       var to = 이름메일_(names);
       if (to.length) {
+        var mailMsg = 알림문구붙이기_(kind, msg);
         MailApp.sendEmail({
           to: to.join(','), name: '토론토영락교회 청년1부',
-          subject: '[청년1부] ' + (msg.title || ''),
-          htmlBody: 알림메일본문_(msg)
+          subject: '[청년1부] ' + (mailMsg.title || ''),
+          htmlBody: 알림메일본문_(mailMsg)
         });
         r.mail = to.length;
       }
@@ -12976,15 +13211,32 @@ function AIJSON_(prompt, o) {
  * "AI 맞춤법/포맷 정리" — 화면마다 로그인 방식(토큰)이 달라서 특정 역할로 막지 않고,
  * 로그인된 화면(토큰이 있는 화면)에서만 부를 수 있게 합니다.
  */
-function aiPolishText(token, text) {
+/**
+ * AI 편집 — mode 로 어떤 식으로 다듬을지 고릅니다.
+ *   'grammar' 맞춤법 · 띄어쓰기만 바로잡기
+ *   'tone'    말투 · 톤앤매너를 정중하고 자연스럽게 정돈
+ *   'bullets' 불렛포인트(· 로 시작하는 줄)로 구조화
+ *   그 외(빈 값 등) 세 가지를 한 번에 — 기존 버튼과 그대로 호환됩니다
+ */
+function aiPolishText(token, text, mode) {
   if (!String(token || '').trim()) throw new Error('로그인 정보가 없습니다. 새로고침 후 다시 시도해주세요.');
   text = String(text || '').trim();
   if (!text) throw new Error('다듬을 내용이 없습니다.');
   AI확인_();
   text = text.slice(0, 4000);
+  mode = String(mode || '').trim();
+
+  var 지시 = {
+    grammar: '한국어 맞춤법과 띄어쓰기만 바르게 고쳐주세요. 문장 구조나 어투, 줄바꿈은 그대로 두세요.',
+    tone: '문장을 자연스럽고 정중한 말투로 다듬어 주세요. 존댓말(또는 반말) 어투는 원문 그대로 유지하고, 내용은 새로 지어내지 마세요.',
+    bullets: '여러 항목으로 나눌 수 있는 내용이면 짧은 불렛포인트(· 로 시작하는 줄)로 구조화해 주세요. 나눌 항목이 없으면 문단 그대로 두어도 됩니다.'
+  }[mode] || (
+    '한국어 맞춤법과 띄어쓰기를 바르게 고치고, 문장을 자연스럽게 다듬어 주세요.\n' +
+    '여러 항목으로 나눌 수 있는 내용이면 짧은 불렛포인트(· 로 시작하는 줄)로 구조화하고, 아니면 문단 그대로 두어도 됩니다.'
+  );
+
   var prompt =
-    '다음은 교회 청년부 활동 중에 쓴 글입니다. 한국어 맞춤법과 띄어쓰기를 바르게 고치고, 문장을 자연스럽게 다듬어 주세요.\n' +
-    '여러 항목으로 나눌 수 있는 내용이면 짧은 불렛포인트(· 로 시작하는 줄)로 구조화하고, 아니면 문단 그대로 두어도 됩니다.\n' +
+    '다음은 교회 청년부 활동 중에 쓴 글입니다. ' + 지시 + '\n' +
     '원래 뜻 · 사실관계 · 존댓말(또는 반말) 어투는 절대 바꾸거나 새로 지어내지 마세요.\n' +
     '다듬은 글 내용만 답하세요. 인사말, 설명, 따옴표는 붙이지 마세요.\n\n' +
     '--- 원문 ---\n' + text;
@@ -13878,4 +14130,163 @@ function albumDeletePhoto(token, id, photoId) {
     캐시비움_();
   }
   return { ok: true };
+}
+
+/* =========================================================
+   KR / EN 실시간 번역 — 공지사항 · 설교 요약처럼 매번 내용이 다른 글을
+   화면에서 영어로 바꿔 보여줄 때 씁니다. (고정 메뉴 문구는 화면 쪽 사전으로 처리합니다)
+   누구나 부를 수 있고(로그인 여부와 무관), 같은 문구 묶음은 6시간 동안 캐시해
+   Gemini 를 다시 부르지 않습니다.
+   ========================================================= */
+
+/** 문구 여러 개를 한 번에 영어로 옮깁니다. 순서 · 개수는 입력과 똑같이 돌려줍니다 */
+function translateBatch(items) {
+  var flat = (Array.isArray(items) ? items : []).map(function (x) { return String(x == null ? '' : x); });
+  if (!flat.length || !flat.some(function (x) { return x.trim(); })) return flat;
+  if (flat.length > 60) flat = flat.slice(0, 60);
+
+  var joined = flat.map(function (x) { return x.slice(0, 800); }).join('␞');
+  if (joined.length > 8000) joined = joined.slice(0, 8000);
+  var ck = 'tr|' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, joined));
+  var c = 캐시_();
+  if (c) { try { var hit = c.get(ck); if (hit) return JSON.parse(hit); } catch (e) {} }
+
+  AI확인_();
+  var body = flat.map(function (x, i) { return '[' + i + '] ' + x.replace(/\n/g, ' ⏎ ').slice(0, 800); }).join('\n');
+  var prompt = '다음은 한국 교회 청년부 앱 화면에 쓰이는 문구들입니다. 각 줄을 자연스럽고 간결한 영어로 옮겨 주세요.\n' +
+    '줄 안의 ⏎ 표시는 줄바꿈 자리이니 그대로 두세요. 번호의 순서와 개수를 정확히 지켜서, ' +
+    '아래 JSON 형식으로만 답하세요. 다른 말은 절대 쓰지 마세요.\n' +
+    '{ "items": ["...", "...", ...] }\n\n' + body;
+  var d = AIJSON_(prompt, {
+    system: '당신은 한국 교회 청년부 앱을 영어로 옮기는 번역가입니다. 자연스럽고 간결하게 옮기며, 원문에 없는 내용을 지어내지 않습니다.',
+    temperature: 0.2, maxTokens: 2600
+  });
+  var out = Array.isArray(d.items) ? d.items.map(function (x) { return String(x || '').replace(/⏎/g, '\n').trim(); }) : flat.slice();
+  while (out.length < flat.length) out.push('');
+  out = out.slice(0, flat.length);
+
+  if (c) { try { c.put(ck, JSON.stringify(out), 21600); } catch (e) {} }
+  return out;
+}
+
+/* =========================================================
+   팀 계정 — 특정 사람이 아니라 "방송팀" · "예배준비팀" 처럼
+   팀 전체가 나눠 쓰는 공유 로그인. 메뉴를 하나씩 골라 켜줍니다.
+   (이름·전화번호로 교적을 찾는 보통 포털 로그인과 달리, 커미티가
+   만들어준 키 하나로 곧장 들어옵니다)
+   ========================================================= */
+
+var SHEET_팀계정 = '팀계정';
+var HEAD_팀계정 = ['이름', '키', '메뉴', '만든이', '만든날'];
+var TA_이름 = 0, TA_키 = 1, TA_메뉴 = 2, TA_만든이 = 3, TA_만든날 = 4;
+
+/** 권한 관리 화면과 팀계정 접근 체크가 함께 쓰는 메뉴 목록 */
+function 메뉴카탈로그_() {
+  return [
+    { key: 'leader', area: '행정', title: '셀모임 보고서', help: '계정 이름과 똑같은 셀의 보고서 (예: "1셀")' },
+    { key: 'team', area: '행정', title: '사역 보고서', help: '계정 이름과 똑같은 사역팀의 보고서 (예: "방송팀")' },
+    { key: 'expense', area: '행정', title: '지출환급신청서', help: '누구나 낼 수 있는 화면이라 그냥 열립니다' },
+    { key: 'newfamily', area: '행정', title: '새가족 관리', help: '새가족 전체 조회 · 배정 · 정착 추적' },
+    { key: 'worship', area: '행정', title: '찬양방송팀 허브', help: '콘티 · 악보 · 편성을 올리고 고칠 수 있습니다' },
+    { key: 'mission', area: '행정', title: '선교팀 관리', help: '계정 이름과 똑같은 선교팀 (예: "2026 니카라과 선교팀")' },
+    { key: 'forms', area: '행정', title: '신청서 관리', help: '계정 이름과 같은 사역팀 담당 신청서만 만들고 고칩니다' },
+    { key: 'bulletinEdit', area: '행정', title: '주보 편집', help: '임시저장까지 — 게시는 주보 게시자가 합니다' },
+    { key: 'acct', area: '행정', title: '회계 관리', help: '지출 신청 · 예산 · Cheque' }
+  ];
+}
+
+function 팀계정시트_() {
+  var sh = 주보시트_(SHEET_팀계정, HEAD_팀계정);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_팀계정.length).setValues([HEAD_팀계정]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+function 팀계정목록_() {
+  return rows_(SHEET_팀계정).filter(function (r) { return String(r[TA_이름]).trim(); }).map(function (r) {
+    return {
+      name: String(r[TA_이름]).trim(), key: String(r[TA_키]).trim(),
+      menus: String(r[TA_메뉴] || '').split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; }),
+      by: String(r[TA_만든이] || '').trim(), at: 날짜문자열_(r[TA_만든날])
+    };
+  });
+}
+
+/** 로그인 토큰(키)으로 팀계정을 찾습니다 — 각 메뉴의 권한 체크에서 함께 씁니다 */
+function 팀계정찾기_(key) {
+  key = String(key || '').trim();
+  if (!key || key.indexOf('tm-') !== 0) return null;
+  return 팀계정목록_().filter(function (t) { return t.key === key; })[0] || null;
+}
+
+function teamAccountInit(token) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 볼 수 있습니다.');
+  return { catalog: 메뉴카탈로그_(), list: 팀계정목록_(), base: 앱주소_() || '' };
+}
+
+/** 새로 만들거나(이름이 같으면) 메뉴 구성을 고칩니다 */
+function saveTeamAccount(token, name, menus) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 만들 수 있습니다.');
+  name = String(name || '').trim().slice(0, 40);
+  if (!name) throw new Error('계정 이름을 입력해주세요.');
+  if (교적맵_()[name]) throw new Error('교적에 있는 실제 이름과 같습니다. 헷갈리지 않도록 다른 이름으로 지어주세요 (예: "방송팀").');
+  var allowed = 메뉴카탈로그_().map(function (m) { return m.key; });
+  menus = (Array.isArray(menus) ? menus : []).filter(function (m) { return allowed.indexOf(m) !== -1; });
+
+  var who = 커미티이름_(token);
+  var sh = 팀계정시트_(), v = sh.getDataRange().getValues(), at = 0, key = '', made = '';
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][TA_이름]).trim() === name) { at = i + 1; key = String(v[i][TA_키] || '').trim(); made = v[i][TA_만든날]; break; }
+  }
+  if (!key) key = 'tm-' + Utilities.getUuid().slice(0, 10);
+  var row = [name, key, menus.join(','), who, at ? made : ymd_(new Date())];
+  if (at) sh.getRange(at, 1, 1, row.length).setValues([row]);
+  else { sh.appendRow(row); at = sh.getLastRow(); }
+  sh.getRange(at, TA_만든날 + 1).setNumberFormat('@');
+  캐시비움_();
+  return { ok: true, list: 팀계정목록_() };
+}
+
+function deleteTeamAccount(token, name) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 지울 수 있습니다.');
+  var sh = 팀계정시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][TA_이름]).trim() === String(name).trim()) sh.deleteRow(i + 1);
+  캐시비움_();
+  return { ok: true, list: 팀계정목록_() };
+}
+
+/** 링크가 새 나갔을 때 — 키만 새로 바꿉니다 (메뉴 구성은 그대로) */
+function regenTeamAccountKey(token, name) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 바꿀 수 있습니다.');
+  var sh = 팀계정시트_(), v = sh.getDataRange().getValues();
+  var found = false;
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][TA_이름]).trim() === String(name).trim()) {
+      sh.getRange(i + 1, TA_키 + 1).setValue('tm-' + Utilities.getUuid().slice(0, 10));
+      found = true; break;
+    }
+  }
+  if (!found) throw new Error('그 이름의 팀 계정을 찾을 수 없습니다.');
+  캐시비움_();
+  return { ok: true, list: 팀계정목록_() };
+}
+
+/** 팀 계정 홈 화면 — 키 하나로 들어와서, 자기가 받은 메뉴만 봅니다 */
+function teamPortalOpen(key) {
+  var t = 팀계정찾기_(key);
+  if (!t) throw new Error('링크가 올바르지 않습니다. 커미티에 문의해주세요.');
+  var base = 앱주소_() || '';
+  var urlOf = {
+    leader: base + '?page=leader&t=' + encodeURIComponent(key),
+    team: base + '?page=team&t=' + encodeURIComponent(key),
+    expense: base + '?page=expense',
+    newfamily: base + '?page=newfamily&t=' + encodeURIComponent(key),
+    worship: base + '?page=worship&t=' + encodeURIComponent(key),
+    mission: base + '?page=mission&t=' + encodeURIComponent(key),
+    forms: base + '?page=forms&t=' + encodeURIComponent(key),
+    bulletinEdit: base + '?page=bulletin&edit=1&t=' + encodeURIComponent(key),
+    acct: base + '?page=admin&scope=acct&key=' + encodeURIComponent(key)
+  };
+  var tiles = 메뉴카탈로그_().filter(function (m) { return t.menus.indexOf(m.key) !== -1; })
+    .map(function (m) { return { key: m.key, title: m.title, help: m.help, url: urlOf[m.key] || '#' }; });
+  return { name: t.name, tiles: tiles };
 }

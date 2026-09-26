@@ -1128,16 +1128,16 @@ body .mcardlink,
 
     <a class="bulbtn in" href="?page=bulletin">
       <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
-      <span class="bt"><b>주보보기</b></span><span class="ba">›</span>
+      <span class="bt"><b data-i18n>주보보기</b></span><span class="ba">›</span>
     </a>
     <div class="aibtns">
       <a class="bulbtn ai dev" id="btnDevotion" href="?page=devotion">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="M12 8c0-3 2.4-5 5.6-5C17.6 6 15.2 8 12 8z"/><path d="M12 11.5c0-2.6-2-4.4-4.8-4.4-.2 2.7 1.9 4.4 4.8 4.4z"/></svg></span>
-        <span class="bt"><b>오늘의 묵상</b></span><span class="ba">›</span>
+        <span class="bt"><b data-i18n>오늘의 묵상</b></span><span class="ba">›</span>
       </a>
       <a class="bulbtn ai ser" id="btnSermons" href="?page=sermons">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="5" width="18.4" height="14" rx="3.2"/><path d="M10.4 9.4l4.8 2.6-4.8 2.6z"/></svg></span>
-        <span class="bt"><b>지난 설교</b></span><span class="ba">›</span>
+        <span class="bt"><b data-i18n>지난 설교</b></span><span class="ba">›</span>
       </a>
     </div>
     <div id="cellAppBox"></div>
@@ -1146,7 +1146,7 @@ body .mcardlink,
 
     <div id="calWrap" style="display:none;">
       <div class="calhead">
-        <p class="seclabel">청년부 일정</p>
+        <p class="seclabel" data-i18n>청년부 일정</p>
         <button type="button" class="caltog" id="calTog" onclick="toggleCal()">달력 펼치기 <i>▾</i></button>
       </div>
       <div class="panel calpeek" id="calPeek" style="margin-top:0;">
@@ -1165,12 +1165,12 @@ body .mcardlink,
     </div>
 
     <div id="menuWrap" style="display:none;">
-      <p class="seclabel">청년부 행정</p>
+      <p class="seclabel" data-i18n>청년부 행정</p>
       <div class="tiles" id="menus"></div>
     </div>
 
     <div id="adminWrap" style="display:none;">
-      <p class="seclabel adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>커미티 관리툴</p>
+      <p class="seclabel adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg><span data-i18n>커미티 관리툴</span></p>
       <div class="tiles adm" id="adminTiles"></div>
     </div>
 
@@ -2292,6 +2292,7 @@ function paint(res) {
   if (!VIEW) renderProfile();
   el('meBtn').style.display = VIEW ? 'none' : '';
   renderAdmin();
+  translateMenuLang();
   el('calWrap').style.display = HAS_CAL ? 'block' : 'none';
   if (HAS_CAL) { if (CAL_OPEN) loadCal(); loadPeek(); }
 }
@@ -2503,14 +2504,18 @@ function tileBadge(key) {
 }
 
 /** 맡고 계신 일 — 작은 타일 (한 줄에 3개) */
+var MENU_TR = {}, ADMIN_TR = {};
+
 function renderMenus() {
   el('menuWrap').style.display = MENUS.length ? 'block' : 'none';
   if (!MENUS.length) return;
   el('menus').innerHTML = MENUS.map(function (m) {
     var ro = VIEW && VIEW_NOLINK;
+    var tr = MENU_TR[m.key] || {};
+    var title = tr.title || m.title, desc = tr.desc || m.desc;
     return '<a class="tile ' + esc(m.key) + (ro ? ' ro' : '') + (VIEW && !ro ? ' as' : '') + '"' +
-      (ro ? ' onclick="roTap()"' : ' href="' + esc(m.url) + '"') + ' title="' + esc(m.desc) + '">' +
-      tileBadge(m.key) + tileIcon(m.key) + '<span class="tt">' + esc(m.title) + '</span>' +
+      (ro ? ' onclick="roTap()"' : ' href="' + esc(m.url) + '"') + ' title="' + esc(desc) + '">' +
+      tileBadge(m.key) + tileIcon(m.key) + '<span class="tt">' + esc(title) + '</span>' +
       (m.note ? '<span class="td">' + esc(m.note) + '</span>' : '') + '</a>';
   }).join('');
 }
@@ -2520,6 +2525,8 @@ function renderAdmin() {
   el('adminWrap').style.display = ADMIN.length ? 'block' : 'none';
   if (!ADMIN.length) return;
   el('adminTiles').innerHTML = ADMIN.map(function (m) {
+    var tr = ADMIN_TR[m.key] || {};
+    var title = tr.title || m.title, desc = tr.desc || m.desc;
     var stats = (m.stats || []).map(function (x) {
       return '<span class="ac-s' + (x.warn ? ' w' : '') + '"><b>' + esc(x.n) + '</b>' + esc(x.l) + '</span>';
     }).join('');
@@ -2529,14 +2536,34 @@ function renderAdmin() {
     return '<div class="acard a-' + esc(m.key) + '">' +
       '<a class="ac-hit" href="' + esc(m.url) + '">' +
         '<span class="ac-ic">' + adminIcon(m.key) + '</span>' +
-        '<span class="ac-b"><span class="ac-t">' + esc(m.title) + tileBadge('a-' + m.key) + '</span>' +
-        '<span class="ac-d">' + esc(m.desc) + '</span></span>' +
+        '<span class="ac-b"><span class="ac-t">' + esc(title) + tileBadge('a-' + m.key) + '</span>' +
+        '<span class="ac-d">' + esc(desc) + '</span></span>' +
         '<span class="ac-go">\u203A</span></a>' +
       (stats ? '<div class="ac-ss">' + stats + '</div>' : '') +
       more +
     '</div>';
   }).join('');
 }
+
+/** [KR|EN] \uC774 \uB20C\uB9AC\uBA74 \uBA54\uB274 \uD0C0\uC77C\uC758 \uC81C\uBAA9 \u00B7 \uC124\uBA85\uC744 \uD1B5\uC9F8\uB85C \uC601\uC5B4\uB85C \uC62E\uACA8 \uB2E4\uC2DC \uADF8\uB9BD\uB2C8\uB2E4 */
+function translateMenuLang() {
+  var lang = window.YNI18N && YNI18N.lang();
+  if (lang !== 'en') { MENU_TR = {}; ADMIN_TR = {}; renderMenus(); renderAdmin(); return; }
+  var items = [];
+  MENUS.forEach(function (m) { items.push(m.title, m.desc || ''); });
+  var mLen = MENUS.length;
+  ADMIN.forEach(function (m) { items.push(m.title, m.desc || ''); });
+  if (!items.length) return;
+  YNI18N.translateBatch(items, function (out) {
+    if ((window.YNI18N && YNI18N.lang()) !== 'en') return;   // \uADF8 \uC0AC\uC774 \uB2E4\uC2DC KR \uB85C \uBC14\uB00C\uC5C8\uC73C\uBA74 \uBC84\uB9BD\uB2C8\uB2E4
+    var mt = {}, at = {};
+    MENUS.forEach(function (m, i) { mt[m.key] = { title: out[i * 2] || m.title, desc: out[i * 2 + 1] || m.desc }; });
+    ADMIN.forEach(function (m, i) { var j = mLen + i; at[m.key] = { title: out[j * 2] || m.title, desc: out[j * 2 + 1] || m.desc }; });
+    MENU_TR = mt; ADMIN_TR = at;
+    renderMenus(); renderAdmin();
+  });
+}
+document.addEventListener('ynlangchange', translateMenuLang);
 
 function adminIcon(key) {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +

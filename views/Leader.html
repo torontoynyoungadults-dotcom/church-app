@@ -493,7 +493,7 @@ body .toggle button .k,
 
     <div class="panel">
       <div class="flrow"><span class="chip">기도제목 · 특이사항</span>
-        <button type="button" class="btn mini aipolish" id="aiBtn_notes" onclick="aiPolish('notes',this,'aiMsg_notes')">&#10024; AI 맞춤법/포맷 정리</button></div>
+        <button type="button" class="btn mini aipolish" id="aiBtn_notes" onclick="aiPolish('notes',this,'aiMsg_notes')">&#10024; AI 편집</button></div>
       <textarea id="notes" style="min-height:104px;" placeholder="공유하고 싶으신 부분이 있다면 자유롭게 작성해 주세요.&#10;&#10;- 셀원 또는 본인의 중보기도 제목&#10;- 양육팀/목사님 심방이나 상담이 필요한 사항&#10;- 기타 셀 운영 관련 특이사항"></textarea>
       <p class="msg" id="aiMsg_notes"></p>
     </div>
@@ -570,25 +570,8 @@ function currentCell() {
 }
 function el(id) { return document.getElementById(id); }
 
-/** [✨ AI 맞춤법/포맷 정리] — 입력창 글을 Gemini 로 다듬어 그 자리에 바꿔 넣습니다 */
-function aiPolish(id, btn, msgId, growFn) {
-  var t = el(id), msg = msgId ? el(msgId) : null;
-  if (!t) return;
-  var text = t.value.trim();
-  if (!text) { if (msg) { msg.className = 'msg err'; msg.textContent = '먼저 내용을 적어주세요.'; } return; }
-  var orig = btn.textContent;
-  btn.disabled = true; btn.textContent = '정리하는 중…';
-  if (msg) { msg.className = 'msg'; msg.textContent = ''; }
-  callServer('aiPolishText', [TOKEN, text], function (r) {
-    t.value = (r && r.text) || text;
-    if (typeof growFn === 'function') growFn(t);
-    btn.disabled = false; btn.textContent = orig;
-    if (msg) { msg.className = 'msg ok'; msg.textContent = 'AI가 다듬었습니다. 마음에 안 드시면 직접 고쳐 쓰셔도 됩니다.'; }
-  }, function (e) {
-    btn.disabled = false; btn.textContent = orig;
-    if (msg) { msg.className = 'msg err'; msg.textContent = e.message || 'AI 정리에 실패했습니다.'; }
-  });
-}
+/* [✨ AI 편집] 버튼은 Theme.html 의 공용 YNAI 모듈(window.aiPolish)이 처리합니다 —
+   맞춤법 교정 · 톤앤매너 정돈 · 불렛포인트 구조화 중 골라서 바로 적용됩니다 */
 
 /** 소속 목록을 "팀 · 역할, 팀2" 형태의 한 줄로 */
 function belongText(list) {
@@ -607,6 +590,7 @@ var TOKEN = '';
 var IS_MASTER = false;
 var ME = '';            // 포털로 들어온 본인 이름
 var DELEGATE = {};      // 대리 작성자로 맡은 셀 → 까지(yyyy-MM-dd)
+var DELEGATE_FROM = {}; // 대리 작성자로 맡은 셀 → 부터(yyyy-MM-dd) — 이 기간 밖의 주는 아예 목록에 보이지 않습니다
 
 el('cellSelect').onchange = onContextChange;
 el('meetingDate').onchange = onContextChange;
@@ -649,12 +633,15 @@ function fmtYmd(d) {
          '-' + ('0' + d.getDate()).slice(-2);
 }
 
-/* 셀모임 시작 주일부터 가장 가까운 주일까지, 주일만 목록에 표시 */
-function buildSundays(latest, start, selected) {
+/* 셀모임 시작 주일부터 가장 가까운 주일까지, 주일만 목록에 표시
+   (대리 작성자는 min/max 로 자기가 맡은 기간의 주일만 보이도록 좁힙니다) */
+function buildSundays(latest, start, selected, min, max) {
   var d = toDate(latest);
   if (!d) { el('meetingDate').innerHTML = '<option value="">날짜를 불러오지 못했습니다</option>'; return; }
+  if (max) { var dm = toDate(max); if (dm && dm < d) d = dm; }
 
   var floor = toDate(start) || new Date(d.getTime());
+  if (min) { var df = toDate(min); if (df && df > floor) floor = df; }
   if (floor > d) floor = new Date(d.getTime());
 
   // 오늘이 그 주일 당일이면 '이번 주일', 이미 지났으면 '지난 주일'
@@ -933,6 +920,7 @@ function tryLogin(pw, silent) {
       IS_MASTER = !!res.master;
       ME = res.me || '';
       DELEGATE = res.delegate || {};
+      DELEGATE_FROM = res.delegateFrom || {};
       cells = res.cells || (res.cell ? [res.cell] : []);
       try { sessionStorage.setItem('ynCellToken', res.token); } catch (e) {}
       if (res.defaultDate) {
@@ -986,10 +974,16 @@ function applyCellMode() {
   var b = el('dgBanner');
   if (dg) {
     var mine = (cell.delegates || []).filter(function (d) { return d.name === ME; })[0] || {};
+    var from = DELEGATE_FROM[cell.name];
     b.innerHTML = '<p class="k">대리 작성</p><p class="t">' + esc(cell.name) + ' 보고서를 부탁받으셨어요</p>' +
-      '<p class="d">' + esc(mine.by || cell.leader || '셀장') + '님이 <b style="color:#fff;">' + esc(md(DELEGATE[cell.name])) +
-      '</b>까지 맡기셨습니다. 작성자에는 ' + esc(ME) + '님 이름이 (대리)로 남습니다.</p>';
+      '<p class="d">' + esc(mine.by || cell.leader || '셀장') + '님이 ' + (from ? '<b style="color:#fff;">' + esc(md(from)) + '</b>부터 ' : '') +
+      '<b style="color:#fff;">' + esc(md(DELEGATE[cell.name])) +
+      '</b>까지 맡기셨습니다. 작성자에는 ' + esc(ME) + '님 이름이 (대리)로 남습니다.<br>이 기간의 주일만 볼 수 있고, 지난 주 · 다른 분 이력은 보이지 않습니다.</p>';
     b.style.display = 'block';
+    // 대리 기간 밖의 주일은 아예 목록에서 뺍니다
+    var keep = el('meetingDate').value;
+    if (!keep || keep < (from || '') || keep > (DELEGATE[cell.name] || '9999-12-31')) keep = '';
+    buildSundays(DELEGATE[cell.name], from, keep);
   } else b.style.display = 'none';
 
   if (dg) {
@@ -1136,11 +1130,12 @@ function fillCellSelect(keep) {
 
 /* 셀 또는 날짜가 바뀌면 기존 보고서가 있는지 확인 */
 function onContextChange() {
-  var cell = currentCell(), date = el('meetingDate').value;
+  var cell = currentCell();
   resetForm();
-  applyCellMode();
+  applyCellMode();     // 대리로 맡은 셀이면 여기서 날짜 목록을 그 기간만큼 다시 좁혀 그립니다
   syncSubmitter();
   showRoomLine();
+  var date = el('meetingDate').value;
   if (IS_MASTER && el('dirPanel').style.display === 'block') loadDirectory();
   if (IS_MASTER && el('mailForm').style.display === 'block') toggleMailForm();
   if (!cell || !date) { renderMembers(); return; }

@@ -631,7 +631,14 @@ input:focus, select:focus, textarea:focus { border-color: #F26B21 !important; bo
 header h1 { color: #F26B21 !important; }
 .hcard, .hcard.cell, .hcard.nf, .hcard.team, .hcard.dir, .hcard.tr, .hcard.acct, .hcard.mis, .hcard.wor, .hcard.cal, .hcard.push { --c: #D2511F !important; --cs: rgba(242,107,33,.12) !important; }
 /* 알림 관리 */
-.pkrow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hair-2); }
+.pkrow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hair-2); flex-wrap: wrap; }
+.noteBox { flex-basis: 100%; margin-top: 4px; padding: 10px; background: var(--panel-2, #F6F3EE); border-radius: 10px; }
+.noteBox textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--hair-2); border-radius: 8px; resize: vertical; }
+.noteRow { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.notePrev { margin-top: 10px; padding: 10px 12px; background: #fff; border: 1px dashed var(--hair-2); border-radius: 8px; }
+.notePrev b { display: block; font-size: 14.5px; }
+.notePrev p { margin: 4px 0; font-size: 13.5px; color: var(--ink-3); white-space: pre-wrap; }
+.notePrev small { color: var(--ink-3); font-size: 12px; }
 .pkrow:first-of-type { border-top: none; }
 .pkt { flex: 1; min-width: 0; }
 .pkt b { display: block; font-size: 15.5px; }
@@ -832,6 +839,20 @@ header h1 { color: #F26B21 !important; }
         <span class="hstat" id="hs_push"><i class="skel line" style="width:70%;"></i></span>
         <span class="harrow">&rsaquo;</span>
       </button>
+      <button type="button" class="hcard perm" onclick="go('perm')">
+        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/><circle cx="12" cy="15" r="1.5" fill="currentColor" stroke="none"/></svg></span>
+        <span class="htitle">권한 관리</span>
+        <span class="hdesc">사람 · 팀 계정에 메뉴 권한 주기</span>
+        <span class="hstat" id="hs_perm">역할 태그 · 팀 계정</span>
+        <span class="harrow">&rsaquo;</span>
+      </button>
+      <button type="button" class="hcard app" onclick="go('app')">
+        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></svg></span>
+        <span class="htitle">앱 기능 관리</span>
+        <span class="hdesc">메뉴 순서 · AI · 일정 · 알림 · 권한 한곳에</span>
+        <span class="hstat" id="hs_app">5가지 도구</span>
+        <span class="harrow">&rsaquo;</span>
+      </button>
     </div>
   </div>
 
@@ -853,6 +874,47 @@ header h1 { color: #F26B21 !important; }
       <span class="secspace"></span>
     </div>
     <div id="aiAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
+  </div>
+
+  <!-- ===================== 권한 관리 ===================== -->
+  <div id="sec_perm" class="section" style="display:none;">
+    <div class="secbar">
+      <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
+      <span class="sectitle">권한 관리</span>
+      <span class="secspace"></span>
+    </div>
+    <div class="panel">
+      <span class="chip">사람에게 역할 주기</span>
+      <p class="hint">교회에 이미 등록된 분에게 특정 메뉴 권한을 주려면 <b>교적 관리</b> 화면에서 그 분을 찾아 "포털 역할"에서
+        커미티 · 회계팀 · 새가족팀 · 주보팀 · 찬양팀 중 필요한 것을 체크해주세요. 체크한 즉시 그 메뉴가 그 분 포털에 나타납니다.<br>
+        셀장 · 팀장은 셀 목록 · 사역팀 관리 화면에서 리더로 지정하면 자동으로 생기고, 선교팀은 선교팀 관리 화면의 팀원 명단에 넣으면 됩니다.</p>
+      <button class="btn" onclick="go('dir')">교적 관리로 가기</button>
+    </div>
+    <div id="permAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
+  </div>
+
+  <!-- ===================== 앱 기능 관리 ===================== -->
+  <div id="sec_app" class="section" style="display:none;">
+    <div class="secbar">
+      <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
+      <span class="sectitle">앱 기능 관리</span>
+      <span class="secspace"></span>
+    </div>
+    <div class="panel">
+      <span class="chip">바로가기</span>
+      <p class="hint">아래 4가지는 이미 있는 화면입니다 — 여기서 바로 들어갈 수 있게 모아뒀습니다.</p>
+      <div class="rolepick" style="margin-top:8px;">
+        <button type="button" class="btn mini" onclick="go('ai')">🤖 AI 관리</button>
+        <button type="button" class="btn mini" onclick="go('cal')">📅 일정 관리</button>
+        <button type="button" class="btn mini" onclick="go('push')">🔔 알림 관리</button>
+        <button type="button" class="btn mini" onclick="go('perm')">🔒 권한 관리</button>
+      </div>
+    </div>
+    <div class="panel">
+      <span class="chip">메뉴 순서 변경</span>
+      <p class="hint">▲▼ 로 순서를 바꾸면 청년부 포털 첫 화면과 커미티 관리툴 메뉴가 그 순서로 보입니다. 저장하면 바로 반영됩니다.</p>
+      <div id="menuOrderBox"><p class="empty">불러오는 중…</p></div>
+    </div>
   </div>
 
   <!-- ===================== 셀 (소그룹) 관리 ===================== -->
@@ -1586,7 +1648,8 @@ function fail(e) { alert(e && e.message ? e.message : '처리에 실패했습니
 var YN_ORANGE = ['#D2511F', '210,81,31'];
 var SEC_TONE = {
   home: YN_ORANGE, cell: YN_ORANGE, nf: YN_ORANGE, team: YN_ORANGE, tr: YN_ORANGE,
-  dir: YN_ORANGE, acct: YN_ORANGE, mis: YN_ORANGE, cal: YN_ORANGE, push: YN_ORANGE, ai: YN_ORANGE
+  dir: YN_ORANGE, acct: YN_ORANGE, mis: YN_ORANGE, cal: YN_ORANGE, push: YN_ORANGE, ai: YN_ORANGE,
+  perm: YN_ORANGE, app: YN_ORANGE
 };
 /* 탭을 더 붙이려면 여기에 이름을 더하고 sub_<sec>_<이름> / st_<sec>_<이름> 를 만들면 됩니다 */
 var SEC_SUBS = {
@@ -1594,10 +1657,10 @@ var SEC_SUBS = {
   team: ['summary', 'report', 'manage'], tr: ['check', 'status', 'manage'],
   acct: ['expense', 'entry', 'budget', 'envelope', 'summary']
 };
-var SECTIONS = ['home', 'cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal', 'push', 'ai'];
+var SECTIONS = ['home', 'cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal', 'push', 'ai', 'perm', 'app'];
 var curSec = 'home';
 var curSub = { cell: 'summary', nf: 'status', team: 'summary', tr: 'check', acct: 'expense' };
-var dirLoaded = false, trLoaded = false, acctLoaded = false, misLoaded = false, calLoaded = false, pushLoaded = false, aiLoaded = false;
+var dirLoaded = false, trLoaded = false, acctLoaded = false, misLoaded = false, calLoaded = false, pushLoaded = false, aiLoaded = false, permLoaded = false, appLoaded = false;
 
 /** 화면 전환 — 메뉴 / 각 영역 / 서브 탭 */
 function go(sec, sub, fromHistory) {
@@ -1634,6 +1697,8 @@ function go(sec, sub, fromHistory) {
   if (sec === 'cal' && !calLoaded) { calLoaded = true; loadCal('sec'); }
   if (sec === 'push' && !pushLoaded) { pushLoaded = true; loadPushAdmin(); }
   if (sec === 'ai' && !aiLoaded) { aiLoaded = true; loadAiAdmin(); }
+  if (sec === 'perm' && !permLoaded) { permLoaded = true; loadPermAdmin(); }
+  if (sec === 'app' && !appLoaded) { appLoaded = true; loadAppAdmin(); }
 
   if (curSec !== sec) window.scrollTo(0, 0);
   curSec = sec;
@@ -1692,6 +1757,37 @@ function refreshSheets() {
 /* ===================== 알림 (푸시) 관리 ===================== */
 
 var PUSHA = null;
+var NOTE_OPEN = {};
+var NOTE_PREVIEW = {};
+
+function toggleNote(key) {
+  NOTE_OPEN[key] = !NOTE_OPEN[key];
+  if (NOTE_OPEN[key] && !NOTE_PREVIEW[key]) {
+    callServer('notifyPreview', [KEY, key], function (p) { NOTE_PREVIEW[key] = p; drawPushAdmin(PUSHA); }, function () {});
+  }
+  drawPushAdmin(PUSHA);
+}
+
+function noteEditor(k) {
+  var p = NOTE_PREVIEW[k.key];
+  return '<div class="noteBox">' +
+    '<label class="fl">알림 끝에 붙는 안내 문구 (선택)</label>' +
+    '<textarea id="note_' + esc(k.key) + '" rows="2" maxlength="300" placeholder="예: 문의는 청년부 커미티에게 연락 주세요.">' + esc(k.note || '') + '</textarea>' +
+    '<div class="noteRow">' +
+      '<button class="btn mini" onclick="saveNote(\'' + esc(k.key) + '\')">저장</button>' +
+      '<span class="msg" id="noteMsg_' + esc(k.key) + '"></span>' +
+    '</div>' +
+    (p ? '<div class="notePrev"><b>' + esc(p.title) + '</b><p>' + esc(p.body).replace(/\n/g, '<br>') + '</p><small>실제로 이렇게 나갑니다 (예시 내용입니다)</small></div>' : '') +
+    '</div>';
+}
+
+function saveNote(key) {
+  var v = el('note_' + key).value;
+  callServer('saveNotifyNote', [KEY, key, v], function () {
+    say('noteMsg_' + key, '저장했습니다.', 'ok');
+    callServer('notifyPreview', [KEY, key], function (p) { NOTE_PREVIEW[key] = p; drawPushAdmin(PUSHA); }, function () {});
+  }, function (e) { say('noteMsg_' + key, e.message || '저장하지 못했습니다.', 'err'); });
+}
 
 function loadPushAdmin() {
   callServer('pushAdminInit', [KEY], drawPushAdmin, function (e) {
@@ -1702,8 +1798,9 @@ function loadPushAdmin() {
 function drawPushAdmin(r) {
   PUSHA = r;
 
-  /* 1. 알림 종류 — 푸시 / 이메일 각각 */
+  /* 1. 알림 종류 — 푸시 / 이메일 각각 + 문구 미리보기 · 수정 */
   var kinds = (r.kinds || []).map(function (k) {
+    var open = NOTE_OPEN[k.key];
     return '<div class="pkrow">' +
       '<div class="pkt"><b>' + esc(k.name) + '</b>' +
       '<small>' + esc(k.who) + ' &middot; ' + esc(k.help) + '</small></div>' +
@@ -1712,7 +1809,10 @@ function drawPushAdmin(r) {
         '<button type="button" class="tgl sm' + (k.on ? ' on' : '') + '" onclick="togglePush(\'' + esc(k.key) + '\',' + (k.on ? 'false' : 'true') + ')"><span></span></button>' +
         '<span class="tglab">메일</span>' +
         '<button type="button" class="tgl sm' + (k.mail ? ' on' : '') + '" onclick="toggleMail(\'' + esc(k.key) + '\',' + (k.mail ? 'false' : 'true') + ')"><span></span></button>' +
-      '</div></div>';
+        '<button type="button" class="btn mini" onclick="toggleNote(\'' + esc(k.key) + '\')">' + (open ? '닫기' : '문구 · 미리보기') + '</button>' +
+      '</div>' +
+      (open ? noteEditor(k) : '') +
+      '</div>';
   }).join('');
 
   /* 2. 보내는 시각 */
@@ -1950,6 +2050,165 @@ function sendPushMsg() {
       setTimeout(loadPushAdmin, 800);
     },
     function (e) { say('pgMsg', e.message || '보내지 못했습니다.', 'err'); });
+}
+
+/* ===================== 권한 관리 — 팀 계정 ===================== */
+
+var PERM = null;
+var PERM_OPEN_NEW = false;
+
+function loadPermAdmin() {
+  callServer('teamAccountInit', [KEY], drawPermAdmin, function (e) {
+    el('permAdmin').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>';
+  });
+}
+
+function drawPermAdmin(r) {
+  PERM = r;
+  var rows = (r.list || []).map(function (t) {
+    var link = r.base + '?page=teamhub&t=' + encodeURIComponent(t.key);
+    var menuNames = t.menus.map(function (mk) {
+      var m = r.catalog.filter(function (c) { return c.key === mk; })[0];
+      return m ? m.title : mk;
+    });
+    return '<div class="pkrow" style="display:block;">' +
+      '<div class="pkt" style="margin-bottom:8px;"><b>' + esc(t.name) + '</b>' +
+        '<small>' + (menuNames.length ? esc(menuNames.join(' · ')) : '아직 켠 메뉴가 없습니다') + '</small></div>' +
+      '<div class="f"><label class="fl">공유 링크</label>' +
+        '<input type="text" readonly value="' + esc(link) + '" onclick="this.select()"></div>' +
+      '<div class="noteRow" style="flex-wrap:wrap;">' +
+        '<button class="btn mini" onclick="copyPermLink(\'' + esc(jsq(link)) + '\')">링크 복사</button>' +
+        '<button class="btn mini" onclick="openPermEdit(\'' + esc(jsq(t.name)) + '\')">메뉴 고치기</button>' +
+        '<button class="btn mini" onclick="regenPermKey(\'' + esc(jsq(t.name)) + '\')">링크 새로 만들기</button>' +
+        '<button class="btn mini danger" onclick="deletePermAccount(\'' + esc(jsq(t.name)) + '\')">계정 삭제</button>' +
+      '</div>' +
+      (PERM_EDIT === t.name ? permForm(t) : '') +
+      '</div>';
+  }).join('');
+
+  el('permAdmin').innerHTML =
+    '<div class="panel"><span class="chip">팀 계정</span>' +
+      '<p class="hint">방송팀 · 예배준비팀처럼 한 사람이 아니라 팀 전체가 나눠 쓰는 계정입니다. ' +
+        '이름을 실제 셀 · 사역팀 · 선교팀 이름과 똑같이 지으면 그 팀의 보고서만 보이게 할 수 있습니다.</p>' +
+      rows +
+      (PERM_EDIT === '__new' ? permForm({ name: '', menus: [] }) :
+        '<button class="btn accent full" onclick="openPermEdit(\'__new\')">＋ 팀 계정 만들기</button>') +
+      '<p class="msg" id="permMsg"></p>' +
+    '</div>';
+}
+
+var PERM_EDIT = null;
+
+function openPermEdit(name) { PERM_EDIT = name; drawPermAdmin(PERM); }
+function closePermEdit() { PERM_EDIT = null; drawPermAdmin(PERM); }
+
+function permForm(t) {
+  var isNew = !t.name;
+  return '<div class="noteBox">' +
+    (isNew ? '<label class="fl">계정 이름</label><input type="text" id="permName" maxlength="40" placeholder="예: 방송팀">' : '') +
+    '<label class="fl" style="margin-top:8px;">열어줄 메뉴</label>' +
+    '<div class="rolepick">' + PERM.catalog.map(function (m) {
+      var on = t.menus.indexOf(m.key) !== -1;
+      return '<label class="' + (on ? 'on' : '') + '" title="' + esc(m.help || '') + '">' +
+        '<input type="checkbox" id="pm_' + m.key + '"' + (on ? ' checked' : '') +
+          ' onchange="this.parentNode.className=this.checked?\'on\':\'\'">' + esc(m.title) + '</label>';
+    }).join('') + '</div>' +
+    '<div class="noteRow">' +
+      '<button class="btn mini" onclick="' + (isNew ? 'closePermEdit()' : 'closePermEdit()') + '">취소</button>' +
+      '<button class="btn mini accent" onclick="savePermForm(' + (isNew ? "''" : "'" + esc(jsq(t.name)) + "'") + ')">저장</button>' +
+    '</div></div>';
+}
+
+function savePermForm(existingName) {
+  var name = existingName || (el('permName') ? el('permName').value.trim() : '');
+  if (!name) { say('permMsg', '계정 이름을 입력해주세요.', 'err'); return; }
+  var menus = PERM.catalog.map(function (m) { return m.key; }).filter(function (k) {
+    var box = el('pm_' + k); return box && box.checked;
+  });
+  say('permMsg', '저장하는 중…');
+  callServer('saveTeamAccount', [KEY, name, menus], function (r) {
+    PERM.list = r.list; PERM_EDIT = null;
+    drawPermAdmin(PERM);
+  }, function (e) { say('permMsg', e.message || '저장하지 못했습니다.', 'err'); });
+}
+
+function deletePermAccount(name) {
+  if (!confirm('"' + name + '" 팀 계정을 지울까요? 그 링크는 더 이상 쓸 수 없습니다.')) return;
+  callServer('deleteTeamAccount', [KEY, name], function (r) {
+    PERM.list = r.list; PERM_EDIT = null;
+    drawPermAdmin(PERM);
+  }, function (e) { alert(e.message || '지우지 못했습니다.'); });
+}
+
+function regenPermKey(name) {
+  if (!confirm('"' + name + '" 의 링크를 새로 만들까요? 예전 링크는 더 이상 쓸 수 없게 됩니다.')) return;
+  callServer('regenTeamAccountKey', [KEY, name], function (r) {
+    PERM.list = r.list;
+    drawPermAdmin(PERM);
+  }, function (e) { alert(e.message || '바꾸지 못했습니다.'); });
+}
+
+function copyPermLink(link) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(function () { say('permMsg', '링크를 복사했습니다.', 'ok'); },
+      function () { say('permMsg', link, 'ok'); });
+  } else { say('permMsg', link, 'ok'); }
+}
+
+/* ===================== 앱 기능 관리 — 메뉴 순서 변경 ===================== */
+var MENU_ORDER = null;
+
+function loadAppAdmin() {
+  callServer('getMenuOrder', [KEY], function (r) {
+    MENU_ORDER = r;
+    try { localStorage.setItem('ynMenuOrder', JSON.stringify(r)); } catch (e) {}
+    drawMenuOrder();
+  }, function (e) {
+    el('menuOrderBox').innerHTML = '<p class="msg err">' + esc(e.message || '불러오지 못했습니다.') + '</p>';
+  });
+}
+
+function menuOrderGroup(kind, title, hint) {
+  var list = (MENU_ORDER && MENU_ORDER[kind]) || [];
+  return '<div class="noteBox" style="margin-top:10px;">' +
+    '<div class="noteRow" style="justify-content:space-between;"><b>' + title + '</b>' +
+      '<button type="button" class="btn mini" onclick="saveMenuOrderKind(\'' + kind + '\')">저장</button></div>' +
+    '<p class="hint" style="margin:2px 0 8px;">' + hint + '</p>' +
+    list.map(function (m, i) {
+      return '<div class="noteRow" style="justify-content:space-between;padding:7px 0;border-top:1px solid rgba(255,255,255,.08);">' +
+        '<span>' + esc(m.title) + '</span>' +
+        '<span>' +
+          '<button type="button" class="btn mini" ' + (i === 0 ? 'disabled' : '') + ' onclick="moveMenuItem(\'' + kind + '\',' + i + ',-1)">▲</button> ' +
+          '<button type="button" class="btn mini" ' + (i === list.length - 1 ? 'disabled' : '') + ' onclick="moveMenuItem(\'' + kind + '\',' + i + ',1)">▼</button>' +
+        '</span></div>';
+    }).join('') +
+    '<p class="msg" id="menuOrderMsg_' + kind + '"></p></div>';
+}
+
+function drawMenuOrder() {
+  el('menuOrderBox').innerHTML =
+    menuOrderGroup('portal', '청년부 포털 메인 메뉴', '모든 이용자가 포털에서 보는 메뉴 순서입니다.') +
+    menuOrderGroup('admin', '커미티 관리툴 메뉴', '이 관리 화면(집·새가족·사역팀 등) 순서입니다.');
+}
+
+function moveMenuItem(kind, i, d) {
+  var list = MENU_ORDER[kind];
+  var j = i + d;
+  if (j < 0 || j >= list.length) return;
+  var t = list[i]; list[i] = list[j]; list[j] = t;
+  drawMenuOrder();
+}
+
+function saveMenuOrderKind(kind) {
+  var order = MENU_ORDER[kind].map(function (m) { return m.key; });
+  say('menuOrderMsg_' + kind, '저장하는 중…');
+  callServer('saveMenuOrder', [KEY, kind, order], function () {
+    try {
+      var cur = JSON.parse(localStorage.getItem('ynMenuOrder') || '{}');
+      cur[kind] = MENU_ORDER[kind]; localStorage.setItem('ynMenuOrder', JSON.stringify(cur));
+    } catch (e) {}
+    say('menuOrderMsg_' + kind, '저장했습니다. 포털 · 관리 화면에 바로 반영됩니다.', 'ok');
+  }, function (e) { say('menuOrderMsg_' + kind, e.message || '저장하지 못했습니다.', 'err'); });
 }
 
 /* ===================== 일정 (구글 캘린더) ===================== */
@@ -3589,7 +3848,7 @@ function dirFields(prefix, p) {
       rolePick(prefix, p) + '</div>';
 }
 
-var PORTAL_ROLES = ['커미티', '회계팀', '새가족팀', '주보팀'];
+var PORTAL_ROLES = ['커미티', '회계팀', '새가족팀', '주보팀', '찬양팀'];
 
 /** 자동으로 잡힌 역할은 미리 체크돼 있고, 끄면 교적에 '-역할' 로 저장됩니다 */
 function rolePick(prefix, p) {

@@ -225,6 +225,9 @@
     transition: border-color .15s, background .15s;
   }
   .pickbtn:hover { border-color: var(--tone); background: var(--tone-soft); }
+  .wnotify { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--hair); }
+  .wnotify label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-3); font-weight: 600; }
+  .wnotify .msg { flex-basis: 100%; }
 
   /* ---------- 댓글 ---------- */
   .cm { display: flex; gap: 10px; padding: 12px 0; border-top: 1px solid var(--hair); }
@@ -1604,10 +1607,29 @@ function ytId(url) {
   return m ? m[1] : '';
 }
 
+function notifyBtn(what) {
+  if (!D.canEdit) return '';
+  var id = 'wn_' + what;
+  return '<div class="wnotify">' +
+      '<label><input type="checkbox" id="' + id + 'Team" checked> 찬양팀원 전체에게</label>' +
+      '<button type="button" class="btn mini accent" onclick="sendWorshipNotifyBtn(\'' + what + '\')">' +
+        (what === 'sheet' ? '악보 업데이트 알림 보내기' : '콘티 알림 보내기') + '</button>' +
+      '<span class="msg" id="wnMsg_' + what + '"></span>' +
+    '</div>';
+}
+function sendWorshipNotifyBtn(what) {
+  var team = el('wn_' + what + 'Team').checked;
+  if (!confirm((what === 'sheet' ? '악보 업데이트' : '콘티') + ' 알림을 ' + (team ? '찬양팀 전체' : '팀장') + '에게 보낼까요?')) return;
+  say('wnMsg_' + what, '보내는 중…');
+  callServer('sendWorshipNotify', [TOKEN, DATE, what, team], function (r) {
+    say('wnMsg_' + what, r.msg || ('보냈습니다 — ' + r.people + '명 (알림 ' + r.sent + '대' + (r.mail ? ', 메일 ' + r.mail + '통' : '') + ')'), (r.none || r.off) ? 'err' : 'ok');
+  }, function (e) { say('wnMsg_' + what, e.message || '보내지 못했습니다.', 'err'); });
+}
+
 function setTab() {
   return playlistBox() +
-    '<div class="panel"><span class="chip">콘티</span>' + soloSummary() + songList('콘티', W.songs) + '</div>' +
-    '<div class="panel"><span class="chip">악보</span>' + fileList('콘티', W.sheets) + '</div>' +
+    '<div class="panel"><span class="chip">콘티</span>' + soloSummary() + songList('콘티', W.songs) + notifyBtn('setlist') + '</div>' +
+    '<div class="panel"><span class="chip">악보</span>' + fileList('콘티', W.sheets) + notifyBtn('sheet') + '</div>' +
     recBox() +
     '<div class="panel"><span class="chip">결단찬양</span>' +
       '<p class="hint">목사님께서 주시는 결단찬양입니다.</p>' +
@@ -1775,7 +1797,9 @@ function songForm(kind, s) {
     '<div class="f"><label>유튜브 링크</label>' +
       '<input type="text" id="sLink" value="' + esc(s.link) + '" placeholder="https://youtu.be/..."></div>' +
     '<div class="f"><label>설명</label>' +
-      '<textarea id="sNote" placeholder="간주 · 전조 · 반복 등">' + esc(s.note) + '</textarea></div>' +
+      '<textarea id="sNote" placeholder="간주 · 전조 · 반복 등">' + esc(s.note) + '</textarea>' +
+      '<button type="button" class="btn mini aipolish" onclick="aiPolish(\'sNote\',this,\'sNoteMsg\')">&#10024; AI 편집</button>' +
+      '<p class="msg" id="sNoteMsg"></p></div>' +
     '<div class="f solof"><label>솔로 <span style="font-weight:600;text-transform:none;letter-spacing:0;">(있으면 — 방송팀이 마이크를 올립니다)</span></label>' +
       '<div id="soloRows">' + (s.solo || []).map(soloRow).join('') + '</div>' +
       '<button type="button" class="btn mini" onclick="addSoloRow()">＋ 솔로 추가</button></div>' +
@@ -3178,7 +3202,9 @@ function noticeForm() {
     '<div class="f"><label>제목</label><input type="text" id="ntTitle" maxlength="120" value="' + esc(e.title) + '" placeholder="' +
       (e.kind === '회의록' ? '예: ' + tpl : '예: 이번 주 토요일 연습 장소 변경') + '"></div>' +
     '<div class="f"><label>내용</label><textarea id="ntBody" class="ntarea" placeholder="' +
-      (e.kind === '회의록' ? '참석: \n안건: \n1. \n2. \n결정 사항: \n다음 할 일: ' : '내용을 적어주세요') + '">' + esc(e.body) + '</textarea></div>' +
+      (e.kind === '회의록' ? '참석: \n안건: \n1. \n2. \n결정 사항: \n다음 할 일: ' : '내용을 적어주세요') + '">' + esc(e.body) + '</textarea>' +
+      '<button type="button" class="btn mini aipolish" onclick="aiPolish(\'ntBody\',this,\'ntBodyMsg\')">&#10024; AI 편집</button>' +
+      '<p class="msg" id="ntBodyMsg"></p></div>' +
     ((D.canEdit || D.committee)
       ? '<label class="ntpin"><input type="checkbox" id="ntPin"' + (e.pin ? ' checked' : '') + '> 맨 위에 고정</label>' : '') +
     '<div class="addrow"><button class="btn" style="flex:1;" onclick="NT.edit=null;render();">취소</button>' +

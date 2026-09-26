@@ -1151,7 +1151,7 @@ function openStep(nfId, week) {
     '</div>' +
     fieldsHtml +
     '<div class="f"><div class="flrow"><label class="fl">코멘트</label>' +
-      '<button type="button" class="btn mini aipolish" id="aiBtn_sNote" onclick="aiPolish(\'sNote\',this,\'aiMsg_sNote\',growNote)">&#10024; AI 맞춤법/포맷 정리</button></div>' +
+      '<button type="button" class="btn mini aipolish" id="aiBtn_sNote" onclick="aiPolish(\'sNote\',this,\'aiMsg_sNote\',growNote)">&#10024; AI 편집</button></div>' +
       '<textarea id="sNote" rows="9" class="bignote" oninput="growNote(this)" ' +
       'placeholder="나눈 내용, 기억할 점, 기도제목 등 &mdash; 길게 적으셔도 됩니다">' + esc(s.note || '') + '</textarea>' +
       '<p class="msg" id="aiMsg_sNote"></p></div>' +
@@ -1174,25 +1174,8 @@ function growNote(t) {
   t.style.height = Math.min(Math.max(t.scrollHeight + 4, 190), 520) + 'px';
 }
 
-/** [✨ AI 맞춤법/포맷 정리] — 입력창 글을 Gemini 로 다듬어 그 자리에 바꿔 넣습니다 */
-function aiPolish(id, btn, msgId, growFn) {
-  var t = el(id), msg = msgId ? el(msgId) : null;
-  if (!t) return;
-  var text = t.value.trim();
-  if (!text) { if (msg) { msg.className = 'msg err'; msg.textContent = '먼저 내용을 적어주세요.'; } return; }
-  var orig = btn.textContent;
-  btn.disabled = true; btn.textContent = '정리하는 중…';
-  if (msg) { msg.className = 'msg'; msg.textContent = ''; }
-  callServer('aiPolishText', [TOKEN, text], function (r) {
-    t.value = (r && r.text) || text;
-    if (typeof growFn === 'function') growFn(t);
-    btn.disabled = false; btn.textContent = orig;
-    if (msg) { msg.className = 'msg ok'; msg.textContent = 'AI가 다듬었습니다. 마음에 안 드시면 직접 고쳐 쓰셔도 됩니다.'; }
-  }, function (e) {
-    btn.disabled = false; btn.textContent = orig;
-    if (msg) { msg.className = 'msg err'; msg.textContent = e.message || 'AI 정리에 실패했습니다.'; }
-  });
-}
+/* [✨ AI 편집] 버튼은 Theme.html 의 공용 YNAI 모듈(window.aiPolish)이 처리합니다 —
+   맞춤법 교정 · 톤앤매너 정돈 · 불렛포인트 구조화 중 골라서 바로 적용됩니다 */
 
 function saveStep(nfId, week) {
   var msg = el('formMsg');

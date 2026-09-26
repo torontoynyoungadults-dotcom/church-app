@@ -434,7 +434,9 @@ function drawEdit() {
       '<div class="f"><label class="fl">제목 <span class="req">*</span></label>' +
         '<input type="text" id="fTitle" maxlength="80" placeholder="예: 2026 여름 수련회 신청" value="' + esc(F.title || '') + '"></div>' +
       '<div class="f"><label class="fl">안내 글</label>' +
-        '<textarea id="fDesc" rows="4" maxlength="3000" placeholder="신청서 맨 위에 보일 안내입니다. 날짜 · 장소 · 회비 등을 적어주세요.">' + esc(F.desc || '') + '</textarea></div>' +
+        '<textarea id="fDesc" rows="4" maxlength="3000" placeholder="신청서 맨 위에 보일 안내입니다. 날짜 · 장소 · 회비 등을 적어주세요.">' + esc(F.desc || '') + '</textarea>' +
+        '<button type="button" class="btn mini aipolish" onclick="aiPolish(\'fDesc\',this,\'fDescMsg\')">&#10024; AI 편집</button>' +
+        '<p class="msg" id="fDescMsg"></p></div>' +
       '<div class="frow" style="display:flex;gap:8px;">' +
         '<div class="f" style="flex:1;"><label class="fl">담당</label>' + teamSel + '</div>' +
         '<div class="f" style="flex:1;"><label class="fl">신청 대상</label>' +
@@ -580,13 +582,18 @@ function drawQuestions() {
       body = '<div class="qbody">' +
         '<div class="f"><label class="fl">질문 <span class="req">*</span></label>' +
           '<input type="text" id="ql' + i + '" maxlength="150" placeholder="' +
-          (q.type === 'section' ? '보여줄 안내 제목' : '예: 참가 여부') + '" value="' + esc(q.label) + '"></div>' +
+          (q.type === 'section' ? '보여줄 안내 제목' : '예: 참가 여부') + '" value="' + esc(q.label) + '">' +
+          '<button type="button" class="btn mini aipolish" onclick="pullQuestions();aiPolish(\'ql' + i + '\',this,\'qlMsg' + i + '\')">&#10024; AI 편집</button>' +
+          '<p class="msg" id="qlMsg' + i + '"></p></div>' +
         '<div class="f"><label class="fl">도움말 (작게 보입니다)</label>' +
-          '<input type="text" id="qh' + i + '" maxlength="500" value="' + esc(q.help) + '"></div>' +
+          '<input type="text" id="qh' + i + '" maxlength="500" value="' + esc(q.help) + '">' +
+          '<button type="button" class="btn mini aipolish" onclick="pullQuestions();aiPolish(\'qh' + i + '\',this,\'qhMsg' + i + '\')">&#10024; AI 편집</button>' +
+          '<p class="msg" id="qhMsg' + i + '"></p></div>' +
         (t.opts ? '<div class="f"><label class="fl">고를 것</label><div class="opts">' +
             q.opts.map(function (o, j) {
               return '<div class="optrow"><input type="text" id="qo' + i + '_' + j + '" maxlength="120" ' +
                 'placeholder="선택지 ' + (j + 1) + '" value="' + esc(o) + '">' +
+                '<button class="qbtn" title="AI 편집" onclick="pullQuestions();aiPolish(\'qo' + i + '_' + j + '\',this,null)">&#10024;</button>' +
                 '<button class="qbtn" onclick="delOpt(' + i + ',' + j + ')" title="지우기">&times;</button></div>';
             }).join('') +
           '</div><button class="btn mini" style="margin-top:7px;" onclick="addOpt(' + i + ')">+ 선택지</button></div>' : '') +

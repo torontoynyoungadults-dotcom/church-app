@@ -1267,7 +1267,109 @@ header .homelink:active { opacity: .7; }
 /* 로고를 누르면 포털 홈으로 */
 header .homelink { display: inline-block; line-height: 0; }
 header .homelink img { display: block; }
+
+/* ---------------------------------------------------------
+   KR / EN 언어 스위치 (모든 페이지 헤더 오른쪽 위)
+   --------------------------------------------------------- */
+.ynlang {
+  position: absolute; top: 14px; right: 62px; z-index: 5;
+  display: flex; height: 40px; border-radius: 999px; overflow: hidden;
+  background: var(--night-2); border: 1px solid var(--hair-night);
+  -webkit-tap-highlight-color: transparent;
+}
+.ynlang button {
+  border: none; background: none; cursor: pointer; font: 800 12px inherit; font-family: inherit;
+  padding: 0 12px; color: #B7B0A7; letter-spacing: .02em; -webkit-tap-highlight-color: transparent;
+}
+.ynlang button.on { background: var(--tone, #D2511F); color: #fff; }
+.ynlang button:disabled { cursor: default; }
 </style>
+<script>
+/* ============================================================
+   KR / EN 언어 전환 — window.YNI18N
+   · 헤더의 [KR|EN] 버튼(위 setup() 이 붙입니다)이 이걸 부릅니다.
+   · 고른 언어는 localStorage 에 저장되어 페이지를 옮겨도 그대로 유지됩니다.
+   · 화면마다 고정으로 박혀 있는 짧은 문구(메뉴 이름 등)는 [data-i18n] 로 표시해 두면
+     즉시(네트워크 없이) 바뀌고, 공지사항 · 설교 요약처럼 매번 다른 긴 글은
+     YNI18N.translateBatch() 로 Gemini 번역을 받아와 화면에서 직접 바꿔 끼웁니다.
+   ============================================================ */
+window.YNI18N = (function () {
+  var LKEY = 'ynLang';
+  // 화면에 고정으로 있는 짧은 문구 — [data-i18n] 로 표시해 둔 것만 여기서 즉시 바뀝니다
+  var DICT = {
+    '주보보기': 'Bulletin', '오늘의 묵상': "Today's Devotion", '지난 설교': 'Sermons',
+    '청년부 일정': 'Schedule', '청년부 행정': 'My Menu', '커미티 관리툴': 'Committee Tools',
+    '셀모임 보고서': 'Cell Report', '사역 보고서': 'Ministry Report',
+    '지출환급신청서': 'Expense Claim', '새가족 관리': 'New Family',
+    '찬양방송팀 허브': 'Worship & Media Hub', '선교팀 관리': 'Missions Team',
+    '신청서 관리': 'Forms', '회의록 · 할 일': 'Minutes & Tasks',
+    '주보 편집': 'Edit Bulletin', '회계 관리': 'Finance', '포토 앨범': 'Photo Album'
+  };
+
+  function lang() { try { return localStorage.getItem(LKEY) === 'en' ? 'en' : 'ko'; } catch (e) { return 'ko'; } }
+
+  function t(ko) {
+    if (lang() !== 'en') return ko;
+    var s = String(ko == null ? '' : ko).trim();
+    return DICT[s] || ko;
+  }
+
+  /** [data-i18n] 로 표시된 요소의 글자를 즉시 바꿉니다 (원문은 기억해 두었다가 KR 로 돌아오면 되돌립니다) */
+  function apply() {
+    var l = lang();
+    var nodes = document.querySelectorAll('[data-i18n]');
+    Array.prototype.forEach.call(nodes, function (el) {
+      if (el.dataset.i18nKo == null) el.dataset.i18nKo = el.textContent;
+      var ko = el.dataset.i18nKo;
+      el.textContent = l === 'en' ? (DICT[ko] || ko) : ko;
+    });
+  }
+
+  /** 헤더 [KR|EN] 버튼의 눌린 표시를 지금 언어에 맞춥니다 */
+  function paint() {
+    var l = lang();
+    Array.prototype.forEach.call(document.querySelectorAll('.ynlang button'), function (b) {
+      b.className = (b.getAttribute('data-l') === l) ? 'on' : '';
+    });
+  }
+
+  function setLang(l) {
+    l = (l === 'en') ? 'en' : 'ko';
+    try { localStorage.setItem(LKEY, l); } catch (e) {}
+    paint();
+    apply();
+    try { document.dispatchEvent(new CustomEvent('ynlangchange', { detail: { lang: l } })); } catch (e) {}
+  }
+
+  /**
+   * 문구 여러 개를 한 번에 영어로 옮깁니다 (공지사항 · 설교 요약처럼 매번 내용이 다른 글).
+   * KR 로 되어 있으면 원문 그대로 즉시 돌려줍니다 (번역을 부르지 않습니다).
+   * 같은 문구 묶음은 이 브라우저에 캐시해 두어, 다시 눌러도 다시 부르지 않습니다.
+   */
+  function hash(s) {
+    var h = 0;
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+    return String(h);
+  }
+  function translateBatch(items, done) {
+    items = items || [];
+    if (lang() !== 'en') { done(items.slice()); return; }
+    var ck = 'ynTrB:' + hash(items.join('␟'));
+    try {
+      var hit = localStorage.getItem(ck);
+      if (hit) { done(JSON.parse(hit)); return; }
+    } catch (e) {}
+    if (typeof callServer !== 'function') { done(items.slice()); return; }
+    callServer('translateBatch', [items], function (r) {
+      var out = Array.isArray(r) ? r : items.slice();
+      try { localStorage.setItem(ck, JSON.stringify(out)); } catch (e) {}
+      done(out);
+    }, function () { done(items.slice()); });
+  }
+
+  return { lang: lang, setLang: setLang, t: t, apply: apply, paint: paint, translateBatch: translateBatch };
+})();
+</script>
 <script>
 (function () {
   /* 포털에서 구글로 로그인해 두었으면 그 표를 다른 페이지도 씁니다 */
@@ -1293,6 +1395,7 @@ header .homelink img { display: block; }
     } catch (e) { done(base); }
   }
   function setup() {
+    if (window.YNI18N) YNI18N.apply();   // 이 기기가 이미 EN 을 골라 두었으면 고정 문구를 바로 바꿉니다
     var home = P()._home;
     // 비밀번호 화면 → 구글 계정(포털)으로만 들어오게 합니다
     if (home) Array.prototype.forEach.call(document.querySelectorAll('#lock'), function (lk) {
@@ -1341,6 +1444,16 @@ header .homelink img { display: block; }
           here(function (u) { if (u) r.href = u; r.dataset.go = '1'; r.click(); });
         });
         h.appendChild(r);
+      }
+      if (!h.querySelector('.ynlang') && window.YNI18N) {
+        var lg = document.createElement('div');
+        lg.className = 'ynlang';
+        lg.innerHTML = '<button type="button" data-l="ko">KR</button><button type="button" data-l="en">EN</button>';
+        Array.prototype.forEach.call(lg.querySelectorAll('button'), function (b) {
+          b.addEventListener('click', function () { YNI18N.setLang(b.getAttribute('data-l')); });
+        });
+        h.appendChild(lg);
+        YNI18N.paint();
       }
     });
   }
@@ -1534,4 +1647,82 @@ header .homelink img { display: block; }
   else 시작();
   window.YNContrast = { scan: 훑기 };
 })();
+</script>
+<style>
+/* ---------------------------------------------------------
+   전역 AI 편집기 — [✨ AI 편집] 버튼을 누르면 뜨는 작은 방법 고르기
+   --------------------------------------------------------- */
+.aipick {
+  display: none; gap: 6px; flex-wrap: wrap; margin: 6px 0 2px;
+}
+.aipick button {
+  flex: none; padding: 6px 11px; border-radius: 999px; font: 700 12px inherit; font-family: inherit;
+  cursor: pointer; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); color: inherit;
+}
+.aipick button:active { background: rgba(255,255,255,.18); }
+body .panel .aipick button, body .panel .aipick button small { color: #fff !important; }
+</style>
+<script>
+/* ---------------------------------------------------------
+   전역 AI 편집기 (AI Smart Writer) — 어느 입력칸이든 [✨ AI 편집] 버튼 하나로
+   맞춤법 교정 · 톤앤매너 정돈 · 불렛포인트 구조화 중 골라서 바로 적용합니다.
+   쓰는 법: <button onclick="aiPolish('그입력창id', this, '메시지자리id')">✨ AI 편집</button>
+   (기존 화면들이 이미 이 이름으로 버튼을 달아두어서 그대로 이어받습니다)
+   --------------------------------------------------------- */
+window.YNAI = (function () {
+  var CTX = {};
+  function $(id) { return document.getElementById(id); }
+
+  function menuFor(id, btn) {
+    var mid = 'aipick_' + id;
+    var m = $(mid);
+    if (m) return m;
+    m = document.createElement('div');
+    m.id = mid;
+    m.className = 'aipick';
+    m.innerHTML = [
+      ['', '전체 다듬기'], ['grammar', '맞춤법 교정'], ['tone', '톤앤매너 정돈'], ['bullets', '불렛포인트 정리']
+    ].map(function (o) {
+      return '<button type="button" onclick="YNAI.run(\'' + id.replace(/'/g, "\\'") + '\',\'' + o[0] + '\')">' + o[1] + '</button>';
+    }).join('');
+    btn.insertAdjacentElement('afterend', m);
+    return m;
+  }
+
+  /** 버튼을 누르면 방법 고르기 창을 열고 닫습니다 */
+  function polish(id, btn, msgId, growFn) {
+    if (!btn || !$(id)) return;
+    CTX[id] = { btn: btn, msgId: msgId, growFn: growFn };
+    var m = menuFor(id, btn);
+    m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+  }
+
+  /** 실제로 골라서 부르는 자리 */
+  function run(id, mode) {
+    var ctx = CTX[id] || {};
+    var t = $(id), msg = ctx.msgId ? $(ctx.msgId) : null, btn = ctx.btn;
+    var m = $('aipick_' + id);
+    if (m) m.style.display = 'none';
+    if (!t) return;
+    var text = t.value.trim();
+    if (!text) { if (msg) { msg.className = 'msg err'; msg.textContent = '먼저 내용을 적어주세요.'; } return; }
+    var orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '정리하는 중…'; }
+    if (msg) { msg.className = 'msg'; msg.textContent = ''; }
+    var token = window.TOKEN || '';
+    callServer('aiPolishText', [token, text, mode], function (r) {
+      t.value = (r && r.text) || text;
+      if (typeof ctx.growFn === 'function') ctx.growFn(t);
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+      if (msg) { msg.className = 'msg ok'; msg.textContent = 'AI가 다듬었습니다. 마음에 안 드시면 직접 고쳐 쓰셔도 됩니다.'; }
+    }, function (e) {
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+      if (msg) { msg.className = 'msg err'; msg.textContent = e.message || 'AI 정리에 실패했습니다.'; }
+    });
+  }
+
+  return { polish: polish, run: run };
+})();
+/* 이미 있던 화면들의 onclick="aiPolish(...)" 을 그대로 이어받습니다 */
+if (typeof window.aiPolish !== 'function') window.aiPolish = YNAI.polish;
 </script>

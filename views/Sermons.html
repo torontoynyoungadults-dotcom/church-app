@@ -255,11 +255,52 @@ function boot() {
 }
 
 function load() {
-  callServer('sermonList', [TOKEN], function (r) { D = r; draw(); }, function (e) {
+  callServer('sermonList', [TOKEN], function (r) { D = r; draw(); translateSermonLang(); }, function (e) {
     el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || e) + '</p>' +
       '<a class="btn full" href="/">포털로 가기</a></div>';
   });
 }
+
+/* ---------- KR / EN — 설교 요약을 통째로 영어로 옮겨 다시 그립니다 ---------- */
+var SERM_TR = {};   // { id: { title, passage, points:[...], messages:[...] } }
+
+function translateSermonLang() {
+  var lang = window.YNI18N && YNI18N.lang();
+  if (lang !== 'en') { SERM_TR = {}; if (D) draw(); return; }
+  if (!D || !D.list || !D.list.length) return;
+
+  var items = [], map = [];
+  D.list.forEach(function (x) {
+    var m = { id: x.id, title: items.length, passage: -1, pStart: -1, pCount: 0, mStart: -1, mCount: 0 };
+    items.push(x.title || '');
+    if (x.passage) { m.passage = items.length; items.push(x.passage); }
+    if (x.points && x.points.length) {
+      m.pStart = items.length; m.pCount = x.points.length;
+      x.points.forEach(function (t) { items.push(t); });
+    }
+    if (x.messages && x.messages.length) {
+      m.mStart = items.length; m.mCount = x.messages.length;
+      x.messages.forEach(function (t) { items.push(t); });
+    }
+    map.push(m);
+  });
+  if (!items.length) return;
+
+  YNI18N.translateBatch(items, function (out) {
+    if ((window.YNI18N && YNI18N.lang()) !== 'en') return;   // 그 사이 다시 KR 로 바뀌었으면 버립니다
+    var tr = {};
+    map.forEach(function (m) {
+      var o = { title: out[m.title] || '' };
+      if (m.passage !== -1) o.passage = out[m.passage] || '';
+      if (m.pStart !== -1) o.points = out.slice(m.pStart, m.pStart + m.pCount);
+      if (m.mStart !== -1) o.messages = out.slice(m.mStart, m.mStart + m.mCount);
+      tr[m.id] = o;
+    });
+    SERM_TR = tr;
+    draw();
+  });
+}
+document.addEventListener('ynlangchange', translateSermonLang);
 
 function draw() {
   var h = '';
@@ -301,21 +342,27 @@ function draw() {
 }
 
 function card(x) {
+  var tr = SERM_TR[x.id] || {};
+  var title = tr.title || x.title;
+  var passage = tr.passage != null ? tr.passage : x.passage;
+  var points = tr.points || x.points;
+  var messages = tr.messages || x.messages;
+
   var h = '<div class="panel scard"><div class="shead">' +
-    '<div class="sth"><b>' + esc(x.title) + '</b>' +
+    '<div class="sth"><b>' + esc(title) + '</b>' +
       '<span>' + esc(월일(x.date)) + (x.preacher ? ' · ' + esc(x.preacher) : '') + '</span></div>' +
     '<a class="syt" href="' + esc(x.url) + '" target="_blank" rel="noopener" title="유튜브에서 보기">▶</a>' +
     '</div>';
-  if (x.passage) h += '<span class="spass">' + esc(x.passage) + '</span>';
+  if (passage) h += '<span class="spass">' + esc(passage) + '</span>';
 
-  if (x.points && x.points.length) {
+  if (points && points.length) {
     h += '<div class="ssec"><h4>✦ 핵심 대지</h4><div class="pts">';
-    x.points.forEach(function (t, i) { h += '<div><i>' + (i + 1) + '</i><span>' + esc(t) + '</span></div>'; });
+    points.forEach(function (t, i) { h += '<div><i>' + (i + 1) + '</i><span>' + esc(t) + '</span></div>'; });
     h += '</div></div>';
   }
-  if (x.messages && x.messages.length) {
+  if (messages && messages.length) {
     h += '<div class="ssec"><h4>✎ 주요 메시지</h4><ul class="msgs">';
-    x.messages.forEach(function (t) { h += '<li>' + esc(t) + '</li>'; });
+    messages.forEach(function (t) { h += '<li>' + esc(t) + '</li>'; });
     h += '</ul></div>';
   }
   h += '<p class="sfoot">' + esc(x.at || '') +
