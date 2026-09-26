@@ -990,6 +990,10 @@ function doGet(e) {
     return render_('Bulletin', bpre.edit ? '주보 편집' : '토론토영락교회 청년1부 주보', bpre, 'bulletin');
   }
 
+  if (page === 'minutes') {
+    return render_('Minutes', '회의록 · 할 일', { t: p.t || '', id: p.id || '' }, 'portal');
+  }
+
   if (page === 'mission') {
     return render_('Mission', '선교팀 관리',
       { t: p.t || '', team: p.team || '',
@@ -6981,6 +6985,13 @@ function 포털메뉴_(r, token) {
     out.push({ key: 'forms', title: '신청서 관리', desc: '수련회 · 티셔츠 · 인원조사 만들기',
       url: base + '?page=forms&t=' + encodeURIComponent(token), note: '' });
   }
+  if (커미티) {
+    var 미완 = 0;
+    try { 회의할일들_('').forEach(function (t) { if (!t.done) 미완++; }); } catch (e) {}
+    out.push({ key: 'minutes', title: '회의록 · 할 일', desc: '커미티 회의록 · 맡은 일 정리',
+      url: base + '?page=minutes&t=' + encodeURIComponent(token),
+      note: 미완 ? '남은 할 일 ' + 미완 + '건' : '' });
+  }
   if (주보권한이름_(r.name).edit) {
     out.push({ key: 'bulletinEdit', title: '주보 편집', desc: '예배 순서 · 광고 · 스케줄',
       url: base + '?page=bulletin&edit=1&t=' + encodeURIComponent(token), note: '' });
@@ -11522,6 +11533,20 @@ function 내할일_(token) {
   });
 
   if (who.kind === 'member') {
+    /* --- 1-2) 회의에서 맡은 할 일 --- */
+    try {
+      내회의할일_(who.name).forEach(function (t) {
+        var 남 = t.due ? Math.round((parseYmd_(t.due) - parseYmd_(today)) / 86400000) : null;
+        var tone = (남 == null) ? 'info' : (남 < 0 ? 'urgent' : (남 <= 3 ? 'warn' : 'info'));
+        var sub = t.meetTitle + (t.due ? ' · ' + (남 < 0 ? '마감 ' + (-남) + '일 지남'
+          : (남 === 0 ? '오늘까지' : 남 + '일 남음')) : '');
+        out.push(할일하나_({ id: 'meet-' + t.id, kind: 'meet', icon: '📝',
+          title: t.what, sub: sub,
+          url: base + '?page=minutes&t=' + encodeURIComponent(token) + '&id=' + encodeURIComponent(t.meet),
+          tone: tone, hideable: false }));
+      });
+    } catch (e) {}
+
     /* --- 2) 셀 보고서 --- */
     if (r.cells.length) {
       var 이번주 = ymd_(이번주기준_());
@@ -11706,6 +11731,7 @@ function 포털뱃지_(todos) {
     else if (id.indexOf('exp-') === 0) { if (t.tone === 'urgent') add('expense'); }
     else if (id.indexOf('nf-') === 0) { add('newfamily'); add('a-nf'); }
     else if (id.indexOf('form-') === 0) add('forms');
+    else if (id.indexOf('meet-') === 0) add('minutes');
     else if (id.indexOf('due-') === 0) { add('mission'); add('team'); }
     else if (id.indexOf('cellapp-in-') === 0) add('a-cells');
   });
@@ -12251,4 +12277,566 @@ function announceForm(token, id, target, opts) {
     out.portal = true;
   }
   return out;
+}
+
+/* ============================================================
+   회의록 — 구글 문서를 그대로 읽어와 포털에서 보고,
+            "할 일" 을 뽑아 담당자별 내 할 일로 보냅니다.
+   ============================================================ */
+
+var SHEET_회의록 = '회의록';
+var HEAD_회의록 = ['ID', '제목', '문서ID', '회의날짜', '등록자', '등록시각', '마지막읽음', '상태'];
+var MN_ID = 0, MN_제목 = 1, MN_문서 = 2, MN_날짜 = 3, MN_등록자 = 4, MN_등록 = 5, MN_읽음 = 6, MN_상태 = 7;
+
+var SHEET_회의할일 = '회의할일';
+var HEAD_회의할일 = ['ID', '회의록ID', '담당자', '할일', '마감일', '상태', '완료시각', '만든이', '만든시각', '출처'];
+var MT_ID = 0, MT_회의 = 1, MT_담당 = 2, MT_할일 = 3, MT_마감 = 4, MT_상태 = 5, MT_완료 = 6,
+    MT_만든이 = 7, MT_만든 = 8, MT_출처 = 9;
+
+function 회의록시트_() {
+  var sh = 주보시트_(SHEET_회의록, HEAD_회의록);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_회의록.length).setValues([HEAD_회의록]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+function 회의할일시트_() {
+  var sh = 주보시트_(SHEET_회의할일, HEAD_회의할일);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_회의할일.length).setValues([HEAD_회의할일]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+/** 구글 문서 주소에서 문서 ID 만 뽑습니다 */
+function 문서ID_(s) {
+  s = String(s || '').trim();
+  var m = s.match(/\/document\/d\/([A-Za-z0-9_-]{20,})/);
+  if (m) return m[1];
+  m = s.match(/[?&]id=([A-Za-z0-9_-]{20,})/);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9_-]{20,}$/.test(s)) return s;
+  return '';
+}
+
+/** 구글 문서를 원하는 모양으로 내보냅니다 (드라이브 권한으로 읽습니다 — 따로 인증이 필요 없습니다) */
+function 문서내보내기_(docId, mime) {
+  var url = 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(docId) +
+    '/export?mimeType=' + encodeURIComponent(mime) + '&supportsAllDrives=true';
+  var r = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { Authorization: 'Bearer ' + HOST.accessToken() },
+    muteHttpExceptions: true
+  });
+  var code = r.getResponseCode();
+  if (code === 404) throw new Error('문서를 찾지 못했습니다. 주소가 맞는지, 그리고 이 시스템 계정에 문서를 공유했는지 확인해주세요.');
+  if (code === 403) throw new Error('문서를 열 권한이 없습니다. 구글 문서에서 이 시스템 계정에 "뷰어" 로 공유해주세요.');
+  if (code >= 300) throw new Error('문서를 읽지 못했습니다 (' + code + ').');
+  return r.getContentText();
+}
+
+/** 문서 제목 · 마지막 수정 시각 */
+function 문서정보_(docId) {
+  var url = 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(docId) +
+    '?fields=name,modifiedTime,mimeType&supportsAllDrives=true';
+  var r = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { Authorization: 'Bearer ' + HOST.accessToken() },
+    muteHttpExceptions: true
+  });
+  if (r.getResponseCode() >= 300) return {};
+  try { return JSON.parse(r.getContentText()) || {}; } catch (e) { return {}; }
+}
+
+/* ---- 문서 HTML 다듬기 ---- */
+
+var 회의_허용태그 = {
+  p: 1, br: 1, hr: 1, h1: 1, h2: 1, h3: 1, h4: 1, h5: 1, h6: 1,
+  ul: 1, ol: 1, li: 1, table: 1, thead: 1, tbody: 1, tr: 1, td: 1, th: 1,
+  b: 1, strong: 1, i: 1, em: 1, u: 1, s: 1, sup: 1, sub: 1,
+  a: 1, img: 1, span: 1, div: 1, blockquote: 1, code: 1, pre: 1
+};
+
+/** 글자 모양만 남기고 색·배경은 버립니다 (어두운 바탕에서 글씨가 안 보이지 않도록) */
+function 스타일추리기_(style) {
+  var keep = [];
+  String(style || '').split(';').forEach(function (bit) {
+    var kv = bit.split(':');
+    if (kv.length < 2) return;
+    var k = kv[0].trim().toLowerCase(), v = kv.slice(1).join(':').trim();
+    if (k === 'font-weight' || k === 'font-style' || k === 'text-decoration' ||
+        k === 'text-decoration-line' || k === 'text-align') {
+      keep.push(k + ':' + v);
+    }
+  });
+  return keep.join(';');
+}
+
+/** 구글 문서가 내보낸 HTML 을 포털에서 안전하게 보여줄 수 있도록 정리합니다 */
+function 회의록HTML_(html) {
+  var s = String(html || '');
+  // 머리말 · 스타일 · 스크립트는 통째로 버립니다
+  s = s.replace(/<head[\s\S]*?<\/head>/gi, '');
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, '');
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
+  s = s.replace(/<!--[\s\S]*?-->/g, '');
+  var m = s.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  if (m) s = m[1];
+
+  // 태그를 하나씩 살펴보며 허용한 것만 남깁니다
+  s = s.replace(/<\/?([A-Za-z][A-Za-z0-9]*)\b([^>]*)>/g, function (all, tag, attrs) {
+    var t = tag.toLowerCase();
+    var closing = all.indexOf('</') === 0;
+    if (!회의_허용태그[t]) return '';
+    if (closing) return '</' + t + '>';
+
+    var out = '<' + t;
+    var style = '';
+    var sm = attrs.match(/style\s*=\s*"([^"]*)"/i) || attrs.match(/style\s*=\s*'([^']*)'/i);
+    if (sm) style = 스타일추리기_(sm[1]);
+
+    if (t === 'a') {
+      var hm = attrs.match(/href\s*=\s*"([^"]*)"/i) || attrs.match(/href\s*=\s*'([^']*)'/i);
+      var href = hm ? hm[1] : '';
+      // 구글 문서가 감싸 놓은 바깥 주소를 원래 주소로 되돌립니다
+      var qm = href.match(/[?&]q=([^&]+)/);
+      if (/google\.com\/url/.test(href) && qm) { try { href = decodeURIComponent(qm[1]); } catch (e) {} }
+      if (!/^https?:\/\//i.test(href) && !/^mailto:/i.test(href)) href = '';
+      if (href) out += ' href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener"';
+    } else if (t === 'img') {
+      var im = attrs.match(/src\s*=\s*"([^"]*)"/i) || attrs.match(/src\s*=\s*'([^']*)'/i);
+      var src = im ? im[1] : '';
+      if (!src) return '';
+      // 사진은 우리 서버를 거쳐 불러옵니다 (바로 부르면 안 뜨는 경우가 있습니다)
+      out += ' src="/mimg?u=' + encodeURIComponent(src) + '" loading="lazy" alt=""';
+      style = '';
+    }
+    if (style) out += ' style="' + style.replace(/"/g, '') + '"';
+    return out + '>';
+  });
+
+  // 빈 문단이 줄줄이 생기는 것을 줄입니다
+  s = s.replace(/(<p>\s*(<span><\/span>|&nbsp;|\s)*<\/p>\s*){2,}/gi, '<p></p>');
+  return s.trim();
+}
+
+/* ---- 할 일 뽑아내기 ---- */
+
+var 회의_요일 = { '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6, '일': 0 };
+
+/** 줄 안에서 날짜처럼 보이는 것을 찾아 yyyy-MM-dd 로 돌려줍니다 */
+function 마감뽑기_(s, 기준) {
+  var base = 기준 instanceof Date ? new Date(기준.getTime()) : new Date();
+  var y = base.getFullYear();
+  var m;
+
+  m = s.match(/(20\d\d)[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  if (m) return 날짜만들기_(+m[1], +m[2], +m[3]);
+
+  m = s.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (m) return 날짜만들기_(y, +m[1], +m[2]);
+
+  m = s.match(/(?:^|[^\d])(\d{1,2})[\/.](\d{1,2})(?![\d\/.])/);
+  if (m && +m[1] >= 1 && +m[1] <= 12 && +m[2] >= 1 && +m[2] <= 31) return 날짜만들기_(y, +m[1], +m[2]);
+
+  if (/오늘까지|오늘\s*까지/.test(s)) return ymd_(base);
+  if (/내일/.test(s)) { base.setDate(base.getDate() + 1); return ymd_(base); }
+  if (/모레/.test(s)) { base.setDate(base.getDate() + 2); return ymd_(base); }
+  if (/이번\s*주/.test(s)) { base.setDate(base.getDate() + (7 - base.getDay()) % 7); return ymd_(base); }
+  if (/다음\s*주|담주/.test(s)) { base.setDate(base.getDate() + 7); return ymd_(base); }
+
+  m = s.match(/([월화수목금토일])요일(?:\s*까지)?/);
+  if (m) {
+    var want = 회의_요일[m[1]], add = (want - base.getDay() + 7) % 7;
+    base.setDate(base.getDate() + (add === 0 ? 7 : add));
+    return ymd_(base);
+  }
+  return '';
+}
+
+function 날짜만들기_(y, m, d) {
+  if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31)) return '';
+  var p = function (n) { return (n < 10 ? '0' : '') + n; };
+  return y + '-' + p(m) + '-' + p(d);
+}
+
+/** 줄 안에 교적에 있는 이름이 있으면 돌려줍니다 (긴 이름부터 맞춰 봅니다) */
+function 이름찾기_(s, names) {
+  for (var i = 0; i < names.length; i++) {
+    if (s.indexOf(names[i]) !== -1) return names[i];
+  }
+  return '';
+}
+
+/**
+ * 회의록 본문에서 할 일을 찾아냅니다.
+ *  1) 네모칸으로 시작하는 줄        — [ ] · ☐ · ☑
+ *  2) "할 일 / 액션 / TODO / 과제 / 후속조치" 로 시작하는 단락 안의 목록 줄
+ *  3) "할일:" "담당:" 처럼 앞에 붙여 쓴 줄
+ */
+function 할일찾기_(text, names, 기준일) {
+  var lines = String(text || '').replace(/ /g, ' ').split(/\r?\n/);
+  var out = [], 구역 = false;
+  var 구역시작 = /(할\s*일|액션\s*아이템|action\s*items?|to\s*-?\s*do|todo|과제|후속\s*조치|assignments?)/i;
+  var 구역끝 = /^(다음\s*회의|기타|마무리|마침|기도\s*제목|공지|참석자|안건|일정)\b/;
+  var 네모 = /^\s*(\[\s*[xXvV✓✔]?\s*\]|[☐☑✅✔□■]|- \[[ xX]\])\s*/;
+  var 글머리 = /^\s*[-–—*•▪·○●]\s+/;
+  var 앞말 = /^\s*(할\s*일|to\s*-?\s*do|todo|액션|action)\s*[:：]\s*/i;
+
+  for (var i = 0; i < lines.length; i++) {
+    var s = lines[i].trim();
+    if (!s) continue;
+
+    if (s.length <= 40 && 구역시작.test(s) && !네모.test(s) && !글머리.test(s)) { 구역 = true; continue; }
+    if (구역 && s.length <= 30 && 구역끝.test(s)) { 구역 = false; continue; }
+
+    var 네모줄 = 네모.test(s);
+    var 앞말줄 = 앞말.test(s);
+    var 목록줄 = 글머리.test(s);
+    if (!네모줄 && !앞말줄 && !(구역 && 목록줄)) continue;
+
+    var 끝남 = /^\s*(\[\s*[xXvV✓✔]\s*\]|[☑✅✔■]|- \[[xX]\])/.test(s);
+    var body = s.replace(네모, '').replace(앞말, '').replace(글머리, '').trim();
+    if (body.length < 2) continue;
+
+    var 담당 = 이름찾기_(body, names);
+    // "김현세 : 주보 정리" · "주보 정리 (김현세)" 같은 꼬리표를 떼어 냅니다
+    var 할일 = body;
+    if (담당) {
+      var nm = 회의_정규_(담당);
+      할일 = 할일
+        .replace(new RegExp('[\\(\\[]\\s*(담당\\s*[:：]?\\s*)?' + nm + '\\s*(님)?\\s*[\\)\\]]'), '')
+        .replace(new RegExp('^\\s*' + nm + '\\s*(님|집사님|형제님|자매님|전도사님|목사님)?\\s*[-:：/,]?\\s+'), '')
+        .replace(new RegExp('^\\s*' + nm + '\\s*(님|집사님|형제님|자매님|전도사님|목사님)?\\s*[-:：/]\\s*'), '')
+        .trim();
+    }
+    var 마감 = 마감뽑기_(body, 기준일);
+    if (마감) 할일 = 마감글자지우기_(할일);
+    할일 = 할일.replace(/^[-–—:：\s]+/, '').replace(/[,\s]+$/, '').trim();
+    if (할일.length < 2) continue;
+
+    out.push({ 담당: 담당, 할일: 할일.slice(0, 200), 마감: 마감, 끝남: 끝남 });
+    if (out.length >= 120) break;
+  }
+  return out;
+}
+
+/** 할 일 문장 끝에 붙은 날짜 표현을 떼어 냅니다 */
+function 마감글자지우기_(s) {
+  var t = String(s || '');
+  var 지울것 = [
+    /[\(\[]\s*(마감\s*[:：]?\s*)?[^()\[\]]{0,24}?(\d{1,2}\s*[월\/.\-]\s*\d{1,2}\s*일?|다음\s*주|이번\s*주|내일|모레|담주|[월화수목금토일]요일)[^()\[\]]{0,6}[\)\]]/g,
+    /[~-]?\s*20\d\d[-.\/]\d{1,2}[-.\/]\d{1,2}\s*(까지)?\s*$/,
+    /[~-]?\s*\d{1,2}\s*월\s*\d{1,2}\s*일\s*(까지)?\s*$/,
+    /[~-]?\s*\d{1,2}[\/.]\d{1,2}\s*(까지)?\s*$/,
+    /\s*(다음\s*주|이번\s*주|담주|내일|모레|오늘)\s*(까지)?\s*$/,
+    /\s*[월화수목금토일]요일\s*(까지)?\s*$/
+  ];
+  지울것.forEach(function (re) { t = t.replace(re, ' '); });
+  return t.replace(/\s{2,}/g, ' ').trim();
+}
+
+function 회의_정규_(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+/** 같은 할 일인지 보기 위해 띄어쓰기 · 문장부호를 지운 열쇠 */
+function 할일열쇠_(s) { return String(s || '').replace(/[\s.,·\-–—~!?()[\]:：]/g, '').toLowerCase(); }
+
+/* ---- 자료 읽기 ---- */
+
+function 회의록들_() {
+  return rows_(SHEET_회의록).filter(function (r) { return String(r[MN_ID]).trim(); }).map(function (r) {
+    return {
+      id: String(r[MN_ID]).trim(),
+      title: String(r[MN_제목] || '').trim() || '회의록',
+      docId: String(r[MN_문서] || '').trim(),
+      date: 날짜문자열_(r[MN_날짜]),
+      by: String(r[MN_등록자] || '').trim(),
+      at: String(r[MN_등록] || '').trim(),
+      read: String(r[MN_읽음] || '').trim(),
+      status: String(r[MN_상태] || '').trim() || '보임'
+    };
+  }).filter(function (n) { return n.status !== '숨김'; })
+    .sort(function (a, b) { return (b.date || '') < (a.date || '') ? -1 : 1; });
+}
+
+function 회의할일들_(회의ID) {
+  return rows_(SHEET_회의할일).filter(function (r) {
+    if (!String(r[MT_ID]).trim()) return false;
+    if (회의ID && String(r[MT_회의] || '').trim() !== String(회의ID)) return false;
+    return String(r[MT_상태] || '').trim() !== '지움';
+  }).map(function (r) {
+    return {
+      id: String(r[MT_ID]).trim(),
+      meet: String(r[MT_회의] || '').trim(),
+      who: String(r[MT_담당] || '').trim(),
+      what: String(r[MT_할일] || '').trim(),
+      due: 날짜문자열_(r[MT_마감]),
+      done: String(r[MT_상태] || '').trim() === '완료',
+      doneAt: String(r[MT_완료] || '').trim(),
+      by: String(r[MT_만든이] || '').trim(),
+      from: String(r[MT_출처] || '').trim()
+    };
+  });
+}
+
+/* ---- 화면에서 부르는 것들 ---- */
+
+/** 회의록 목록 (교인이면 누구나 봅니다 — 커미티만 등록 · 수정) */
+function minutesList(token) {
+  var who = 폼신청자_(token);
+  var 커미티 = 커미티토큰_(token);
+  if (!커미티) return { canEdit: false, me: who.name, list: [], mine: 내회의할일_(who.name) };
+  var all = 회의할일들_('');
+  var 수 = {};
+  all.forEach(function (t) {
+    if (!수[t.meet]) 수[t.meet] = { all: 0, open: 0, mine: 0 };
+    수[t.meet].all++;
+    if (!t.done) {
+      수[t.meet].open++;
+      if (t.who === who.name) 수[t.meet].mine++;
+    }
+  });
+  return {
+    canEdit: 커미티,
+    me: who.name,
+    mine: 내회의할일_(who.name),
+    list: 회의록들_().map(function (m) {
+      var c = 수[m.id] || { all: 0, open: 0, mine: 0 };
+      return { id: m.id, title: m.title, date: m.date, by: m.by, read: m.read,
+        docUrl: 'https://docs.google.com/document/d/' + m.docId + '/edit',
+        tasks: c.all, open: c.open, mine: c.mine };
+    })
+  };
+}
+
+/** 회의록 한 편 — 문서 본문과 할 일을 함께 돌려줍니다 */
+function minutesOpen(token, id) {
+  var who = 폼신청자_(token);
+  if (!커미티토큰_(token)) throw new Error('회의록 본문은 커미티만 볼 수 있습니다.');
+  var m = 회의하나_(id);
+  if (!m) throw new Error('회의록을 찾지 못했습니다.');
+  var body = '', err = '';
+  try {
+    body = 회의록HTML_(문서본문_(m.docId));
+  } catch (e) {
+    err = e.message || '문서를 읽지 못했습니다.';
+  }
+  return {
+    canEdit: 커미티토큰_(token),
+    me: who.name,
+    meet: { id: m.id, title: m.title, date: m.date, by: m.by, read: m.read,
+      docUrl: 'https://docs.google.com/document/d/' + m.docId + '/edit' },
+    html: body, err: err,
+    tasks: 회의할일들_(m.id).sort(function (a, b) {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      return (a.due || '9999') < (b.due || '9999') ? -1 : 1;
+    }),
+    people: 회의사람들_()
+  };
+}
+
+function 회의하나_(id) {
+  id = String(id || '').trim();
+  var found = null;
+  rows_(SHEET_회의록).forEach(function (r) {
+    if (String(r[MN_ID]).trim() === id) {
+      found = { id: id, title: String(r[MN_제목] || '').trim(), docId: String(r[MN_문서] || '').trim(),
+        date: 날짜문자열_(r[MN_날짜]), by: String(r[MN_등록자] || '').trim(), read: String(r[MN_읽음] || '').trim() };
+    }
+  });
+  return found;
+}
+
+/** 문서 본문 — 5분 동안은 읽어 둔 것을 다시 씁니다 */
+function 문서본문_(docId) {
+  var c = 캐시_(), ck = 'doc|' + docId;
+  if (c) { try { var hit = c.get(ck); if (hit) return hit; } catch (e) {} }
+  var html = 문서내보내기_(docId, 'text/html');
+  if (c) { try { c.put(ck, html, 300); } catch (e) {} }
+  return html;
+}
+
+function 회의사람들_() {
+  var out = [];
+  var map = 교적맵_();
+  for (var k in map) out.push(k);
+  return out.sort();
+}
+
+/** 회의록 등록 — 등록과 동시에 할 일까지 뽑아냅니다 */
+function minutesAdd(token, d) {
+  if (!커미티토큰_(token)) throw new Error('회의록은 커미티만 등록할 수 있습니다.');
+  d = d || {};
+  var docId = 문서ID_(d.url || d.docId || '');
+  if (!docId) throw new Error('구글 문서 주소를 넣어주세요. (docs.google.com/document/d/... 형태)');
+
+  var 이미 = null;
+  회의록들_().forEach(function (m) { if (m.docId === docId) 이미 = m; });
+  if (이미) throw new Error('이미 등록된 문서입니다: ' + 이미.title);
+
+  var info = 문서정보_(docId);
+  var title = String(d.title || '').trim() || String(info.name || '').trim() || '회의록';
+  var date = /^\d{4}-\d{2}-\d{2}$/.test(String(d.date || '')) ? d.date : ymd_(new Date());
+  var id = 'M' + Date.now().toString(36);
+
+  회의록시트_().appendRow([id, title, docId, date, 커미티이름_(token),
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'), '', '보임']);
+  캐시비움_();
+
+  var got = { added: 0, kept: 0 };
+  try { got = minutesSync(token, id); } catch (e) { /* 문서를 못 읽어도 등록은 남깁니다 */ }
+  return { ok: true, id: id, found: got.added || 0 };
+}
+
+/** 문서를 다시 읽어 할 일을 새로 뽑습니다 (이미 있는 것은 그대로 둡니다) */
+function minutesSync(token, id) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 다시 읽을 수 있습니다.');
+  var m = 회의하나_(id);
+  if (!m) throw new Error('회의록을 찾지 못했습니다.');
+
+  var text = 문서내보내기_(m.docId, 'text/plain');
+  var names = 회의사람들_().sort(function (a, b) { return b.length - a.length; });
+  var 기준 = /^\d{4}-\d{2}-\d{2}$/.test(m.date) ? new Date(m.date + 'T12:00:00') : new Date();
+  var 뽑음 = 할일찾기_(text, names, 기준);
+
+  var 있는것 = {};
+  회의할일들_(m.id).forEach(function (t) { 있는것[할일열쇠_(t.what)] = t; });
+
+  var sh = 회의할일시트_();
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var 추가 = 0;
+  뽑음.forEach(function (t) {
+    var k = 할일열쇠_(t.할일);
+    if (있는것[k]) return;
+    있는것[k] = 1;
+    sh.appendRow(['T' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      m.id, t.담당, t.할일, t.마감, t.끝남 ? '완료' : '', t.끝남 ? now : '', '문서', now, '문서에서 뽑음']);
+    추가++;
+  });
+
+  // 마지막으로 읽은 시각 적어 두기
+  var ms = 회의록시트_(), v = ms.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][MN_ID]).trim() === m.id) { ms.getRange(i + 1, MN_읽음 + 1).setValue(now); break; }
+  }
+  캐시비움_();
+
+  // 새로 생긴 할 일은 담당자에게 알려 줍니다
+  if (추가) {
+    var 받을사람 = {};
+    뽑음.forEach(function (t) { if (t.담당 && !t.끝남) 받을사람[t.담당] = 1; });
+    var list = [];
+    for (var n in 받을사람) list.push(n);
+    if (list.length) {
+      try {
+        알림_('공지', list, { title: '회의 할 일이 등록되었습니다',
+          body: m.title + ' — 포털 "내 할 일" 에서 확인해주세요.',
+          url: (앱주소_() || '') + '?page=minutes' });
+      } catch (e) {}
+    }
+  }
+  return { ok: true, added: 추가, total: 뽑음.length };
+}
+
+function minutesEdit(token, id, d) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 고칠 수 있습니다.');
+  d = d || {};
+  var sh = 회의록시트_(), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][MN_ID]).trim() !== String(id).trim()) continue;
+    if (d.title != null) sh.getRange(i + 1, MN_제목 + 1).setValue(String(d.title).trim().slice(0, 120));
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(d.date || ''))) sh.getRange(i + 1, MN_날짜 + 1).setValue(d.date);
+    캐시비움_();
+    return { ok: true };
+  }
+  throw new Error('회의록을 찾지 못했습니다.');
+}
+
+function minutesDelete(token, id) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 지울 수 있습니다.');
+  var sh = 회의록시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][MN_ID]).trim() === String(id).trim()) sh.deleteRow(i + 1);
+  }
+  var ts = 회의할일시트_(), tv = ts.getDataRange().getValues();
+  for (var j = tv.length - 1; j >= 1; j--) {
+    if (String(tv[j][MT_회의] || '').trim() === String(id).trim()) ts.deleteRow(j + 1);
+  }
+  캐시비움_();
+  return { ok: true };
+}
+
+/* ---- 할 일 손보기 ---- */
+
+function minutesTaskSave(token, d) {
+  if (!커미티토큰_(token)) throw new Error('할 일은 커미티가 관리합니다.');
+  d = d || {};
+  var what = String(d.what || '').trim().slice(0, 200);
+  if (!what) throw new Error('할 일 내용을 적어주세요.');
+  var who = String(d.who || '').trim().slice(0, 30);
+  var due = /^\d{4}-\d{2}-\d{2}$/.test(String(d.due || '')) ? d.due : '';
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var sh = 회의할일시트_();
+
+  if (d.id) {
+    var v = sh.getDataRange().getValues();
+    for (var i = 1; i < v.length; i++) {
+      if (String(v[i][MT_ID]).trim() !== String(d.id).trim()) continue;
+      sh.getRange(i + 1, MT_담당 + 1).setValue(who);
+      sh.getRange(i + 1, MT_할일 + 1).setValue(what);
+      sh.getRange(i + 1, MT_마감 + 1).setValue(due);
+      캐시비움_();
+      return { ok: true, id: d.id };
+    }
+    throw new Error('할 일을 찾지 못했습니다.');
+  }
+
+  var id = 'T' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  sh.appendRow([id, String(d.meet || '').trim(), who, what, due, '', '', 커미티이름_(token), now, '손으로 넣음']);
+  캐시비움_();
+  if (who) {
+    try {
+      알림_('공지', [who], { title: '새 할 일이 생겼습니다', body: what,
+        url: (앱주소_() || '') + '?page=minutes' });
+    } catch (e) {}
+  }
+  return { ok: true, id: id };
+}
+
+/** 다 했어요 / 아직이에요 — 담당자 본인이나 커미티가 누릅니다 */
+function minutesTaskDone(token, id, done) {
+  var who = 폼신청자_(token);
+  var 커미티 = 커미티토큰_(token);
+  var sh = 회의할일시트_(), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][MT_ID]).trim() !== String(id).trim()) continue;
+    var 담당 = String(v[i][MT_담당] || '').trim();
+    if (!커미티 && 담당 && 담당 !== who.name) throw new Error('담당자 본인만 표시할 수 있습니다.');
+    var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+    sh.getRange(i + 1, MT_상태 + 1).setValue(done ? '완료' : '');
+    sh.getRange(i + 1, MT_완료 + 1).setValue(done ? now : '');
+    캐시비움_();
+    return { ok: true };
+  }
+  throw new Error('할 일을 찾지 못했습니다.');
+}
+
+function minutesTaskDelete(token, id) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 지울 수 있습니다.');
+  var sh = 회의할일시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][MT_ID]).trim() === String(id).trim()) sh.deleteRow(i + 1);
+  }
+  캐시비움_();
+  return { ok: true };
+}
+
+/** 내 회의 할 일 — 포털 "내 할 일" 에 넣습니다 */
+function 내회의할일_(name) {
+  var out = [];
+  var 제목 = {};
+  회의록들_().forEach(function (m) { 제목[m.id] = m.title; });
+  회의할일들_('').forEach(function (t) {
+    if (t.done) return;
+    if (String(t.who || '').trim() !== String(name || '').trim()) return;
+    t.meetTitle = 제목[t.meet] || '회의';
+    out.push(t);
+  });
+  return out.sort(function (a, b) { return (a.due || '9999') < (b.due || '9999') ? -1 : 1; });
 }

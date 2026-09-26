@@ -142,6 +142,27 @@ app.get('/audio/:id', driveStream('녹음파일허용_', 'private, max-age=3600'
 /** 주보에 올린 셀 교재 PDF (주보 PDF 만들 때 페이지를 넣기 위해) */
 app.get('/bfile/:id', driveStream('주보파일허용_', 'private, max-age=600'));
 
+/** 회의록 안의 사진 — 구글 문서가 내보낸 주소를 우리 서버가 대신 불러옵니다 */
+const MIMG_OK = /(^|\.)(googleusercontent\.com|google\.com|gstatic\.com)$/i;
+app.get('/mimg', async (req, res) => {
+  try {
+    const raw = String(req.query.u || '');
+    if (!/^https:\/\//i.test(raw)) return res.status(400).send('bad url');
+    let host = '';
+    try { host = new URL(raw).hostname; } catch (e) { return res.status(400).send('bad url'); }
+    if (!MIMG_OK.test(host)) return res.status(403).send('not allowed');
+    const r = await fetch(raw, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow' });
+    if (!r.ok) return res.status(r.status).send('image error');
+    const ct = r.headers.get('content-type') || 'image/png';
+    if (!/^image\//i.test(ct)) return res.status(415).send('not an image');
+    res.setHeader('content-type', ct);
+    res.setHeader('cache-control', 'private, max-age=86400');
+    Readable.fromWeb(r.body).on('error', () => res.end()).pipe(res);
+  } catch (e) {
+    if (!res.headersSent) res.status(500).send('error');
+  }
+});
+
 app.get('/healthz', (req, res) => res.send('ok'));
 
 function errorPage(e) {

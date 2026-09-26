@@ -173,6 +173,7 @@
   .tile.bulletin  { --mc: #E1601C; --mc-soft: rgba(225,96,28,.13); }
   .tile.bulletinEdit { --mc: #8A5A2B; --mc-soft: rgba(138,90,43,.14); }
   .tile.forms     { --mc: #2F6E93; --mc-soft: rgba(47,110,147,.13); }
+  .tile.minutes   { --mc: #6C4FD3; --mc-soft: rgba(108,79,211,.14); }
   /* 커미티 칸은 어두운 바탕 — 한눈에 구분되게 */
   .tiles.adm .tile { background: var(--night-2); border-color: var(--hair-night); color: var(--night-ink); box-shadow: none; }
   .tiles.adm .tile .td { color: var(--night-sub); }
@@ -281,6 +282,7 @@
   #dash .tile.acct         { --mc: #E0B25A; --mc-soft: rgba(224,178,90,.16); }
   #dash .tile.bulletin     { --mc: #F58A4B; --mc-soft: rgba(245,138,75,.16); }
   #dash .tile.bulletinEdit { --mc: #D9A46C; --mc-soft: rgba(217,164,108,.16); }
+  #dash .tile.minutes { --mc: #B4A2FF; --mc-soft: rgba(180,162,255,.16); }
   #dash .tile.forms        { --mc: #7FC4E8; --mc-soft: rgba(127,196,232,.16); }
 
   /* 청년부 일정 — 달력도 같은 유리 위에 */
@@ -863,6 +865,15 @@ body .mcardlink,
   /* 제목이 길어서 포털만 한 단계 작게 잡습니다 */
   .shell header h1 { font-size: 22px !important; line-height: 1.44 !important; }
   .shell header h1 span { white-space: nowrap; }
+  /* 내 할 일 — 회의에서 맡은 일 체크칸 */
+  body .ti .tick {
+    flex: none; width: 26px; height: 26px; border-radius: 8px; padding: 0; cursor: pointer;
+    border: 2px solid rgba(255,255,255,.45); background: rgba(255,255,255,.08);
+    color: #FFFFFF; font-size: 15px; font-weight: 800; font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+  }
+  body .ti .tick:hover { border-color: #FFFFFF; background: rgba(255,255,255,.18); }
+  body .ti .tick.on { background: #2E9A4B; border-color: #2E9A4B; }
 </style>
 </head>
 <body>
@@ -1168,6 +1179,7 @@ var MENU_ICON = {
   admin: '<path d="M4 20V9.5l8-5.5 8 5.5V20z"/><path d="M9.5 20v-6h5v6"/>',
   bulletin: '<path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/>',
   bulletinEdit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  minutes: '<rect x="4.5" y="3" width="15" height="18" rx="2.4"/><path d="M8 8.5h8"/><path d="M8 12.5h8"/><path d="M8 16.5h4.5"/>',
   'a-cell': '<circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9.2 5 2.2 5 5.4"/>',
   'a-nf': '<path d="M12 21V11"/><path d="M12 11c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5z"/><path d="M12 14c0-3-2.3-5-5.5-5-.2 3.1 2.2 5 5.5 5z"/>',
   'a-team': '<path d="M12 3.5l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.4l-5.1 2.7 1-5.6-4.1-4 5.7-.8z"/>',
@@ -1633,8 +1645,12 @@ function renderTodos(res, boxId) {
 }
 
 function todoItem(t) {
+  // 회의에서 맡은 일 — 여기서 바로 "다 했어요" 를 누를 수 있습니다
+  var meetId = (t.kind === 'meet' && t.id.indexOf('meet-') === 0) ? t.id.slice(5) : '';
   var inner =
-    '<span class="tic">' + (t.icon || '•') + '</span>' +
+    (meetId
+      ? '<button class="tick" title="다 했어요" onclick="doneMeetTask(event,\'' + jsq(meetId) + '\')"></button>'
+      : '<span class="tic">' + (t.icon || '•') + '</span>') +
     '<span class="tib"><span class="tit">' + esc(t.title) + '</span>' +
       (t.sub ? '<span class="tis">' + esc(t.sub) + '</span>' : '') +
       (t.step ? '<span class="tstep">' + stepBars(t.step) + '</span>' : '') +
@@ -1654,6 +1670,27 @@ function todoItem(t) {
   }
   if (t.url) return '<a class="' + cls + '" href="' + esc(t.url) + '">' + inner + '</a>';
   return '<div class="' + cls + '">' + inner + '</div>';
+}
+
+/** 회의 할 일 — 포털에서 바로 완료 표시 */
+function doneMeetTask(ev, id) {
+  ev.preventDefault(); ev.stopPropagation();
+  var btn = ev.currentTarget;
+  if (btn) { btn.className = 'tick on'; btn.innerHTML = '✓'; }
+  callServer('minutesTaskDone', [caToken(), id, true], function () {
+    var row = btn && btn.parentNode;
+    if (row) { row.style.transition = 'opacity .25s'; row.style.opacity = '0'; }
+    setTimeout(function () {
+      TODOS = TODOS.filter(function (x) { return x.id !== 'meet-' + id; });
+      if (SELF) SELF.todos = TODOS;
+      if (NF_HOME) NF_HOME.todos = TODOS;
+      renderTodos({ todos: TODOS });
+    }, 320);
+  }, function (e) {
+    if (btn) { btn.className = 'tick'; btn.innerHTML = ''; }
+    alert(e.message || e);
+  });
+  return false;
 }
 
 function stepBars(s) {
