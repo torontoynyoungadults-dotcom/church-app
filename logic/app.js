@@ -1814,18 +1814,71 @@ function deleteCellMemberPhoto(token, cellName, name) {
    제자훈련 (매주 화요일 · 9주 과정)
    ========================================================= */
 
-var 훈련_이름 = 0, 훈련_등록일 = 1, 훈련_메모 = 2, 훈련_회비 = 3, 훈련_회비일 = 4, 훈련_회비메모 = 5;
+var 훈련_이름 = 0, 훈련_등록일 = 1, 훈련_메모 = 2, 훈련_회비 = 3, 훈련_회비일 = 4, 훈련_회비메모 = 5, 훈련_기수 = 6;
 var 훈련출결_이름 = 0, 훈련출결_날짜 = 1, 훈련출결_출결 = 2;
 
 /** 제자훈련 설정 { start, weeks, passRate } */
-function 훈련설정_() {
-  var weeks = parseInt(설정값_('제자훈련주차수'), 10);
-  var pass = parseInt(설정값_('제자훈련수료기준'), 10);
-  return {
+var SHEET_훈련기수 = '제자훈련기수';
+var HEAD_훈련기수 = ['ID', '이름', '시작일', '주차수', '수료기준'];
+var TC_ID = 0, TC_이름 = 1, TC_시작 = 2, TC_주차 = 3, TC_기준 = 4;
+
+function 훈련기수시트_() {
+  var sh = 주보시트_(SHEET_훈련기수, HEAD_훈련기수);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_훈련기수.length).setValues([HEAD_훈련기수]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+/**
+ * 기수 목록. 아직 없으면 지금 설정으로 첫 기수를 하나 만들어 둡니다
+ * (예전 명단은 기수 칸이 비어 있는데, 그건 모두 첫 기수로 봅니다)
+ */
+function 훈련기수들_() {
+  var list = rows_(SHEET_훈련기수).filter(function (r) { return String(r[TC_ID]).trim(); })
+    .map(function (r) {
+      var w = parseInt(r[TC_주차], 10), p = parseInt(r[TC_기준], 10);
+      return { id: String(r[TC_ID]).trim(), name: String(r[TC_이름] || '').trim(),
+        start: 날짜문자열_(r[TC_시작]),
+        weeks: (w && w > 0 && w <= 52) ? w : 9,
+        passRate: (isNaN(p) || p < 0 || p > 100) ? 80 : p };
+    });
+  if (list.length) return list.sort(function (a, b) { return (b.start || '').localeCompare(a.start || ''); });
+
+  // 처음 — 지금 설정 시트 값으로 1기를 만듭니다
+  var w0 = parseInt(설정값_('제자훈련주차수'), 10), p0 = parseInt(설정값_('제자훈련수료기준'), 10);
+  var first = { id: 'C1', name: '1기',
     start: 설정날짜_('제자훈련시작일', '2026-09-22'),
-    weeks: (weeks && weeks > 0 && weeks <= 52) ? weeks : 9,
-    passRate: (pass && pass >= 0 && pass <= 100) ? pass : 80
-  };
+    weeks: (w0 && w0 > 0 && w0 <= 52) ? w0 : 9,
+    passRate: (isNaN(p0) || p0 < 0 || p0 > 100) ? 80 : p0 };
+  try {
+    훈련기수시트_().appendRow([first.id, first.name, first.start, first.weeks, first.passRate]);
+    캐시비움_();
+  } catch (e) {}
+  return [first];
+}
+
+function 지금기수_() {
+  var list = 훈련기수들_();
+  var cur = String(설정값_('제자훈련현재기수') || '').trim();
+  var hit = list.filter(function (c) { return c.id === cur; })[0];
+  return hit || list[0];
+}
+
+function 기수찾기_(id) {
+  id = String(id || '').trim();
+  if (!id) return 지금기수_();
+  return 훈련기수들_().filter(function (c) { return c.id === id; })[0] || 지금기수_();
+}
+
+/** 이 사람이 이 기수 명단에 있는지 (기수 칸이 비어 있으면 첫 기수) */
+function 기수맞나_(row, cohortId, firstId) {
+  var v = String(row[훈련_기수] || '').trim();
+  if (!v) v = firstId;
+  return v === cohortId;
+}
+
+function 훈련설정_(cohortId) {
+  var c = 기수찾기_(cohortId);
+  return { id: c.id, name: c.name, start: c.start, weeks: c.weeks, passRate: c.passRate };
 }
 
 /** 시작일부터 매주 같은 요일로 weeks 회 */
@@ -1859,34 +1912,102 @@ function saveDiscipleshipConfig(key, cfg) {
   설정저장_('제자훈련주차수', weeks);
   설정저장_('제자훈련수료기준', pass);
   캐시비움_();
-  return getDiscipleship(key);
+  // 지금 보고 있는 기수에도 같이 반영합니다
+  var cur = 지금기수_();
+  return saveDiscipleshipCohort(key, { id: cur.id, name: cfg.name || cur.name,
+    start: start, weeks: weeks, passRate: pass });
 }
 
-function addDiscipleshipMember(key, name) {
+function addDiscipleshipMember(key, name, cohortId) {
   requireAdmin_(key);
   name = String(name || '').trim();
   if (!name) throw new Error('이름을 입력해주세요.');
-  var exists = rows_(SHEET_제자훈련).some(function (r) { return String(r[훈련_이름]).trim() === name; });
-  if (exists) throw new Error(name + '님은 이미 명단에 있습니다.');
-  sheet_(SHEET_제자훈련).appendRow([name, ymd_(new Date()), '', '', '', '']);
+  var 기수들 = 훈련기수들_(), cfg = 훈련설정_(cohortId);
+  var 첫기수 = 기수들[기수들.length - 1].id;
+  var exists = rows_(SHEET_제자훈련).some(function (r) {
+    return String(r[훈련_이름]).trim() === name && 기수맞나_(r, cfg.id, 첫기수);
+  });
+  if (exists) throw new Error(name + '님은 이미 ' + cfg.name + ' 명단에 있습니다.');
+  ensureColumn_(SpreadsheetApp.getActiveSpreadsheet(), SHEET_제자훈련, 훈련_기수 + 1, '기수');
+  sheet_(SHEET_제자훈련).appendRow([name, ymd_(new Date()), '', '', '', '', cfg.id]);
   캐시비움_();
   훈련교적반영_(name);
-  return getDiscipleship(key);
+  return getDiscipleship(key, cfg.id);
 }
 
-function removeDiscipleshipMember(key, name) {
+function removeDiscipleshipMember(key, name, cohortId) {
   requireAdmin_(key);
   name = String(name || '').trim();
+  var 기수들 = 훈련기수들_(), cfg = 훈련설정_(cohortId);
+  var 첫기수 = 기수들[기수들.length - 1].id;
   var sh = sheet_(SHEET_제자훈련), v = sh.getDataRange().getValues();
   for (var i = v.length - 1; i >= 1; i--) {
+    if (!기수맞나_(v[i], cfg.id, 첫기수)) continue;
     if (String(v[i][훈련_이름]).trim() === name) sh.deleteRow(i + 1);
   }
+  // 이 기수의 날짜에 해당하는 출결만 지웁니다
+  var 날짜들 = {};
+  훈련일정_(cfg).forEach(function (d) { 날짜들[d] = 1; });
   var a = sheet_(SHEET_제자훈련출결), av = a.getDataRange().getValues();
   for (var j = av.length - 1; j >= 1; j--) {
-    if (String(av[j][훈련출결_이름]).trim() === name) a.deleteRow(j + 1);
+    if (String(av[j][훈련출결_이름]).trim() === name && 날짜들[날짜문자열_(av[j][훈련출결_날짜])]) a.deleteRow(j + 1);
   }
   캐시비움_();
   훈련교적반영_(name);
+  return getDiscipleship(key, cfg.id);
+}
+
+/* ---- 기수 관리 ---- */
+
+/** 기수를 새로 만들거나 고칩니다 */
+function saveDiscipleshipCohort(key, c) {
+  requireAdmin_(key);
+  c = c || {};
+  var name = String(c.name || '').trim().slice(0, 40);
+  if (!name) throw new Error('기수 이름을 적어주세요. (예: 2026 가을)');
+  var start = String(c.start || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) throw new Error('시작일을 골라주세요.');
+  var weeks = parseInt(c.weeks, 10);
+  if (!weeks || weeks < 1 || weeks > 52) throw new Error('주차 수는 1~52 사이로 적어주세요.');
+  var pass = parseInt(c.passRate, 10);
+  if (isNaN(pass) || pass < 0 || pass > 100) throw new Error('수료 기준은 0~100 사이로 적어주세요.');
+
+  훈련기수들_();                       // 첫 기수가 없으면 만들어 둡니다
+  var sh = 훈련기수시트_(), v = sh.getDataRange().getValues();
+  var id = String(c.id || '').trim(), at = 0;
+  if (id) { for (var i = 1; i < v.length; i++) if (String(v[i][TC_ID]).trim() === id) { at = i + 1; break; } }
+  if (!id) id = 'C' + Date.now().toString(36);
+  var row = [id, name, start, weeks, pass];
+  if (at) sh.getRange(at, 1, 1, row.length).setValues([row]);
+  else { sh.appendRow(row); at = sh.getLastRow(); }
+  sh.getRange(at, TC_시작 + 1).setNumberFormat('@').setValue(start);
+  설정저장_('제자훈련현재기수', id);
+  캐시비움_();
+  return getDiscipleship(key, id);
+}
+
+/** 보고 있는 기수를 바꿉니다 */
+function setDiscipleshipCohort(key, id) {
+  requireAdmin_(key);
+  설정저장_('제자훈련현재기수', String(id || '').trim());
+  캐시비움_();
+  return getDiscipleship(key, id);
+}
+
+function deleteDiscipleshipCohort(key, id) {
+  requireAdmin_(key);
+  id = String(id || '').trim();
+  var list = 훈련기수들_();
+  if (list.length <= 1) throw new Error('기수가 하나뿐이라 지울 수 없습니다.');
+  var 기수들 = list, 첫기수 = 기수들[기수들.length - 1].id;
+  var 남은 = rows_(SHEET_제자훈련).filter(function (r) {
+    return String(r[훈련_이름] || '').trim() && 기수맞나_(r, id, 첫기수);
+  }).length;
+  if (남은) throw new Error('이 기수에 ' + 남은 + '명이 있습니다. 명단을 먼저 비워주세요.');
+  var sh = 훈련기수시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][TC_ID]).trim() === id) sh.deleteRow(i + 1);
+  설정저장_('제자훈련현재기수', '');
+  캐시비움_();
   return getDiscipleship(key);
 }
 
@@ -2009,14 +2130,16 @@ function syncDiscipleship(key) {
   return getDiscipleship(key);
 }
 
-function getDiscipleship(key) {
+function getDiscipleship(key, cohortId) {
   requireAdmin_(key);
-  var cfg = 훈련설정_(), dates = 훈련일정_(cfg), today = ymd_(new Date());
+  var 기수들 = 훈련기수들_();
+  var cfg = 훈련설정_(cohortId), dates = 훈련일정_(cfg), today = ymd_(new Date());
   var 출결 = 훈련출결맵_();
   var 교적 = 교적맵_();
+  var 첫기수 = 기수들[기수들.length - 1].id;      // 기수 칸이 빈 줄은 가장 오래된 기수로 봅니다
 
   var list = rows_(SHEET_제자훈련)
-    .filter(function (r) { return String(r[훈련_이름] || '').trim(); })
+    .filter(function (r) { return String(r[훈련_이름] || '').trim() && 기수맞나_(r, cfg.id, 첫기수); })
     .map(function (row) {
       var n = String(row[훈련_이름]).trim();
       var s = 훈련집계_(n, 출결, dates, cfg, today);
@@ -2037,6 +2160,7 @@ function getDiscipleship(key) {
 
   return {
     config: cfg, dates: dates, today: today, current: current, next: next,
+    cohorts: 기수들, cohortId: cfg.id,
     list: list,
     names: Object.keys(교적).sort(function (a, b) { return a.localeCompare(b, 'ko'); }),
     stats: {

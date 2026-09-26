@@ -643,6 +643,10 @@ header h1 { color: #F26B21 !important; }
 .pprow { display: flex; align-items: baseline; gap: 10px; padding: 9px 0; border-top: 1px solid var(--hair-2); font-size: 14px; }
 .pprow:first-of-type { border-top: none; }
 .pprow b { min-width: 74px; }
+.cohbar { display: flex; align-items: center; gap: 8px; margin: 0 12px 10px; }
+.cohbar label { font-size: 12px; font-weight: 800; color: var(--ink-3); flex: none; }
+.cohbar select { width: auto !important; min-width: 150px; padding: 8px 11px !important; font-size: 13.5px !important; }
+.cohbar .btn { flex: none; margin-left: auto; }
 /* 체크 상자 */
 .lkchg { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.55; cursor: pointer; }
 .lkchg input[type=checkbox] {
@@ -1032,6 +1036,11 @@ header h1 { color: #F26B21 !important; }
       <span class="sectitle">제자훈련 관리</span>
       <span class="secspace"></span>
     </div>
+    <div class="cohbar">
+      <label>기수</label>
+      <select id="trCohort" onchange="pickCohort()"></select>
+      <button type="button" class="btn mini" onclick="newCohort()">+ 새 기수</button>
+    </div>
     <div class="tabs subtabs">
       <button type="button" id="st_tr_check" onclick="go('tr','check')">출석 체크</button>
       <button type="button" id="st_tr_status" onclick="go('tr','status')">전체 현황</button>
@@ -1080,6 +1089,7 @@ header h1 { color: #F26B21 !important; }
         <span class="chip">훈련 설정</span>
         <p class="sub" style="margin:-6px 0 10px;">시작일부터 매주 같은 요일로 진행됩니다.</p>
         <div class="editbox" style="border-top:none;margin-top:0;padding-top:0;">
+          <div class="efield"><label>기수 이름</label><input type="text" id="trName" maxlength="40" placeholder="예: 2026 가을"></div>
           <div class="efield"><label>시작일</label><input type="date" id="trStart"></div>
           <div class="efield"><label>총 주차</label><input type="number" id="trWeeks" min="1" max="52" inputmode="numeric"></div>
           <div class="efield"><label>수료 기준 출석률 (%)</label><input type="number" id="trPass" min="0" max="100" inputmode="numeric"></div>
@@ -3615,8 +3625,37 @@ function trSheetPdf() {
     function (e) { el('trPdfMsg').textContent = e.message || '만들지 못했습니다.'; });
 }
 
+var TR_COH = '';
+
+function drawCohorts() {
+  if (!TR || !TR.cohorts) return;
+  el('trCohort').innerHTML = TR.cohorts.map(function (c) {
+    return '<option value="' + esc(c.id) + '"' + (c.id === TR.cohortId ? ' selected' : '') + '>' +
+      esc(c.name) + ' (' + esc(c.start) + ')</option>';
+  }).join('');
+  TR_COH = TR.cohortId;
+  if (el('trName')) el('trName').value = (TR.config && TR.config.name) || '';
+}
+
+function pickCohort() {
+  var id = el('trCohort').value;
+  callServer('setDiscipleshipCohort', [KEY, id], function (d) {
+    TR = d; rememberPhotos(d.list); renderTraining(); drawCohorts();
+  }, function (e) { alert(e.message || '바꾸지 못했습니다.'); });
+}
+
+function newCohort() {
+  var name = prompt('새 기수 이름을 적어주세요. (예: 2027 봄)');
+  if (!name) return;
+  var start = prompt('시작일을 적어주세요. (예: 2027-03-03)', '');
+  if (!start) return;
+  callServer('saveDiscipleshipCohort', [KEY, { name: name, start: start, weeks: 9, passRate: 80 }],
+    function (d) { TR = d; rememberPhotos(d.list); renderTraining(); drawCohorts(); loadHomeStats(); },
+    function (e) { alert(e.message || '만들지 못했습니다.'); });
+}
+
 function loadTraining(after) {
-  callServer('getDiscipleship', [KEY], function (d) { TR = d; rememberPhotos(d.list); renderTraining(); if (after) after(); }, function (e) {
+  callServer('getDiscipleship', [KEY, TR_COH], function (d) { TR = d; rememberPhotos(d.list); renderTraining(); drawCohorts(); if (after) after(); }, function (e) {
       el('trCheckList').innerHTML = '<p class="empty">' + esc(e.message || '불러오지 못했습니다.') + '</p>';
     });
 }
@@ -3791,7 +3830,7 @@ function addTrMember() {
   var name = el('trNew').value.trim() || el('trPick').value;
   if (!name) { el('trAddMsg').textContent = '이름을 선택하거나 입력해주세요.'; return; }
   el('trAddMsg').textContent = '추가하는 중…';
-  callServer('addDiscipleshipMember', [KEY, name], function (d) {
+  callServer('addDiscipleshipMember', [KEY, name, TR_COH], function (d) {
       el('trAddMsg').textContent = ''; el('trNew').value = ''; el('trPick').value = '';
       trAfterSave(d); loadHomeStats();
     }, function (e) { el('trAddMsg').textContent = e.message || '추가 실패'; });
@@ -3799,19 +3838,21 @@ function addTrMember() {
 
 function removeTrMember(name) {
   if (!confirm(name + '님을 제자훈련 명단에서 빼고 출석 기록도 지울까요?')) return;
-  callServer('removeDiscipleshipMember', [KEY, name], function (d) { trAfterSave(d); loadHomeStats(); }, function (e) { alert(e.message || '삭제 실패'); });
+  callServer('removeDiscipleshipMember', [KEY, name, TR_COH], function (d) { trAfterSave(d); loadHomeStats(); }, function (e) { alert(e.message || '삭제 실패'); });
 }
 
 function saveTrConfig() {
   el('trCfgMsg').textContent = '저장하는 중…';
-  callServer('saveDiscipleshipConfig', [KEY, {
+  callServer('saveDiscipleshipCohort', [KEY, {
+      id: TR_COH || (TR.config && TR.config.id) || '',
+      name: el('trName').value.trim() || (TR.config && TR.config.name) || '1기',
       start: el('trStart').value.trim(),
       weeks: el('trWeeks').value,
       passRate: el('trPass').value
     }], function (d) {
-      el('trCfgMsg').textContent = '저장됐습니다.';
-      trWeek = ''; trAfterSave(d); loadHomeStats();
-    }, function (e) { el('trCfgMsg').textContent = e.message || '저장 실패'; });
+      el('trCfgMsg').textContent = '저장했습니다.';
+      trWeek = ''; TR = d; trAfterSave(d); drawCohorts(); loadHomeStats();
+    }, function (e) { el('trCfgMsg').textContent = e.message || '저장하지 못했습니다.'; });
 }
 
 /* ==================== 출력 ==================== */
