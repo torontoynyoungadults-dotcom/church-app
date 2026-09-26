@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* 오늘의 성경 묵상 — 구조만 정의합니다 */
+  :root { --accent: #2E7D6B; --tone-rgb: 46,125,107; }
+  * { box-sizing: border-box; }
+
+  .vbar { display: flex; gap: 8px; }
+  .vbar input { flex: 1; min-width: 0; }
+  .vbar button { flex: none; }
+
+  .today {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer;
+    margin-top: 10px; padding: 13px 14px; border-radius: 13px; font-family: inherit;
+    background: rgba(var(--tone-rgb),.22); border: 1px solid rgba(var(--tone-rgb),.45);
+  }
+  .today .ti2 { flex: none; font-size: 21px; }
+  .today .tb2 { flex: 1; min-width: 0; }
+  .today .tb2 span { display: block; font-size: 12.5px; font-weight: 800; letter-spacing: .1em;
+    color: #BFE8DA; text-transform: uppercase; }
+  .today .tb2 b { display: block; font-size: 17px; font-weight: 800; color: #FFFFFF; margin-top: 2px; }
+  .today .tgo { flex: none; color: #FFFFFF; font-size: 20px; }
+
+  .vres { margin-top: 2px; }
+  .vres .vh { font-size: 21px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em; margin: 0 0 4px; }
+  .vres .vsum { font-size: 16px; line-height: 1.85; color: #FFFFFF; margin: 0 0 16px;
+    padding: 12px 14px; border-radius: 12px; background: rgba(var(--tone-rgb),.2);
+    border-left: 3px solid rgba(var(--tone-rgb),.8); }
+  .vsec { margin-top: 18px; }
+  .vsec h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 9px;
+    font-size: 13px; font-weight: 800; letter-spacing: .1em; color: #BFE8DA; text-transform: uppercase; }
+  .vsec ol, .vsec ul { margin: 0; padding-left: 20px; }
+  .vsec li { font-size: 16px; line-height: 1.9; color: #F4F1EC; margin-bottom: 9px; }
+  .vpray { font-size: 15.5px; line-height: 1.9; color: #F0EDE8; font-style: italic;
+    padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.08); }
+  .vfoot { margin-top: 16px; font-size: 12.5px; color: #C7C1B9; line-height: 1.8; }
+
+  .vrec { display: grid; gap: 7px; }
+  .vrec button {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; cursor: pointer;
+    padding: 11px 13px; border-radius: 11px; font-family: inherit;
+    background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.15);
+  }
+  .vrec button b { flex: none; font-size: 15px; font-weight: 800; color: #FFFFFF; }
+  .vrec button span { flex: 1; min-width: 0; font-size: 13.5px; color: #DCD7D0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .spin { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -2px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
+  body .panel {
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: var(--night-ink) !important;
+    box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+  }
+  body .panel .chip { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
+  body .panel .empty, body .panel .meta { color: #E9E5DF !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #F2EFEA !important; }
+  body .panel b, body .panel strong { color: #FFFFFF; }
+  body .panel input, body .panel select, body .panel textarea {
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
+    color: #FFFFFF !important;
+  }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel .picklist button {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+    color: #F5F3EF !important;
+  }
+  body .panel .picklist button.picked {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #fff !important;
+  }
+  body .panel .btn:not(.accent):not(.danger) {
+    background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
+    color: #FFFFFF !important;
+  }
+  body .panel .btn.accent, body .panel .submit {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
+  }
+
+  /* 안내 박스 · 카드 · 통계 · 줄 버튼도 같은 유리로 */
+  body .notice, body .banner, body .callout, body .subnotice,
+  body .card, body .nfcard, body .mcard, body .dcard, body .mrow, body .song,
+  body .fileitem, body .msrow, body .stat, body .moodbox, body .facebox, body .rowbtn {
+    background: rgba(255,255,255,.055) !important;
+    border-color: rgba(255,255,255,.12) !important;
+    color: var(--night-ink) !important;
+    box-shadow: none !important;
+  }
+  body .notice b, body .banner b, body .callout b,
+  body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
+    color: #FFFFFF !important;
+  }
+  body .notice p, body .banner p, body .callout p, body .subnotice p,
+  body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
+    color: #E9E5DF !important;
+  }
+  body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
+  body .bar { background: rgba(255,255,255,.12) !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #EDEAE5 !important; }
+  body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
+
+  /* ============ 가독성 최우선 — 어두운 유리 위 글씨는 흰색 ============ */
+body .tpl button,
+  body /* 문항 만들기 */
+  .q,
+  body .addq button,
+  body .rstat .b,
+  body .tscroll {
+    background: rgba(255,255,255,.075) !important;
+    border-color: rgba(255,255,255,.15) !important;
+    color: #F4F1EC !important;
+    box-shadow: none !important;
+  }
+body .tpl button b,
+  body /* 문항 만들기 */
+  .q b,
+  body .addq button b,
+  body .rstat .b b,
+  body .tscroll b { color: #FFFFFF !important; }
+body .tpl button .k,
+  body /* 문항 만들기 */
+  .q .k,
+  body .addq button .k,
+  body .rstat .b .k,
+  body .tscroll .k, body .tpl button .meta,
+  body /* 문항 만들기 */
+  .q .meta,
+  body .addq button .meta,
+  body .rstat .b .meta,
+  body .tscroll .meta { color: #E4E0DA !important; }
+
+  body .panel .picklist button .t b, body .picklist button .t b { color: #FFFFFF !important; }
+  body .panel .picklist button .t span, body .picklist button .t span { color: #DED9D2 !important; }
+  body .picklist button.picked .t b, body .picklist button.picked .t span { color: #FFFFFF !important; }
+  body .panel .closing { color: #E9E5DF !important; }
+  body .panel .closing b { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .lede, body .panel .fnote,
+  body .panel .empty, body .panel .meta, body .panel .desc, body .panel .note,
+  body .panel .cap, body .panel small, body .panel .msg, body .panel .fs { color: #E4E0DA !important; }
+  body .panel > p, body .panel li { color: #ECE9E4; }
+  body .panel h1, body .panel h2, body .panel h3, body .panel h4,
+  body .panel .tit, body .panel .ttl, body .panel .nm { color: #FFFFFF !important; }
+  body .panel input::placeholder, body .panel textarea::placeholder,
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel a:not(.btn) { color: #FFC9AB; }
+  body .panel hr, body .panel .divider { border-color: rgba(255,255,255,.18) !important; }
+  body .panel option, body .panel optgroup { color: #1A1917; }
+
+  /* 어두운 유리 위에서는 글씨 변수 자체를 밝은 쪽으로 (가독성 최우선) */
+  body .shell, body .shell * {
+    --ink-1: #FFFFFF; --ink-2: #F0EDE8; --ink-3: #DCD7D0; --ink-4: #C2BCB4;
+    --night-ink: #FFFFFF; --night-sub: #D9D4CD;
+    --hair: rgba(255,255,255,.15); --hair-2: rgba(255,255,255,.22);
+  }
+  body option, body optgroup { color: #1A1917; background: #FFFFFF; }
+  body .ynfoot .cp { color: #CFC9C1 !important; }
+
+  /* 밝은 회색 박스도 유리로 (가독성) */
+body .fcard:hover,
+  body .st.준비중,
+  body .st.보관,
+  body .fbar .bg {
+    background: rgba(255,255,255,.085) !important;
+    border-color: rgba(255,255,255,.16) !important;
+    color: #F4F1EC !important;
+  }
+  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
+  body button:disabled, body .submit:disabled, body .btn:disabled {
+    background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
+    border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
+  }
+  body .btn.accent, body .dirbtn, body .pwsubmit { color: #FFFFFF !important; }
+  body .wk.on, body .wk.on * { color: #FFFFFF !important; }
+
+  /* 유리 위 흰 버튼·탭·칩 — 글씨와 배경 짝 맞추기 (가독성) */
+  body .btn:not(.accent):not(.danger):not(.primary):not(.ghost) {
+    background: rgba(255,255,255,.13) !important;
+    border-color: rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body .tabs button { color: #DCD7D0 !important; }
+  body .tabs button.on {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #FFFFFF !important;
+  }
+  body .st.준비중, body .st.보관 { background: rgba(255,255,255,.16) !important; color: #FFFFFF !important; }
+  body .st.받는중 { background: #1D6B4B !important; color: #FFFFFF !important; }
+  body .st.마감 { background: #8C3416 !important; color: #FFFFFF !important; }
+
+  /* 배경 없는 버튼은 브라우저 기본 검정 글씨가 되므로 밝게 (가독성) */
+  body .seg button, body .shell button:not([class]) { color: #DCD7D0 !important; }
+  body .seg button.on { color: #FFFFFF !important; }
+
+  /* 상태색 칩·위험 버튼도 어두운 유리 위에서 또렷하게 */
+  body .btn.danger { background: rgba(255,255,255,.12) !important; color: #FF9E90 !important;
+                     border-color: rgba(255,158,144,.45) !important; }
+  body .tn.off, body .tp.off { background: rgba(255,120,100,.22) !important; color: #FFB3A6 !important; }
+  body .tn.guest { background: rgba(var(--tone-rgb,210,81,31),.26) !important; color: #FFC0A1 !important; }
+  body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
+  body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
+  body .today .ti2 { color: #FFFFFF; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
+    <h1>오늘의 성경 묵상</h1>
+    <p class="meta">YNTORONTO &nbsp;·&nbsp; DAILY DEVOTION</p>
+  </header>
+  <div id="root"><div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div></div>
+  <footer></footer>
+</div>
+<!--#include Theme-->
+<script>
+var P = window.__PREFILL__ || {};
+var TOKEN = P.t || '';
+var D = null;
+var CUR = null;
+var BUSY = false;
+
+function el(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function jsq(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function say(id, t, k) { var m = el(id); if (m) { m.className = 'msg' + (k ? ' ' + k : ''); m.innerHTML = t || ''; } }
+
+function boot() {
+  if (!TOKEN) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">포털에서 “오늘의 성경 묵상” 으로 들어와 주세요.</p>' +
+      '<a class="btn full" href="/">포털로 가기</a></div>';
+    return;
+  }
+  callServer('devotionHome', [TOKEN], function (r) { D = r; draw(); }, function (e) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || e) + '</p>' +
+      '<a class="btn full" href="/">포털로 가기</a></div>';
+  });
+}
+
+function draw() {
+  var h = '<div class="panel">' +
+    '<span class="chip">성경 구절로 묵상하기</span>' +
+    '<p class="hint">구절을 적고 누르시면, 한국 정통 장로교(개혁주의) 관점에서 ' +
+      '쉬운 해설과 삶에 적용할 질문을 만들어 드립니다.</p>' +
+    '<div class="vbar">' +
+      '<input type="text" id="vIn" placeholder="예) 요한복음 3:16" ' +
+        'onkeydown="if(event.key===\'Enter\')makeIt()">' +
+      '<button class="btn accent" id="vGo" onclick="makeIt()">묵상하기</button>' +
+    '</div>' +
+    '<button class="today" onclick="pick(\'' + jsq(D.today) + '\')">' +
+      '<span class="ti2">🌿</span>' +
+      '<span class="tb2"><span>오늘의 추천 구절</span><b>' + esc(D.today) + '</b></span>' +
+      '<span class="tgo">›</span></button>' +
+    '<p class="msg" id="vMsg"></p>' +
+    (D.on ? '' : '<p class="msg err" style="margin-top:10px;">AI 기능이 아직 켜져 있지 않습니다. 커미티에 문의해주세요.</p>') +
+    '</div>';
+
+  h += '<div id="resBox"></div>';
+
+  h += '<div class="panel"><span class="chip">함께 나눈 묵상</span>';
+  if (!D.recent.length) h += '<p class="empty">아직 만들어진 묵상이 없습니다. 첫 묵상을 시작해 보세요.</p>';
+  else {
+    h += '<div class="vrec">';
+    D.recent.forEach(function (x) {
+      h += '<button onclick="pick(\'' + jsq(x.verse) + '\')"><b>' + esc(x.verse) + '</b>' +
+        '<span>' + esc(x.summary) + '</span></button>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="panel"><p class="guide" style="font-size:13px;line-height:1.85;color:#DCD7D0;margin:0;">' +
+    'AI 가 만든 글입니다. 성경 본문은 꼭 성경으로 직접 읽어 주시고, ' +
+    '해설은 말씀을 묵상하는 데 돕는 참고로만 써주세요. 이상한 내용이 보이면 커미티에 알려주세요.</p></div>';
+
+  el('root').innerHTML = h;
+  if (CUR) paintRes(CUR, true);
+}
+
+function pick(v) { el('vIn').value = v; makeIt(); }
+
+function makeIt(again) {
+  if (BUSY) return;
+  var v = el('vIn').value.trim();
+  if (!v) { say('vMsg', '성경 구절을 적어주세요.', 'err'); return; }
+  BUSY = true;
+  var btn = el('vGo'); if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span>'; }
+  say('vMsg', '말씀을 묵상하는 중입니다… 10초쯤 걸립니다.');
+  callServer('makeDevotion', [TOKEN, v, !!again], function (r) {
+    BUSY = false;
+    if (btn) { btn.disabled = false; btn.textContent = '묵상하기'; }
+    say('vMsg', r.cached ? '전에 만들어 둔 묵상입니다.' : '완성했습니다.', 'ok');
+    CUR = r.item;
+    paintRes(r.item);
+  }, function (e) {
+    BUSY = false;
+    if (btn) { btn.disabled = false; btn.textContent = '묵상하기'; }
+    say('vMsg', esc(e.message || e), 'err');
+  });
+}
+
+function paintRes(x, quiet) {
+  var h = '<div class="panel vres">' +
+    '<p class="vh">' + esc(x.verse) + '</p>' +
+    (x.summary ? '<p class="vsum">' + esc(x.summary) + '</p>' : '');
+
+  if (x.explain && x.explain.length) {
+    h += '<div class="vsec"><h4>📖 쉬운 해설</h4><ul>';
+    x.explain.forEach(function (t) { h += '<li>' + esc(t) + '</li>'; });
+    h += '</ul></div>';
+  }
+  if (x.questions && x.questions.length) {
+    h += '<div class="vsec"><h4>💬 나에게 묻기</h4><ol>';
+    x.questions.forEach(function (t) { h += '<li>' + esc(t) + '</li>'; });
+    h += '</ol></div>';
+  }
+  if (x.prayer) {
+    h += '<div class="vsec"><h4>🙏 함께 드리는 기도</h4><p class="vpray">' + esc(x.prayer) + '</p></div>';
+  }
+  h += '<p class="vfoot">' + esc(x.at || '') + (x.by ? ' · ' + esc(x.by) + ' 님이 처음 만듦' : '') + '</p>' +
+    '<button class="btn full" style="margin-top:10px;" onclick="makeIt(true)">다르게 다시 만들기</button>' +
+    '</div>';
+
+  var box = el('resBox');
+  if (box) {
+    box.innerHTML = h;
+    if (!quiet) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+</script>
+</body>
+</html>

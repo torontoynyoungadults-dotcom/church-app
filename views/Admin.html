@@ -655,6 +655,10 @@ header h1 { color: #F26B21 !important; }
   flex: none; accent-color: #D2511F;
 }
 .lkchg em { display: block; font-style: normal; color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+.lkchg span { flex: 1; min-width: 0; }
+.lkchg span b { display: block; font-weight: 800; }
+.lkchg span small { display: block; font-size: 13.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.7; }
+.lkchg + .lkchg { margin-top: 12px; }
 /* 알림 관리 — 2단계 */
 .pktg { display: flex; align-items: center; gap: 5px; flex: none; }
 .tglab { font-size: 11.5px; color: var(--ink-3); font-weight: 750; }
@@ -803,6 +807,16 @@ header h1 { color: #F26B21 !important; }
       <span class="secspace"></span>
     </div>
     <div id="pushAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
+  </div>
+
+  <!-- ===================== AI 설정 ===================== -->
+  <div id="sec_ai" class="section" style="display:none;">
+    <div class="secbar">
+      <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
+      <span class="sectitle">AI 설정</span>
+      <span class="secspace"></span>
+    </div>
+    <div id="aiAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
   </div>
 
   <!-- ===================== 셀 (소그룹) 관리 ===================== -->
@@ -1536,7 +1550,7 @@ function fail(e) { alert(e && e.message ? e.message : '처리에 실패했습니
 var YN_ORANGE = ['#D2511F', '210,81,31'];
 var SEC_TONE = {
   home: YN_ORANGE, cell: YN_ORANGE, nf: YN_ORANGE, team: YN_ORANGE, tr: YN_ORANGE,
-  dir: YN_ORANGE, acct: YN_ORANGE, mis: YN_ORANGE, cal: YN_ORANGE, push: YN_ORANGE
+  dir: YN_ORANGE, acct: YN_ORANGE, mis: YN_ORANGE, cal: YN_ORANGE, push: YN_ORANGE, ai: YN_ORANGE
 };
 /* 탭을 더 붙이려면 여기에 이름을 더하고 sub_<sec>_<이름> / st_<sec>_<이름> 를 만들면 됩니다 */
 var SEC_SUBS = {
@@ -1544,10 +1558,10 @@ var SEC_SUBS = {
   team: ['summary', 'report', 'manage'], tr: ['check', 'status', 'manage'],
   acct: ['expense', 'entry', 'budget', 'envelope', 'summary']
 };
-var SECTIONS = ['home', 'cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal', 'push'];
+var SECTIONS = ['home', 'cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal', 'push', 'ai'];
 var curSec = 'home';
 var curSub = { cell: 'summary', nf: 'status', team: 'summary', tr: 'check', acct: 'expense' };
-var dirLoaded = false, trLoaded = false, acctLoaded = false, misLoaded = false, calLoaded = false, pushLoaded = false;
+var dirLoaded = false, trLoaded = false, acctLoaded = false, misLoaded = false, calLoaded = false, pushLoaded = false, aiLoaded = false;
 
 /** 화면 전환 — 메뉴 / 각 영역 / 서브 탭 */
 function go(sec, sub, fromHistory) {
@@ -1583,6 +1597,7 @@ function go(sec, sub, fromHistory) {
   if (sec === 'mis' && !misLoaded) { misLoaded = true; loadMissions(); }
   if (sec === 'cal' && !calLoaded) { calLoaded = true; loadCal('sec'); }
   if (sec === 'push' && !pushLoaded) { pushLoaded = true; loadPushAdmin(); }
+  if (sec === 'ai' && !aiLoaded) { aiLoaded = true; loadAiAdmin(); }
 
   if (curSec !== sec) window.scrollTo(0, 0);
   curSec = sec;
@@ -4288,6 +4303,18 @@ function openExpense(no, silent) {
         ? '<div class="exblock"><div class="k">지출 사유</div><div class="v" style="color:var(--low);font-weight:700;">' +
           'CAD 500 이상인데 사유가 비어 있습니다 — 신청자에게 확인이 필요합니다.</div></div>'
         : block('지출 사유', e.reason)) +
+      ((e.detailEn || e.reasonEn)
+        ? '<div class="exblock"><div class="k">English (AI)</div><div class="v" style="white-space:pre-wrap;line-height:1.85;">' +
+            (e.detailEn ? esc(e.detailEn) : '') +
+            (e.detailEn && e.reasonEn ? '\n\n' : '') +
+            (e.reasonEn ? esc(e.reasonEn) : '') +
+            '</div>' +
+            '<button class="btn mini" style="margin-top:8px;" onclick="reTrans(\'' + jsq(e.no) + '\')">다시 번역</button>' +
+            '<button class="btn mini" style="margin-top:8px;margin-left:6px;" onclick="copyEn(\'' + jsq(e.no) + '\')">복사</button>' +
+            '<p class="msg" id="trMsg"></p></div>'
+        : '<div class="exblock"><div class="k">English (AI)</div>' +
+            '<button class="btn mini" onclick="reTrans(\'' + jsq(e.no) + '\')">영문으로 옮기기</button>' +
+            '<p class="msg" id="trMsg"></p></div>') +
       block('식사 참석자', e.attendees) +
       block('신청자 코멘트', e.comment) +
 
@@ -4989,6 +5016,140 @@ if (KEY) {
   el('pw').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') doLogin(); });
   el('pw').focus();
 }
+
+/* ============================================================
+   AI 설정 — 모델 고르기 · 기능 켜고 끄기 · 연결 확인
+   ============================================================ */
+var AI = null, AIMODELS = null;
+
+function loadAiAdmin() {
+  callServer('getAiSetup', [KEY], function (r) { AI = r; drawAi(); }, function (e) {
+    el('aiAdmin').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || e) + '</p></div>';
+  });
+}
+
+function drawAi() {
+  var h = '';
+
+  if (!AI.hasKey) {
+    h += '<div class="panel"><span class="chip">아직 열쇠가 없습니다</span>' +
+      '<p class="hint">Render → 서비스 → Environment 에 <b>GEMINI_API_KEY</b> 를 넣고 다시 배포해주세요. ' +
+      '열쇠는 aistudio.google.com/apikey 에서 무료로 받으실 수 있습니다.</p></div>';
+  }
+
+  /* 1) 켜고 끄기 */
+  h += '<div class="panel"><span class="chip">AI 기능</span>' +
+    '<label class="lkchg"><input type="checkbox" id="aiOn"' + (AI.on ? ' checked' : '') + '>' +
+      '<span><b>AI 기능 전체 켜기</b><small>끄면 묵상 · 설교 요약 · 지출 번역이 모두 멈춥니다</small></span></label>' +
+    '<label class="lkchg"><input type="checkbox" id="aiSermon"' + (AI.sermonAuto ? ' checked' : '') + '>' +
+      '<span><b>설교 자동 요약</b><small>매주 월요일, 유튜브에 올라온 새 설교를 스스로 요약합니다</small></span></label>' +
+    '<label class="lkchg"><input type="checkbox" id="aiExp"' + (AI.expenseTrans ? ' checked' : '') + '>' +
+      '<span><b>지출 영문 자동 번역</b><small>지출 신청이 들어오면 적요 · 사유를 영어로 함께 남깁니다</small></span></label>' +
+    '<button class="btn accent full" style="margin-top:10px;" onclick="saveAi()">저장</button>' +
+    '<p class="msg" id="aiMsg"></p></div>';
+
+  /* 2) 모델 */
+  h += '<div class="panel"><span class="chip">쓸 모델 고르기</span>' +
+    '<p class="hint">지금 쓰는 모델: <b>' + esc(AI.model) + '</b><br>' +
+      'Flash 는 빠르고 싸며, Pro 는 더 꼼꼼하지만 느리고 비쌉니다. 평소에는 Flash 를 권해 드립니다.</p>' +
+    '<div id="aiModelBox">' +
+      (AIMODELS ? modelBox() : '<button class="btn full" onclick="loadModels()">쓸 수 있는 모델 불러오기</button>') +
+    '</div>' +
+    '<p class="msg" id="aiMMsg"></p></div>';
+
+  /* 3) 유튜브 */
+  h += '<div class="panel"><span class="chip">유튜브 채널</span>' +
+    '<p class="hint">설교 영상을 가져올 채널입니다. @핸들 이나 채널 주소를 넣어주세요.</p>' +
+    '<input type="text" id="aiChannel" value="' + esc(AI.channel) + '" placeholder="@토론토영락교회청년부">' +
+    '<button class="btn full" style="margin-top:9px;" onclick="saveChannel()">저장하고 채널 확인</button>' +
+    '<p class="msg" id="aiCMsg"></p></div>';
+
+  /* 4) 연결 확인 */
+  h += '<div class="panel"><span class="chip">연결 확인</span>' +
+    '<p class="hint">고른 모델로 실제 한 번 물어봅니다. 응답 시간도 함께 보여드립니다.</p>' +
+    '<button class="btn full" onclick="testAi()">지금 확인해보기</button>' +
+    '<p class="msg" id="aiTMsg"></p></div>';
+
+  el('aiAdmin').innerHTML = h;
+}
+
+function modelBox() {
+  var list = (AIMODELS && AIMODELS.models) || [];
+  if (!list.length) return '<p class="empty">모델 목록을 받지 못했습니다.</p>';
+  var h = '<div class="picklist">';
+  list.forEach(function (m) {
+    var on = (m.name === AI.model);
+    h += '<button type="button" class="' + (on ? 'picked' : '') + '" onclick="pickModel(\'' + jsq(m.name) + '\')">' +
+      '<span class="emo">' + (/pro/i.test(m.name) ? '🎓' : '⚡') + '</span>' +
+      '<span class="t"><b>' + esc(m.label || m.name) + '</b>' +
+        '<span>' + esc(m.name) + (m.desc ? ' · ' + esc(String(m.desc).slice(0, 70)) : '') + '</span></span></button>';
+  });
+  h += '</div>';
+  if (AIMODELS.fallback) h += '<p class="hint" style="margin-top:9px;">구글에서 목록을 받지 못해 자주 쓰는 모델만 보여드립니다.' +
+    (AIMODELS.error ? ' (' + esc(AIMODELS.error) + ')' : '') + '</p>';
+  return h;
+}
+
+function loadModels() {
+  say('aiMMsg', '불러오는 중…');
+  callServer('aiModelList', [KEY], function (r) {
+    AIMODELS = r; say('aiMMsg', '');
+    el('aiModelBox').innerHTML = modelBox();
+  }, function (e) { say('aiMMsg', e.message || e, 'err'); });
+}
+
+function pickModel(name) {
+  callServer('saveAiSetup', [KEY, { model: name }], function (r) {
+    AI = r.setup;
+    el('aiModelBox').innerHTML = modelBox();
+    say('aiMMsg', name + ' 로 바꿨습니다.', 'ok');
+  }, function (e) { say('aiMMsg', e.message || e, 'err'); });
+}
+
+function saveAi() {
+  callServer('saveAiSetup', [KEY, {
+    on: el('aiOn').checked, sermonAuto: el('aiSermon').checked, expenseTrans: el('aiExp').checked
+  }], function (r) { AI = r.setup; say('aiMsg', '저장했습니다.', 'ok'); },
+     function (e) { say('aiMsg', e.message || e, 'err'); });
+}
+
+function saveChannel() {
+  say('aiCMsg', '채널을 확인하는 중…');
+  callServer('saveAiSetup', [KEY, { channel: el('aiChannel').value.trim() }], function (r) {
+    AI = r.setup;
+    callServer('checkYoutube', [KEY], function (c) {
+      say('aiCMsg', '채널을 찾았습니다. 최근 영상 ' + c.count + '개 · ' + (c.first || ''), 'ok');
+    }, function (e) { say('aiCMsg', e.message || e, 'err'); });
+  }, function (e) { say('aiCMsg', e.message || e, 'err'); });
+}
+
+function testAi() {
+  say('aiTMsg', '물어보는 중…');
+  callServer('aiTest', [KEY, AI.model], function (r) {
+    say('aiTMsg', '잘 됩니다. (' + r.model + ' · ' + r.ms + 'ms) — “' + r.text + '”', 'ok');
+  }, function (e) { say('aiTMsg', e.message || e, 'err'); });
+}
+
+
+/** 지출 영문 번역 — 다시 만들기 · 복사 */
+function reTrans(no) {
+  say('trMsg', '옮기는 중… 5초쯤 걸립니다.');
+  callServer('translateOneExpense', [KEY, no], function (r) {
+    var e = exFind(no);
+    if (e) { e.detailEn = r.en.detail; e.reasonEn = r.en.reason; }
+    openExpense(no, true);
+    say('trMsg', '옮겼습니다.', 'ok');
+  }, function (e) { say('trMsg', e.message || e, 'err'); });
+}
+function copyEn(no) {
+  var e = exFind(no) || {};
+  var t = [e.detailEn || '', e.reasonEn || ''].filter(Boolean).join('\n\n');
+  try {
+    navigator.clipboard.writeText(t);
+    say('trMsg', '복사했습니다.', 'ok');
+  } catch (x) { say('trMsg', '복사하지 못했습니다. 길게 눌러 직접 복사해주세요.', 'err'); }
+}
+
 </script>
 </body>
 </html>

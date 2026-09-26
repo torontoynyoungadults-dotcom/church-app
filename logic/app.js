@@ -990,6 +990,14 @@ function doGet(e) {
     return render_('Bulletin', bpre.edit ? '주보 편집' : '토론토영락교회 청년1부 주보', bpre, 'bulletin');
   }
 
+  if (page === 'devotion') {
+    return render_('Devotion', '오늘의 성경 묵상', { t: p.t || '' }, 'portal');
+  }
+
+  if (page === 'sermons') {
+    return render_('Sermons', '지난 설교 · 요약', { t: p.t || '', id: p.id || '' }, 'portal');
+  }
+
   if (page === 'minutes') {
     return render_('Minutes', '회의록 · 할 일', { t: p.t || '', id: p.id || '' }, 'portal');
   }
@@ -7033,6 +7041,15 @@ function 포털관리메뉴_(r, token) {
       more: [{ t: '셀 신청 · 편성', u: app + '?page=cells&key=' + akey }] });
   }
 
+  /* 1-2. AI 설정 */
+  if (커미티) {
+    out.push({ key: 'ai', title: 'AI 설정', desc: '모델 고르기 · 묵상 · 설교 요약 · 번역', url: base + '#ai',
+      stats: [
+        { n: (AI있나_() ? (AI켜짐_() ? '켜짐' : '꺼짐') : '없음'), l: '상태', warn: !AI켜짐_() },
+        { n: AI모델_().replace(/^gemini-/, ''), l: '모델' }
+      ] });
+  }
+
   /* 2. 새가족 관리 — 새가족팀도 봅니다 */
   if (커미티 || 새가족팀) {
     var n = st.newFamily || {};
@@ -8146,8 +8163,13 @@ function 지출한건_(row, itemIdx) {
     }];
   }
 
+  var en = null;
+  try { en = 지출영문맵_()[no] || null; } catch (e) { en = null; }
+
   return {
     no: String(row[EX_번호] || '').trim(),
+    detailEn: (en && en.detail) || '',
+    reasonEn: (en && en.reason) || '',
     submittedAt: row[EX_제출] instanceof Date ? Utilities.formatDate(row[EX_제출], Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : String(row[EX_제출] || ''),
     submittedDate: row[EX_제출] instanceof Date ? ymd_(row[EX_제출]) : 날짜문자열_(row[EX_제출]),
     status: String(row[EX_상태] || 'In Review').trim(),
@@ -8470,6 +8492,9 @@ function 지출쓰기_(data, opts) {
       total: it.total, receipts: 영수증보기_(it.files)
     };
   });
+  // 영문 번역을 옆 시트에 함께 남깁니다 (AI 가 꺼져 있으면 그냥 넘어갑니다)
+  try { 지출번역_(no, 내역요약, reason); } catch (e) {}
+
   return 지출한건_(row, idx);
 }
 
@@ -11759,7 +11784,9 @@ function getExpenseOpen(key) {
 var 알림작업 = [
   { fn: '미제출리마인더', name: '셀보고 독려', help: '지난 주일 보고서를 안 낸 셀장에게', def: '월 08:00' },
   { fn: '주일독려', name: '주일 셀보고 독려', help: '주일 저녁, 그날 보고서를 아직 안 낸 셀장에게', def: '일 16:30' },
-  { fn: '마감알림', name: '마감 알림', help: '사역팀 보고 · 선교팀 서류 마감을 앞두고', def: '매일 09:00' }
+  { fn: '마감알림', name: '마감 알림', help: '사역팀 보고 · 선교팀 서류 마감을 앞두고', def: '매일 09:00' },
+  { fn: '설교요약돌기', name: '설교 자동 요약', help: '유튜브에 새 설교가 올라오면 AI 가 요약합니다', def: '월 10:00' },
+  { fn: '지출번역돌기', name: '지출 영문 번역', help: '아직 영문이 없는 지출을 밤에 옮겨 둡니다', def: '매일 02:00' }
 ];
 var 알림요일 = ['일', '월', '화', '수', '목', '금', '토', '매일'];
 
@@ -12839,4 +12866,659 @@ function 내회의할일_(name) {
     out.push(t);
   });
   return out.sort(function (a, b) { return (a.due || '9999') < (b.due || '9999') ? -1 : 1; });
+}
+
+/* ============================================================
+   AI (제미나이) — 열쇠는 서버 환경변수에만 두고, 모델은 설정에서 고릅니다
+   ============================================================ */
+
+var AI_기본모델 = 'gemini-2.5-flash';
+
+function AI모델_() {
+  var m = String(설정값_('AI모델') || '').trim();
+  return m || AI_기본모델;
+}
+function AI있나_() {
+  try { return !!HOST.hasGemini(); } catch (e) { return false; }
+}
+function AI켜짐_() {
+  if (!AI있나_()) return false;
+  return String(설정값_('AI켜기') || '켜기').trim() !== '끄기';
+}
+function AI확인_() {
+  if (!AI있나_()) throw new Error('AI 열쇠(GEMINI_API_KEY)가 아직 서버에 설정되지 않았습니다.');
+  if (!AI켜짐_()) throw new Error('AI 기능이 꺼져 있습니다. 관리 화면에서 켜주세요.');
+}
+
+/** 한 번 물어보고 글로 받습니다 */
+function AI_(prompt, o) {
+  AI확인_();
+  o = o || {};
+  var r = HOST.gemini({
+    model: o.model || AI모델_(),
+    prompt: prompt,
+    system: o.system || '',
+    temperature: o.temperature,
+    maxTokens: o.maxTokens,
+    json: !!o.json
+  });
+  return (r && r.text) || '';
+}
+
+/** JSON 으로 받습니다 (앞뒤에 ```json 이 붙어도 벗겨냅니다) */
+function AIJSON_(prompt, o) {
+  o = o || {}; o.json = true;
+  var t = AI_(prompt, o);
+  t = String(t || '').replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  try { return JSON.parse(t); } catch (e) {}
+  var i = t.indexOf('{'), j = t.lastIndexOf('}');
+  if (i >= 0 && j > i) { try { return JSON.parse(t.slice(i, j + 1)); } catch (e2) {} }
+  throw new Error('AI 응답을 읽지 못했습니다. 다시 한 번 눌러주세요.');
+}
+
+/* ---- 관리 화면 ---- */
+
+function getAiSetup(key) {
+  if (!isAdmin_(key)) throw new Error('관리자만 볼 수 있습니다.');
+  return {
+    hasKey: AI있나_(),
+    on: String(설정값_('AI켜기') || '켜기').trim() !== '끄기',
+    model: AI모델_(),
+    channel: String(설정값_('유튜브채널') || '@토론토영락교회청년부').trim(),
+    sermonAuto: String(설정값_('설교자동요약') || '켜기').trim() !== '끄기',
+    expenseTrans: String(설정값_('지출자동번역') || '켜기').trim() !== '끄기'
+  };
+}
+
+function saveAiSetup(key, d) {
+  if (!isAdmin_(key)) throw new Error('관리자만 고칠 수 있습니다.');
+  d = d || {};
+  if (d.model != null) 설정저장_('AI모델', String(d.model).trim().slice(0, 80) || AI_기본모델);
+  if (d.on != null) 설정저장_('AI켜기', d.on ? '켜기' : '끄기');
+  if (d.channel != null) 설정저장_('유튜브채널', String(d.channel).trim().slice(0, 200));
+  if (d.sermonAuto != null) 설정저장_('설교자동요약', d.sermonAuto ? '켜기' : '끄기');
+  if (d.expenseTrans != null) 설정저장_('지출자동번역', d.expenseTrans ? '켜기' : '끄기');
+  return { ok: true, setup: getAiSetup(key) };
+}
+
+/** 쓸 수 있는 모델 목록 — 구글에서 바로 받아옵니다 */
+function aiModelList(key) {
+  if (!isAdmin_(key)) throw new Error('관리자만 볼 수 있습니다.');
+  var r = {};
+  try { r = HOST.geminiModels() || {}; } catch (e) { return { models: AI_추천목록_(), error: e.message || '' , fallback: true }; }
+  var list = r.models || [];
+  if (!list.length) return { models: AI_추천목록_(), error: r.error || '', noKey: !!r.noKey, fallback: true };
+  // 자주 쓰는 것이 위로 오게 정렬합니다
+  var 점수 = function (n) {
+    if (/2\.5-flash($|-)/.test(n)) return 0;
+    if (/2\.5-pro/.test(n)) return 1;
+    if (/2\.0-flash/.test(n)) return 2;
+    if (/flash/.test(n)) return 3;
+    if (/pro/.test(n)) return 4;
+    return 5;
+  };
+  list.sort(function (a, b) {
+    var d = 점수(a.name) - 점수(b.name);
+    return d !== 0 ? d : (a.name < b.name ? -1 : 1);
+  });
+  return { models: list, now: AI모델_() };
+}
+
+function AI_추천목록_() {
+  return [
+    { name: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', desc: '빠르고 저렴 — 평소에 쓰기 좋습니다' },
+    { name: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', desc: '더 꼼꼼하지만 느리고 비쌉니다' },
+    { name: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', desc: '이전 세대 — 아주 빠릅니다' }
+  ];
+}
+
+/** 잘 되는지 한 번 시험해 봅니다 */
+function aiTest(key, model) {
+  if (!isAdmin_(key)) throw new Error('관리자만 할 수 있습니다.');
+  var t0 = new Date().getTime();
+  var out = AI_('다음 문장을 그대로 한 번만 말해 주세요: "연결 확인 완료"', {
+    model: String(model || '').trim() || AI모델_(), maxTokens: 64, temperature: 0
+  });
+  return { ok: true, text: out.slice(0, 120), ms: new Date().getTime() - t0, model: String(model || '').trim() || AI모델_() };
+}
+
+/* ============================================================
+   오늘의 성경 묵상 — 한국 정통 장로교(개혁주의) 관점으로만 풀어 줍니다
+   ============================================================ */
+
+var SHEET_묵상 = '묵상기록';
+var HEAD_묵상 = ['ID', '성경구절', '한줄요약', '해설', '적용질문', '기도', '만든시각', '모델', '만든이'];
+var DV_ID = 0, DV_구절 = 1, DV_요약 = 2, DV_해설 = 3, DV_질문 = 4, DV_기도 = 5, DV_시각 = 6, DV_모델 = 7, DV_사람 = 8;
+
+function 묵상시트_() {
+  var sh = 주보시트_(SHEET_묵상, HEAD_묵상);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_묵상.length).setValues([HEAD_묵상]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+var 묵상_지침 =
+  '당신은 대한예수교장로회의 신앙 고백 위에 선 한국 정통 장로교회(개혁주의)의 신실한 성경 교사입니다.\n' +
+  '반드시 다음 테두리 안에서만 풀어 주세요.\n' +
+  '· 웨스트민스터 신앙고백서와 대·소요리문답의 가르침을 따릅니다.\n' +
+  '· 성경은 하나님의 무오한 말씀이며, 성경이 성경을 해석한다는 원리를 지킵니다.\n' +
+  '· 오직 성경 · 오직 은혜 · 오직 믿음 · 오직 그리스도 · 오직 하나님께 영광의 다섯 가지 원리 위에 섭니다.\n' +
+  '· 모든 본문을 그리스도와 그분의 구속 사역으로 이어 읽되, 본문이 말하지 않는 것을 지어내지 않습니다.\n' +
+  '· 번영신학, 신비주의적 사적 계시, 은사중단 논쟁·세대주의 종말론 같은 교단 간 다툼거리는 다루지 않습니다.\n' +
+  '· 성경 본문(개역개정 등 번역문)을 그대로 옮겨 적지 마세요. 저작권이 있습니다. 내용을 당신의 말로 풀어 주세요.\n' +
+  '· 청년들이 읽습니다. 따뜻하고 쉬운 한국어 존댓말로, 신학 용어는 꼭 필요할 때만 쓰고 바로 풀어 주세요.';
+
+/** 성경 구절 하나를 묵상 가이드로 만들어 줍니다 (같은 구절은 만들어 둔 것을 씁니다) */
+function makeDevotion(token, verse, again) {
+  var who = 폼신청자_(token);
+  verse = String(verse || '').trim().slice(0, 80);
+  if (!verse) throw new Error('성경 구절을 입력해주세요. (예: 요한복음 3:16, 시편 23편)');
+
+  if (!again) {
+    var 있는것 = 묵상찾기_(verse);
+    if (있는것) return { ok: true, cached: true, item: 있는것 };
+  }
+  AI확인_();
+
+  var prompt =
+    '다음 성경 구절로 청년부 묵상 가이드를 만들어 주세요.\n\n' +
+    '성경 구절: ' + verse + '\n\n' +
+    '아래 JSON 형식으로만 답하세요. 다른 말은 쓰지 마세요.\n' +
+    '{\n' +
+    '  "verse": "정리한 구절 표기 (예: 요한복음 3:16)",\n' +
+    '  "summary": "이 본문이 말하는 바를 당신의 말로 한 줄 요약",\n' +
+    '  "explain": ["쉬운 해설 2~3줄. 한 줄에 한 문장씩", "..."],\n' +
+    '  "questions": ["삶에 적용할 질문 2~3개", "..."],\n' +
+    '  "prayer": "본문을 따라 드리는 짧은 기도 한두 줄"\n' +
+    '}\n\n' +
+    '· explain 은 2개에서 3개, questions 는 2개에서 3개로 해주세요.\n' +
+    '· 구절 표기가 성경에 없는 것이면 verse 를 "없음" 으로 하고 나머지는 빈 배열로 주세요.';
+
+  var d = AIJSON_(prompt, { system: 묵상_지침, temperature: 0.5, maxTokens: 1400 });
+  if (!d || String(d.verse || '').trim() === '없음') {
+    throw new Error('성경에서 그 구절을 찾지 못했습니다. "요한복음 3:16" 처럼 적어주세요.');
+  }
+  var item = {
+    id: 'V' + Date.now().toString(36),
+    verse: String(d.verse || verse).trim().slice(0, 80),
+    summary: String(d.summary || '').trim().slice(0, 300),
+    explain: (d.explain || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
+    questions: (d.questions || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
+    prayer: String(d.prayer || '').trim().slice(0, 400),
+    at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+    by: who.name
+  };
+  묵상시트_().appendRow([item.id, item.verse, item.summary, item.explain.join('\n'),
+    item.questions.join('\n'), item.prayer, item.at, AI모델_(), who.name]);
+  캐시비움_();
+  return { ok: true, cached: false, item: item };
+}
+
+function 묵상열쇠_(s) { return String(s || '').replace(/[\s:：.,장절편]/g, '').toLowerCase(); }
+
+function 묵상찾기_(verse) {
+  var k = 묵상열쇠_(verse), out = null;
+  rows_(SHEET_묵상).forEach(function (r) {
+    if (묵상열쇠_(r[DV_구절]) === k) out = 묵상행_(r);
+  });
+  return out;
+}
+
+function 묵상행_(r) {
+  var 줄 = function (v) { return String(v || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); };
+  return {
+    id: String(r[DV_ID] || '').trim(),
+    verse: String(r[DV_구절] || '').trim(),
+    summary: String(r[DV_요약] || '').trim(),
+    explain: 줄(r[DV_해설]),
+    questions: 줄(r[DV_질문]),
+    prayer: String(r[DV_기도] || '').trim(),
+    at: String(r[DV_시각] || '').trim(),
+    by: String(r[DV_사람] || '').trim()
+  };
+}
+
+/** 묵상 첫 화면 — 오늘의 추천 구절과 최근에 만든 것들 */
+function devotionHome(token) {
+  폼신청자_(token);
+  var all = rows_(SHEET_묵상).filter(function (r) { return String(r[DV_ID]).trim(); }).map(묵상행_);
+  return {
+    on: AI켜짐_(),
+    today: 오늘의구절_(),
+    recent: all.slice(-12).reverse()
+  };
+}
+
+/** 날짜에 따라 돌아가는 추천 구절 — 매일 같은 사람에게 같은 구절이 나옵니다 */
+function 오늘의구절_() {
+  var 목록 = [
+    '시편 23:1-6', '요한복음 3:16', '로마서 8:28-30', '빌립보서 4:4-7', '이사야 40:28-31',
+    '마태복음 6:25-34', '에베소서 2:8-10', '시편 1:1-3', '히브리서 11:1-3', '요한일서 1:8-9',
+    '잠언 3:5-6', '갈라디아서 2:20', '고린도전서 13:4-7', '시편 103:1-5', '로마서 12:1-2',
+    '베드로전서 5:6-7', '여호수아 1:8-9', '마태복음 11:28-30', '디모데후서 3:16-17', '시편 119:105',
+    '요한복음 15:4-5', '골로새서 3:12-14', '야고보서 1:2-4', '이사야 53:4-6', '시편 46:1-3',
+    '누가복음 15:20-24', '에베소서 6:10-13', '로마서 5:1-5', '빌립보서 2:5-11', '시편 51:10-12',
+    '요한복음 14:1-6'
+  ];
+  var d = new Date();
+  var 날 = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+  return 목록[날 % 목록.length];
+}
+
+function deleteDevotion(token, id) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 지울 수 있습니다.');
+  var sh = 묵상시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][DV_ID]).trim() === String(id).trim()) sh.deleteRow(i + 1);
+  캐시비움_();
+  return { ok: true };
+}
+
+/* ============================================================
+   지출 한-영 자동 번역 — 적요 · 지출사유를 영문으로 함께 남깁니다
+   (원본 시트는 건드리지 않고 옆 시트에 나란히 쌓습니다)
+   ============================================================ */
+
+var SHEET_지출영문 = '지출영문';
+var HEAD_지출영문 = ['신청번호', '지출내역(EN)', '지출사유(EN)', '번역시각', '모델'];
+var XE_번호 = 0, XE_내역 = 1, XE_사유 = 2, XE_시각 = 3, XE_모델 = 4;
+
+function 지출영문시트_() {
+  var sh = 주보시트_(SHEET_지출영문, HEAD_지출영문);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_지출영문.length).setValues([HEAD_지출영문]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+function 지출영문맵_() {
+  var out = {};
+  rows_(SHEET_지출영문).forEach(function (r) {
+    var no = String(r[XE_번호] || '').trim();
+    if (no) out[no] = { detail: String(r[XE_내역] || '').trim(), reason: String(r[XE_사유] || '').trim() };
+  });
+  return out;
+}
+
+function 지출번역켜짐_() {
+  return AI켜짐_() && String(설정값_('지출자동번역') || '켜기').trim() !== '끄기';
+}
+
+/**
+ * 한 건을 영문으로 옮겨 적습니다.
+ * 교회 회계에서 쓰는 말투(간결한 영수증 적요)로 맞춥니다.
+ */
+function 지출번역_(no, detail, reason) {
+  no = String(no || '').trim();
+  if (!no) return null;
+  detail = String(detail || '').trim();
+  reason = String(reason || '').trim();
+  if (!detail && !reason) return null;
+  if (!지출번역켜짐_()) return null;
+
+  var prompt =
+    '아래는 한인 교회 청년부의 지출 환급 신청서 내용입니다. 회계 장부와 영문 결재에 쓸 수 있도록 영어로 옮겨 주세요.\n\n' +
+    '지출내역(한글):\n' + (detail || '(없음)') + '\n\n' +
+    '지출사유(한글):\n' + (reason || '(없음)') + '\n\n' +
+    '아래 JSON 으로만 답하세요.\n' +
+    '{ "detail": "영문 지출내역", "reason": "영문 지출사유" }\n\n' +
+    '· 영수증 적요처럼 간결하게, 불필요한 수식어 없이 씁니다.\n' +
+    '· 줄이 여러 개면 원래 줄 수와 번호(1. 2. 3.)를 그대로 지킵니다.\n' +
+    '· 사람 이름 · 팀 이름 · 장소 이름은 널리 쓰는 영문 표기로 바꾸되, 모르면 소리 나는 대로 로마자로 적습니다.\n' +
+    '· 금액과 숫자는 그대로 둡니다.\n' +
+    '· 내용이 비어 있으면 빈 문자열로 둡니다.';
+
+  var d;
+  try {
+    d = AIJSON_(prompt, {
+      system: '당신은 캐나다 비영리 교회의 회계 담당자이며, 한국어와 영어를 모두 정확하게 다룹니다.',
+      temperature: 0.2, maxTokens: 900
+    });
+  } catch (e) { return null; }
+
+  var out = {
+    detail: String((d && d.detail) || '').trim().slice(0, 1500),
+    reason: String((d && d.reason) || '').trim().slice(0, 1500)
+  };
+  if (!out.detail && !out.reason) return null;
+
+  var sh = 지출영문시트_(), v = sh.getDataRange().getValues();
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][XE_번호] || '').trim() === no) {
+      sh.getRange(i + 1, XE_내역 + 1, 1, 4).setValues([[out.detail, out.reason, now, AI모델_()]]);
+      캐시비움_();
+      return out;
+    }
+  }
+  sh.appendRow([no, out.detail, out.reason, now, AI모델_()]);
+  캐시비움_();
+  return out;
+}
+
+/** 아직 안 옮긴 지출을 한꺼번에 옮깁니다 (회계 화면의 버튼) */
+function translateExpenses(key, limit) {
+  if (!isAdmin_(key) && !isAcct_(key)) throw new Error('회계팀만 할 수 있습니다.');
+  AI확인_();
+  var 있는것 = 지출영문맵_();
+  var max = Math.min(Number(limit) || 20, 40);
+  var 한것 = 0, 못한것 = 0;
+  var rows = rows_(SHEET_지출);
+  for (var i = rows.length - 1; i >= 0 && 한것 + 못한것 < max; i--) {
+    var no = String(rows[i][EX_번호] || '').trim();
+    if (!no || 있는것[no]) continue;
+    var r = 지출번역_(no, rows[i][EX_내역], rows[i][EX_사유]);
+    if (r) 한것++; else 못한것++;
+  }
+  return { ok: true, done: 한것, failed: 못한것 };
+}
+
+/** 한 건만 다시 옮깁니다 */
+function translateOneExpense(key, no) {
+  if (!isAdmin_(key) && !isAcct_(key)) throw new Error('회계팀만 할 수 있습니다.');
+  AI확인_();
+  var found = null;
+  rows_(SHEET_지출).forEach(function (r) { if (String(r[EX_번호] || '').trim() === String(no).trim()) found = r; });
+  if (!found) throw new Error('그 번호의 지출을 찾지 못했습니다.');
+  var r2 = 지출번역_(no, found[EX_내역], found[EX_사유]);
+  if (!r2) throw new Error('옮기지 못했습니다. 잠시 후 다시 시도해주세요.');
+  return { ok: true, en: r2 };
+}
+
+/* ============================================================
+   지난 설교 자동 연동 + AI 요약 (유튜브)
+   ============================================================ */
+
+var SHEET_설교 = '설교요약';
+var HEAD_설교 = ['영상ID', '제목', '올린날', '설교자', '본문', '핵심대지', '주요메시지', '만든시각', '모델', '상태'];
+var SM_ID = 0, SM_제목 = 1, SM_날 = 2, SM_설교자 = 3, SM_본문 = 4, SM_대지 = 5, SM_메시지 = 6,
+    SM_시각 = 7, SM_모델 = 8, SM_상태 = 9;
+
+function 설교시트_() {
+  var sh = 주보시트_(SHEET_설교, HEAD_설교);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_설교.length).setValues([HEAD_설교]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+function 유튜브가져오기_(url) {
+  var r = UrlFetchApp.fetch(url, {
+    method: 'get', muteHttpExceptions: true, followRedirects: true,
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept-Language': 'ko,en' }
+  });
+  if (r.getResponseCode() >= 300) throw new Error('유튜브를 읽지 못했습니다 (' + r.getResponseCode() + ').');
+  return r.getContentText();
+}
+
+/** @핸들 이나 주소에서 채널 ID(UC...) 를 찾아 설정에 적어 둡니다 */
+function 유튜브채널ID_() {
+  var 저장된 = String(설정값_('유튜브채널ID') || '').trim();
+  if (/^UC[\w-]{20,}$/.test(저장된)) return 저장된;
+
+  var raw = String(설정값_('유튜브채널') || '@토론토영락교회청년부').trim();
+  var m = raw.match(/(UC[\w-]{20,})/);
+  if (m) { 설정저장_('유튜브채널ID', m[1]); return m[1]; }
+
+  var url;
+  if (/^https?:\/\//i.test(raw)) url = raw;
+  else if (raw.indexOf('@') === 0) url = 'https://www.youtube.com/' + encodeURI(raw);
+  else url = 'https://www.youtube.com/@' + encodeURI(raw);
+
+  var html = 유튜브가져오기_(url);
+  var found = html.match(/"(?:channelId|externalId)"\s*:\s*"(UC[\w-]{20,})"/) ||
+              html.match(/channel\/(UC[\w-]{20,})/);
+  if (!found) throw new Error('유튜브 채널을 찾지 못했습니다. 관리 화면에서 채널 주소를 확인해주세요.');
+  설정저장_('유튜브채널ID', found[1]);
+  return found[1];
+}
+
+/** 채널에 올라온 최근 영상들 (유튜브가 주는 RSS — 보통 15개) */
+function 유튜브영상들_() {
+  var id = 유튜브채널ID_();
+  var xml = 유튜브가져오기_('https://www.youtube.com/feeds/videos.xml?channel_id=' + id);
+  var out = [];
+  var 조각 = xml.split('<entry>');
+  for (var i = 1; i < 조각.length; i++) {
+    var e = 조각[i];
+    var vid = (e.match(/<yt:videoId>([^<]+)<\/yt:videoId>/) || [])[1];
+    var title = (e.match(/<title>([\s\S]*?)<\/title>/) || [])[1];
+    var pub = (e.match(/<published>([^<]+)<\/published>/) || [])[1];
+    if (!vid) continue;
+    out.push({
+      id: vid,
+      title: 엔티티풀기_(String(title || '').trim()),
+      date: String(pub || '').slice(0, 10),
+      url: 'https://www.youtube.com/watch?v=' + vid
+    });
+  }
+  return out;
+}
+
+function 엔티티풀기_(s) {
+  return String(s || '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+}
+
+/** 영상 자막 — 한국어를 먼저 찾고, 없으면 자동 생성 자막이라도 씁니다 */
+function 자막가져오기_(videoId) {
+  var html = 유튜브가져오기_('https://www.youtube.com/watch?v=' + encodeURIComponent(videoId) + '&hl=ko');
+  var m = html.match(/"captionTracks"\s*:\s*(\[[\s\S]*?\])\s*,\s*"/);
+  if (!m) return '';
+  var tracks;
+  try { tracks = JSON.parse(m[1].replace(/\\u0026/g, '&')); } catch (e) { return ''; }
+  if (!tracks || !tracks.length) return '';
+
+  var 고른것 = null;
+  ['ko', 'ko-KR'].forEach(function (lang) {
+    if (!고른것) tracks.forEach(function (t) { if (!고른것 && String(t.languageCode || '') === lang) 고른것 = t; });
+  });
+  if (!고른것) 고른것 = tracks[0];
+  var base = String(고른것.baseUrl || '').replace(/\\u0026/g, '&');
+  if (!base) return '';
+
+  var xml = 유튜브가져오기_(base);
+  var 줄 = [];
+  var re = /<text[^>]*>([\s\S]*?)<\/text>/g, hit;
+  while ((hit = re.exec(xml)) !== null) {
+    var t = 엔티티풀기_(엔티티풀기_(hit[1])).replace(/\s+/g, ' ').trim();
+    if (t) 줄.push(t);
+  }
+  return 줄.join(' ');
+}
+
+/** 설교 요약 만들기 — 자막이 없으면 커미티가 본문을 붙여 넣을 수 있습니다 */
+function sermonMake(token, videoId, manualText) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 만들 수 있습니다.');
+  AI확인_();
+  videoId = String(videoId || '').trim();
+  if (!videoId) throw new Error('영상을 골라주세요.');
+
+  var 정보 = null;
+  유튜브영상들_().forEach(function (v) { if (v.id === videoId) 정보 = v; });
+  if (!정보) 정보 = { id: videoId, title: '', date: '', url: 'https://www.youtube.com/watch?v=' + videoId };
+
+  var 본문 = String(manualText || '').trim();
+  if (!본문) { try { 본문 = 자막가져오기_(videoId); } catch (e) { 본문 = ''; } }
+  if (본문.length < 200) {
+    throw new Error('이 영상에서 자막을 가져오지 못했습니다. 설교 원고나 자막 글을 아래 칸에 붙여 넣고 다시 눌러주세요.');
+  }
+  if (본문.length > 60000) 본문 = 본문.slice(0, 60000);
+
+  var prompt =
+    '아래는 한인 교회 청년부 주일 설교의 자막입니다. 설교를 듣지 못한 청년이 읽고 은혜를 나눌 수 있도록 정리해 주세요.\n\n' +
+    '영상 제목: ' + (정보.title || '(없음)') + '\n\n' +
+    '--- 자막 시작 ---\n' + 본문 + '\n--- 자막 끝 ---\n\n' +
+    '아래 JSON 으로만 답하세요.\n' +
+    '{\n' +
+    '  "title": "설교 제목 (자막에서 찾되, 없으면 내용을 보고 지어 주세요)",\n' +
+    '  "preacher": "설교자 이름 (모르면 빈 문자열)",\n' +
+    '  "passage": "설교 본문 성경 구절 (모르면 빈 문자열)",\n' +
+    '  "points": ["핵심 대지 3가지", "...", "..."],\n' +
+    '  "messages": ["주요 메시지 3~5줄. 한 줄에 한 문장씩", "..."]\n' +
+    '}\n\n' +
+    '· points 는 정확히 3개로, 설교자가 나눈 흐름을 따라 짧은 문장으로 적어 주세요.\n' +
+    '· messages 는 3개에서 5개 사이로, 청년들이 삶에 새길 만한 문장으로 적어 주세요.\n' +
+    '· 자막이 잘못 받아 적힌 부분은 문맥으로 바로잡아 읽되, 설교에 없는 내용을 지어내지 마세요.';
+
+  var d = AIJSON_(prompt, { system: 묵상_지침, temperature: 0.4, maxTokens: 2000 });
+  var item = {
+    id: videoId,
+    title: String((d && d.title) || 정보.title || '설교').trim().slice(0, 150),
+    date: 정보.date || ymd_(new Date()),
+    preacher: String((d && d.preacher) || '').trim().slice(0, 40),
+    passage: String((d && d.passage) || '').trim().slice(0, 80),
+    points: ((d && d.points) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
+    messages: ((d && d.messages) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 6),
+    at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')
+  };
+  설교저장_(item);
+  return { ok: true, item: item };
+}
+
+function 설교저장_(item) {
+  var sh = 설교시트_(), v = sh.getDataRange().getValues();
+  var row = [item.id, item.title, item.date, item.preacher, item.passage,
+    item.points.join('\n'), item.messages.join('\n'), item.at, AI모델_(), '완료'];
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][SM_ID] || '').trim() === item.id) {
+      sh.getRange(i + 1, 1, 1, HEAD_설교.length).setValues([row]);
+      캐시비움_();
+      return;
+    }
+  }
+  sh.appendRow(row);
+  캐시비움_();
+}
+
+function 설교행_(r) {
+  var 줄 = function (v) { return String(v || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); };
+  return {
+    id: String(r[SM_ID] || '').trim(),
+    title: String(r[SM_제목] || '').trim(),
+    date: 날짜문자열_(r[SM_날]),
+    preacher: String(r[SM_설교자] || '').trim(),
+    passage: String(r[SM_본문] || '').trim(),
+    points: 줄(r[SM_대지]),
+    messages: 줄(r[SM_메시지]),
+    at: String(r[SM_시각] || '').trim(),
+    url: 'https://www.youtube.com/watch?v=' + String(r[SM_ID] || '').trim()
+  };
+}
+
+/** 지난 설교 화면 — 요약이 있는 것과, 아직 요약 안 한 새 영상 */
+function sermonList(token) {
+  폼신청자_(token);
+  var 커미티 = 커미티토큰_(token);
+  var 있는것 = {}, list = [];
+  rows_(SHEET_설교).forEach(function (r) {
+    if (!String(r[SM_ID]).trim()) return;
+    var x = 설교행_(r);
+    있는것[x.id] = 1;
+    list.push(x);
+  });
+  list.sort(function (a, b) { return (b.date || '') < (a.date || '') ? -1 : 1; });
+
+  var 새것 = [], err = '';
+  if (커미티) {
+    try {
+      유튜브영상들_().forEach(function (v) { if (!있는것[v.id]) 새것.push(v); });
+    } catch (e) { err = e.message || ''; }
+  }
+  return { canEdit: 커미티, on: AI켜짐_(), list: list.slice(0, 40), fresh: 새것.slice(0, 12), err: err };
+}
+
+function deleteSermon(token, id) {
+  if (!커미티토큰_(token)) throw new Error('커미티만 지울 수 있습니다.');
+  var sh = 설교시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][SM_ID]).trim() === String(id).trim()) sh.deleteRow(i + 1);
+  캐시비움_();
+  return { ok: true };
+}
+
+/** 매주 한 번 — 새 영상이 올라왔으면 알아서 요약합니다 (자막이 있을 때만) */
+function 설교요약돌기() {
+  if (!AI켜짐_()) return { ok: true, off: true };
+  if (String(설정값_('설교자동요약') || '켜기').trim() === '끄기') return { ok: true, off: true };
+
+  var 있는것 = {};
+  rows_(SHEET_설교).forEach(function (r) { var id = String(r[SM_ID] || '').trim(); if (id) 있는것[id] = 1; });
+
+  var 만든것 = [];
+  var 영상들;
+  try { 영상들 = 유튜브영상들_(); } catch (e) { return { ok: false, error: e.message }; }
+
+  for (var i = 0; i < 영상들.length && 만든것.length < 2; i++) {
+    var v = 영상들[i];
+    if (있는것[v.id]) continue;
+    if (!설교같나_(v.title)) continue;
+    var 본문 = '';
+    try { 본문 = 자막가져오기_(v.id); } catch (e) { 본문 = ''; }
+    if (본문.length < 200) continue;
+    try {
+      var 결과 = 설교하나만들기_(v, 본문);
+      만든것.push(결과.title);
+    } catch (e) { /* 한 편 실패해도 다음으로 갑니다 */ }
+  }
+
+  if (만든것.length) {
+    try {
+      알림_('공지', '*', {
+        title: '지난 주일 설교 요약이 올라왔습니다',
+        body: 만든것[0],
+        url: (앱주소_() || '') + '?page=sermons'
+      });
+    } catch (e) {}
+  }
+  return { ok: true, made: 만든것.length };
+}
+
+/** 제목만 보고 설교 영상인지 어림잡습니다 (찬양 · 광고 영상은 건너뜁니다) */
+function 설교같나_(title) {
+  var t = String(title || '');
+  if (/찬양|콘티|worship|praise|광고|공지|announcement|shorts|브이로그|vlog|기도회 다시보기/i.test(t)) return false;
+  return /설교|말씀|주일|예배|sermon|message/i.test(t) || t.length > 0;
+}
+
+function 설교하나만들기_(v, 본문) {
+  if (본문.length > 60000) 본문 = 본문.slice(0, 60000);
+  var prompt =
+    '아래는 한인 교회 청년부 주일 설교의 자막입니다. 설교를 듣지 못한 청년이 읽고 은혜를 나눌 수 있도록 정리해 주세요.\n\n' +
+    '영상 제목: ' + (v.title || '(없음)') + '\n\n' +
+    '--- 자막 시작 ---\n' + 본문 + '\n--- 자막 끝 ---\n\n' +
+    '아래 JSON 으로만 답하세요.\n' +
+    '{ "title": "설교 제목", "preacher": "설교자 (모르면 빈 문자열)", "passage": "본문 성경 구절 (모르면 빈 문자열)",' +
+    ' "points": ["핵심 대지 3가지"], "messages": ["주요 메시지 3~5줄"] }\n\n' +
+    '· points 는 정확히 3개, messages 는 3~5개로 적어 주세요.\n' +
+    '· 설교에 없는 내용을 지어내지 마세요.';
+  var d = AIJSON_(prompt, { system: 묵상_지침, temperature: 0.4, maxTokens: 2000 });
+  var item = {
+    id: v.id,
+    title: String((d && d.title) || v.title || '설교').trim().slice(0, 150),
+    date: v.date || ymd_(new Date()),
+    preacher: String((d && d.preacher) || '').trim().slice(0, 40),
+    passage: String((d && d.passage) || '').trim().slice(0, 80),
+    points: ((d && d.points) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
+    messages: ((d && d.messages) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 6),
+    at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')
+  };
+  설교저장_(item);
+  return item;
+}
+
+/** 매일 한 번 — 아직 영문이 없는 지출을 조용히 옮겨 둡니다 */
+function 지출번역돌기() {
+  if (!지출번역켜짐_()) return { ok: true, off: true };
+  var 있는것 = 지출영문맵_();
+  var rows = rows_(SHEET_지출);
+  var 한것 = 0;
+  for (var i = rows.length - 1; i >= 0 && 한것 < 15; i--) {
+    var no = String(rows[i][EX_번호] || '').trim();
+    if (!no || 있는것[no]) continue;
+    try { if (지출번역_(no, rows[i][EX_내역], rows[i][EX_사유])) 한것++; } catch (e) {}
+  }
+  return { ok: true, done: 한것 };
+}
+
+/** 유튜브 채널이 잘 잡히는지 확인합니다 (관리 화면 버튼) */
+function checkYoutube(key) {
+  if (!isAdmin_(key)) throw new Error('관리자만 할 수 있습니다.');
+  설정저장_('유튜브채널ID', '');            // 다시 찾게 합니다
+  var list = 유튜브영상들_();
+  return { ok: true, count: list.length, first: list.length ? list[0].title : '', id: 유튜브채널ID_() };
 }

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* 지난 설교 · 요약 — 구조만 정의합니다 */
+  :root { --accent: #B03A2E; --tone-rgb: 176,58,46; }
+  * { box-sizing: border-box; }
+
+  .scard { margin-bottom: 0; }
+  .shead { display: flex; align-items: flex-start; gap: 11px; }
+  .shead .sth { flex: 1; min-width: 0; }
+  .shead .sth b { display: block; font-size: 18px; font-weight: 800; color: #FFFFFF;
+    line-height: 1.55; letter-spacing: -0.02em; }
+  .shead .sth span { display: block; font-size: 13.5px; color: #DCD7D0; margin-top: 4px; line-height: 1.7; }
+  .shead .syt { flex: none; width: 40px; height: 40px; border-radius: 11px; display: flex;
+    align-items: center; justify-content: center; background: rgba(var(--tone-rgb),.3);
+    color: #FFFFFF; text-decoration: none; font-size: 17px; }
+
+  .spass { display: inline-block; margin-top: 10px; font-size: 14px; font-weight: 800;
+    padding: 5px 12px; border-radius: 8px; background: rgba(var(--tone-rgb),.3); color: #FFFFFF; }
+
+  .ssec { margin-top: 17px; }
+  .ssec h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 9px;
+    font-size: 13px; font-weight: 800; letter-spacing: .1em; color: #F3B9AE; text-transform: uppercase; }
+  .pts { display: grid; gap: 8px; }
+  .pts div { display: flex; gap: 10px; align-items: flex-start; padding: 11px 13px; border-radius: 11px;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); }
+  .pts div i { flex: none; font-style: normal; width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(var(--tone-rgb),.45); color: #FFFFFF; font-size: 12.5px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .pts div span { flex: 1; min-width: 0; font-size: 15.5px; line-height: 1.75; color: #FFFFFF; font-weight: 700; }
+  .msgs { margin: 0; padding-left: 20px; }
+  .msgs li { font-size: 15.5px; line-height: 1.9; color: #F4F1EC; margin-bottom: 8px; }
+
+  .fresh { display: grid; gap: 8px; }
+  .fresh .fr { display: flex; align-items: center; gap: 10px; padding: 12px 13px; border-radius: 12px;
+    background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.15); }
+  .fresh .fr .fb { flex: 1; min-width: 0; }
+  .fresh .fr .fb b { display: block; font-size: 15px; font-weight: 750; color: #FFFFFF; line-height: 1.6; }
+  .fresh .fr .fb span { display: block; font-size: 13px; color: #DCD7D0; margin-top: 2px; }
+  .fresh .fr button { flex: none; }
+
+  .paste { margin-top: 12px; padding-top: 13px; border-top: 1px dashed rgba(255,255,255,.2); }
+  .paste textarea { min-height: 120px; }
+
+  .sfoot { margin-top: 14px; font-size: 12.5px; color: #C7C1B9; line-height: 1.8; }
+  .spin { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -2px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
+  body .panel {
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: var(--night-ink) !important;
+    box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+  }
+  body .panel .chip { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
+  body .panel .empty, body .panel .meta { color: #E9E5DF !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #F2EFEA !important; }
+  body .panel b, body .panel strong { color: #FFFFFF; }
+  body .panel input, body .panel select, body .panel textarea {
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
+    color: #FFFFFF !important;
+  }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel .picklist button {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+    color: #F5F3EF !important;
+  }
+  body .panel .picklist button.picked {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #fff !important;
+  }
+  body .panel .btn:not(.accent):not(.danger) {
+    background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
+    color: #FFFFFF !important;
+  }
+  body .panel .btn.accent, body .panel .submit {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
+  }
+
+  /* 안내 박스 · 카드 · 통계 · 줄 버튼도 같은 유리로 */
+  body .notice, body .banner, body .callout, body .subnotice,
+  body .card, body .nfcard, body .mcard, body .dcard, body .mrow, body .song,
+  body .fileitem, body .msrow, body .stat, body .moodbox, body .facebox, body .rowbtn {
+    background: rgba(255,255,255,.055) !important;
+    border-color: rgba(255,255,255,.12) !important;
+    color: var(--night-ink) !important;
+    box-shadow: none !important;
+  }
+  body .notice b, body .banner b, body .callout b,
+  body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
+    color: #FFFFFF !important;
+  }
+  body .notice p, body .banner p, body .callout p, body .subnotice p,
+  body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
+    color: #E9E5DF !important;
+  }
+  body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
+  body .bar { background: rgba(255,255,255,.12) !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #EDEAE5 !important; }
+  body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
+
+  /* ============ 가독성 최우선 — 어두운 유리 위 글씨는 흰색 ============ */
+body .tpl button,
+  body /* 문항 만들기 */
+  .q,
+  body .addq button,
+  body .rstat .b,
+  body .tscroll {
+    background: rgba(255,255,255,.075) !important;
+    border-color: rgba(255,255,255,.15) !important;
+    color: #F4F1EC !important;
+    box-shadow: none !important;
+  }
+body .tpl button b,
+  body /* 문항 만들기 */
+  .q b,
+  body .addq button b,
+  body .rstat .b b,
+  body .tscroll b { color: #FFFFFF !important; }
+body .tpl button .k,
+  body /* 문항 만들기 */
+  .q .k,
+  body .addq button .k,
+  body .rstat .b .k,
+  body .tscroll .k, body .tpl button .meta,
+  body /* 문항 만들기 */
+  .q .meta,
+  body .addq button .meta,
+  body .rstat .b .meta,
+  body .tscroll .meta { color: #E4E0DA !important; }
+
+  body .panel .picklist button .t b, body .picklist button .t b { color: #FFFFFF !important; }
+  body .panel .picklist button .t span, body .picklist button .t span { color: #DED9D2 !important; }
+  body .picklist button.picked .t b, body .picklist button.picked .t span { color: #FFFFFF !important; }
+  body .panel .closing { color: #E9E5DF !important; }
+  body .panel .closing b { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .lede, body .panel .fnote,
+  body .panel .empty, body .panel .meta, body .panel .desc, body .panel .note,
+  body .panel .cap, body .panel small, body .panel .msg, body .panel .fs { color: #E4E0DA !important; }
+  body .panel > p, body .panel li { color: #ECE9E4; }
+  body .panel h1, body .panel h2, body .panel h3, body .panel h4,
+  body .panel .tit, body .panel .ttl, body .panel .nm { color: #FFFFFF !important; }
+  body .panel input::placeholder, body .panel textarea::placeholder,
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel a:not(.btn) { color: #FFC9AB; }
+  body .panel hr, body .panel .divider { border-color: rgba(255,255,255,.18) !important; }
+  body .panel option, body .panel optgroup { color: #1A1917; }
+
+  /* 어두운 유리 위에서는 글씨 변수 자체를 밝은 쪽으로 (가독성 최우선) */
+  body .shell, body .shell * {
+    --ink-1: #FFFFFF; --ink-2: #F0EDE8; --ink-3: #DCD7D0; --ink-4: #C2BCB4;
+    --night-ink: #FFFFFF; --night-sub: #D9D4CD;
+    --hair: rgba(255,255,255,.15); --hair-2: rgba(255,255,255,.22);
+  }
+  body option, body optgroup { color: #1A1917; background: #FFFFFF; }
+  body .ynfoot .cp { color: #CFC9C1 !important; }
+
+  /* 밝은 회색 박스도 유리로 (가독성) */
+body .fcard:hover,
+  body .st.준비중,
+  body .st.보관,
+  body .fbar .bg {
+    background: rgba(255,255,255,.085) !important;
+    border-color: rgba(255,255,255,.16) !important;
+    color: #F4F1EC !important;
+  }
+  body .shell { --good: #5FD39B; --bad: #FF8A7A; --warn: #FFC46B; }
+  body button:disabled, body .submit:disabled, body .btn:disabled {
+    background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
+    border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
+  }
+  body .btn.accent, body .dirbtn, body .pwsubmit { color: #FFFFFF !important; }
+  body .wk.on, body .wk.on * { color: #FFFFFF !important; }
+
+  /* 유리 위 흰 버튼·탭·칩 — 글씨와 배경 짝 맞추기 (가독성) */
+  body .btn:not(.accent):not(.danger):not(.primary):not(.ghost) {
+    background: rgba(255,255,255,.13) !important;
+    border-color: rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body .tabs button { color: #DCD7D0 !important; }
+  body .tabs button.on {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #FFFFFF !important;
+  }
+  body .st.준비중, body .st.보관 { background: rgba(255,255,255,.16) !important; color: #FFFFFF !important; }
+  body .st.받는중 { background: #1D6B4B !important; color: #FFFFFF !important; }
+  body .st.마감 { background: #8C3416 !important; color: #FFFFFF !important; }
+
+  /* 배경 없는 버튼은 브라우저 기본 검정 글씨가 되므로 밝게 (가독성) */
+  body .seg button, body .shell button:not([class]) { color: #DCD7D0 !important; }
+  body .seg button.on { color: #FFFFFF !important; }
+
+  /* 상태색 칩·위험 버튼도 어두운 유리 위에서 또렷하게 */
+  body .btn.danger { background: rgba(255,255,255,.12) !important; color: #FF9E90 !important;
+                     border-color: rgba(255,158,144,.45) !important; }
+  body .tn.off, body .tp.off { background: rgba(255,120,100,.22) !important; color: #FFB3A6 !important; }
+  body .tn.guest { background: rgba(var(--tone-rgb,210,81,31),.26) !important; color: #FFC0A1 !important; }
+  body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
+  body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
+    <h1>지난 설교 · 요약</h1>
+    <p class="meta">YNTORONTO &nbsp;·&nbsp; SERMONS</p>
+  </header>
+  <div id="root"><div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div></div>
+  <footer></footer>
+</div>
+<!--#include Theme-->
+<script>
+var P = window.__PREFILL__ || {};
+var TOKEN = P.t || '';
+var D = null;
+var BUSY = '';
+var PASTE = '';
+
+function el(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function jsq(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function say(id, t, k) { var m = el(id); if (m) { m.className = 'msg' + (k ? ' ' + k : ''); m.innerHTML = t || ''; } }
+function 월일(s) { var m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? (+m[2]) + '월 ' + (+m[3]) + '일' : (s || ''); }
+
+function boot() {
+  if (!TOKEN) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">포털에서 “지난 설교” 로 들어와 주세요.</p>' +
+      '<a class="btn full" href="/">포털로 가기</a></div>';
+    return;
+  }
+  load();
+}
+
+function load() {
+  callServer('sermonList', [TOKEN], function (r) { D = r; draw(); }, function (e) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || e) + '</p>' +
+      '<a class="btn full" href="/">포털로 가기</a></div>';
+  });
+}
+
+function draw() {
+  var h = '';
+
+  if (D.canEdit) {
+    h += '<div class="panel"><span class="chip">아직 요약하지 않은 영상</span>';
+    if (D.err) {
+      h += '<p class="msg err">' + esc(D.err) + '</p>' +
+        '<p class="hint">관리 화면 → AI 설정에서 유튜브 채널 주소를 확인해주세요.</p>';
+    } else if (!D.fresh.length) {
+      h += '<p class="empty">새로 올라온 영상이 모두 정리되어 있습니다. 👏</p>';
+    } else {
+      h += '<p class="hint">유튜브에서 자막을 가져와 AI 가 요약합니다. 한 편에 20초쯤 걸립니다.</p><div class="fresh">';
+      D.fresh.forEach(function (v) {
+        h += '<div class="fr"><div class="fb"><b>' + esc(v.title) + '</b>' +
+          '<span>' + esc(월일(v.date)) + '</span></div>' +
+          '<button class="btn mini accent" id="b-' + esc(v.id) + '" onclick="makeIt(\'' + jsq(v.id) + '\')">요약</button></div>';
+      });
+      h += '</div>';
+      h += '<div class="paste"><span class="chip">자막이 없을 때</span>' +
+        '<p class="hint">유튜브에 자막이 없는 영상은 설교 원고나 녹취를 아래에 붙여 넣고 요약을 눌러주세요.</p>' +
+        '<textarea id="pIn" placeholder="설교 원고 또는 자막 글을 붙여 넣어주세요" ' +
+          'oninput="PASTE=this.value"></textarea></div>';
+    }
+    h += '<p class="msg" id="mMsg"></p></div>';
+  }
+
+  if (!D.list.length) {
+    h += '<div class="panel"><p class="empty">아직 올라온 설교 요약이 없습니다.</p></div>';
+  } else {
+    D.list.forEach(function (x) { h += card(x); });
+  }
+
+  h += '<div class="panel"><p style="font-size:13px;line-height:1.85;color:#DCD7D0;margin:0;">' +
+    'AI 가 자막을 듣고 정리한 요약입니다. 설교 전체를 대신할 수 없으니 ' +
+    '영상으로 직접 들으시길 권합니다. 잘못된 부분이 보이면 커미티에 알려주세요.</p></div>';
+
+  el('root').innerHTML = h;
+}
+
+function card(x) {
+  var h = '<div class="panel scard"><div class="shead">' +
+    '<div class="sth"><b>' + esc(x.title) + '</b>' +
+      '<span>' + esc(월일(x.date)) + (x.preacher ? ' · ' + esc(x.preacher) : '') + '</span></div>' +
+    '<a class="syt" href="' + esc(x.url) + '" target="_blank" rel="noopener" title="유튜브에서 보기">▶</a>' +
+    '</div>';
+  if (x.passage) h += '<span class="spass">' + esc(x.passage) + '</span>';
+
+  if (x.points && x.points.length) {
+    h += '<div class="ssec"><h4>✦ 핵심 대지</h4><div class="pts">';
+    x.points.forEach(function (t, i) { h += '<div><i>' + (i + 1) + '</i><span>' + esc(t) + '</span></div>'; });
+    h += '</div></div>';
+  }
+  if (x.messages && x.messages.length) {
+    h += '<div class="ssec"><h4>✎ 주요 메시지</h4><ul class="msgs">';
+    x.messages.forEach(function (t) { h += '<li>' + esc(t) + '</li>'; });
+    h += '</ul></div>';
+  }
+  h += '<p class="sfoot">' + esc(x.at || '') +
+    (D.canEdit ? ' · <a href="#" onclick="dropIt(\'' + jsq(x.id) + '\');return false;" style="color:#FFB3A6;">지우기</a>' : '') +
+    '</p></div>';
+  return h;
+}
+
+function makeIt(id) {
+  if (BUSY) return;
+  BUSY = id;
+  var b = el('b-' + id);
+  if (b) { b.disabled = true; b.innerHTML = '<span class="spin"></span>'; }
+  say('mMsg', '자막을 가져와 요약하는 중입니다… 20초쯤 걸립니다.');
+  callServer('sermonMake', [TOKEN, id, PASTE], function () {
+    BUSY = ''; PASTE = '';
+    say('mMsg', '요약을 만들었습니다.', 'ok');
+    load();
+  }, function (e) {
+    BUSY = '';
+    if (b) { b.disabled = false; b.textContent = '요약'; }
+    say('mMsg', esc(e.message || e), 'err');
+  });
+}
+
+function dropIt(id) {
+  if (!confirm('이 요약을 지울까요?')) return;
+  callServer('deleteSermon', [TOKEN, id], function () { load(); }, function (e) { alert(e.message || e); });
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+</script>
+</body>
+</html>

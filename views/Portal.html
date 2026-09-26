@@ -874,6 +874,13 @@ body .mcardlink,
   }
   body .ti .tick:hover { border-color: #FFFFFF; background: rgba(255,255,255,.18); }
   body .ti .tick.on { background: #2E9A4B; border-color: #2E9A4B; }
+  /* 묵상 · 설교 버튼 */
+  body .bulbtn.ai { margin: 0 16px 10px; }
+  body .bulbtn.ai.dev .bi { background: linear-gradient(135deg, #2E7D6B, #3FA88E); }
+  body .bulbtn.ai.ser .bi { background: linear-gradient(135deg, #B03A2E, #D4564A); }
+  body .bulbtn.ai .bt b { color: #FFFFFF; font-size: 16px; }
+  body .bulbtn.ai .bt small { color: #DCD7D0; font-size: 13.5px; line-height: 1.65; }
+  body .bulbtn.ai .ba { color: #FFFFFF; }
 </style>
 </head>
 <body>
@@ -1062,6 +1069,16 @@ body .mcardlink,
       <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
       <span class="bt"><b>이번 주 주보 보기</b><small>예배 순서 · 말씀 · 셀 나눔 · 광고</small></span><span class="ba">›</span>
     </a>
+    <div class="aibtns">
+      <a class="bulbtn ai dev" href="?page=devotion">
+        <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="M12 8c0-3 2.4-5 5.6-5C17.6 6 15.2 8 12 8z"/><path d="M12 11.5c0-2.6-2-4.4-4.8-4.4-.2 2.7 1.9 4.4 4.8 4.4z"/></svg></span>
+        <span class="bt"><b>오늘의 성경 묵상</b><small>구절을 적으면 해설과 적용 질문을 만들어 드립니다</small></span><span class="ba">›</span>
+      </a>
+      <a class="bulbtn ai ser" href="?page=sermons">
+        <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="5" width="18.4" height="14" rx="3.2"/><path d="M10.4 9.4l4.8 2.6-4.8 2.6z"/></svg></span>
+        <span class="bt"><b>지난 설교 · 요약</b><small>핵심 대지와 주요 메시지를 한눈에</small></span><span class="ba">›</span>
+      </a>
+    </div>
     <div id="cellAppBox"></div>
     <div id="formsBox"></div>
     <div id="pushBox"></div>
@@ -1180,6 +1197,7 @@ var MENU_ICON = {
   bulletin: '<path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/>',
   bulletinEdit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   minutes: '<rect x="4.5" y="3" width="15" height="18" rx="2.4"/><path d="M8 8.5h8"/><path d="M8 12.5h8"/><path d="M8 16.5h4.5"/>',
+  'a-ai': '<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9.5" cy="10.5" r="1.3"/><circle cx="14.5" cy="10.5" r="1.3"/><path d="M9 15c1.8 1.2 4.2 1.2 6 0"/>',
   'a-cell': '<circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9.2 5 2.2 5 5.4"/>',
   'a-nf': '<path d="M12 21V11"/><path d="M12 11c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5z"/><path d="M12 14c0-3-2.3-5-5.5-5-.2 3.1 2.2 5 5.5 5z"/>',
   'a-team': '<path d="M12 3.5l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.4l-5.1 2.7 1-5.6-4.1-4 5.7-.8z"/>',
