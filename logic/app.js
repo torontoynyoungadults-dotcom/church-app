@@ -6994,7 +6994,8 @@ function newcomerHome(token) {
     mine: 새가족내등록_(nf.email),
     cellApp: 셀신청상태_({ kind: 'newcomer', nf: nf, email: nf.email, name: nf.name, allowed: nf.cellApp, committee: false }),
     myCell: 내셀_(nf.name),
-    forms: myForms(token)
+    forms: myForms(token),
+    todos: 내할일_(token)
   };
 }
 
@@ -7231,6 +7232,7 @@ function 포털자료_(token) {
   var me = requirePortal_(token);
   var r = 포털역할_(me.name);
   var 커미티 = r.roles.indexOf('커미티') !== -1;
+  var todos = 내할일_(token);
   return {
     people: 커미티 ? Object.keys(교적맵_()).sort(function (a, b) { return a.localeCompare(b, 'ko'); }) : [],
     committee: 커미티,
@@ -7245,7 +7247,9 @@ function 포털자료_(token) {
     cellApp: 셀신청상태_({ kind: 'member', name: me.name, email: me.email, committee: 커미티,
       allowed: 셀신청열림_() || 새가족셀허용_(me.email, me.name) }),
     myCell: 내셀_(me.name),
-    forms: myForms(token)
+    forms: myForms(token),
+    todos: todos,
+    badges: 포털뱃지_(todos)
   };
 }
 
@@ -11013,4 +11017,309 @@ function formTemplates() {
     { key: 'blank', name: '빈 신청서', icon: '+', desc: '처음부터 직접 만들기',
       form: { title: '', desc: '', target: '모두', questions: [] } }
   ];
+}
+
+/* =========================================================
+   내 할 일 — 포털 첫 화면에 "지금 처리할 것" 을 모아 보여줍니다
+   ---------------------------------------------------------
+   네 갈래로 모읍니다.
+     do     — 내가 내야 하는 것 (셀보고 · 팀보고 · 서류 · 신청서 마감)
+     track  — 내가 신청한 것의 진행 상황 (지출 · 헌금봉투 · 셀 신청)
+     role   — 내가 맡은 역할로 처리할 것 (새가족 배정 · 결재 대기 등)
+     notice — 커미티 공지
+   끝난 일은 저절로 사라지고, 본인이 손으로 치울 수도 있습니다.
+   ========================================================= */
+
+var SHEET_할일숨김 = '할일숨김';
+var HEAD_할일숨김 = ['이름', '항목', '숨긴시각'];
+
+var SHEET_공지 = '포털공지';
+var HEAD_공지 = ['ID', '제목', '내용', '대상', '링크', '올린이', '올린날', '마감날'];
+var NO_ID = 0, NO_제목 = 1, NO_내용 = 2, NO_대상 = 3, NO_링크 = 4, NO_올린이 = 5, NO_날 = 6, NO_마감 = 7;
+
+function 할일숨김시트_() {
+  var sh = 주보시트_(SHEET_할일숨김, HEAD_할일숨김);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_할일숨김.length).setValues([HEAD_할일숨김]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+function 공지시트_() {
+  var sh = 주보시트_(SHEET_공지, HEAD_공지);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_공지.length).setValues([HEAD_공지]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+function 숨긴것_(name) {
+  var out = {};
+  rows_(SHEET_할일숨김).forEach(function (r) {
+    if (String(r[0]).trim() === String(name).trim()) out[String(r[1]).trim()] = 1;
+  });
+  return out;
+}
+
+/** 할 일 하나를 손으로 치웁니다 */
+function hideTodo(token, id) {
+  var who;
+  try { who = 폼신청자_(token); } catch (e) { throw new Error('다시 로그인해주세요.'); }
+  id = String(id || '').trim().slice(0, 80);
+  if (!id) return { ok: true };
+  var sh = 할일숨김시트_();
+  sh.appendRow([who.name, id, Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')]);
+  캐시비움_();
+  return { ok: true };
+}
+
+/** 치운 것을 모두 되돌립니다 */
+function showAllTodos(token) {
+  var who = 폼신청자_(token);
+  var sh = 할일숨김시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][0]).trim() === who.name) sh.deleteRow(i + 1);
+  캐시비움_();
+  return { ok: true };
+}
+
+/* ---- 공지 ---- */
+
+function 공지들_() {
+  var today = ymd_(new Date());
+  return rows_(SHEET_공지).filter(function (r) { return String(r[NO_ID]).trim(); }).map(function (r) {
+    return { id: String(r[NO_ID]).trim(), title: String(r[NO_제목] || '').trim(),
+      body: String(r[NO_내용] || '').trim(), target: String(r[NO_대상] || '전체').trim(),
+      url: String(r[NO_링크] || '').trim(), by: String(r[NO_올린이] || '').trim(),
+      at: 날짜문자열_(r[NO_날]), until: 날짜문자열_(r[NO_마감]) };
+  }).filter(function (n) { return !n.until || n.until >= today; });
+}
+
+/** 공지 올리기 (커미티) — 알림 관리 화면에서 함께 씁니다 */
+function addNotice(token, title, body, target, url, until) {
+  if (!커미티토큰_(token)) throw new Error('공지는 커미티만 올릴 수 있습니다.');
+  title = String(title || '').trim().slice(0, 100);
+  if (!title) throw new Error('공지 제목을 입력해주세요.');
+  var id = 'N' + Date.now().toString(36);
+  공지시트_().appendRow([id, title, String(body || '').trim().slice(0, 2000),
+    String(target || '전체').trim(), String(url || '').trim(),
+    커미티이름_(token), ymd_(new Date()),
+    /^\d{4}-\d{2}-\d{2}$/.test(String(until || '')) ? until : '']);
+  캐시비움_();
+  return { ok: true, id: id };
+}
+
+function 커미티이름_(token) {
+  try { var me = 포털본인_(token); if (me) return me.name; } catch (e) {}
+  return '커미티';
+}
+
+function deleteNotice(token, id) {
+  if (!커미티토큰_(token)) throw new Error('공지는 커미티만 지울 수 있습니다.');
+  var sh = 공지시트_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][NO_ID]).trim() === String(id).trim()) sh.deleteRow(i + 1);
+  캐시비움_();
+  return { ok: true };
+}
+
+function listNotices(token) {
+  폼신청자_(token);
+  return { list: 공지들_(), canEdit: 커미티토큰_(token) };
+}
+
+/* ---- 할 일 모으기 ---- */
+
+function 할일하나_(o) {
+  return { id: o.id, kind: o.kind, icon: o.icon || '', title: o.title, sub: o.sub || '',
+    url: o.url || '', tone: o.tone || 'info', hideable: o.hideable !== false, step: o.step || null };
+}
+
+/**
+ * 내 할 일 — 포털 첫 화면에 쭉 나열합니다.
+ * (교적 교인만. 새가족은 신청서와 셀 신청만 봅니다)
+ */
+function 내할일_(token) {
+  var out = [];
+  var who;
+  try { who = 폼신청자_(token); } catch (e) { return out; }
+  var base = 앱주소_() || '';
+  var hidden = 숨긴것_(who.name);
+  var today = ymd_(new Date());
+
+  var r = null, 커미티 = false;
+  if (who.kind === 'member') {
+    r = 포털역할_(who.name);
+    커미티 = r.roles.indexOf('커미티') !== -1;
+  }
+
+  /* --- 1) 공지 --- */
+  공지들_().forEach(function (n) {
+    if (n.target && n.target !== '전체' && who.kind === 'member') {
+      if (r.roles.indexOf(n.target) === -1 && r.teams.indexOf(n.target) === -1 && r.cells.indexOf(n.target) === -1) return;
+    }
+    out.push(할일하나_({ id: 'notice-' + n.id, kind: 'notice', icon: '📢',
+      title: n.title, sub: n.body || (n.by ? n.by + ' 올림' : ''), url: n.url, tone: 'notice' }));
+  });
+
+  if (who.kind === 'member') {
+    /* --- 2) 셀 보고서 --- */
+    if (r.cells.length) {
+      var 이번주 = ymd_(이번주기준_());
+      var 낸셀 = {};
+      rows_(SHEET_응답원본).forEach(function (x) {
+        if (ymd_(x[R_DATE]) === 이번주) 낸셀[String(x[R_CELL]).trim()] = true;
+      });
+      r.cells.forEach(function (c) {
+        if (낸셀[c]) return;
+        out.push(할일하나_({ id: 'cell-' + c + '-' + 이번주, kind: 'do', icon: '📋',
+          title: c + ' 셀모임 보고서', sub: 월일_(이번주) + ' 모임 — 아직 안 내셨습니다',
+          url: base + '?page=leader&t=' + encodeURIComponent(token), tone: 'urgent', hideable: false }));
+      });
+    }
+
+    /* --- 3) 사역팀 보고서 --- */
+    if (r.teams.length) {
+      var 달 = today.slice(0, 7);
+      var 낸팀 = {};
+      rows_(SHEET_사역보고서).forEach(function (x) {
+        var p = String(x[TR_기준월] || '').slice(0, 7);
+        if (p === 달) 낸팀[String(x[TR_팀]).trim()] = true;
+      });
+      r.teams.forEach(function (t) {
+        if (낸팀[t]) return;
+        out.push(할일하나_({ id: 'team-' + t + '-' + 달, kind: 'do', icon: '⭐',
+          title: t + ' 사역 보고서', sub: 달.replace('-', '년 ') + '월 보고서를 아직 안 내셨습니다',
+          url: base + '?page=team&t=' + encodeURIComponent(token), tone: 'warn' }));
+      });
+    }
+
+    /* --- 4) 선교팀 서류 --- */
+    rows_(SHEET_선교팀원).forEach(function (x) {
+      if (String(x[MM_이름]).trim() !== who.name) return;
+      var team = String(x[MM_팀]).trim();
+      var 빠진 = [];
+      if (!예아니오_(x[MM_waiver])) 빠진.push('서약서');
+      if (!예아니오_(x[MM_여권])) 빠진.push('여권 사본');
+      if (!빠진.length) return;
+      out.push(할일하나_({ id: 'mis-' + team + '-doc', kind: 'do', icon: '🌏',
+        title: team + ' 서류', sub: 빠진.join(' · ') + ' 를 아직 안 내셨습니다',
+        url: base + '?page=mission&t=' + encodeURIComponent(token), tone: 'warn' }));
+    });
+
+    /* --- 5) 지출 신청 진행 상황 --- */
+    var 상태표 = {};
+    지출상태목록().forEach(function (s) { 상태표[s.code] = s.label; });
+    var 단계순 = ['In Review', 'Pending Hardcopy Receipt', 'Action Required', 'Approved', 'Paid'];
+    지출목록_().forEach(function (e) {
+      if (String(e.name || '').trim() !== who.name) return;
+      if (e.status === 'Closed') return;
+      var done = (e.status === 'Paid');
+      if (done && hidden['exp-' + e.no]) return;
+      var idx = 단계순.indexOf(e.status);
+      out.push(할일하나_({ id: 'exp-' + e.no, kind: 'track', icon: '💳',
+        title: '지출환급 #' + e.no + ' · $' + e.total,
+        sub: (상태표[e.status] || e.status) + (e.status === 'Action Required' ? ' — 확인해주세요' : ''),
+        url: base + '?page=expense', tone: e.status === 'Action Required' ? 'urgent' : (done ? 'ok' : 'info'),
+        step: { now: idx < 0 ? 0 : idx + 1, all: 5, done: done } }));
+    });
+
+    /* --- 6) 헌금봉투 --- */
+    var env = 헌금신청상태_(who.name);
+    if (env && env.status === '발급중' && !hidden['env-' + (env.at || '')]) {
+      out.push(할일하나_({ id: 'env-' + (env.at || ''), kind: 'track', icon: '✉️',
+        title: '헌금봉투번호 신청', sub: '발급 준비 중입니다 · ' + (env.at || ''),
+        url: base + '?page=portal', tone: 'info' }));
+    }
+  }
+
+  /* --- 7) 셀 신청 --- */
+  var ca = null;
+  try {
+    ca = 셀신청상태_(who.kind === 'newcomer'
+      ? { kind: 'newcomer', name: who.name, email: who.email, allowed: 새가족셀허용_(who.email, who.name), committee: false }
+      : { kind: 'member', name: who.name, email: who.email, committee: 커미티,
+          allowed: 셀신청열림_() || 새가족셀허용_(who.email, who.name) });
+  } catch (e) {}
+  if (ca && ca.state === 'open' && !ca.submitted) {
+    out.push(할일하나_({ id: 'cellapp-' + ca.year, kind: 'do', icon: '🤝',
+      title: ca.year + ' 셀 신청', sub: '아직 신청하지 않으셨습니다', url: '', tone: 'warn' }));
+  }
+
+  /* --- 8) 신청서 마감 임박 --- */
+  try {
+    (myForms(token).list || []).forEach(function (f) {
+      if (!f.open || f.submitted || !f.closeAt) return;
+      var d = (parseYmd_(f.closeAt) - parseYmd_(today)) / 86400000;
+      if (d > 7 || d < 0) return;
+      out.push(할일하나_({ id: 'form-' + f.id, kind: 'do', icon: '📝',
+        title: f.title, sub: (d <= 0 ? '오늘 마감' : d < 1 ? '오늘까지' : Math.round(d) + '일 뒤 마감') + ' — 아직 신청 전',
+        url: '', tone: d <= 1 ? 'urgent' : 'warn' }));
+    });
+  } catch (e) {}
+
+  /* --- 9) 내가 맡은 역할로 처리할 것 --- */
+  if (who.kind === 'member') {
+    var 새가족팀 = r.roles.indexOf('새가족팀') !== -1;
+    var 회계팀 = r.roles.indexOf('회계팀') !== -1;
+
+    if (새가족팀 || 커미티) {
+      var nf = 새가족전체_();
+      var 배정 = nf.filter(function (n) { return n.stage === '셀배정대상'; });
+      if (배정.length && !hidden['nf-assign-' + today]) {
+        out.push(할일하나_({ id: 'nf-assign-' + today, kind: 'role', icon: '🌱',
+          title: '셀 배정을 기다리는 새가족 ' + 배정.length + '명',
+          sub: 배정.slice(0, 4).map(function (n) { return n.name; }).join(', ') + (배정.length > 4 ? ' 외' : ''),
+          url: base + '?page=newfamily&t=' + encodeURIComponent(token), tone: 'warn' }));
+      }
+      var 새로 = nf.filter(function (n) {
+        return n.joinedAt && (parseYmd_(today) - parseYmd_(n.joinedAt)) / 86400000 <= 7 && n.completedWeeks === 0;
+      });
+      if (새로.length && !hidden['nf-new-' + today]) {
+        out.push(할일하나_({ id: 'nf-new-' + today, kind: 'role', icon: '👋',
+          title: '이번 주 새로 등록한 새가족 ' + 새로.length + '명',
+          sub: 새로.map(function (n) { return n.name; }).join(', ') + ' — 담당자를 정해주세요',
+          url: base + '?page=newfamily&t=' + encodeURIComponent(token), tone: 'info' }));
+      }
+    }
+
+    if (회계팀 || 커미티) {
+      var 대기 = 지출목록_().filter(function (e) { return e.status === 'In Review'; });
+      if (대기.length && !hidden['exp-review-' + today]) {
+        out.push(할일하나_({ id: 'exp-review-' + today, kind: 'role', icon: '🧾',
+          title: '검토를 기다리는 지출 신청 ' + 대기.length + '건',
+          sub: 대기.slice(0, 3).map(function (e) { return e.name + ' $' + e.total; }).join(' · '),
+          url: base + '?page=admin&scope=acct&key=' + encodeURIComponent(회계키_()), tone: 'warn' }));
+      }
+    }
+
+    if (커미티) {
+      var 신청수 = 0;
+      try { 신청수 = 셀신청행들_().filter(function (a) { return a.year === 셀년도_(); }).length; } catch (e) {}
+      if (신청수 && 셀신청열림_() && !hidden['cellapp-in-' + today]) {
+        out.push(할일하나_({ id: 'cellapp-in-' + today, kind: 'role', icon: '📥',
+          title: '셀 신청 ' + 신청수 + '건 들어옴',
+          sub: '편성 화면에서 확인하실 수 있습니다',
+          url: base + '?page=cells&key=' + encodeURIComponent(설정값_('관리자키') || ''), tone: 'info' }));
+      }
+    }
+  }
+
+  return out.filter(function (x) { return !(x.hideable && hidden[x.id]); });
+}
+
+/** 화면에서 따로 부를 때 */
+function myTodos(token) {
+  return { list: 내할일_(token) };
+}
+
+/** 할 일에서 메뉴 아이콘에 붙일 알림 숫자를 뽑습니다 */
+function 포털뱃지_(todos) {
+  var b = {};
+  var add = function (k, n) { if (k) b[k] = (b[k] || 0) + (n || 1); };
+  (todos || []).forEach(function (t) {
+    var id = t.id || '';
+    if (id.indexOf('cell-') === 0) { add('leader'); add('a-cell'); }
+    else if (id.indexOf('team-') === 0) { add('team'); add('a-team'); }
+    else if (id.indexOf('mis-') === 0) { add('mission'); add('a-mis'); }
+    else if (id.indexOf('exp-review-') === 0) { add('acct'); add('a-acct'); }
+    else if (id.indexOf('exp-') === 0) { if (t.tone === 'urgent') add('expense'); }
+    else if (id.indexOf('nf-') === 0) { add('newfamily'); add('a-nf'); }
+    else if (id.indexOf('form-') === 0) add('forms');
+    else if (id.indexOf('cellapp-in-') === 0) add('a-cells');
+  });
+  return b;
 }
