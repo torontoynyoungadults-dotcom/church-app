@@ -653,6 +653,19 @@ header h1 { color: #F26B21 !important; }
 .noteBox { flex-basis: 100%; margin-top: 4px; padding: 10px; background: var(--panel-2, #F6F3EE); border-radius: 10px; }
 .noteBox textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--hair-2); border-radius: 8px; resize: vertical; }
 .noteRow { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+/* 설교 요약 (직접 입력 · Gemini) */
+.smSum textarea { min-height: 220px; line-height: 1.7; }
+.smGem { margin-top: 10px; padding: 10px; border: 1px dashed var(--hair-2); border-radius: 10px; background: rgba(242,107,33,.05); }
+.smGem input[type=text] { width: 100%; box-sizing: border-box; margin-bottom: 8px; }
+.smGem textarea { min-height: 110px; }
+.smSpin { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(128,128,128,.35); border-top-color: currentColor;
+  border-radius: 50%; animation: smSpin .7s linear infinite; vertical-align: -2px; margin-right: 6px; }
+@keyframes smSpin { to { transform: rotate(360deg); } }
+.smToast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 9999; max-width: 88vw;
+  padding: 11px 16px; border-radius: 12px; font-size: 14px; line-height: 1.6; color: #fff; background: #2B2926;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+.smToast.err { background: #A8321E; }
+.smToast.ok { background: #1D6B4B; }
 .notePrev { margin-top: 10px; padding: 10px 12px; background: #fff; border: 1px dashed var(--hair-2); border-radius: 8px; }
 .notePrev b { display: block; font-size: 14.5px; }
 .notePrev p { margin: 4px 0; font-size: 13.5px; color: var(--ink-3); white-space: pre-wrap; }
@@ -5637,6 +5650,8 @@ function drawSermonAdmin() {
       : '<p class="empty">아직 뜨는 영상이 없습니다. 재생목록을 걸거나 영상을 확정해주세요.</p>') +
     '<p class="msg" id="sermonMsg"></p></div>';
 
+  if (cur) h += sermonSummaryBox(cur);
+
   if (cur && !cur.pending && (cur.short3 || []).length) {
     h += '<div class="noteBox">' +
       '<div class="noteRow"><b>AI 요약 미리보기 — 청년부원 화면에 이대로 보입니다</b></div>' +
@@ -5702,9 +5717,164 @@ function clearSermonConfirm() {
 function makeSermonSummary(id) {
   say('sermonMsg', 'AI가 요약 만드는 중… 자막 길이에 따라 10~30초 걸립니다.');
   callServer('sermonMake', [KEY, id, ''], function () {
+    SERMON_DRAFT.id = '';            // 새로 만든 요약으로 아래 요약 칸을 다시 채웁니다
     loadSermonAdmin();
     say('sermonMsg', '요약을 만들었습니다.', 'ok');
   }, function (e) { say('sermonMsg', e.message || e, 'err'); });
+}
+
+/* ---------------------------------------------------------
+   설교 요약 — 직접 입력 + Gemini 자동 요약
+   · 요약 칸(textarea)은 직접 써도 되고, Gemini 로 채운 뒤 고쳐도 됩니다.
+   · Gemini 결과는 칸에 채우기만 합니다. [요약 저장]을 눌러야 저장됩니다.
+   · 화면이 다시 그려져도(재생목록 저장 등) 쓰던 내용이 사라지지 않게 SERMON_DRAFT 에 보관합니다.
+   --------------------------------------------------------- */
+var SERMON_DRAFT = { id: '', text: '', saved: '', link: '', transcript: '', open: false };
+var SERMON_BUSY = false;
+
+/** 저장된 요약 글이 없을 때, 이미 구조로 저장된 값(설교자·본문·대지·메시지)을 같은 형식의 글로 되돌려 보여줍니다 */
+function sermonComposeText(c) {
+  if (c.summaryText) return c.summaryText;
+  if (!c.preacher && !c.passage && !(c.points || []).length && !(c.messages || []).length) return '';
+  return '설교자: ' + (c.preacher || '') + '\n' +
+    '본문 구절: ' + (c.passage || '') + '\n' +
+    '핵심 대지 3가지:\n' + (c.points || []).map(function (x, i) { return (i + 1) + '. ' + x; }).join('\n') + '\n' +
+    '주요 메시지:\n' + (c.messages || []).map(function (x) { return '- ' + x; }).join('\n');
+}
+
+function sermonSummaryBox(cur) {
+  if (SERMON_DRAFT.id !== cur.id) {
+    var t = sermonComposeText(cur);
+    SERMON_DRAFT = { id: cur.id, text: t, saved: t, link: 'https://www.youtube.com/watch?v=' + cur.id, transcript: '', open: false };
+  }
+  var d = SERMON_DRAFT;
+  return '<div class="noteBox smSum">' +
+    '<div class="noteRow" style="justify-content:space-between;flex-wrap:wrap;">' +
+      '<b>설교 요약 (직접 입력 · 수정)</b>' +
+      '<button type="button" class="btn mini accent" id="sermonGemBtn" onclick="toggleSermonGem()">✨ Gemini로 요약</button>' +
+    '</div>' +
+    '<p class="hint" style="margin:2px 0 8px;">직접 적어도 되고, Gemini로 만든 뒤 고쳐도 됩니다. 아래 칸의 내용이 그대로 저장됩니다.</p>' +
+
+    '<div class="smGem" id="sermonGemPanel" style="display:' + (d.open ? 'block' : 'none') + ';">' +
+      '<div class="noteRow" style="margin-top:0;"><b>Gemini에게 요약 맡기기</b></div>' +
+      '<p class="hint" style="margin:2px 0 8px;">유튜브 주소를 넣으면 자막을 가져와 요약합니다. 자막이 없는 영상이면 설교 원고나 녹취 글을 아래 칸에 붙여넣으세요 (붙여넣은 글이 있으면 그 글을 먼저 씁니다).</p>' +
+      '<input type="text" id="sermonGemLink" value="' + esc(d.link) + '" placeholder="https://youtu.be/… 또는 영상 ID" oninput="SERMON_DRAFT.link=this.value">' +
+      '<textarea id="sermonGemText" placeholder="(선택) 설교 원고 · 자막 글 붙여넣기 — 200자 이상" oninput="SERMON_DRAFT.transcript=this.value">' + esc(d.transcript) + '</textarea>' +
+      '<div class="noteRow"><button type="button" class="btn mini accent" id="sermonGemRun" onclick="runSermonGemini()">요약 만들기</button>' +
+      '<span class="hint" style="margin:0;">10~30초 걸립니다</span></div>' +
+    '</div>' +
+
+    '<textarea id="sermonSummary" style="margin-top:10px;" placeholder="설교자: …&#10;본문 구절: …&#10;핵심 대지 3가지:&#10;1. …&#10;2. …&#10;3. …&#10;주요 메시지:&#10;- …" ' +
+      'oninput="SERMON_DRAFT.text=this.value">' + esc(d.text) + '</textarea>' +
+    '<div class="noteRow"><button type="button" class="btn mini accent" id="sermonSaveBtn" onclick="saveSermonSummaryText()">요약 저장</button>' +
+    '<button type="button" class="btn mini" id="sermonResetBtn" onclick="resetSermonSummaryText()">저장된 내용으로 되돌리기</button></div>' +
+    '<p class="msg" id="sermonSumMsg"></p>' +
+  '</div>';
+}
+
+function toggleSermonGem() {
+  var p = el('sermonGemPanel');
+  if (!p) return;
+  SERMON_DRAFT.open = p.style.display === 'none';
+  p.style.display = SERMON_DRAFT.open ? 'block' : 'none';
+}
+
+/** 작업 중 표시 — 관련 버튼을 모두 잠그고 눌린 버튼에 돌아가는 표시를 넣습니다 */
+function sermonBusy(on, btnId, label) {
+  SERMON_BUSY = on;
+  ['sermonGemBtn', 'sermonGemRun', 'sermonSaveBtn', 'sermonResetBtn'].forEach(function (id) {
+    var b = el(id); if (b) b.disabled = on;
+  });
+  var ta = el('sermonSummary'); if (ta) ta.readOnly = on;   // 만드는 동안 쓰던 내용이 덮어써지지 않게
+  var b2 = btnId && el(btnId);
+  if (!b2) return;
+  if (on) { b2.setAttribute('data-l', b2.innerHTML); b2.innerHTML = '<span class="smSpin"></span>' + label; }
+  else if (b2.hasAttribute('data-l')) { b2.innerHTML = b2.getAttribute('data-l'); b2.removeAttribute('data-l'); }
+}
+
+/** 화면 아래에 잠깐 뜨는 알림 (오류는 조금 더 오래) */
+function sermonToast(text, kind) {
+  var old = document.querySelector('.smToast'); if (old) old.remove();
+  var t = document.createElement('div');
+  t.className = 'smToast' + (kind ? ' ' + kind : '');
+  t.textContent = text;
+  document.body.appendChild(t);
+  setTimeout(function () { if (t.parentNode) t.remove(); }, kind === 'err' ? 6000 : 3000);
+}
+
+/** 서버 · 네트워크 오류를 이용자가 알아볼 말로 바꿉니다 */
+function sermonErrText(e) {
+  var m = String((e && e.message) || e || '');
+  if (!m || /Failed to fetch|NetworkError|Load failed|timeout|timed out|abort/i.test(m)) {
+    return '서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 잠시 후 다시 시도해주세요.';
+  }
+  if (/429|quota|rate|한도|RESOURCE_EXHAUSTED/i.test(m)) {
+    return 'Gemini 사용량이 잠시 많습니다. 1분쯤 뒤에 다시 눌러주세요.';
+  }
+  if (/[가-힣]/.test(m)) return m;          // 서버가 이미 한국어로 알려준 말은 그대로
+  return 'Gemini 요약에 실패했습니다. 잠시 후 다시 시도해주세요.';
+}
+
+function runSermonGemini() {
+  if (SERMON_BUSY) return;
+  var link = el('sermonGemLink').value.trim();
+  var tx = el('sermonGemText').value.trim();
+  if (!link && !tx) {
+    say('sermonSumMsg', '유튜브 주소를 넣거나 설교 원고를 붙여넣어 주세요.', 'err');
+    sermonToast('유튜브 주소나 설교 원고 중 하나는 꼭 필요합니다.', 'err');
+    return;
+  }
+  if (tx && tx.length < 200 && !link) {
+    say('sermonSumMsg', '붙여넣은 글이 너무 짧습니다. 200자 이상 붙여넣어 주세요.', 'err');
+    sermonToast('붙여넣은 글이 너무 짧습니다 (200자 이상).', 'err');
+    return;
+  }
+  var cur = (el('sermonSummary').value || '').trim();
+  if (cur && cur !== (SERMON_DRAFT.saved || '').trim() && !confirm('지금 적어둔 내용이 Gemini 결과로 바뀝니다. 계속할까요?')) return;
+
+  sermonBusy(true, 'sermonGemRun', 'Gemini가 요약하는 중…');
+  say('sermonSumMsg', 'Gemini가 요약하는 중입니다… 자막 길이에 따라 10~30초 걸립니다.');
+  callServer('sermonGeminiSummary', [KEY, link, tx], function (r) {
+    sermonBusy(false, 'sermonGemRun');
+    var text = String((r && r.text) || '').trim();
+    if (!text) { say('sermonSumMsg', 'Gemini가 빈 답을 보냈습니다. 다시 눌러주세요.', 'err'); sermonToast('Gemini가 빈 답을 보냈습니다. 다시 시도해주세요.', 'err'); return; }
+    SERMON_DRAFT.text = text;
+    el('sermonSummary').value = text;
+    say('sermonSumMsg', '요약을 채웠습니다. 내용을 확인·수정한 뒤 [요약 저장]을 눌러주세요. (아직 저장 전입니다)', 'ok');
+    sermonToast('Gemini 요약이 채워졌습니다. 확인 후 저장해주세요.', 'ok');
+  }, function (e) {
+    sermonBusy(false, 'sermonGemRun');
+    var m = sermonErrText(e);
+    say('sermonSumMsg', m, 'err');
+    sermonToast(m, 'err');
+  });
+}
+
+function saveSermonSummaryText() {
+  if (SERMON_BUSY || !SERMON_AD || !SERMON_AD.current) return;
+  var text = (el('sermonSummary').value || '').trim();
+  if (!text) { say('sermonSumMsg', '저장할 요약 내용을 적어주세요.', 'err'); sermonToast('요약 내용이 비어 있습니다.', 'err'); return; }
+  var cur = SERMON_AD.current;
+  sermonBusy(true, 'sermonSaveBtn', '저장하는 중…');
+  callServer('saveSermonSummary', [KEY, cur.id, text, cur.title || '', cur.date || ''], function (r) {
+    sermonBusy(false, 'sermonSaveBtn');
+    SERMON_DRAFT.text = text; SERMON_DRAFT.saved = text;
+    SERMON_AD = r; drawSermonAdmin();
+    say('sermonSumMsg', '저장했습니다. 포털에 바로 반영됩니다.', 'ok');
+    sermonToast('요약을 저장했습니다.', 'ok');
+  }, function (e) {
+    sermonBusy(false, 'sermonSaveBtn');
+    var m = (e && e.message && /[가-힣]/.test(e.message)) ? e.message : '저장하지 못했습니다. 잠시 후 다시 시도해주세요.';
+    say('sermonSumMsg', m, 'err');
+    sermonToast(m, 'err');
+  });
+}
+
+function resetSermonSummaryText() {
+  if (SERMON_BUSY) return;
+  SERMON_DRAFT.text = SERMON_DRAFT.saved || '';
+  el('sermonSummary').value = SERMON_DRAFT.text;
+  say('sermonSumMsg', '저장된 내용으로 되돌렸습니다.', 'ok');
 }
 
 
