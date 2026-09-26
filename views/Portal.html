@@ -1212,7 +1212,7 @@ body .mcardlink,
       <button type="button" class="mebtn" id="meBtn" onclick="showProfile(true)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.8 3.1-6.3 7-6.3s7 2.5 7 6.3"/></svg>
         내 정보 관리 <span>&rsaquo;</span></button>
-      <div class="qsearch">
+      <div class="qsearch" style="display:none;">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         <input type="text" id="qsInput" placeholder="이름 · 전화번호 · 팀 · 셀로 찾기" autocomplete="off" oninput="qsInputChanged()" onfocus="qsInputChanged()">
         <div id="qsDrop" class="qsdrop" style="display:none;"></div>
@@ -2413,6 +2413,8 @@ function paint(res) {
   openDeepLinkedForm();
   if (!VIEW) renderProfile();
   el('meBtn').style.display = VIEW ? 'none' : '';
+  var qs = document.querySelector('.qsearch');
+  if (qs) qs.style.display = (VIEW || !CAL_COM) ? 'none' : '';
   renderAdmin();
   el('calWrap').style.display = HAS_CAL ? 'block' : 'none';
   if (HAS_CAL) { if (CAL_OPEN) loadCal(); loadPeek(); }

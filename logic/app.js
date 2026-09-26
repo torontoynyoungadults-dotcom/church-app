@@ -1638,6 +1638,7 @@ function 교인카드_(p) {
 
 function quickMemberSearch(token, q) {
   requirePortal_(token);
+  if (!커미티토큰_(token)) throw new Error('교인 검색은 커미티만 사용할 수 있습니다.');
   q = String(q || '').trim();
   if (q.length < 1) return { list: [] };
   var qDigits = q.replace(/[^0-9]/g, '');
@@ -1654,6 +1655,7 @@ function quickMemberSearch(token, q) {
 
 function quickMemberDetail(token, name) {
   requirePortal_(token);
+  if (!커미티토큰_(token)) throw new Error('교인 검색은 커미티만 사용할 수 있습니다.');
   var p = 교적전체_().filter(function (x) { return x.name === String(name || '').trim(); })[0];
   if (!p) throw new Error('교인을 찾을 수 없습니다.');
   return 교인카드_(p);
@@ -1662,6 +1664,7 @@ function quickMemberDetail(token, name) {
 /** kind: 'cell' | 'team' — 그 셀/팀 소속 명단 (이름 · 역할만) */
 function quickGroupMembers(token, kind, name) {
   requirePortal_(token);
+  if (!커미티토큰_(token)) throw new Error('교인 검색은 커미티만 사용할 수 있습니다.');
   name = String(name || '').trim();
   var list = 교적전체_();
   if (kind === 'cell') {
