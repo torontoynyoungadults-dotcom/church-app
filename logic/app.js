@@ -63,7 +63,7 @@ var SHEET_셀대리 = '셀대리작성자';
 var SHEET_찬양녹음 = '찬양녹음';
 
 var HEAD_응답 = ['보고서ID', '타임스탬프', '모임날짜', '셀이름', '제출자', '셀장컨디션', '모임분위기',
-                 '출석', '전체', '출석률', '기도제목및특이사항', '양육팀코멘트', '코멘트작성자', '코멘트시각'];
+                 '출석', '전체', '출석률', '기도제목및특이사항', '양육팀코멘트', '코멘트작성자', '코멘트시각', '셀모임자료(사진)'];
 var HEAD_출결 = ['보고서ID', '타임스탬프', '모임날짜', '셀이름', '셀원이름', '상태', '사유', '기타사유'];
 
 var HEAD_교적 = ['이름', '전화번호', '카카오톡', '이메일', '생년월일', '세례여부', '섬기는사역',
@@ -146,7 +146,8 @@ var WE_ID = 0, WE_이름 = 1, WE_종류 = 2, WE_날짜 = 3, WE_끝 = 4, WE_연�
 var 지출사유기준액 = 500;
 
 var R_ID = 0, R_TS = 1, R_DATE = 2, R_CELL = 3, R_BY = 4, R_COND = 5, R_MOOD = 6,
-    R_PRESENT = 7, R_TOTAL = 8, R_RATE = 9, R_NOTES = 10, R_COMMENT = 11, R_CBY = 12, R_CAT = 13;
+    R_PRESENT = 7, R_TOTAL = 8, R_RATE = 9, R_NOTES = 10, R_COMMENT = 11, R_CBY = 12, R_CAT = 13,
+    R_MEDIA = 14;
 var A_ID = 0, A_TS = 1, A_DATE = 2, A_CELL = 3, A_NAME = 4, A_STATUS = 5, A_REASON = 6, A_OTHER = 7;
 
 var FACE_COND = { '충만함': '🕊️', '평안함': '🌿', '지침/지체됨': '🌧️', 'SOS/기도 필요': '🆘',
@@ -3806,9 +3807,15 @@ function submitReport__원래(token, data) {
     var 전체 = data.attendance.length;
     var 율 = 전체 ? Math.round((출석 / 전체) * 100) : 0;
 
+    var 자료 = (Array.isArray(data.media) ? data.media : []).slice(0, 12).map(function (m) {
+      return { id: String(m.id || '').trim(), url: String(m.url || '').trim(),
+        align: (m.align === 'left' || m.align === 'right') ? m.align : 'center' };
+    }).filter(function (m) { return m.id; });
+
     sheet_(SHEET_응답원본).appendRow([
       id, now, 날짜, data.cell, data.submitter, data.condition, data.mood,
-      출석, 전체, 율 + '%', data.notes || '', 기존코멘트[0], 기존코멘트[1], 기존코멘트[2]
+      출석, 전체, 율 + '%', data.notes || '', 기존코멘트[0], 기존코멘트[1], 기존코멘트[2],
+      JSON.stringify(자료)
     ]);
 
     var 출결 = sheet_(SHEET_출결기록);
@@ -3884,6 +3891,32 @@ function findReportByCellDate_(cell, date) {
   return null;
 }
 
+/** 셀모임 자료(사진)를 담아두는 드라이브 폴더 */
+function 셀자료폴더_() {
+  var id = 설정값_('셀자료폴더');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  var folder = DriveApp.createFolder('청년부 셀모임 자료 사진');
+  설정저장_('셀자료폴더', folder.getId());
+  return folder;
+}
+
+/**
+ * 셀모임 자료 사진을 올립니다 (여러 장, 좌/우/중앙 배치는 화면에서 고릅니다).
+ * 셀장 · 대리 작성자만 자기 셀에 올릴 수 있습니다.
+ */
+function uploadCellMaterialImage(token, cell, dataUrl, fileName) {
+  requireCell_(token, cell);
+  var m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(String(dataUrl || ''));
+  if (!m) throw new Error('사진 파일만 올릴 수 있습니다.');
+  var bytes = Utilities.base64Decode(m[2]);
+  if (bytes.length > 6 * 1024 * 1024) throw new Error('사진 한 장은 6MB까지 올릴 수 있습니다.');
+
+  var safe = String(fileName || '셀자료').replace(/[\\\/:*?"<>|]/g, '_').slice(0, 80);
+  var file = 셀자료폴더_().createFile(Utilities.newBlob(bytes, m[1], safe));
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { id: file.getId(), url: 사진주소_(file.getId(), 1200), name: safe };
+}
+
 /* =========================================================
    7. 보고서 조회
    ========================================================= */
@@ -3915,6 +3948,7 @@ function buildReport_(row, attIdx) {
     total: Number(row[R_TOTAL]) || 0,
     rate: Number(row[R_TOTAL]) ? Math.round((Number(row[R_PRESENT]) / Number(row[R_TOTAL])) * 100) : 0,
     notes: String(row[R_NOTES] || ''),
+    media: (function () { try { return JSON.parse(row[R_MEDIA] || '[]'); } catch (e) { return []; } })(),
     comment: String(row[R_COMMENT] || ''),
     commentBy: String(row[R_CBY] || ''),
     commentAt: row[R_CAT] instanceof Date ? md_(row[R_CAT]) : '',
@@ -7220,37 +7254,13 @@ function 포털관리메뉴_(r, token) {
       ] });
   }
 
-  /* 8. 알림 관리 */
+  /* 8. 앱 기능 관리 — 알림 · 일정 · AI · 권한 · 메뉴 순서를 여기 하나로 모았습니다 */
   if (커미티) {
-    out.push({ key: 'push', title: '알림 관리', desc: '푸시 · 공지 · 직접 보내기', url: base + '#push',
-      stats: [{ n: 푸시행들_().length, l: '알림 켠 기기' }] });
-  }
-
-  /* 9. 일정 관리 */
-  if (커미티) {
-    out.push({ key: 'cal', title: '일정 관리', desc: '공개 · 리더 · 커미티', url: base + '#cal',
-      stats: [{ n: (st.calendar && st.calendar.publicOk) ? '연결됨' : '연결 안 됨', l: '공개 캘린더',
-        warn: !(st.calendar && st.calendar.publicOk) }] });
-  }
-
-  /* 10. AI 설정 */
-  if (커미티) {
-    out.push({ key: 'ai', title: 'AI 설정', desc: '모델 고르기 · 묵상 · 설교 요약 · 번역', url: base + '#ai',
+    out.push({ key: 'app', title: '⚙️ 앱 기능 관리', desc: '메뉴 순서 · AI/설교 · 일정 · 알림 · 권한 한곳에', url: base + '#app',
       stats: [
-        { n: (AI있나_() ? (AI켜짐_() ? '켜짐' : '꺼짐') : '없음'), l: '상태', warn: !AI켜짐_() },
-        { n: AI모델_().replace(/^gemini-/, ''), l: '모델' }
+        { n: (AI있나_() ? (AI켜짐_() ? '켜짐' : '꺼짐') : '없음'), l: 'AI 상태', warn: !AI켜짐_() },
+        { n: 푸시행들_().length, l: '알림 켠 기기' }
       ] });
-  }
-
-  /* 11. 권한 관리 */
-  if (커미티) {
-    out.push({ key: 'perm', title: '권한 관리', desc: '사람 · 팀 계정에 메뉴 권한 주기', url: base + '#perm',
-      stats: [{ n: 팀계정목록_().length, l: '팀 계정' }] });
-  }
-
-  /* 12. 앱 기능 관리 — 맨 마지막 순서 */
-  if (커미티) {
-    out.push({ key: 'app', title: '앱 기능 관리', desc: '메뉴 순서 · AI · 일정 · 알림 · 권한 한곳에', url: base + '#app', stats: [] });
   }
 
   return 메뉴순서적용_(out, 'admin');
@@ -7286,13 +7296,13 @@ function 메뉴순서적용_(out, kind) {
 function getMenuOrder(token) {
   if (!isAdmin_(token) && !커미티토큰_(token)) throw new Error('커미티 · 관리자만 볼 수 있습니다.');
   var 포털기본 = ['album', 'leader', 'team', 'expense', 'newfamily', 'worship', 'mission', 'forms', 'minutes', 'bulletinEdit', 'acct'];
-  var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'dir', 'push', 'cal', 'ai', 'perm', 'app'];
+  var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'dir', 'app'];
   var titleOf = {
     album: '포토 앨범', leader: '셀모임 보고서', team: '사역 보고서 / 사역팀 관리', expense: '지출환급신청서',
     newfamily: '새가족 관리', worship: '찬양방송팀 허브', mission: '선교팀 관리', forms: '신청서 관리',
     minutes: '회의록 · 할 일', bulletinEdit: '주보 편집', acct: '회계 관리',
     cell: '셀 관리', nf: '새가족 관리', tr: '제자훈련 관리', mis: '선교팀 관리', dir: '교적 관리',
-    push: '알림 관리', cal: '일정 관리', ai: 'AI 설정', perm: '권한 관리', app: '앱 기능 관리'
+    app: '⚙️ 앱 기능 관리 (알림 · 일정 · AI · 권한)'
   };
   function withTitles(list, fallback) {
     var have = list.length ? list : fallback;

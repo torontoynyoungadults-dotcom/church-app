@@ -1314,15 +1314,34 @@ window.YNI18N = (function () {
     return DICT[s] || ko;
   }
 
-  /** [data-i18n] 로 표시된 요소의 글자를 즉시 바꿉니다 (원문은 기억해 두었다가 KR 로 돌아오면 되돌립니다) */
-  function apply() {
+  /**
+   * [data-i18n] 로 표시된 요소의 글자를 바꿉니다.
+   * 짧고 흔한 문구(DICT)는 즉시, 그 외(공지 · 설교 요약처럼 매번 다른 글)는
+   * Gemini 로 한 번에 옮겨와 채워 넣습니다 (한 번 옮긴 문구는 이 기기에 기억해 두어 다시 부르지 않습니다).
+   * root 를 주면 그 안쪽만(새로 그려 넣은 부분만) 처리합니다 — 안 주면 화면 전체.
+   */
+  function apply(root) {
     var l = lang();
-    var nodes = document.querySelectorAll('[data-i18n]');
+    var nodes = (root || document).querySelectorAll('[data-i18n]');
+    var pending = [];
     Array.prototype.forEach.call(nodes, function (el) {
       if (el.dataset.i18nKo == null) el.dataset.i18nKo = el.textContent;
       var ko = el.dataset.i18nKo;
-      el.textContent = l === 'en' ? (DICT[ko] || ko) : ko;
+      if (l !== 'en') { el.textContent = ko; return; }
+      if (DICT[ko] != null) { el.textContent = DICT[ko]; return; }
+      if (el.dataset.i18nEn != null) { el.textContent = el.dataset.i18nEn; return; }
+      pending.push(el);
     });
+    if (pending.length) {
+      translateBatch(pending.map(function (el) { return el.dataset.i18nKo; }), function (out) {
+        if (lang() !== 'en') return;   // 그 사이 다시 KR 로 바뀌었으면 버립니다
+        pending.forEach(function (el, i) {
+          var v = (out[i] || '').trim() || el.dataset.i18nKo;
+          el.dataset.i18nEn = v;
+          el.textContent = v;
+        });
+      });
+    }
   }
 
   /** 헤더 [KR|EN] 버튼의 눌린 표시를 지금 언어에 맞춥니다 */
@@ -1367,7 +1386,10 @@ window.YNI18N = (function () {
     }, function () { done(items.slice()); });
   }
 
-  return { lang: lang, setLang: setLang, t: t, apply: apply, paint: paint, translateBatch: translateBatch };
+  /** 언어가 바뀔 때마다 fn 을 불러 줍니다 (각 화면이 자기 몫의 동적 글을 다시 옮기고 싶을 때 씀) */
+  function onChange(fn) { document.addEventListener('ynlangchange', fn); if (lang() === 'en') fn(); }
+
+  return { lang: lang, setLang: setLang, t: t, apply: apply, paint: paint, translateBatch: translateBatch, onChange: onChange };
 })();
 </script>
 <script>

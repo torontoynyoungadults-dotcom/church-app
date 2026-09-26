@@ -291,10 +291,6 @@ function draw() {
   }
   h += '</div>';
 
-  h += '<div class="panel"><p class="guide" style="font-size:13px;line-height:1.85;color:#DCD7D0;margin:0;">' +
-    'AI 가 만든 글입니다. 성경 본문은 꼭 성경으로 직접 읽어 주시고, ' +
-    '해설은 말씀을 묵상하는 데 돕는 참고로만 써주세요. 이상한 내용이 보이면 커미티에 알려주세요.</p></div>';
-
   el('root').innerHTML = h;
   if (CUR) paintRes(CUR, true);
 }

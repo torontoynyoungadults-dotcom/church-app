@@ -1790,6 +1790,7 @@ function renderTodos(res, boxId) {
       '</div>' +
       show.map(todoItem).join('') +
     '</div>';
+  try { if (window.YNI18N) YNI18N.apply(box); } catch (e) {}
 }
 
 function todoItem(t) {
@@ -1799,8 +1800,8 @@ function todoItem(t) {
     (meetId
       ? '<button class="tick" title="다 했어요" onclick="doneMeetTask(event,\'' + jsq(meetId) + '\')"></button>'
       : '<span class="tic">' + (t.icon || '•') + '</span>') +
-    '<span class="tib"><span class="tit">' + esc(t.title) + '</span>' +
-      (t.sub ? '<span class="tis">' + esc(t.sub) + '</span>' : '') +
+    '<span class="tib"><span class="tit" data-i18n>' + esc(t.title) + '</span>' +
+      (t.sub ? '<span class="tis" data-i18n>' + esc(t.sub) + '</span>' : '') +
       (t.step ? '<span class="tstep">' + stepBars(t.step) + '</span>' : '') +
     '</span>' +
     (t.url || t.id.indexOf('cellapp-') === 0 || t.id.indexOf('form-') === 0
@@ -2369,28 +2370,31 @@ function renderSermonCard() {
     '<button type="button" class="sermoncard" onclick="openSermonModal()">' +
       '<span class="sc-thumb"><img src="' + esc(thumb) + '" alt=""><span class="sc-play">&#9658;</span></span>' +
       '<span class="sc-b"><span class="sc-k" data-i18n>이번 주 설교</span>' +
-        '<span class="sc-t">' + esc(SERMON.title || '설교 영상') + '</span>' +
-        '<span class="sc-d">' + esc(SERMON.pending ? '요약 준비 중 · 영상 보기' : (SERMON.preacher || SERMON.date || '')) + '</span></span>' +
+        '<span class="sc-t" data-i18n>' + esc(SERMON.title || '설교 영상') + '</span>' +
+        '<span class="sc-d" data-i18n>' + esc(SERMON.pending ? '요약 준비 중 · 영상 보기' : (SERMON.preacher || SERMON.date || '')) + '</span></span>' +
       '<span class="sc-go">&rsaquo;</span>' +
     '</button>';
+  try { if (window.YNI18N) YNI18N.apply(box); } catch (e) {}
 }
 
 function openSermonModal() {
   if (!SERMON || !SERMON.id) return;
-  var pts = (SERMON.points || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
-  var msgs = (SERMON.messages || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
-  el('sermonModalBody').innerHTML =
+  var pts = (SERMON.points || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
+  var msgs = (SERMON.messages || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
+  var body = el('sermonModalBody');
+  body.innerHTML =
     '<div class="sermonyt"><iframe src="https://www.youtube.com/embed/' + encodeURIComponent(SERMON.id) +
       '" title="설교 영상" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>' +
     '<div class="sermonmeta">' +
-      '<h3>' + esc(SERMON.title || '설교') + '</h3>' +
+      '<h3 data-i18n>' + esc(SERMON.title || '설교') + '</h3>' +
       '<div class="sm-sub">' + [SERMON.preacher, SERMON.passage, SERMON.date].filter(Boolean).map(esc).join(' · ') + '</div>' +
       (SERMON.pending
-        ? '<p class="sm-pending">아직 AI 요약이 없습니다. 영상으로 먼저 은혜 나누시고, 요약은 곧 올라옵니다.</p>'
-        : (pts ? '<div class="sm-h">핵심 대지</div><ul>' + pts + '</ul>' : '') +
-          (msgs ? '<div class="sm-h">주요 메시지</div><ul>' + msgs + '</ul>' : '')) +
+        ? '<p class="sm-pending" data-i18n>아직 AI 요약이 없습니다. 영상으로 먼저 은혜 나누시고, 요약은 곧 올라옵니다.</p>'
+        : (pts ? '<div class="sm-h" data-i18n>핵심 대지</div><ul>' + pts + '</ul>' : '') +
+          (msgs ? '<div class="sm-h" data-i18n>주요 메시지</div><ul>' + msgs + '</ul>' : '')) +
     '</div>';
   el('sermonModal').style.display = 'flex';
+  try { if (window.YNI18N) YNI18N.apply(body); } catch (e) {}
 }
 
 function closeSermonModal() {

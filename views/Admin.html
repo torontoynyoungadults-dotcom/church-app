@@ -183,6 +183,24 @@
   }
   .hgrid { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 0 12px 14px; }
   @media (min-width: 560px) { .hgrid { grid-template-columns: 1fr 1fr; } }
+  /* 셀모임 자료 사진 — 보고서 상세에서 좌/중앙/우 배치대로 보여줍니다 */
+  .mediaview { margin-top: 10px; overflow: hidden; }
+  .mediaview img { max-width: 100%; border-radius: 12px; margin-bottom: 8px; display: block; }
+  .mediaview img.mv-left { float: left; max-width: 48%; margin-right: 10px; }
+  .mediaview img.mv-right { float: right; max-width: 48%; margin-left: 10px; }
+  .mediaview img.mv-center { margin-left: auto; margin-right: auto; }
+  .mediaview::after { content: ''; display: block; clear: both; }
+
+  /* ⚙️ 앱 기능 관리 — 안에 여러 도구를 접었다 폈다 */
+  details.appsub { margin: 0 12px 14px; border: 1px solid var(--hair-2); border-radius: 16px; overflow: hidden; background: var(--card); }
+  details.appsub > summary { list-style: none; cursor: pointer; padding: 15px 16px; font-size: 15px; font-weight: 800; color: var(--ink-1); display: flex; align-items: center; }
+  details.appsub > summary::-webkit-details-marker { display: none; }
+  details.appsub > summary::after { content: '›'; margin-left: auto; font-size: 20px; color: var(--ink-3); transform: rotate(90deg); transition: transform .15s; }
+  details.appsub[open] > summary::after { transform: rotate(-90deg); }
+  details.appsub[open] > summary { border-bottom: 1px solid var(--hair-2); }
+  details.appsub > summary ~ * { margin-left: 0; margin-right: 0; }
+  details.appsub > .panel, details.appsub > div.panel { margin: 12px; }
+  details.appsub > div#aiAdmin, details.appsub > div#pushAdmin, details.appsub > div#permAdmin { padding: 0 0 4px; }
   .hcard {
     --c: var(--tone); --cs: var(--tone-soft);
     position: relative; text-align: left; font-family: inherit; cursor: pointer;
@@ -842,65 +860,49 @@ header h1 { color: #F26B21 !important; }
     </div>
   </div>
 
-  <!-- ===================== 알림 (푸시) 관리 ===================== -->
-  <div id="sec_push" class="section" style="display:none;">
-    <div class="secbar">
-      <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
-      <span class="sectitle">알림 관리</span>
-      <span class="secspace"></span>
-    </div>
-    <div id="pushAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
-  </div>
-
-  <!-- ===================== AI 설정 ===================== -->
-  <div id="sec_ai" class="section" style="display:none;">
-    <div class="secbar">
-      <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
-      <span class="sectitle">AI 설정</span>
-      <span class="secspace"></span>
-    </div>
-    <div id="aiAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
-  </div>
-
-  <!-- ===================== 권한 관리 ===================== -->
-  <div id="sec_perm" class="section" style="display:none;">
-    <div class="secbar">
-      <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
-      <span class="sectitle">권한 관리</span>
-      <span class="secspace"></span>
-    </div>
-    <div class="panel">
-      <span class="chip">사람에게 역할 주기</span>
-      <p class="hint">교회에 이미 등록된 분에게 특정 메뉴 권한을 주려면 <b>교적 관리</b> 화면에서 그 분을 찾아 "포털 역할"에서
-        커미티 · 회계팀 · 새가족팀 · 주보팀 · 찬양팀 중 필요한 것을 체크해주세요. 체크한 즉시 그 메뉴가 그 분 포털에 나타납니다.<br>
-        셀장 · 팀장은 셀 목록 · 사역팀 관리 화면에서 리더로 지정하면 자동으로 생기고, 선교팀은 선교팀 관리 화면의 팀원 명단에 넣으면 됩니다.</p>
-      <button class="btn" onclick="go('dir')">교적 관리로 가기</button>
-    </div>
-    <div id="permAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
-  </div>
-
-  <!-- ===================== 앱 기능 관리 ===================== -->
+  <!-- ===================== ⚙️ 앱 기능 관리 — 알림 · 일정 · AI/설교 · 권한 · 메뉴 순서를 한 화면에 ===================== -->
   <div id="sec_app" class="section" style="display:none;">
     <div class="secbar">
       <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
-      <span class="sectitle">앱 기능 관리</span>
+      <span class="sectitle">⚙️ 앱 기능 관리</span>
       <span class="secspace"></span>
     </div>
-    <div class="panel">
-      <span class="chip">바로가기</span>
-      <p class="hint">아래 4가지는 이미 있는 화면입니다 — 여기서 바로 들어갈 수 있게 모아뒀습니다.</p>
-      <div class="rolepick" style="margin-top:8px;">
-        <button type="button" class="btn mini" onclick="go('ai')">🤖 AI 관리</button>
-        <button type="button" class="btn mini" onclick="go('cal')">📅 일정 관리</button>
-        <button type="button" class="btn mini" onclick="go('push')">🔔 알림 관리</button>
-        <button type="button" class="btn mini" onclick="go('perm')">🔒 권한 관리</button>
-      </div>
-    </div>
+
     <div class="panel">
       <span class="chip">메뉴 순서 변경</span>
       <p class="hint">▲▼ 로 순서를 바꾸면 청년부 포털 첫 화면과 커미티 관리툴 메뉴가 그 순서로 보입니다. 저장하면 바로 반영됩니다.</p>
       <div id="menuOrderBox"><p class="empty">불러오는 중…</p></div>
     </div>
+
+    <details class="appsub" id="appsub_ai" ontoggle="if(this.open&&!aiLoaded){aiLoaded=true;loadAiAdmin();}">
+      <summary>🤖 AI · 말씀 · 설교 관리</summary>
+      <div id="aiAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
+    </details>
+
+    <details class="appsub" id="appsub_cal">
+      <summary>📅 일정 관리</summary>
+      <div class="panel">
+        <p class="hint">주간 · 월간 일정을 만들고 고치는 화면은 화면이 커서 따로 열립니다.</p>
+        <button class="btn accent full" onclick="go('cal')">일정 관리 화면 열기</button>
+      </div>
+    </details>
+
+    <details class="appsub" id="appsub_push" ontoggle="if(this.open&&!pushLoaded){pushLoaded=true;loadPushAdmin();}">
+      <summary>🔔 알림 관리</summary>
+      <div id="pushAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
+    </details>
+
+    <details class="appsub" id="appsub_perm" ontoggle="if(this.open&&!permLoaded){permLoaded=true;loadPermAdmin();}">
+      <summary>🔒 권한 관리</summary>
+      <div class="panel">
+        <span class="chip">사람에게 역할 주기</span>
+        <p class="hint">교회에 이미 등록된 분에게 특정 메뉴 권한을 주려면 <b>교적 관리</b> 화면에서 그 분을 찾아 "포털 역할"에서
+          커미티 · 회계팀 · 새가족팀 · 주보팀 · 찬양팀 중 필요한 것을 체크해주세요. 체크한 즉시 그 메뉴가 그 분 포털에 나타납니다.<br>
+          셀장 · 팀장은 셀 목록 · 사역팀 관리 화면에서 리더로 지정하면 자동으로 생기고, 선교팀은 선교팀 관리 화면의 팀원 명단에 넣으면 됩니다.</p>
+        <button class="btn" onclick="go('dir')">교적 관리로 가기</button>
+      </div>
+      <div id="permAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
+    </details>
   </div>
 
   <!-- ===================== 셀 (소그룹) 관리 ===================== -->
@@ -1643,7 +1645,7 @@ var SEC_SUBS = {
   team: ['summary', 'report', 'manage'], tr: ['check', 'status', 'manage'],
   acct: ['expense', 'entry', 'budget', 'envelope', 'summary']
 };
-var SECTIONS = ['home', 'cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal', 'push', 'ai', 'perm', 'app'];
+var SECTIONS = ['home', 'cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal', 'app'];
 var curSec = 'home';
 var curSub = { cell: 'summary', nf: 'status', team: 'summary', tr: 'check', acct: 'expense' };
 var dirLoaded = false, trLoaded = false, acctLoaded = false, misLoaded = false, calLoaded = false, pushLoaded = false, aiLoaded = false, permLoaded = false, appLoaded = false;
@@ -1681,9 +1683,6 @@ function go(sec, sub, fromHistory) {
   if (sec === 'acct' && !acctLoaded) { acctLoaded = true; loadExpenses(); loadBudgets(); loadEnvelopes(); loadExpenseOpen(); }
   if (sec === 'mis' && !misLoaded) { misLoaded = true; loadMissions(); }
   if (sec === 'cal' && !calLoaded) { calLoaded = true; loadCal('sec'); }
-  if (sec === 'push' && !pushLoaded) { pushLoaded = true; loadPushAdmin(); }
-  if (sec === 'ai' && !aiLoaded) { aiLoaded = true; loadAiAdmin(); }
-  if (sec === 'perm' && !permLoaded) { permLoaded = true; loadPermAdmin(); }
   if (sec === 'app' && !appLoaded) { appLoaded = true; loadAppAdmin(); }
 
   if (curSec !== sec) window.scrollTo(0, 0);
@@ -2668,6 +2667,11 @@ function renderReport(cell, date, r) {
     '<div class="panel"><span class="chip">기도제목 · 특이사항</span>' +
       (r.notes ? '<div class="card"><p>' + esc(r.notes) + '</p></div>'
                : '<p class="empty">작성된 내용이 없습니다.</p>') +
+      ((r.media || []).length
+        ? '<div class="mediaview">' + r.media.map(function (m) {
+            return '<img class="mv-' + esc(m.align || 'center') + '" src="' + esc(m.url) + '" alt="">';
+          }).join('') + '</div>'
+        : '') +
     '</div>' +
 
     '<div class="panel"><span class="chip">커미티 코멘트</span>' +

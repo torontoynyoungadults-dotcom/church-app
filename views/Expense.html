@@ -77,6 +77,12 @@
 
   .f > label em { font-style: normal; color: var(--tone); margin-left: 3px; }
   .f > label .opt { color: var(--ink-4); font-weight: 700; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  .f > label .trbtn {
+    float: right; font-size: 12.5px; font-weight: 800; color: var(--tone);
+    background: rgba(var(--tone-rgb), .12); border: none; border-radius: 99px;
+    padding: 5px 11px; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .f > label .trbtn:disabled { opacity: .6; }
 
   .money { position: relative; }
   .money span.cur {
@@ -525,6 +531,25 @@ function syncItems() {
   });
 }
 
+/** 지출 내역 한 줄을 눌러서 영문으로 바꿔줍니다 (Gemini) */
+function transDetail(key) {
+  var d = el('d_' + key), btn = el('tb_' + key);
+  var text = (d && d.value || '').trim();
+  if (!text) return;
+  if (btn) { btn.disabled = true; btn.textContent = '변환 중…'; }
+  callServer('translateBatch', [[text]], function (out) {
+    if (btn) { btn.disabled = false; btn.textContent = '🌐 영어로 변환'; }
+    var en = (Array.isArray(out) && out[0] || '').trim();
+    if (!en) return;
+    var it = findItem(key);
+    if (it) it.detail = en;
+    if (d) d.value = en;
+  }, function () {
+    if (btn) { btn.disabled = false; btn.textContent = '🌐 영어로 변환'; }
+    say('msg3', '번역에 실패했습니다. 잠시 후 다시 시도해주세요.', 'err');
+  });
+}
+
 function onItemInput(key) {
   var it = findItem(key);
   if (!it) return;
@@ -541,9 +566,11 @@ function renderItems() {
     return '<div class="item">' +
       itemHead(i, it.key) +
       '<div class="f">' +
-        '<label>지출 내역<em>*</em></label>' +
+        '<label>지출 내역<em>*</em><button type="button" class="trbtn" id="tb_' + it.key + '" ' +
+          'onclick="transDetail(\'' + it.key + '\')">🌐 영어로 변환</button></label>' +
         '<textarea id="d_' + it.key + '" placeholder="Snacks and drinks for Friday cell meeting" ' +
           'oninput="findItem(\'' + it.key + '\').detail=this.value">' + esc(it.detail) + '</textarea>' +
+        '<p class="fnote">💡 한국어로 작성하셔도 <b>[영어로 변환]</b> 버튼을 누르면 AI가 영문으로 자동 변환해 드립니다.</p>' +
       '</div>' +
       '<div class="two">' +
         '<div class="f"><label>Before Tax<em>*</em></label>' +
