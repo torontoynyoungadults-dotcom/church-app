@@ -198,51 +198,55 @@
     position: absolute; top: 9px; right: 9px; box-shadow: 0 2px 6px rgba(0,0,0,.35);
   }
   .tile.a-push  { --mc: #F0A3B4; --mc-soft: rgba(240,163,180,.16); }
-  /* 관리 카드 — 숫자까지 한눈에 */
-  .tiles.adm { display: flex; flex-direction: column; gap: 9px; }
+  /* 관리 카드 — 숫자까지 한눈에, 2열 Grid 로 압축 */
+  .tiles.adm { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .acard {
     --mc: #D8D2C8; --mc-soft: rgba(216,210,200,.12);
     background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.12);
-    border-radius: 15px; overflow: hidden;
+    border-radius: 13px; overflow: hidden; display: flex; flex-direction: column;
     -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
     box-shadow: 0 5px 20px rgba(0,0,0,.22);
   }
   .acard .ac-hit {
-    display: flex; align-items: center; gap: 12px; padding: 13px 14px 11px;
+    display: flex; align-items: center; gap: 9px; padding: 10px 11px 8px;
     text-decoration: none; color: var(--night-ink);
   }
   .acard .ac-ic {
-    width: 38px; height: 38px; border-radius: 12px; flex: none;
+    width: 30px; height: 30px; border-radius: 10px; flex: none;
     display: flex; align-items: center; justify-content: center;
     background: var(--mc-soft); color: var(--mc);
   }
-  .acard .ac-ic svg { width: 20px; height: 20px; }
+  .acard .ac-ic svg { width: 16px; height: 16px; }
   .acard .ac-b { flex: 1; min-width: 0; }
   .acard .ac-t {
-    display: flex; align-items: center; gap: 7px;
-    font-size: 16px; font-weight: 800; letter-spacing: -0.025em;
+    display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+    font-size: 14px; font-weight: 800; letter-spacing: -0.02em;
   }
   .acard .ac-t .tbadge { position: static; top: auto; right: auto; box-shadow: none; }
-  .acard .ac-d { display: block; font-size: 13px; color: var(--night-sub); margin-top: 2px; }
-  .acard .ac-go { flex: none; font-size: 20px; color: #B7B0A7; }
+  .acard .ac-d {
+    display: block; font-size: 11.5px; color: var(--night-sub); margin-top: 1px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .acard .ac-go { flex: none; font-size: 17px; color: #B7B0A7; }
   .acard .ac-ss {
-    display: flex; gap: 6px; padding: 0 14px 12px; flex-wrap: wrap;
+    display: flex; gap: 5px; padding: 0 11px 10px; flex-wrap: wrap;
   }
   .acard .ac-s {
-    flex: 1; min-width: 76px; background: rgba(255,255,255,.06); border-radius: 10px;
-    padding: 7px 10px; font-size: 12px; color: #E3DFD9; font-weight: 650;
+    flex: 1; min-width: 0; background: rgba(255,255,255,.06); border-radius: 9px;
+    padding: 5px 7px; font-size: 10.5px; color: #E3DFD9; font-weight: 650;
   }
   .acard .ac-s b {
-    display: block; font-size: 17px; font-weight: 800; color: #FFFFFF;
-    letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin-bottom: 1px;
+    display: block; font-size: 14.5px; font-weight: 800; color: #FFFFFF;
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-bottom: 0;
   }
   .acard .ac-s.w { background: rgba(224,160,60,.15); }
   .acard .ac-s.w b { color: #F3C583; }
   .acard .ac-more {
-    display: block; padding: 10px 14px; border-top: 1px solid rgba(255,255,255,.08);
-    font-size: 13.5px; font-weight: 700; color: #EDEAE5; text-decoration: none;
+    display: block; margin-top: auto; padding: 8px 11px; border-top: 1px solid rgba(255,255,255,.08);
+    font-size: 12px; font-weight: 700; color: #EDEAE5; text-decoration: none;
   }
   .acard .ac-more:hover { background: rgba(255,255,255,.05); color: #FFFFFF; }
+  @media (max-width: 380px) { .tiles.adm { grid-template-columns: 1fr; } }
   .acard.a-cell { --mc: #F07A4E; --mc-soft: rgba(240,122,78,.16); }
   .acard.a-nf   { --mc: #4FC1C9; --mc-soft: rgba(79,193,201,.15); }
   .acard.a-team { --mc: #5CC77A; --mc-soft: rgba(92,199,122,.15); }
@@ -339,6 +343,23 @@
   .calpeek { padding: 6px 14px !important; }
   .calpeek .yc-li:first-child { border-top: none; }
   .calpeek .empty { margin: 10px 0; }
+  /* 청년부 일정 — 1줄 압축 행 (날짜 · 제목만, 누르면 자세히) */
+  .pk-row {
+    display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+    padding: 10px 2px; border-top: 1px solid rgba(255,255,255,.1);
+    background: none; border-left: none; border-right: none; border-bottom: none;
+    font-family: inherit; cursor: pointer;
+  }
+  .pk-row:first-child { border-top: none; }
+  .pk-row .pk-d {
+    flex: none; font-size: 13.5px; font-weight: 800; color: #F5A97C;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .pk-row .pk-t {
+    flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; color: #FFFFFF;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pk-row .pk-go { flex: none; color: #B7B0A7; font-size: 17px; }
   #calFull { animation: calIn .22s ease; }
   @keyframes calIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
@@ -1100,16 +1121,16 @@ body .mcardlink,
 
     <a class="bulbtn in" href="?page=bulletin">
       <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
-      <span class="bt"><b>이번 주 주보 보기</b><small>예배 순서 · 말씀 · 셀 나눔 · 광고</small></span><span class="ba">›</span>
+      <span class="bt"><b>주보보기</b></span><span class="ba">›</span>
     </a>
     <div class="aibtns">
       <a class="bulbtn ai dev" href="?page=devotion">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="M12 8c0-3 2.4-5 5.6-5C17.6 6 15.2 8 12 8z"/><path d="M12 11.5c0-2.6-2-4.4-4.8-4.4-.2 2.7 1.9 4.4 4.8 4.4z"/></svg></span>
-        <span class="bt"><b>오늘의 성경 묵상</b><small>구절을 적으면 해설과 적용 질문을 만들어 드립니다</small></span><span class="ba">›</span>
+        <span class="bt"><b>오늘의 묵상</b></span><span class="ba">›</span>
       </a>
       <a class="bulbtn ai ser" href="?page=sermons">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="5" width="18.4" height="14" rx="3.2"/><path d="M10.4 9.4l4.8 2.6-4.8 2.6z"/></svg></span>
-        <span class="bt"><b>지난 설교 · 요약</b><small>핵심 대지와 주요 메시지를 한눈에</small></span><span class="ba">›</span>
+        <span class="bt"><b>지난 설교</b></span><span class="ba">›</span>
       </a>
     </div>
     <div id="cellAppBox"></div>
@@ -2343,10 +2364,23 @@ function drawPeek(r1, r2) {
     if ((e.endDate || e.date) >= today) list.push(e);
   });
   list.sort(function (a, b) { return (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')); });
-  el('calPeek').innerHTML = list.length
-    ? YC.peek('pk', list.slice(0, 3), {}) +
+  var top = list.slice(0, 3);
+  YC.peek('pk', top, {}); // 일정을 YC 에 등록만 해 두고, 화면은 아래에서 1줄로 압축해 그립니다
+  el('calPeek').innerHTML = top.length
+    ? '<div class="pk-list">' + top.map(peekRowHtml).join('') + '</div>' +
       (list.length > 3 ? '<p class="fnote" style="text-align:center;margin:6px 0 4px;">그 밖에 ' + (list.length - 3) + '개 — 달력을 펼쳐 보세요</p>' : '')
     : '<p class="empty">가까운 일정이 없습니다.</p>';
+}
+
+/** [26 토] 셀장미팅 › — 날짜와 제목만 한 줄로, 누르면 YC 상세 모달 */
+var PK_WD = ['일', '월', '화', '수', '목', '금', '토'];
+function peekRowHtml(e, i) {
+  var d = new Date(e.date + 'T00:00:00');
+  var label = '[' + d.getDate() + ' ' + PK_WD[d.getDay()] + ']';
+  return '<button type="button" class="pk-row" onclick="YC.open(\'pk\',' + i + ')">' +
+    '<span class="pk-d">' + label + '</span>' +
+    '<span class="pk-t">' + esc(e.title) + '</span>' +
+    '<span class="pk-go">&rsaquo;</span></button>';
 }
 
 /** 볼 수 없는 캘린더 일정은 빼고, 캘린더마다 색을 입힙니다 */

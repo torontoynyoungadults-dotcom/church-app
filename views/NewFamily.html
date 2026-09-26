@@ -502,6 +502,24 @@ function defaultStaff(week) {
   return m ? m.name : '';
 }
 
+var GENDER_OPT = [['남', '🚹'], ['여', '🚺']];
+function genderPickHtml(cur) {
+  picked['성별'] = cur || '';
+  return '<div class="picklist" id="pk_성별" style="grid-template-columns:1fr 1fr;grid-auto-flow:column;">' +
+    GENDER_OPT.map(function (p, i) {
+      return '<button type="button" class="' + (cur === p[0] ? 'picked' : '') + '" ' +
+        'onclick="pickGender(' + i + ')">' +
+        '<span class="emo">' + p[1] + '</span><span>' + esc(p[0]) + '</span></button>';
+    }).join('') + '</div>';
+}
+function pickGender(i) {
+  picked['성별'] = (picked['성별'] === GENDER_OPT[i][0]) ? '' : GENDER_OPT[i][0];
+  var box = el('pk_성별');
+  for (var j = 0; j < box.children.length; j++) {
+    box.children[j].className = (picked['성별'] && j === i) ? 'picked' : '';
+  }
+}
+
 function pickHtml(key, cur) {
   picked[key] = cur || '';
   return '<div class="picklist" id="pk_' + key + '">' +
@@ -1012,10 +1030,7 @@ function openForm(id) {
   box.innerHTML =
     '<div class="f"><label class="fl">이름 *</label><input type="text" id="fName" value="' + esc(n.name || '') + '"></div>' +
     '<div class="frow">' +
-      '<div class="f"><label class="fl">성별</label><select id="fGender">' +
-        ['', '남', '여'].map(function (v) {
-          return '<option value="' + v + '"' + (n.gender === v ? ' selected' : '') + '>' + (v || '선택 안 함') + '</option>';
-        }).join('') + '</select></div>' +
+      '<div class="f"><label class="fl">성별</label>' + genderPickHtml(n.gender) + '</div>' +
       '<div class="f"><label class="fl">생년월일</label><input type="date" id="fBirth" value="' + esc(n.birthday || '') + '"></div>' +
     '</div>' +
     '<div class="f"><label class="fl">연락처</label>' +
@@ -1050,7 +1065,7 @@ function saveForm(id) {
   var msg = el('formMsg');
   msg.className = 'msg'; msg.textContent = '저장하는 중…';
   callServer('saveNewFamily', [TOKEN, {
-      id: id, name: el('fName').value.trim(), gender: el('fGender').value,
+      id: id, name: el('fName').value.trim(), gender: picked['성별'] || '',
       birthday: el('fBirth').value, contact: el('fContact').value.trim(),
       email: el('fEmail').value.trim(),
       baptized: picked['수세여부'] || '', prevChurch: el('fPrev').value.trim(),

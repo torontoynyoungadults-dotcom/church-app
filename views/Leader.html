@@ -344,6 +344,14 @@ body .toggle button .k,
   body input:disabled, body select:disabled, body textarea:disabled {
     color: #CFC9C1 !important; opacity: 1 !important;
   }
+
+  /* ---------- 흰색 박스(셀 이름/셀방/선택카드/대리작성) 안 글자 — 항상 진하게 고정 ---------- */
+  body #cellFixed, body #roomBox, body .choices button, body .dgrow, body .dgpick button {
+    color: #111111 !important;
+  }
+  body #roomBox .roomlabel, body .dgrow .u, body .dgpick button { color: #5A554E !important; }
+  body #roomBox #roomValue, body .choices button .txt, body .dgrow .n { color: #111111 !important; }
+  body .dgpick button.on { color: var(--tone) !important; }
 </style>
 <!--#include Theme-->
 </head>

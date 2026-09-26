@@ -276,6 +276,22 @@ body #pane,
   body input:disabled, body select:disabled, body textarea:disabled {
     color: #CFC9C1 !important; opacity: 1 !important;
   }
+
+  /* ---------- 밝은(흰색/크림색) 카드 안 글자 — 화면 전체 반전과 무관하게 항상 진하게 고정 ---------- */
+  body .col, body table.apps, body .cst, body .chip2, body .detail,
+  body details.missing summary, body details.missing .ls, body .ctabs button {
+    color: #111111 !important;
+  }
+  body .col .ch .nm b, body .col .cs b, body .cst b, body .chip2 .n,
+  body table.apps td, body table.apps tr.flag td {
+    color: #111111 !important;
+  }
+  body .col .cs, body .col .ch .ld input, body .chip2 .a, body table.apps th {
+    color: #5A554E !important;
+  }
+  body table.apps tr.no td, body .col .x, body .ch .x { color: #7C766E !important; }
+  body .ctabs button.on { color: #FFFFFF !important; }
+  body .badge.s0 { color: #35322D !important; }
 </style>
 </head>
 <body>

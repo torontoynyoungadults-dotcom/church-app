@@ -7041,15 +7041,6 @@ function 포털관리메뉴_(r, token) {
       more: [{ t: '셀 신청 · 편성', u: app + '?page=cells&key=' + akey }] });
   }
 
-  /* 1-2. AI 설정 */
-  if (커미티) {
-    out.push({ key: 'ai', title: 'AI 설정', desc: '모델 고르기 · 묵상 · 설교 요약 · 번역', url: base + '#ai',
-      stats: [
-        { n: (AI있나_() ? (AI켜짐_() ? '켜짐' : '꺼짐') : '없음'), l: '상태', warn: !AI켜짐_() },
-        { n: AI모델_().replace(/^gemini-/, ''), l: '모델' }
-      ] });
-  }
-
   /* 2. 새가족 관리 — 새가족팀도 봅니다 */
   if (커미티 || 새가족팀) {
     var n = st.newFamily || {};
@@ -7127,6 +7118,15 @@ function 포털관리메뉴_(r, token) {
     out.push({ key: 'cal', title: '일정 관리', desc: '공개 · 리더 · 커미티', url: base + '#cal',
       stats: [{ n: (st.calendar && st.calendar.publicOk) ? '연결됨' : '연결 안 됨', l: '공개 캘린더',
         warn: !(st.calendar && st.calendar.publicOk) }] });
+  }
+
+  /* 10. AI 설정 — 맨 마지막 순서 */
+  if (커미티) {
+    out.push({ key: 'ai', title: 'AI 설정', desc: '모델 고르기 · 묵상 · 설교 요약 · 번역', url: base + '#ai',
+      stats: [
+        { n: (AI있나_() ? (AI켜짐_() ? '켜짐' : '꺼짐') : '없음'), l: '상태', warn: !AI켜짐_() },
+        { n: AI모델_().replace(/^gemini-/, ''), l: '모델' }
+      ] });
   }
 
   return out;
