@@ -5388,10 +5388,45 @@ function drawWord() {
 
 /* ===================== 오늘의 묵상 구절 — 날짜별 직접 관리 ===================== */
 var TV_LIST = null, tvEditing = '', tvDraft = null, TV_BUSY = false;
+var QT_SHEET = null, QT_ROWS = null;
 
 function loadTodayVerse() {
-  callServer('listTodayVerses', [KEY], function (r) { TV_LIST = r; drawTodayVerse(); },
+  callServer('listTodayVerses', [KEY], function (r) { TV_LIST = r; drawTodayVerse(); loadQTSheet(); },
     function (e) { var b = el('todayVerseBox'); if (b) b.innerHTML = '<p class="msg err">' + esc(e.message || e) + '</p>'; });
+}
+
+function loadQTSheet() {
+  callServer('adminListQTSheet', [KEY], function (r) {
+    QT_SHEET = r; QT_ROWS = r.rows || []; drawTodayVerse();
+  }, function () { QT_SHEET = null; QT_ROWS = []; drawTodayVerse(); });
+}
+
+function qtSheetSave() {
+  var v = el('qtSheetUrl').value.trim();
+  if (!v) return say('qtSheetMsg', '구글 시트 주소를 넣어주세요.', 'err');
+  say('qtSheetMsg', '연결하는 중…');
+  callServer('saveQTSheet', [KEY, v], function () {
+    say('qtSheetMsg', '연결했습니다.', 'ok'); loadQTSheet();
+  }, function (e) { say('qtSheetMsg', e.message || e, 'err'); });
+}
+
+function qtSheetChange() {
+  QT_SHEET = { sheet: null }; drawTodayVerse();
+}
+
+function tvUseRow(date) {
+  if (TV_BUSY) return;
+  var row = (QT_ROWS || []).filter(function (r) { return r.date === date; })[0];
+  if (!row) return;
+  TV_BUSY = true; drawTodayVerse(); say('tvMsg', 'AI가 만드는 중…');
+  callServer('adminUseQTRow', [KEY, row.verse, row.text, date], function (r) {
+    TV_BUSY = false;
+    tvDraft = { __date: el('tvDate') ? el('tvDate').value : date, verse: r.verse, text: r.text,
+      explain: r.explain, questions: r.questions, apply: r.apply, prayer: r.prayer };
+    if (el('tvDate')) el('tvDate').value = date;
+    drawTodayVerse();
+    say('tvMsg', r.aiError ? ('본문은 채웠지만 AI 는 실패했습니다: ' + r.aiError) : '본문과 AI 묵상 자료를 채웠습니다. 확인하고 저장해주세요.', r.aiError ? 'err' : 'ok');
+  }, function (e) { TV_BUSY = false; drawTodayVerse(); say('tvMsg', e.message || e, 'err'); });
 }
 
 function tvSec(label, key) {
@@ -5406,18 +5441,36 @@ function drawTodayVerse() {
   var d = editingRow || { date: TV_LIST.today, verse: '', text: '', explain: [], questions: [], apply: [], prayer: '' };
   if (!tvDraft || tvDraft.__date !== d.date) tvDraft = Object.assign({ __date: d.date }, d);
 
+  var sheetInfo = (QT_SHEET && QT_SHEET.sheet) || null;
   var h = '<span class="chip">오늘의 묵상 구절 — 날짜별로 직접 정하기</span>' +
     '<p class="hint">여기서 정한 날짜의 말씀은 AI 가 다시 만들지 않고, 적어주신 그대로 모든 청년부원에게 똑같이 보입니다. ' +
-    '두란노 매일성경에서 본문을 가져오고, AI 로 해설·질문·적용·기도를 만들어 미리 채울 수 있습니다.</p>' +
+    '연결해 둔 구글 시트에서 본문을 가져오고, AI 로 해설·질문·적용·기도를 만들어 미리 채울 수 있습니다.</p>' +
+    '<div class="noteBox" style="margin-bottom:12px;"><div class="noteRow"><b>QT 본문 시트</b></div>' +
+    (sheetInfo
+      ? '<div class="noteRow" style="justify-content:space-between;">' +
+          '<span>' + (sheetInfo.error ? '<span style="color:var(--bad);">' + esc(sheetInfo.error) + '</span>' : esc(sheetInfo.name || '연결됨')) + '</span>' +
+          '<span><a class="btn mini" href="' + esc(sheetInfo.url) + '" target="_blank" rel="noopener">시트 열기</a> ' +
+          '<button type="button" class="btn mini" onclick="qtSheetChange()">바꾸기</button></span></div>'
+      : '<p class="hint" style="margin:0 0 8px;">아직 연결된 시트가 없습니다. 날짜 | 구절표기 | 본문 세 칸으로 된 구글 시트를 만들어 주소를 넣어주세요.</p>' +
+        '<div class="addrow"><input type="text" id="qtSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." style="flex:1;">' +
+        '<button class="btn accent" onclick="qtSheetSave()">연결</button></div>') +
+    '<p class="msg" id="qtSheetMsg"></p></div>' +
     '<div class="two">' +
       '<div class="f"><label>날짜</label><input type="date" id="tvDate" value="' + esc(d.date) + '"></div>' +
       '<div class="f"><label>구절 표기</label><input type="text" id="tvVerse" value="' + esc(tvDraft.verse || '') + '" placeholder="예) 요한복음 3:16"></div>' +
     '</div>' +
     '<div class="f"><label>본문 텍스트</label><textarea id="tvText" style="min-height:110px;" placeholder="본문을 그대로 붙여넣어 주세요.">' + esc(tvDraft.text || '') + '</textarea></div>' +
     '<div class="addrow">' +
-      '<button class="btn" style="flex:1;" onclick="tvFetchQT()" ' + (TV_BUSY ? 'disabled' : '') + '>' + (TV_BUSY ? '가져오는 중…' : '두란노에서 오늘 본문 가져오기') + '</button>' +
+      '<button class="btn" style="flex:1;" onclick="tvFetchQT()" ' + (TV_BUSY ? 'disabled' : '') + '>' + (TV_BUSY ? '가져오는 중…' : '시트에서 이 날짜 본문 가져오기') + '</button>' +
       '<button class="btn" style="flex:1;" onclick="tvMakeAi()" ' + (TV_BUSY ? 'disabled' : '') + '>' + (TV_BUSY ? '만드는 중…' : 'AI로 해설·질문·적용·기도 만들기') + '</button>' +
     '</div>' +
+    (QT_ROWS && QT_ROWS.length
+      ? '<div class="noteBox" style="margin-top:10px;"><div class="noteRow"><b>시트에 입력된 날짜들 — 눌러서 바로 쓰기</b></div>' +
+        QT_ROWS.slice(0, 30).map(function (r) {
+          return '<div class="noteRow" style="justify-content:space-between;"><span>' + esc(r.date) + ' · ' + esc(r.verse) + '</span>' +
+            '<button type="button" class="btn mini" onclick="tvUseRow(\'' + esc(r.date).replace(/'/g, "\\'") + '\')">이 구절 쓰기</button></div>';
+        }).join('') + '</div>'
+      : '') +
     tvSec('📖 쉬운 해설', 'explain') + tvSec('💬 나에게 묻기', 'questions') + tvSec('✅ 삶에 적용하기', 'apply') +
     '<div class="f"><label>🙏 함께 드리는 기도</label><textarea id="tv_prayer" style="min-height:60px;">' + esc(tvDraft.prayer || '') + '</textarea></div>' +
     '<div class="addrow">' +
@@ -5453,7 +5506,7 @@ function tvFetchQT() {
   if (TV_BUSY) return;
   var date = el('tvDate').value;
   if (!date) return say('tvMsg', '날짜를 먼저 골라주세요.', 'err');
-  TV_BUSY = true; drawTodayVerse(); say('tvMsg', '두란노에서 가져오는 중…');
+  TV_BUSY = true; drawTodayVerse(); say('tvMsg', '시트에서 가져오는 중…');
   callServer('adminFetchTodayQT', [KEY, date], function (r) {
     TV_BUSY = false;
     tvDraft = { __date: date, verse: r.verse, text: r.text, explain: r.explain, questions: r.questions, apply: r.apply, prayer: r.prayer };

@@ -1596,17 +1596,43 @@ function getDirectory(key) {
 
 /* ---------- 포털 빠른 교인 검색 (내 정보 관리 아래, 로그인한 아무 청년부원이나 사용) ---------- */
 
-/** 민감하지 않은 정보만 남긴 카드 — 검색결과/상세모달용 */
+/** 검색결과용 요약 카드 (이름 · 셀 · 팀만) */
+function 교인카드요약_(p) {
+  return {
+    name: p.name,
+    cell: p.cell || '',
+    cells: p.cells || [],
+    teams: (p.teams || []).map(function (t) { return t.team; })
+  };
+}
+
+/** 상세모달용 — 교적 관리 화면(personDetail)과 동일한 항목 전체 */
 function 교인카드_(p) {
   return {
     name: p.name,
+    engName: p.engName || '',
     phone: p.phone || '',
     email: p.email || '',
     kakao: p.kakao || '',
     cell: p.cell || '',
     cells: p.cells || [],
     teams: (p.teams || []).map(function (t) { return { team: t.team, role: t.role }; }),
-    missions: (p.missions || []).map(function (t) { return { team: t.team, role: t.role }; })
+    missions: (p.missions || []).map(function (t) { return { team: t.team, role: t.role }; }),
+    photo: p.photo || '',
+    photoLarge: p.photoLarge || p.photo || '',
+    gender: p.gender || '',
+    birthdayDisplay: p.birthdayDisplay || '',
+    baptized: p.baptized || '',
+    discipleship: p.discipleship || '',
+    trainingRate: p.trainingRate || '',
+    joinedAt: p.joinedAt || '',
+    memberSince: p.memberSince || '',
+    envelopeNo: p.envelopeNo || '',
+    address: p.address || '',
+    roles: p.roles || [],
+    rate: p.rate === undefined ? null : p.rate,
+    present: p.present || 0,
+    totalMeetings: p.totalMeetings || 0
   };
 }
 
@@ -1623,7 +1649,7 @@ function quickMemberSearch(token, q) {
     if (p.teams && p.teams.some(function (t) { return t.team.indexOf(q) !== -1; })) return true;
     return false;
   }).slice(0, 20);
-  return { list: list.map(교인카드_) };
+  return { list: list.map(교인카드요약_) };
 }
 
 function quickMemberDetail(token, name) {
@@ -13914,32 +13940,82 @@ function saveTodayVerse(key, date, verse, text, explain, questions, apply, praye
 }
 
 /**
- * 두란노 매일성경(https://www.duranno.com/qt/view/bible.asp) 에서 그 날짜의 본문을 그대로 가져옵니다.
- * 페이지 제목(h1)에 "책 장:절~절*소제목*" 형태로 구절 표기가, 표(<tr><td>절번호</td><td>본문</td></tr>) 안에
- * 절별 본문이 들어 있습니다. 두란노가 사이트 구성을 바꾸면 이 부분만 손보면 됩니다 — 실패하면 관리자가
- * 직접 입력할 수 있도록 명확한 안내 메시지를 던집니다.
+ * QT 본문은 두란노를 긁어오지 않고, 커미티가 연결해 둔 구글 시트에서 읽어옵니다.
+ * 시트 형식(맨 위 머리글 줄): 날짜(YYYY-MM-DD) | 구절표기 | 본문 — 본문 칸은 줄바꿈으로 절을 나눠 적습니다.
+ * 시트는 관리 화면에서 한 번만 연결하면 되고, 이후엔 커미티가 그 시트에 미리 여러 날짜분을 한꺼번에
+ * 입력해 둘 수 있습니다(일괄 입력).
  */
-function 두란노QT가져오기_(date) {
+var 묵상QT시트설정키 = '묵상QT시트ID';
+
+/** 관리 화면에 보여줄 연결된 시트 정보 (없으면 null) */
+function 묵상QT시트정보_() {
+  var id = String(설정값_(묵상QT시트설정키) || '').trim();
+  if (!id) return null;
+  try {
+    var ss = SpreadsheetApp.openById(id);
+    return { id: id, name: ss.getName ? ss.getName() : '연결된 시트', url: 'https://docs.google.com/spreadsheets/d/' + id + '/edit' };
+  } catch (e) {
+    return { id: id, name: '', url: 'https://docs.google.com/spreadsheets/d/' + id + '/edit', error: '시트를 열지 못했습니다. 주소를 확인하거나 이 시스템 계정에 공유해주세요.' };
+  }
+}
+
+/** 구글 시트/드라이브 주소나 ID 문자열에서 시트 ID만 뽑습니다 */
+function 시트ID뽑기_(s) {
+  s = String(s || '').trim();
+  var m = s.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]{20,})/);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9_-]{20,}$/.test(s)) return s;
+  return '';
+}
+
+/** 관리 화면 — QT 시트 연결(또는 바꾸기) */
+function saveQTSheet(key, urlOrId) {
+  if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 할 수 있습니다.');
+  var id = 시트ID뽑기_(urlOrId);
+  if (!id) throw new Error('구글 시트 주소를 넣어주세요. (docs.google.com/spreadsheets/d/... 형태)');
+  // 실제로 열리는지 한 번 확인해 봅니다
+  try { SpreadsheetApp.openById(id).getSheets(); } catch (e) {
+    throw new Error('시트를 열지 못했습니다. 이 시스템 계정을 "뷰어"로 공유해주셨는지 확인해주세요.');
+  }
+  설정저장_(묵상QT시트설정키, id);
+  캐시비움_();
+  return 묵상QT시트정보_();
+}
+
+/** 연결된 시트의 모든 행 — 관리 화면에서 날짜를 고를 수 있게 목록으로 보여줍니다 */
+function 묵상QT시트행들_() {
+  var id = String(설정값_(묵상QT시트설정키) || '').trim();
+  if (!id) throw new Error('아직 QT 시트가 연결되어 있지 않습니다. 관리 화면에서 먼저 구글 시트를 연결해주세요.');
+  var ss;
+  try { ss = SpreadsheetApp.openById(id); } catch (e) {
+    throw new Error('연결된 시트를 열지 못했습니다. 시트가 지워졌거나 공유가 풀린 것 같습니다.');
+  }
+  var sh = ss.getSheets()[0];
+  var v = sh.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < v.length; i++) {                 // 첫 줄은 머리글로 건너뜁니다
+    var 날짜 = 날짜문자열_(v[i][0]);
+    var verse = String(v[i][1] || '').trim();
+    var text = String(v[i][2] || '').trim();
+    if (!날짜 || !verse || !text) continue;
+    out.push({ date: 날짜, verse: verse.slice(0, 80), text: text.slice(0, 6000) });
+  }
+  return out.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+}
+
+/** 관리 화면 "시트에서 목록 불러오기" — 골라 쓸 수 있게 날짜 목록 전체를 돌려줍니다 */
+function adminListQTSheet(key) {
+  if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 할 수 있습니다.');
+  return { sheet: 묵상QT시트정보_(), rows: 묵상QT시트행들_() };
+}
+
+/** 시트에서 특정 날짜의 본문을 찾습니다 (관리자가 직접 골라도 되고, 오늘 날짜로 자동으로 찾아도 됩니다) */
+function 시트QT가져오기_(date) {
   date = String(date || ymd_(new Date())).trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('날짜 형식이 올바르지 않습니다. (예: 2026-09-26)');
-
-  var html = 유튜브가져오기_('https://www.duranno.com/qt/view/bible.asp?qtDate=' + encodeURIComponent(date));
-
-  var hm = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-  if (!hm) throw new Error('두란노에서 오늘의 본문 제목을 찾지 못했습니다. 사이트 구성이 바뀐 것 같습니다. 구절과 본문을 직접 입력해주세요.');
-  var h1글 = 엔티티풀기_(hm[1].replace(/<[^>]+>/g, '').trim());
-  // "역대상 15 : 16~29*하나님의 임재를 사모하는 예배자*" — 별표(*) 사이는 소제목이라 구절 표기에서 뗍니다
-  var verse = h1글.replace(/\*[\s\S]*?\*\s*$/, '').trim();
-  if (!verse) throw new Error('두란노에서 구절 표기를 읽지 못했습니다. 구절과 본문을 직접 입력해주세요.');
-
-  var rows = [], re = /<tr[^>]*>\s*<td[^>]*>\s*(\d{1,3})\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, m;
-  while ((m = re.exec(html)) !== null) {
-    var t = 엔티티풀기_(m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
-    if (t) rows.push(m[1] + '. ' + t);
-  }
-  var text = rows.join('\n');
-  if (text.length < 20) throw new Error('두란노에서 본문 내용을 읽지 못했습니다. 사이트 구성이 바뀐 것 같습니다. 구절과 본문을 직접 입력해주세요.');
-  return { date: date, verse: verse.slice(0, 80), text: text.slice(0, 6000) };
+  var hit = 묵상QT시트행들_().filter(function (r) { return r.date === date; })[0];
+  if (!hit) throw new Error(date + ' 본문이 시트에 없습니다. 시트에 그 날짜 줄을 추가해주세요.');
+  return hit;
 }
 
 /** 오늘의 본문(구절+본문 텍스트)으로 해설·질문·적용·기도 4가지를 AI 로 만듭니다 */
@@ -13972,15 +14048,27 @@ function 오늘묵상AI만들기_(verse, text) {
   };
 }
 
-/** 관리 화면 "가져오기" 버튼 — 두란노에서 본문을 긁어오고, 되면 AI 로 4가지 묵상 자료까지 만들어 미리 보여줍니다.
+/** 관리 화면 "시트에서 가져오기" 버튼 — 연결된 구글 시트에서 그 날짜 본문을 읽어오고,
+ *  되면 AI 로 4가지 묵상 자료까지 만들어 미리 보여줍니다.
  *  (실제 저장은 관리자가 확인한 뒤 saveTodayVerse 를 따로 눌러야 합니다) */
 function adminFetchTodayQT(key, date) {
   if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 할 수 있습니다.');
-  var qt = 두란노QT가져오기_(date);
+  var qt = 시트QT가져오기_(date);
   var ai = { explain: [], questions: [], apply: [], prayer: '' };
   var aiError = '';
   try { ai = 오늘묵상AI만들기_(qt.verse, qt.text); } catch (e) { aiError = e.message || String(e); }
   return Object.assign({}, qt, ai, { aiError: aiError });
+}
+
+/** 관리 화면 "이 구절 쓰기" — 시트 목록에서 고른 한 줄(verse+text)로 AI 자료까지 만들어 미리 보여줍니다 */
+function adminUseQTRow(key, verse, text, date) {
+  if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 할 수 있습니다.');
+  verse = String(verse || '').trim(); text = String(text || '').trim();
+  if (!verse || !text) throw new Error('구절과 본문이 비어 있습니다.');
+  var ai = { explain: [], questions: [], apply: [], prayer: '' };
+  var aiError = '';
+  try { ai = 오늘묵상AI만들기_(verse, text); } catch (e) { aiError = e.message || String(e); }
+  return Object.assign({ date: date, verse: verse.slice(0, 80), text: text.slice(0, 6000) }, ai, { aiError: aiError });
 }
 
 /** 관리 화면 "AI 로 다시 만들기" 버튼 — 이미 채워둔(또는 고친) 구절·본문으로 4가지를 다시 만듭니다 */
@@ -14308,13 +14396,20 @@ function 자막XML풀기_(xml) {
   return '';
 }
 
-/** captionTracks 배열 중 하나를 고릅니다: 사람이 단 한국어 → 자동생성 한국어 → 사람이 단 아무 언어 → 그 외 아무 자막 */
+/**
+ * captionTracks 배열 중 하나를 고릅니다 — 언어 우선순위: 한국어(사람 → 자동생성) →
+ * 영어(사람 → 자동생성) → 그 외 사람이 단 아무 자막 → 그 외 자동생성 아무 자막.
+ */
 function 자막트랙고르기_(tracks) {
   tracks = tracks || [];
+  var lang = function (t) { return String(t.languageCode || t.lang || ''); };
   var 후보 = [
-    tracks.filter(function (t) { return /^ko(-|$)/.test(String(t.languageCode || t.lang || '')) && t.kind !== 'asr'; })[0],
-    tracks.filter(function (t) { return /^ko(-|$)/.test(String(t.languageCode || t.lang || '')) && t.kind === 'asr'; })[0],
+    tracks.filter(function (t) { return /^ko(-|$)/.test(lang(t)) && t.kind !== 'asr'; })[0],
+    tracks.filter(function (t) { return /^ko(-|$)/.test(lang(t)) && t.kind === 'asr'; })[0],
+    tracks.filter(function (t) { return /^en(-|$)/.test(lang(t)) && t.kind !== 'asr'; })[0],
+    tracks.filter(function (t) { return /^en(-|$)/.test(lang(t)) && t.kind === 'asr'; })[0],
     tracks.filter(function (t) { return t.kind !== 'asr'; })[0],
+    tracks.filter(function (t) { return t.kind === 'asr'; })[0],
     tracks[0]
   ].filter(Boolean);
   return 후보[0] || null;
@@ -14330,39 +14425,42 @@ function 자막가져오기_(videoId) {
   videoId = String(videoId || '').trim();
   var enc = encodeURIComponent(videoId);
 
-  /* 1차: Innertube player API — 유튜브 앱(iOS)이 실제로 쓰는 내부 API라 페이지 구조가 바뀌어도 덜 깨집니다 */
-  try {
-    var body = JSON.stringify({
-      videoId: videoId,
-      context: {
-        client: {
-          clientName: 'IOS',
-          clientVersion: '19.45.4',
-          deviceModel: 'iPhone16,2',
-          hl: 'ko',
-          gl: 'KR'
+  /* 1차 ~ 2차: Innertube player API — 유튜브 웹/앱이 실제로 쓰는 내부 API라 페이지 구조가 바뀌어도 덜 깨집니다.
+     클라우드에서 UlrFetchApp 으로 시청 페이지를 그대로 긁으면 동의화면·차단이 잦아, 이 API를 먼저 씁니다. */
+  var innertube클라이언트들 = [
+    { clientName: 'WEB', clientVersion: '2.20240610.01.00', key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', xName: '1' },
+    { clientName: 'IOS', clientVersion: '19.45.4', deviceModel: 'iPhone16,2', key: 'AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc', xName: '5' }
+  ];
+  for (var ci = 0; ci < innertube클라이언트들.length; ci++) {
+    try {
+      var cli = innertube클라이언트들[ci];
+      var client = { clientName: cli.clientName, clientVersion: cli.clientVersion, hl: 'ko', gl: 'KR' };
+      if (cli.deviceModel) client.deviceModel = cli.deviceModel;
+      var body = JSON.stringify({ videoId: videoId, context: { client: client } });
+      var res = 유튜브가져오기_('https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=' + cli.key, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: body,
+        headers: {
+          'X-YouTube-Client-Name': cli.xName,
+          'X-YouTube-Client-Version': cli.clientVersion,
+          'Origin': 'https://www.youtube.com'
         }
+      });
+      var d = JSON.parse(res);
+      var tracks0 = d && d.captions && d.captions.playerCaptionsTracklistRenderer &&
+        d.captions.playerCaptionsTracklistRenderer.captionTracks;
+      var 고른것0 = 자막트랙고르기_(tracks0);
+      var base0 = 고른것0 ? String(고른것0.baseUrl || '') : '';
+      if (base0) {
+        var text0 = 자막XML풀기_(유튜브가져오기_(base0 + '&fmt=json3'));
+        if (!text0) text0 = 자막XML풀기_(유튜브가져오기_(base0));
+        if (text0) return text0;
       }
-    });
-    var res = 유튜브가져오기_('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
-      method: 'post',
-      contentType: 'application/json',
-      payload: body,
-      headers: { 'X-YouTube-Client-Name': '5', 'X-YouTube-Client-Version': '19.45.4' }
-    });
-    var d = JSON.parse(res);
-    var tracks0 = d && d.captions && d.captions.playerCaptionsTracklistRenderer &&
-      d.captions.playerCaptionsTracklistRenderer.captionTracks;
-    var 고른것0 = 자막트랙고르기_(tracks0);
-    var base0 = 고른것0 ? String(고른것0.baseUrl || '') : '';
-    if (base0) {
-      var text0 = 자막XML풀기_(유튜브가져오기_(base0 + '&fmt=json3'));
-      if (!text0) text0 = 자막XML풀기_(유튜브가져오기_(base0));
-      if (text0) return text0;
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
 
-  /* 2차: 시청 페이지에 박혀 있는 captionTracks (괄호 짝을 맞춰 잘라내므로 중첩 데이터에도 안전) */
+  /* 3차: 시청 페이지에 박혀 있는 captionTracks (괄호 짝을 맞춰 잘라내므로 중첩 데이터에도 안전) */
   try {
     var html = 유튜브가져오기_('https://www.youtube.com/watch?v=' + enc + '&hl=ko&has_verified=1');
     var tracksBlob = 균형JSON추출_(html, 'captionTracks');
@@ -14378,7 +14476,7 @@ function 자막가져오기_(videoId) {
     }
   } catch (e) {}
 
-  /* 3차: timedtext 목록 API — 위 두 방법이 모두 안 통할 때(주로 자동 생성 전용 영상) */
+  /* 4차: timedtext 목록 API — 위 방법들이 모두 안 통할 때(주로 자동 생성 전용 영상) */
   try {
     var listXml = 유튜브가져오기_('https://video.google.com/timedtext?type=list&v=' + enc);
     var trackRe = /<track\b([^>]*)\/?>/g, tm, 목록 = [];

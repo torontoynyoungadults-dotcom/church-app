@@ -424,6 +424,24 @@
   .qsempty { padding: 14px 13px; color: #837D75; font-size: 13.5px; text-align: center; }
   .qsdetail .kv { padding: 9px 0; }
   .qsdetail .link { color: var(--tone); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .qsphoto { display: flex; justify-content: center; margin-bottom: 14px; }
+  .qsphoto img { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; border: 1px solid var(--hair-night); }
+  .qsphoto .qsphempty {
+    width: 92px; height: 92px; border-radius: 50%; background: rgba(255,255,255,.06); border: 1px solid var(--hair-night);
+    display: flex; align-items: center; justify-content: center; color: #837D75; font-size: 12px;
+  }
+  .qsgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; padding: 0 14px; }
+  .qsgrid .field { padding: 8px 0; border-bottom: 1px solid var(--hair-night); }
+  .qsgrid .field.wide { grid-column: 1 / -1; }
+  .qsgrid .fk { color: #837D75; font-size: 11.5px; margin-bottom: 2px; }
+  .qsgrid .fv { color: #E8E3DB; font-size: 14px; font-weight: 650; word-break: break-word; }
+  .qssect { padding: 14px 14px 6px; color: #837D75; font-size: 12.5px; font-weight: 750; letter-spacing: .03em; }
+  .qsdrow {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin: 0 14px 6px; padding: 8px 11px; background: rgba(255,255,255,.05); border-radius: 10px; font-size: 13.5px;
+  }
+  .qsdrow .n { color: #E8E3DB; font-weight: 650; }
+  .qsdrow .r { color: #837D75; font-size: 12.5px; }
 
   .pvbar { display: flex; align-items: center; gap: 10px; padding: 0 14px 12px; }
   .pvbar span { font-size: 17px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em; }
@@ -2465,7 +2483,7 @@ function qsDrawDrop(list) {
   var box = el('qsDrop');
   if (!list.length) { box.innerHTML = '<div class="qsempty">일치하는 교인이 없습니다.</div>'; box.style.display = 'block'; return; }
   box.innerHTML = list.map(function (p) {
-    var meta = [p.cell, (p.teams || []).map(function (t) { return t.team; }).join(', ')].filter(function (x) { return x; }).join(' · ');
+    var meta = [p.cell, (p.teams || []).join(', ')].filter(function (x) { return x; }).join(' · ');
     return '<div class="qsrow" onclick="qsOpenDetail(\'' + esc(p.name).replace(/'/g, "\\'") + '\')">' +
       '<div><div class="qsn">' + esc(p.name) + '</div>' +
       (meta ? '<div class="qsm">' + esc(meta) + '</div>' : '') + '</div></div>';
@@ -2493,18 +2511,47 @@ function qsOpenDetail(name) {
 }
 
 function qsDrawDetail(p) {
-  var row = function (k, v) { return '<div class="kv"><div class="k">' + k + '</div><div class="v' + (v ? '' : ' dim') + '">' + (v || '—') + '</div></div>'; };
-  var cellLink = p.cell ? '<span class="link" onclick="qsOpenGroup(\'cell\',\'' + esc(p.cell).replace(/'/g, "\\'") + '\')">' + esc(p.cell) + '</span>' : '';
-  var teamLinks = (p.teams || []).map(function (t) {
-    return '<span class="link" onclick="qsOpenGroup(\'team\',\'' + esc(t.team).replace(/'/g, "\\'") + '\')">' + esc(t.team) + '</span>' + (t.role ? ' (' + esc(t.role) + ')' : '');
-  }).join(', ');
+  var fields = [
+    ['영문이름', p.engName], ['전화번호', p.phone], ['카카오톡', p.kakao], ['이메일', p.email],
+    ['생년월일', p.birthdayDisplay], ['성별', p.gender], ['세례여부', p.baptized],
+    ['제자훈련', (p.discipleship || '') + (p.trainingRate ? ' · ' + p.trainingRate : '')],
+    ['등록일', p.joinedAt], ['멤버십 등록일', p.memberSince], ['헌금번호', p.envelopeNo],
+    ['주소', p.address, 'wide'],
+    ['포털 역할', (p.roles || []).join(' · '), 'wide']
+  ];
+  var grid = fields.map(function (f) {
+    return '<div class="field' + (f[2] ? ' ' + f[2] : '') + '"><div class="fk">' + esc(f[0]) + '</div><div class="fv">' +
+      (f[1] ? esc(f[1]) : '&mdash;') + '</div></div>';
+  }).join('');
+  var cellBlock = (p.cells || []).length
+    ? p.cells.map(function (c) {
+        var rateTxt = (p.rate !== null && p.rate !== undefined && c === p.cell)
+          ? '출석률 ' + p.rate + '% (' + p.present + '/' + p.totalMeetings + ')' : '';
+        return '<div class="qsdrow" onclick="qsOpenGroup(\'cell\',\'' + esc(c).replace(/'/g, "\\'") + '\')">' +
+          '<span class="n">' + esc(c) + '</span><span class="r">' + esc(rateTxt) + '</span></div>';
+      }).join('')
+    : '<p class="empty" style="margin:0 14px;">소속 셀 없음</p>';
+  var teamBlock = (p.teams || []).length
+    ? p.teams.map(function (t) {
+        return '<div class="qsdrow" onclick="qsOpenGroup(\'team\',\'' + esc(t.team).replace(/'/g, "\\'") + '\')">' +
+          '<span class="n">' + esc(t.team) + '</span><span class="r">' + esc(t.role || '') + '</span></div>';
+      }).join('')
+    : '<p class="empty" style="margin:0 14px;">소속 사역팀 없음</p>';
+  var misBlock = (p.missions || []).length
+    ? p.missions.map(function (t) {
+        return '<div class="qsdrow"><span class="n">' + esc(t.team) + '</span><span class="r">' + esc(t.role || '') + '</span></div>';
+      }).join('')
+    : '';
+  var photo = '<div class="qsphoto">' +
+    (p.photo ? '<img src="' + esc(p.photo) + '" alt="">' : '<div class="qsphempty">사진<br>없음</div>') +
+    '</div>';
   el('qsModalBody').innerHTML = '<div class="qsdetail">' +
     '<p class="pvbar" style="padding:0 0 10px;"><span style="font-size:17px;font-weight:800;color:#FFFFFF;">' + esc(p.name) + '</span></p>' +
-    row('전화번호', esc(p.phone)) +
-    row('이메일', esc(p.email)) +
-    row('카카오톡', esc(p.kakao)) +
-    row('소속 셀', cellLink) +
-    row('사역팀', teamLinks) +
+    photo +
+    '<div class="qsgrid">' + grid + '</div>' +
+    '<div class="qssect">소속 셀</div>' + cellBlock +
+    '<div class="qssect">사역팀</div>' + teamBlock +
+    (misBlock ? '<div class="qssect">선교팀</div>' + misBlock : '') +
     '</div>';
 }
 
