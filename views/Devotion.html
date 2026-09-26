@@ -23,6 +23,14 @@
   .today .tb2 b { display: block; font-size: 17px; font-weight: 800; color: #FFFFFF; margin-top: 2px; }
   .today .tgo { flex: none; color: #FFFFFF; font-size: 20px; }
 
+  /* 관리자가 확정한 오늘의 말씀 — 모두에게 같은 내용이 보입니다 */
+  .fixedverse {
+    padding: 14px 15px; border-radius: 13px; background: rgba(var(--tone-rgb),.16);
+    border: 1px solid rgba(var(--tone-rgb),.35);
+  }
+  .fixedverse b { display: block; font-size: 15.5px; color: #BFE8DA; margin-bottom: 8px; }
+  .fixedverse p { margin: 0; font-size: 15px; line-height: 1.85; color: #F1EEE9; white-space: pre-wrap; }
+
   .vres { margin-top: 2px; }
   .vres .vh { font-size: 21px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em; margin: 0 0 4px; }
   .vres .vsum { font-size: 16px; line-height: 1.85; color: #FFFFFF; margin: 0 0 16px;
@@ -260,7 +268,17 @@ function boot() {
 }
 
 function draw() {
-  var h = '<div class="panel">' +
+  var h = '';
+
+  if (D.todayFixed) {
+    h += '<div class="panel"><span class="chip">오늘의 말씀</span>' +
+      '<p class="hint" style="margin-bottom:10px;">' + esc(D.todayFixed.date) + ' · 커미티가 정한 오늘의 본문입니다. 모두가 같은 말씀을 읽습니다.</p>' +
+      '<div class="fixedverse"><b>' + esc(D.todayFixed.verse) + '</b>' +
+      '<p>' + esc(D.todayFixed.text).replace(/\n/g, '<br>') + '</p></div>' +
+      '</div>';
+  }
+
+  h += '<div class="panel">' +
     '<span class="chip">성경 구절로 묵상하기</span>' +
     '<p class="hint">구절을 적고 누르시면, 한국 정통 장로교(개혁주의) 관점에서 ' +
       '쉬운 해설과 삶에 적용할 질문을 만들어 드립니다.</p>' +

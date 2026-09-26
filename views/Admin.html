@@ -5352,6 +5352,9 @@ function drawAi() {
   /* 3.5) 설교 영상 확정 — 재생목록 + 수동 교정 */
   h += '<div class="panel" id="sermonAdminBox"><p class="empty">불러오는 중…</p></div>';
 
+  /* 3.6) 오늘의 묵상 구절 — 날짜별로 직접 정합니다 */
+  h += '<div class="panel" id="todayVerseBox"><p class="empty">불러오는 중…</p></div>';
+
   /* 4) 연결 확인 */
   h += '<div class="panel"><span class="chip">연결 확인</span>' +
     '<p class="hint">고른 모델로 실제 한 번 물어봅니다. 응답 시간도 함께 보여드립니다.</p>' +
@@ -5360,6 +5363,63 @@ function drawAi() {
 
   el('aiAdmin').innerHTML = h;
   loadSermonAdmin();
+  loadTodayVerse();
+}
+
+/* ===================== 오늘의 묵상 구절 — 날짜별 직접 관리 ===================== */
+var TV_LIST = null, tvEditing = '';
+
+function loadTodayVerse() {
+  callServer('listTodayVerses', [KEY], function (r) { TV_LIST = r; drawTodayVerse(); },
+    function (e) { var b = el('todayVerseBox'); if (b) b.innerHTML = '<p class="msg err">' + esc(e.message || e) + '</p>'; });
+}
+
+function drawTodayVerse() {
+  var box = el('todayVerseBox');
+  if (!box || !TV_LIST) return;
+  var editingRow = tvEditing ? TV_LIST.list.filter(function (x) { return x.date === tvEditing; })[0] : null;
+  var d = editingRow || { date: TV_LIST.today, verse: '', text: '' };
+
+  var h = '<span class="chip">오늘의 묵상 구절 — 날짜별로 직접 정하기</span>' +
+    '<p class="hint">여기서 정한 날짜의 말씀은 AI 가 다시 만들지 않고, 적어주신 그대로 모든 청년부원에게 똑같이 보입니다.</p>' +
+    '<div class="two">' +
+      '<div class="f"><label>날짜</label><input type="date" id="tvDate" value="' + esc(d.date) + '"></div>' +
+      '<div class="f"><label>구절 표기</label><input type="text" id="tvVerse" value="' + esc(d.verse) + '" placeholder="예) 요한복음 3:16"></div>' +
+    '</div>' +
+    '<div class="f"><label>본문 텍스트</label><textarea id="tvText" style="min-height:110px;" placeholder="본문을 그대로 붙여넣어 주세요.">' + esc(d.text) + '</textarea></div>' +
+    '<div class="addrow">' +
+      '<button class="btn accent" style="flex:1;" onclick="saveTodayVerseNow()">' + (editingRow ? '수정 저장' : '이 날짜로 확정') + '</button>' +
+      (editingRow ? '<button class="btn" onclick="tvEditing=\'\';drawTodayVerse();">새로 입력</button>' : '') +
+    '</div>' +
+    '<p class="msg" id="tvMsg"></p>';
+
+  h += '<div class="noteBox" style="margin-top:12px;"><div class="noteRow"><b>최근 확정한 날짜</b></div>';
+  if (!TV_LIST.list.length) h += '<p class="empty">아직 확정한 날짜가 없습니다.</p>';
+  else TV_LIST.list.forEach(function (x) {
+    h += '<div class="noteRow" style="justify-content:space-between;">' +
+      '<span>' + esc(x.date) + (x.date === TV_LIST.today ? ' <b style="color:var(--good);">(오늘)</b>' : '') + ' · ' + esc(x.verse) + '</span>' +
+      '<span><button type="button" class="btn mini" onclick="tvEditing=\'' + esc(x.date) + '\';drawTodayVerse();">수정</button> ' +
+      '<button type="button" class="btn mini danger" onclick="delTodayVerse(\'' + esc(x.date) + '\')">삭제</button></span></div>';
+  });
+  h += '</div>';
+
+  box.innerHTML = h;
+}
+
+function saveTodayVerseNow() {
+  var date = el('tvDate').value, verse = el('tvVerse').value.trim(), text = el('tvText').value.trim();
+  if (!date) return say('tvMsg', '날짜를 골라주세요.', 'err');
+  say('tvMsg', '저장하는 중…');
+  callServer('saveTodayVerse', [KEY, date, verse, text], function (r) {
+    TV_LIST = r; tvEditing = date; drawTodayVerse(); say('tvMsg', '저장했습니다. 포털에 바로 반영됩니다.', 'ok');
+  }, function (e) { say('tvMsg', e.message || e, 'err'); });
+}
+
+function delTodayVerse(date) {
+  if (!confirm(date + ' 확정을 지울까요?')) return;
+  callServer('deleteTodayVerse', [KEY, date], function (r) {
+    TV_LIST = r; if (tvEditing === date) tvEditing = ''; drawTodayVerse();
+  }, function (e) { say('tvMsg', e.message || e, 'err'); });
 }
 
 function modelBox() {
@@ -5450,9 +5510,22 @@ function drawSermonAdmin() {
           '<a class="btn mini" href="https://www.youtube.com/watch?v=' + esc(cur.id) + '" target="_blank" rel="noopener">영상 보기</a>' +
         '</div>' +
         (cur.pending ? '<div class="noteRow"><button type="button" class="btn mini accent" onclick="makeSermonSummary(\'' + esc(cur.id) + '\')">AI 요약 만들기</button></div>' : '') +
+        (!cur.pending && (cur.short3 || []).length ? '<div class="noteRow"><button type="button" class="btn mini accent" onclick="makeSermonSummary(\'' + esc(cur.id) + '\')">AI 요약 다시 만들기</button></div>' : '') +
         (s.confirmed ? '<div class="noteRow"><button type="button" class="btn mini danger" onclick="clearSermonConfirm()">확정 해제 (자동으로 되돌리기)</button></div>' : '')
       : '<p class="empty">아직 뜨는 영상이 없습니다. 재생목록을 걸거나 영상을 확정해주세요.</p>') +
     '<p class="msg" id="sermonMsg"></p></div>';
+
+  if (cur && !cur.pending && (cur.short3 || []).length) {
+    h += '<div class="noteBox">' +
+      '<div class="noteRow"><b>AI 요약 미리보기 — 청년부원 화면에 이대로 보입니다</b></div>' +
+      '<p class="hint" style="margin:2px 0 6px;"><b>3줄 요약</b></p>' +
+      '<ul style="margin:0 0 8px 18px;padding:0;">' + cur.short3.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' +
+      (cur.points && cur.points.length ? '<p class="hint" style="margin:2px 0 6px;"><b>핵심 대지</b></p><ul style="margin:0 0 8px 18px;padding:0;">' +
+        cur.points.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
+      (cur.apply && cur.apply.length ? '<p class="hint" style="margin:2px 0 6px;"><b>삶에 적용하기</b></p><ul style="margin:0;padding:0 0 0 18px;">' +
+        cur.apply.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
+      '</div>';
+  }
 
   h += '<div class="noteBox">' +
     '<div class="noteRow"><b>재생목록 자동 연동</b></div>' +

@@ -12577,8 +12577,32 @@ function announceForm(token, id, target, opts) {
    ============================================================ */
 
 var SHEET_회의록 = '회의록';
-var HEAD_회의록 = ['ID', '제목', '문서ID', '회의날짜', '등록자', '등록시각', '마지막읽음', '상태'];
-var MN_ID = 0, MN_제목 = 1, MN_문서 = 2, MN_날짜 = 3, MN_등록자 = 4, MN_등록 = 5, MN_읽음 = 6, MN_상태 = 7;
+var HEAD_회의록 = ['ID', '제목', '문서ID', '회의날짜', '등록자', '등록시각', '마지막읽음', '상태', '팀'];
+var MN_ID = 0, MN_제목 = 1, MN_문서 = 2, MN_날짜 = 3, MN_등록자 = 4, MN_등록 = 5, MN_읽음 = 6, MN_상태 = 7, MN_팀 = 8;
+
+/**
+ * 회의록 접근 권한 — 커미티/관리자는 전체를 보고, 그 외에는 자기 사역팀(팀장 · 팀원)
+ * 것만 봅니다. teams 는 이 사람이 회의록을 올리거나 볼 수 있는 팀 이름 목록입니다.
+ */
+function 회의록권한_(token) {
+  if (커미티토큰_(token)) return { name: 커미티이름_(token), committee: true, teams: 사역팀목록_().map(function (t) { return t.name; }) };
+  var ta = 팀계정찾기_(token);
+  if (ta) return { name: ta.name, committee: false, teams: [ta.name] };
+  var me = requirePortal_(token);
+  var mine = 사역팀목록_().filter(function (t) {
+    return t.leader === me.name || (t.members || []).indexOf(me.name) !== -1;
+  }).map(function (t) { return t.name; });
+  return { name: me.name, committee: false, teams: mine };
+}
+
+/** 특정 회의록 하나에 이 사람이 손댈 수 있는지 (팀이 없는 옛 회의록은 커미티 전용입니다) */
+function 회의록접근확인_(token, m) {
+  if (!m) throw new Error('회의록을 찾지 못했습니다.');
+  var perm = 회의록권한_(token);
+  if (perm.committee) return perm;
+  if (m.team && perm.teams.indexOf(m.team) !== -1) return perm;
+  throw new Error('이 회의록은 ' + (m.team || '커미티') + ' 만 볼 수 있습니다.');
+}
 
 var SHEET_회의할일 = '회의할일';
 var HEAD_회의할일 = ['ID', '회의록ID', '담당자', '할일', '마감일', '상태', '완료시각', '만든이', '만든시각', '출처'];
@@ -12841,7 +12865,8 @@ function 회의록들_() {
       by: String(r[MN_등록자] || '').trim(),
       at: String(r[MN_등록] || '').trim(),
       read: String(r[MN_읽음] || '').trim(),
-      status: String(r[MN_상태] || '').trim() || '보임'
+      status: String(r[MN_상태] || '').trim() || '보임',
+      team: String(r[MN_팀] || '').trim()
     };
   }).filter(function (n) { return n.status !== '숨김'; })
     .sort(function (a, b) { return (b.date || '') < (a.date || '') ? -1 : 1; });
@@ -12869,11 +12894,17 @@ function 회의할일들_(회의ID) {
 
 /* ---- 화면에서 부르는 것들 ---- */
 
-/** 회의록 목록 (교인이면 누구나 봅니다 — 커미티만 등록 · 수정) */
+/** 회의록 목록 — 커미티는 전체, 팀원은 자기 팀 것만 봅니다 */
 function minutesList(token) {
   var who = 폼신청자_(token);
-  var 커미티 = 커미티토큰_(token);
-  if (!커미티) return { canEdit: false, me: who.name, list: [], mine: 내회의할일_(who.name) };
+  var perm = 회의록권한_(token);
+  var canSee = perm.committee || perm.teams.length;
+  if (!canSee) return { canEdit: false, myTeams: [], me: who.name, list: [], mine: 내회의할일_(who.name) };
+
+  var visible = 회의록들_().filter(function (m) {
+    return perm.committee || (m.team && perm.teams.indexOf(m.team) !== -1);
+  });
+
   var all = 회의할일들_('');
   var 수 = {};
   all.forEach(function (t) {
@@ -12885,12 +12916,14 @@ function minutesList(token) {
     }
   });
   return {
-    canEdit: 커미티,
+    canEdit: true,
+    committee: perm.committee,
+    myTeams: perm.teams,
     me: who.name,
     mine: 내회의할일_(who.name),
-    list: 회의록들_().map(function (m) {
+    list: visible.map(function (m) {
       var c = 수[m.id] || { all: 0, open: 0, mine: 0 };
-      return { id: m.id, title: m.title, date: m.date, by: m.by, read: m.read,
+      return { id: m.id, title: m.title, date: m.date, by: m.by, read: m.read, team: m.team,
         docUrl: 'https://docs.google.com/document/d/' + m.docId + '/edit',
         tasks: c.all, open: c.open, mine: c.mine };
     })
@@ -12900,9 +12933,8 @@ function minutesList(token) {
 /** 회의록 한 편 — 문서 본문과 할 일을 함께 돌려줍니다 */
 function minutesOpen(token, id) {
   var who = 폼신청자_(token);
-  if (!커미티토큰_(token)) throw new Error('회의록 본문은 커미티만 볼 수 있습니다.');
   var m = 회의하나_(id);
-  if (!m) throw new Error('회의록을 찾지 못했습니다.');
+  var perm = 회의록접근확인_(token, m);
   var body = '', err = '';
   try {
     body = 회의록HTML_(문서본문_(m.docId));
@@ -12910,9 +12942,10 @@ function minutesOpen(token, id) {
     err = e.message || '문서를 읽지 못했습니다.';
   }
   return {
-    canEdit: 커미티토큰_(token),
+    canEdit: true,
+    committee: perm.committee,
     me: who.name,
-    meet: { id: m.id, title: m.title, date: m.date, by: m.by, read: m.read,
+    meet: { id: m.id, title: m.title, date: m.date, by: m.by, read: m.read, team: m.team,
       docUrl: 'https://docs.google.com/document/d/' + m.docId + '/edit' },
     html: body, err: err,
     tasks: 회의할일들_(m.id).sort(function (a, b) {
@@ -12929,7 +12962,8 @@ function 회의하나_(id) {
   rows_(SHEET_회의록).forEach(function (r) {
     if (String(r[MN_ID]).trim() === id) {
       found = { id: id, title: String(r[MN_제목] || '').trim(), docId: String(r[MN_문서] || '').trim(),
-        date: 날짜문자열_(r[MN_날짜]), by: String(r[MN_등록자] || '').trim(), read: String(r[MN_읽음] || '').trim() };
+        date: 날짜문자열_(r[MN_날짜]), by: String(r[MN_등록자] || '').trim(), read: String(r[MN_읽음] || '').trim(),
+        team: String(r[MN_팀] || '').trim() };
     }
   });
   return found;
@@ -12953,7 +12987,8 @@ function 회의사람들_() {
 
 /** 회의록 등록 — 등록과 동시에 할 일까지 뽑아냅니다 */
 function minutesAdd(token, d) {
-  if (!커미티토큰_(token)) throw new Error('회의록은 커미티만 등록할 수 있습니다.');
+  var perm = 회의록권한_(token);
+  if (!perm.committee && !perm.teams.length) throw new Error('회의록은 커미티나 사역팀만 등록할 수 있습니다.');
   d = d || {};
   var docId = 문서ID_(d.url || d.docId || '');
   if (!docId) throw new Error('구글 문서 주소를 넣어주세요. (docs.google.com/document/d/... 형태)');
@@ -12962,13 +12997,27 @@ function minutesAdd(token, d) {
   회의록들_().forEach(function (m) { if (m.docId === docId) 이미 = m; });
   if (이미) throw new Error('이미 등록된 문서입니다: ' + 이미.title);
 
+  // 커미티는 팀을 골라 그 팀 전용으로도 올릴 수 있고, 비워두면 커미티 전체 회의록이 됩니다.
+  // 팀원은 자기가 속한 팀으로만 올릴 수 있습니다 (팀이 여럿이면 반드시 하나를 골라야 합니다).
+  var team = String(d.team || '').trim();
+  if (perm.committee) {
+    if (team && perm.teams.indexOf(team) === -1) throw new Error('그런 사역팀이 없습니다.');
+  } else {
+    if (!team) {
+      if (perm.teams.length !== 1) throw new Error('올릴 팀을 골라주세요.');
+      team = perm.teams[0];
+    } else if (perm.teams.indexOf(team) === -1) {
+      throw new Error('본인 팀의 회의록만 올릴 수 있습니다.');
+    }
+  }
+
   var info = 문서정보_(docId);
   var title = String(d.title || '').trim() || String(info.name || '').trim() || '회의록';
   var date = /^\d{4}-\d{2}-\d{2}$/.test(String(d.date || '')) ? d.date : ymd_(new Date());
   var id = 'M' + Date.now().toString(36);
 
-  회의록시트_().appendRow([id, title, docId, date, 커미티이름_(token),
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'), '', '보임']);
+  회의록시트_().appendRow([id, title, docId, date, perm.name,
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'), '', '보임', team]);
   캐시비움_();
 
   var got = { added: 0, kept: 0 };
@@ -12978,9 +13027,8 @@ function minutesAdd(token, d) {
 
 /** 문서를 다시 읽어 할 일을 새로 뽑습니다 (이미 있는 것은 그대로 둡니다) */
 function minutesSync(token, id) {
-  if (!커미티토큰_(token)) throw new Error('커미티만 다시 읽을 수 있습니다.');
   var m = 회의하나_(id);
-  if (!m) throw new Error('회의록을 찾지 못했습니다.');
+  회의록접근확인_(token, m);
 
   var text = 문서내보내기_(m.docId, 'text/plain');
   var names = 회의사람들_().sort(function (a, b) { return b.length - a.length; });
@@ -13032,9 +13080,8 @@ function minutesSync(token, id) {
  *  마음에 드는 항목은 화면에서 "할 일 넣기" 로 직접 추가할 수 있습니다.)
  */
 function minutesAiAnalyze(token, id) {
-  if (!커미티토큰_(token)) throw new Error('회의록 AI 분석은 커미티만 쓸 수 있습니다.');
   var m = 회의하나_(id);
-  if (!m) throw new Error('회의록을 찾지 못했습니다.');
+  회의록접근확인_(token, m);
   AI확인_();
 
   var text = '';
@@ -13073,8 +13120,84 @@ function minutesAiAnalyze(token, id) {
   return { ok: true, summary: String(d.summary || '').trim().slice(0, 1200), actionItems: items, model: AI모델_() };
 }
 
+/**
+ * 한 문서 안에 여러 날짜의 회의록이 이어져 있을 때, 날짜별 제목 줄을 찾아 구간으로 나눕니다.
+ * 제목 줄은 "9/1 회의록", "2026-09-01", "9월 1일 (화) 찬양팀 회의" 처럼 짧고 날짜가 들어간 줄입니다.
+ */
+var 회의날짜패턴_ = /(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|\d{1,2}[.\-/]\d{1,2}|\d{1,2}\s*월\s*\d{1,2}\s*일)/;
+
+function 회의섹션들_(text) {
+  var lines = String(text || '').split(/\r?\n/);
+  var sections = [], cur = null;
+  lines.forEach(function (line) {
+    var t = line.trim();
+    if (t && t.length <= 40 && 회의날짜패턴_.test(t)) {
+      cur = { label: t, lines: [] };
+      sections.push(cur);
+      return;
+    }
+    if (cur) cur.lines.push(line);
+    else { if (!sections.length) { cur = { label: '(날짜 없음)', lines: [] }; sections.push(cur); } cur.lines.push(line); }
+  });
+  return sections.map(function (s) { return { label: s.label, body: s.lines.join('\n').trim() }; })
+    .filter(function (s) { return s.body; });
+}
+
+/** 문서 안의 날짜별 구간 목록만 가볍게 돌려줍니다 (본문 전체를 읽지 않고 제목만 보고 싶을 때) */
+function minutesSections(token, id) {
+  var m = 회의하나_(id);
+  회의록접근확인_(token, m);
+  var text = '';
+  try { text = 문서내보내기_(m.docId, 'text/plain'); } catch (e) { throw new Error('문서를 읽지 못했습니다: ' + (e.message || e)); }
+  var sections = 회의섹션들_(text);
+  return { sections: sections.map(function (s) { return { label: s.label, chars: s.body.length }; }) };
+}
+
+/** 사용자가 고른 날짜 구간만 Gemini 로 불렛포인트 요약합니다 */
+function minutesAiAnalyzeDate(token, id, sectionLabel) {
+  var m = 회의하나_(id);
+  회의록접근확인_(token, m);
+  AI확인_();
+
+  var text = '';
+  try { text = 문서내보내기_(m.docId, 'text/plain'); } catch (e) { throw new Error('문서를 읽지 못했습니다: ' + (e.message || e)); }
+  var sections = 회의섹션들_(text);
+  var picked = sections.filter(function (s) { return s.label === sectionLabel; })[0];
+  if (!picked) throw new Error('그 날짜 구간을 찾지 못했습니다. 문서가 바뀌었으면 다시 열어봐주세요.');
+
+  var body = picked.body;
+  if (body.length > 12000) body = body.slice(0, 12000);
+
+  var prompt =
+    '다음은 교회 청년부 회의록 문서 중 "' + sectionLabel + '" 날짜 구간만 뽑은 내용입니다.\n\n' +
+    '--- 구간 시작 ---\n' + body + '\n--- 구간 끝 ---\n\n' +
+    '이 구간만 불렛포인트로 정리해 주세요. 아래 JSON 형식으로만 답하세요.\n' +
+    '{\n' +
+    '  "bullets": ["핵심 내용 불렛포인트. 한 줄에 한 문장씩", "..."],\n' +
+    '  "actionItems": [ { "who": "담당자 — 없으면 빈 문자열", "what": "할 일 한 문장", "due": "기한 YYYY-MM-DD — 모르면 빈 문자열" } ]\n' +
+    '}\n\n' +
+    '· bullets 는 4개에서 8개 사이로, 이 구간에 실제로 있는 내용만 담아 주세요.\n' +
+    '· actionItems 는 이 구간에서 실제로 언급된 할 일만 담고, 없으면 빈 배열로 주세요. 지어내지 마세요.';
+
+  var d = AIJSON_(prompt, {
+    system: '당신은 한국 교회 청년부 커미티의 회의 진행을 돕는 꼼꼼한 비서입니다. 주어진 구간에 없는 내용은 지어내지 않습니다.',
+    temperature: 0.3, maxTokens: 1400
+  });
+
+  var items = (d.actionItems || []).map(function (x) {
+    return {
+      who: String((x && x.who) || '').trim().slice(0, 40),
+      what: String((x && x.what) || '').trim().slice(0, 200),
+      due: /^\d{4}-\d{2}-\d{2}$/.test(String((x && x.due) || '')) ? x.due : ''
+    };
+  }).filter(function (x) { return x.what; }).slice(0, 20);
+
+  var bullets = (d.bullets || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 10);
+  return { ok: true, label: sectionLabel, bullets: bullets, actionItems: items, model: AI모델_() };
+}
+
 function minutesEdit(token, id, d) {
-  if (!커미티토큰_(token)) throw new Error('커미티만 고칠 수 있습니다.');
+  회의록접근확인_(token, 회의하나_(id));
   d = d || {};
   var sh = 회의록시트_(), v = sh.getDataRange().getValues();
   for (var i = 1; i < v.length; i++) {
@@ -13088,7 +13211,7 @@ function minutesEdit(token, id, d) {
 }
 
 function minutesDelete(token, id) {
-  if (!커미티토큰_(token)) throw new Error('커미티만 지울 수 있습니다.');
+  회의록접근확인_(token, 회의하나_(id));
   var sh = 회의록시트_(), v = sh.getDataRange().getValues();
   for (var i = v.length - 1; i >= 1; i--) {
     if (String(v[i][MN_ID]).trim() === String(id).trim()) sh.deleteRow(i + 1);
@@ -13104,7 +13227,6 @@ function minutesDelete(token, id) {
 /* ---- 할 일 손보기 ---- */
 
 function minutesTaskSave(token, d) {
-  if (!커미티토큰_(token)) throw new Error('할 일은 커미티가 관리합니다.');
   d = d || {};
   var what = String(d.what || '').trim().slice(0, 200);
   if (!what) throw new Error('할 일 내용을 적어주세요.');
@@ -13117,6 +13239,7 @@ function minutesTaskSave(token, d) {
     var v = sh.getDataRange().getValues();
     for (var i = 1; i < v.length; i++) {
       if (String(v[i][MT_ID]).trim() !== String(d.id).trim()) continue;
+      회의록접근확인_(token, 회의하나_(String(v[i][MT_회의] || '').trim()));
       sh.getRange(i + 1, MT_담당 + 1).setValue(who);
       sh.getRange(i + 1, MT_할일 + 1).setValue(what);
       sh.getRange(i + 1, MT_마감 + 1).setValue(due);
@@ -13126,8 +13249,9 @@ function minutesTaskSave(token, d) {
     throw new Error('할 일을 찾지 못했습니다.');
   }
 
+  var perm = 회의록접근확인_(token, 회의하나_(String(d.meet || '').trim()));
   var id = 'T' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-  sh.appendRow([id, String(d.meet || '').trim(), who, what, due, '', '', 커미티이름_(token), now, '손으로 넣음']);
+  sh.appendRow([id, String(d.meet || '').trim(), who, what, due, '', '', perm.name, now, '손으로 넣음']);
   캐시비움_();
   if (who) {
     try {
@@ -13157,11 +13281,15 @@ function minutesTaskDone(token, id, done) {
 }
 
 function minutesTaskDelete(token, id) {
-  if (!커미티토큰_(token)) throw new Error('커미티만 지울 수 있습니다.');
   var sh = 회의할일시트_(), v = sh.getDataRange().getValues();
+  var found = false;
   for (var i = v.length - 1; i >= 1; i--) {
-    if (String(v[i][MT_ID]).trim() === String(id).trim()) sh.deleteRow(i + 1);
+    if (String(v[i][MT_ID]).trim() !== String(id).trim()) continue;
+    회의록접근확인_(token, 회의하나_(String(v[i][MT_회의] || '').trim()));
+    sh.deleteRow(i + 1);
+    found = true;
   }
+  if (!found) throw new Error('할 일을 찾지 못했습니다.');
   캐시비움_();
   return { ok: true };
 }
@@ -13435,8 +13563,82 @@ function devotionHome(token) {
   return {
     on: AI켜짐_(),
     today: 오늘의구절_(),
+    todayFixed: 오늘묵상확정_(ymd_(new Date())),
     recent: all.slice(-12).reverse()
   };
+}
+
+/* =========================================================
+   오늘의 묵상 — 관리자가 직접 정하는 날짜별 성경 구절 (장/절 + 본문 텍스트)
+   AI 가 그때그때 만드는 것과 달리, 여기 확정해 두면 그날은 모두에게 토씨 하나
+   틀리지 않고 똑같이 보입니다.
+   ========================================================= */
+var SHEET_오늘묵상확정 = '오늘묵상확정';
+var HEAD_오늘묵상확정 = ['날짜', '구절표기', '본문텍스트', '작성시각', '작성자'];
+var TV_날짜 = 0, TV_구절 = 1, TV_본문 = 2, TV_시각 = 3, TV_작성자 = 4;
+
+function 오늘묵상확정시트_() {
+  var sh = 주보시트_(SHEET_오늘묵상확정, HEAD_오늘묵상확정);
+  try { if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, HEAD_오늘묵상확정.length).setValues([HEAD_오늘묵상확정]); 캐시비움_(); } } catch (e) {}
+  return sh;
+}
+
+/** 그 날짜에 관리자가 확정해 둔 말씀이 있으면 돌려줍니다 (없으면 null) */
+function 오늘묵상확정_(date) {
+  date = String(date || '').trim();
+  if (!date) return null;
+  var found = null;
+  rows_(SHEET_오늘묵상확정).forEach(function (r) {
+    if (String(r[TV_날짜] || '').trim() === date) {
+      found = { date: date, verse: String(r[TV_구절] || '').trim(), text: String(r[TV_본문] || '').trim(),
+        at: String(r[TV_시각] || '').trim(), by: String(r[TV_작성자] || '').trim() };
+    }
+  });
+  return found;
+}
+
+/** ⚙️ 앱 기능 관리 — 최근 확정 목록 + 오늘 것 */
+function listTodayVerses(key) {
+  if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 볼 수 있습니다.');
+  var all = rows_(SHEET_오늘묵상확정)
+    .filter(function (r) { return String(r[TV_날짜] || '').trim(); })
+    .map(function (r) {
+      return { date: String(r[TV_날짜]).trim(), verse: String(r[TV_구절] || '').trim(), text: String(r[TV_본문] || '').trim() };
+    });
+  all.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+  return { today: ymd_(new Date()), list: all.slice(0, 30) };
+}
+
+/** 하루치 말씀을 넣거나 고칩니다 — 같은 날짜면 덮어씁니다 */
+function saveTodayVerse(key, date, verse, text) {
+  if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 할 수 있습니다.');
+  date = String(date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('날짜를 골라주세요.');
+  verse = String(verse || '').trim().slice(0, 80);
+  text = String(text || '').trim().slice(0, 4000);
+  if (!verse) throw new Error('구절 표기를 적어주세요. (예: 요한복음 3:16)');
+  if (!text) throw new Error('본문 텍스트를 적어주세요.');
+
+  var who = isAdmin_(key) ? '관리자' : (커미티이름_(key) || '커미티');
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var sh = 오늘묵상확정시트_(), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][TV_날짜] || '').trim() === date) {
+      sh.getRange(i + 1, 1, 1, HEAD_오늘묵상확정.length).setValues([[date, verse, text, now, who]]);
+      캐시비움_();
+      return listTodayVerses(key);
+    }
+  }
+  sh.appendRow([date, verse, text, now, who]);
+  캐시비움_();
+  return listTodayVerses(key);
+}
+
+function deleteTodayVerse(key, date) {
+  if (!isAdmin_(key) && !커미티토큰_(key)) throw new Error('커미티 · 관리자만 할 수 있습니다.');
+  deleteRowsWhere_(SHEET_오늘묵상확정, TV_날짜, String(date || '').trim());
+  캐시비움_();
+  return listTodayVerses(key);
 }
 
 /** 날짜에 따라 돌아가는 추천 구절 — 매일 같은 사람에게 같은 구절이 나옵니다 */
@@ -13577,9 +13779,9 @@ function translateOneExpense(key, no) {
    ============================================================ */
 
 var SHEET_설교 = '설교요약';
-var HEAD_설교 = ['영상ID', '제목', '올린날', '설교자', '본문', '핵심대지', '주요메시지', '만든시각', '모델', '상태'];
+var HEAD_설교 = ['영상ID', '제목', '올린날', '설교자', '본문', '핵심대지', '주요메시지', '만든시각', '모델', '상태', '적용점', '3줄요약'];
 var SM_ID = 0, SM_제목 = 1, SM_날 = 2, SM_설교자 = 3, SM_본문 = 4, SM_대지 = 5, SM_메시지 = 6,
-    SM_시각 = 7, SM_모델 = 8, SM_상태 = 9;
+    SM_시각 = 7, SM_모델 = 8, SM_상태 = 9, SM_적용 = 10, SM_삼줄 = 11;
 
 function 설교시트_() {
   var sh = 주보시트_(SHEET_설교, HEAD_설교);
@@ -13686,24 +13888,8 @@ function 엔티티풀기_(s) {
     .replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 }
 
-/** 영상 자막 — 한국어를 먼저 찾고, 없으면 자동 생성 자막이라도 씁니다 */
-function 자막가져오기_(videoId) {
-  var html = 유튜브가져오기_('https://www.youtube.com/watch?v=' + encodeURIComponent(videoId) + '&hl=ko');
-  var m = html.match(/"captionTracks"\s*:\s*(\[[\s\S]*?\])\s*,\s*"/);
-  if (!m) return '';
-  var tracks;
-  try { tracks = JSON.parse(m[1].replace(/\\u0026/g, '&')); } catch (e) { return ''; }
-  if (!tracks || !tracks.length) return '';
-
-  var 고른것 = null;
-  ['ko', 'ko-KR'].forEach(function (lang) {
-    if (!고른것) tracks.forEach(function (t) { if (!고른것 && String(t.languageCode || '') === lang) 고른것 = t; });
-  });
-  if (!고른것) 고른것 = tracks[0];
-  var base = String(고른것.baseUrl || '').replace(/\\u0026/g, '&');
-  if (!base) return '';
-
-  var xml = 유튜브가져오기_(base);
+/** timedtext XML(<text>...</text> 나열)을 하나의 글로 풀어줍니다 */
+function 자막XML풀기_(xml) {
   var 줄 = [];
   var re = /<text[^>]*>([\s\S]*?)<\/text>/g, hit;
   while ((hit = re.exec(xml)) !== null) {
@@ -13711,6 +13897,63 @@ function 자막가져오기_(videoId) {
     if (t) 줄.push(t);
   }
   return 줄.join(' ');
+}
+
+/**
+ * 영상 자막 — 사람이 단 자막을 먼저 찾고, 없으면 유튜브가 자동으로 만든(ASR)
+ * 한국어 자막이라도 가져옵니다. 시청 페이지에서 못 찾으면 timedtext 목록 API로 한 번 더 찾아봅니다.
+ */
+function 자막가져오기_(videoId) {
+  videoId = encodeURIComponent(videoId);
+
+  /* 1차: 시청 페이지에 박혀 있는 captionTracks (수동 자막 · 자동 생성 자막 둘 다 여기 있습니다) */
+  try {
+    var html = 유튜브가져오기_('https://www.youtube.com/watch?v=' + videoId + '&hl=ko');
+    var m = html.match(/"captionTracks"\s*:\s*(\[[\s\S]*?\])\s*,\s*"/);
+    if (m) {
+      var tracks = JSON.parse(m[1].replace(/\\u0026/g, '&'));
+      if (tracks && tracks.length) {
+        // 우선순위: 사람이 단 한국어 자막 → 자동 생성(ASR) 한국어 자막 → 그 외 아무 자막
+        var 후보 = [
+          tracks.filter(function (t) { return /^ko(-|$)/.test(String(t.languageCode || '')) && t.kind !== 'asr'; })[0],
+          tracks.filter(function (t) { return /^ko(-|$)/.test(String(t.languageCode || '')) && t.kind === 'asr'; })[0],
+          tracks[0]
+        ].filter(Boolean);
+        var 고른것 = 후보[0];
+        var base = 고른것 ? String(고른것.baseUrl || '').replace(/\\u0026/g, '&') : '';
+        if (base) {
+          var text1 = 자막XML풀기_(유튜브가져오기_(base));
+          if (text1) return text1;
+        }
+      }
+    }
+  } catch (e) {}
+
+  /* 2차: timedtext 목록 API — 시청 페이지에 자막 정보가 안 실렸을 때(주로 자동 생성 전용 영상) */
+  try {
+    var listXml = 유튜브가져오기_('https://video.google.com/timedtext?type=list&v=' + videoId);
+    var trackRe = /<track\b([^>]*)\/?>/g, tm, 목록 = [];
+    while ((tm = trackRe.exec(listXml)) !== null) {
+      var attrs = tm[1];
+      var lc = (/lang_code="([^"]*)"/.exec(attrs) || [])[1] || '';
+      var kind = (/kind="([^"]*)"/.exec(attrs) || [])[1] || '';
+      if (lc) 목록.push({ lang: lc, kind: kind });
+    }
+    var 순서 = [
+      목록.filter(function (t) { return /^ko(-|$)/.test(t.lang) && t.kind !== 'asr'; })[0],
+      목록.filter(function (t) { return /^ko(-|$)/.test(t.lang) && t.kind === 'asr'; })[0],
+      목록[0]
+    ].filter(Boolean);
+    var 고른트랙 = 순서[0];
+    if (고른트랙) {
+      var url = 'https://video.google.com/timedtext?v=' + videoId + '&lang=' + encodeURIComponent(고른트랙.lang);
+      if (고른트랙.kind) url += '&kind=' + encodeURIComponent(고른트랙.kind);
+      var text2 = 자막XML풀기_(유튜브가져오기_(url));
+      if (text2) return text2;
+    }
+  } catch (e) {}
+
+  return '';
 }
 
 /** 설교 요약 만들기 — 자막이 없으면 커미티가 본문을 붙여 넣을 수 있습니다 */
@@ -13741,10 +13984,14 @@ function sermonMake(token, videoId, manualText) {
     '  "preacher": "설교자 이름 (모르면 빈 문자열)",\n' +
     '  "passage": "설교 본문 성경 구절 (모르면 빈 문자열)",\n' +
     '  "points": ["핵심 대지 3가지", "...", "..."],\n' +
-    '  "messages": ["주요 메시지 3~5줄. 한 줄에 한 문장씩", "..."]\n' +
+    '  "messages": ["주요 메시지 3~5줄. 한 줄에 한 문장씩", "..."],\n' +
+    '  "apply": ["삶에 적용할 점 2~3가지. 한 줄에 한 문장씩", "..."],\n' +
+    '  "short3": ["오늘 설교를 3줄로 요약. 정확히 3줄", "...", "..."]\n' +
     '}\n\n' +
     '· points 는 정확히 3개로, 설교자가 나눈 흐름을 따라 짧은 문장으로 적어 주세요.\n' +
     '· messages 는 3개에서 5개 사이로, 청년들이 삶에 새길 만한 문장으로 적어 주세요.\n' +
+    '· apply 는 2개에서 3개로, "이번 주 나는 ~합니다" 처럼 구체적인 행동으로 적어 주세요.\n' +
+    '· short3 은 정확히 3줄로, 설교를 못 본 사람도 핵심을 알 수 있게 압축해 주세요.\n' +
     '· 자막이 잘못 받아 적힌 부분은 문맥으로 바로잡아 읽되, 설교에 없는 내용을 지어내지 마세요.';
 
   var d = AIJSON_(prompt, { system: 묵상_지침, temperature: 0.4, maxTokens: 2000 });
@@ -13756,6 +14003,8 @@ function sermonMake(token, videoId, manualText) {
     passage: String((d && d.passage) || '').trim().slice(0, 80),
     points: ((d && d.points) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
     messages: ((d && d.messages) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 6),
+    apply: ((d && d.apply) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
+    short3: ((d && d.short3) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 3),
     at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')
   };
   설교저장_(item);
@@ -13765,7 +14014,8 @@ function sermonMake(token, videoId, manualText) {
 function 설교저장_(item) {
   var sh = 설교시트_(), v = sh.getDataRange().getValues();
   var row = [item.id, item.title, item.date, item.preacher, item.passage,
-    item.points.join('\n'), item.messages.join('\n'), item.at, AI모델_(), '완료'];
+    item.points.join('\n'), item.messages.join('\n'), item.at, AI모델_(), '완료',
+    (item.apply || []).join('\n'), (item.short3 || []).join('\n')];
   for (var i = 1; i < v.length; i++) {
     if (String(v[i][SM_ID] || '').trim() === item.id) {
       sh.getRange(i + 1, 1, 1, HEAD_설교.length).setValues([row]);
@@ -13787,6 +14037,8 @@ function 설교행_(r) {
     passage: String(r[SM_본문] || '').trim(),
     points: 줄(r[SM_대지]),
     messages: 줄(r[SM_메시지]),
+    apply: 줄(r[SM_적용]),
+    short3: 줄(r[SM_삼줄]),
     at: String(r[SM_시각] || '').trim(),
     url: 'https://www.youtube.com/watch?v=' + String(r[SM_ID] || '').trim()
   };
@@ -13867,7 +14119,7 @@ function 현재설교_() {
   if (found) return found;
   return {
     id: videoId, title: title, date: date, preacher: '', passage: '',
-    points: [], messages: [], at: '', url: 'https://www.youtube.com/watch?v=' + videoId, pending: true
+    points: [], messages: [], apply: [], short3: [], at: '', url: 'https://www.youtube.com/watch?v=' + videoId, pending: true
   };
 }
 
@@ -13964,8 +14216,9 @@ function 설교하나만들기_(v, 본문) {
     '--- 자막 시작 ---\n' + 본문 + '\n--- 자막 끝 ---\n\n' +
     '아래 JSON 으로만 답하세요.\n' +
     '{ "title": "설교 제목", "preacher": "설교자 (모르면 빈 문자열)", "passage": "본문 성경 구절 (모르면 빈 문자열)",' +
-    ' "points": ["핵심 대지 3가지"], "messages": ["주요 메시지 3~5줄"] }\n\n' +
-    '· points 는 정확히 3개, messages 는 3~5개로 적어 주세요.\n' +
+    ' "points": ["핵심 대지 3가지"], "messages": ["주요 메시지 3~5줄"],' +
+    ' "apply": ["삶에 적용할 점 2~3가지"], "short3": ["3줄 요약, 정확히 3줄"] }\n\n' +
+    '· points 는 정확히 3개, messages 는 3~5개, apply 는 2~3개, short3 은 정확히 3줄로 적어 주세요.\n' +
     '· 설교에 없는 내용을 지어내지 마세요.';
   var d = AIJSON_(prompt, { system: 묵상_지침, temperature: 0.4, maxTokens: 2000 });
   var item = {
@@ -13976,6 +14229,8 @@ function 설교하나만들기_(v, 본문) {
     passage: String((d && d.passage) || '').trim().slice(0, 80),
     points: ((d && d.points) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
     messages: ((d && d.messages) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 6),
+    apply: ((d && d.apply) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
+    short3: ((d && d.short3) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 3),
     at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')
   };
   설교저장_(item);

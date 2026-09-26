@@ -1184,10 +1184,6 @@ body .mcardlink,
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="M12 8c0-3 2.4-5 5.6-5C17.6 6 15.2 8 12 8z"/><path d="M12 11.5c0-2.6-2-4.4-4.8-4.4-.2 2.7 1.9 4.4 4.8 4.4z"/></svg></span>
         <span class="bt"><b data-i18n>오늘의 묵상</b></span><span class="ba">›</span>
       </a>
-      <a class="bulbtn ai ser" id="btnSermons" href="?page=sermons">
-        <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="5" width="18.4" height="14" rx="3.2"/><path d="M10.4 9.4l4.8 2.6-4.8 2.6z"/></svg></span>
-        <span class="bt"><b data-i18n>지난 설교</b></span><span class="ba">›</span>
-      </a>
     </div>
 
     <div id="sermonModal" class="ynmodal" style="display:none;" onclick="if(event.target===this)closeSermonModal()">
@@ -2338,9 +2334,8 @@ function paint(res) {
   HAS_CAL = !!res.hasCalendar;
   CAL_COM = !!res.committee;
   CAL_LEAD = !!res.leader || CAL_COM;
-  // 오늘의 묵상 · 지난 설교는 로그인 토큰을 넘겨줘야 그 화면에서 다시 로그인을 묻지 않습니다
+  // 오늘의 묵상은 로그인 토큰을 넘겨줘야 그 화면에서 다시 로그인을 묻지 않습니다
   var dv = el('btnDevotion'); if (dv) dv.href = '?page=devotion&t=' + encodeURIComponent(TOKEN);
-  var sv = el('btnSermons'); if (sv) sv.href = '?page=sermons&t=' + encodeURIComponent(TOKEN);
   SERMON = res.sermon || null;
   renderSermonCard();
   renderAs();
@@ -2369,7 +2364,7 @@ function renderSermonCard() {
   box.innerHTML =
     '<button type="button" class="sermoncard" onclick="openSermonModal()">' +
       '<span class="sc-thumb"><img src="' + esc(thumb) + '" alt=""><span class="sc-play">&#9658;</span></span>' +
-      '<span class="sc-b"><span class="sc-k" data-i18n>이번 주 설교</span>' +
+      '<span class="sc-b"><span class="sc-k" data-i18n>설교 영상</span>' +
         '<span class="sc-t" data-i18n>' + esc(SERMON.title || '설교 영상') + '</span>' +
         '<span class="sc-d" data-i18n>' + esc(SERMON.pending ? '요약 준비 중 · 영상 보기' : (SERMON.preacher || SERMON.date || '')) + '</span></span>' +
       '<span class="sc-go">&rsaquo;</span>' +
@@ -2379,8 +2374,10 @@ function renderSermonCard() {
 
 function openSermonModal() {
   if (!SERMON || !SERMON.id) return;
+  var short3 = (SERMON.short3 || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
   var pts = (SERMON.points || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
   var msgs = (SERMON.messages || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
+  var apply = (SERMON.apply || []).map(function (x) { return '<li data-i18n>' + esc(x) + '</li>'; }).join('');
   var body = el('sermonModalBody');
   body.innerHTML =
     '<div class="sermonyt"><iframe src="https://www.youtube.com/embed/' + encodeURIComponent(SERMON.id) +
@@ -2390,8 +2387,10 @@ function openSermonModal() {
       '<div class="sm-sub">' + [SERMON.preacher, SERMON.passage, SERMON.date].filter(Boolean).map(esc).join(' · ') + '</div>' +
       (SERMON.pending
         ? '<p class="sm-pending" data-i18n>아직 AI 요약이 없습니다. 영상으로 먼저 은혜 나누시고, 요약은 곧 올라옵니다.</p>'
-        : (pts ? '<div class="sm-h" data-i18n>핵심 대지</div><ul>' + pts + '</ul>' : '') +
-          (msgs ? '<div class="sm-h" data-i18n>주요 메시지</div><ul>' + msgs + '</ul>' : '')) +
+        : (short3 ? '<div class="sm-h" data-i18n>3줄 요약</div><ul>' + short3 + '</ul>' : '') +
+          (pts ? '<div class="sm-h" data-i18n>핵심 대지</div><ul>' + pts + '</ul>' : '') +
+          (msgs ? '<div class="sm-h" data-i18n>주요 메시지</div><ul>' + msgs + '</ul>' : '') +
+          (apply ? '<div class="sm-h" data-i18n>삶에 적용하기</div><ul>' + apply + '</ul>' : '')) +
     '</div>';
   el('sermonModal').style.display = 'flex';
   try { if (window.YNI18N) YNI18N.apply(body); } catch (e) {}

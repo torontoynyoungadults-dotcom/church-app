@@ -299,6 +299,7 @@ var M = null;          // 지금 열어 본 회의록
 var TAB = 'list';
 var ALLDOC = false;
 var AI_RESULT = null, AI_BUSY = false, AI_ERR = '';   // Gemini 요약 · 할일 추출
+var SECTIONS = null, SEC_PICKED = '', SEC_BUSY = false, SEC_RESULT = null, SEC_ERR = '';   // 문서 안 날짜별 구간 골라 요약
 
 function el(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -342,6 +343,7 @@ function draw() {
     return;
   }
 
+  var myTeams = D.myTeams || [];
   h += '<div class="panel">' +
     '<span class="chip">회의록 등록</span>' +
     '<p class="hint">구글 문서 주소를 붙여 넣으면 본문을 그대로 읽어 오고, ' +
@@ -352,6 +354,13 @@ function draw() {
       '<div><label class="fl">제목 (비우면 문서 제목)</label><input type="text" id="aTitle" placeholder="9월 커미티 회의"></div>' +
       '<div><label class="fl">회의 날짜</label><input type="date" id="aDate" value="' + today() + '"></div>' +
     '</div>' +
+    (myTeams.length > 1 || D.committee
+      ? '<label class="fl" style="margin-top:8px;">사역팀' + (D.committee ? ' (비우면 커미티 공용)' : '') + '</label>' +
+        '<select id="aTeam">' +
+          (D.committee ? '<option value="">— 커미티 공용 —</option>' : '') +
+          myTeams.map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('') +
+        '</select>'
+      : (myTeams.length === 1 ? '<input type="hidden" id="aTeam" value="' + esc(myTeams[0]) + '">' : '')) +
     '<button class="btn accent full" style="margin-top:10px;" onclick="addMeet()">등록하고 할 일 뽑기</button>' +
     '<p class="msg" id="aMsg"></p>' +
     '<p class="guide" style="margin-top:12px;">' +
@@ -363,6 +372,7 @@ function draw() {
     '</div>';
 
   h += '<div class="panel"><span class="chip">올라온 회의록</span>';
+  if (D.committee) h += '<p class="hint">커미티는 모든 팀의 회의록을 볼 수 있습니다.</p>';
   if (!D.list.length) h += '<p class="empty">아직 등록된 회의록이 없습니다.</p>';
   else {
     h += '<div class="mlist">';
@@ -371,7 +381,7 @@ function draw() {
         '<span class="mi">📝</span>' +
         '<span class="mb"><b>' + esc(m.title) + '</b>' +
           '<span>' + esc(월일(m.date)) + (m.by ? ' · ' + esc(m.by) : '') +
-            ' · 할 일 ' + m.tasks + '건</span></span>' +
+            ' · 할 일 ' + m.tasks + '건' + (D.committee ? ' · ' + esc(m.team || '커미티 공용') : '') + '</span></span>' +
         (m.open ? '<span class="mn hot">남은 ' + m.open + '</span>' : '<span class="mn">완료</span>') +
         '</button>';
     });
@@ -404,6 +414,7 @@ function openMeet(id) {
   el('root').innerHTML = '<div class="panel"><i class="skel line" style="width:50%;"></i><i class="skel line"></i></div>';
   window.scrollTo(0, 0);
   AI_RESULT = null; AI_BUSY = false; AI_ERR = '';
+  SECTIONS = null; SEC_PICKED = ''; SEC_BUSY = false; SEC_RESULT = null; SEC_ERR = '';
   callServer('minutesOpen', [TOKEN, id], function (r) { M = r; ALLDOC = false; paint(); }, function (e) {
     el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || e) + '</p>' +
       '<button class="btn full" onclick="load()">목록으로</button></div>';
@@ -421,6 +432,7 @@ function paint() {
   h += '<div class="panel">' +
     '<span class="chip">' + esc(m.title) + '</span>' +
     '<p class="hint">' + esc(월일(m.date)) + (m.by ? ' · ' + esc(m.by) + ' 등록' : '') +
+      (M.committee && m.team ? ' · <b style="color:#fff;">' + esc(m.team) + '</b>' : '') +
       (m.read ? ' · 마지막 읽음 ' + esc(m.read) : '') + '</p>' +
     '<p class="msg" id="sMsg"></p>';
 
@@ -438,6 +450,7 @@ function paint() {
 
   /* Gemini 요약 · 할일 추출 (커미티만) */
   if (M.canEdit) h += '<div class="panel">' + aiCardHtml() + '</div>';
+  if (M.canEdit) h += '<div class="panel">' + sectionCardHtml() + '</div>';
 
   /* 할 일 */
   h += '<div class="panel"><span class="chip">이 회의의 할 일</span>';
@@ -507,7 +520,8 @@ function addMeet() {
   var url = el('aUrl').value.trim();
   if (!url) { say('aMsg', '구글 문서 주소를 넣어주세요.', 'err'); return; }
   say('aMsg', '문서를 읽는 중입니다…');
-  callServer('minutesAdd', [TOKEN, { url: url, title: el('aTitle').value.trim(), date: el('aDate').value }],
+  var teamEl = el('aTeam');
+  callServer('minutesAdd', [TOKEN, { url: url, title: el('aTitle').value.trim(), date: el('aDate').value, team: teamEl ? teamEl.value : '' }],
     function (r) {
       say('aMsg', '등록했습니다. 할 일 ' + (r.found || 0) + '건을 찾았습니다.', 'ok');
       load(function () { openMeet(r.id); });
@@ -575,6 +589,78 @@ function addAiTask(i) {
   callServer('minutesTaskSave', [TOKEN, { meet: M.meet.id, what: t.what, who: t.who, due: t.due }], function () {
     AI_RESULT.actionItems.splice(i, 1);
     // 위쪽 "이 회의의 할 일" 목록도 새로 고치되, Gemini 결과 카드는 그대로 둡니다
+    callServer('minutesOpen', [TOKEN, M.meet.id], function (r) { M = r; paint(); }, function () { paint(); });
+  }, function (e) { alert(e.message || e); });
+}
+
+/* ---------- 문서 안 날짜별 구간만 골라서 요약 ---------- */
+
+function sectionCardHtml() {
+  var h = '<span class="chip">📅 날짜 구간만 골라 요약</span>' +
+    '<p class="hint">한 문서에 여러 날짜의 회의가 이어져 있으면, 날짜 줄을 찾아 원하는 구간만 불렛포인트로 정리해 드립니다.</p>';
+
+  if (!SECTIONS) {
+    h += (SEC_ERR ? '<p class="msg err">' + esc(SEC_ERR) + '</p>' : '') +
+      '<button class="btn full" onclick="loadSections()"' + (SEC_BUSY ? ' disabled' : '') + '>' +
+      (SEC_BUSY ? '찾는 중…' : '문서에서 날짜 구간 찾기') + '</button>';
+    return h;
+  }
+  if (!SECTIONS.length) {
+    h += '<p class="empty">날짜로 보이는 줄을 찾지 못했습니다. (예: "9/1 회의록", "2026-09-01")</p>' +
+      '<button class="btn mini" onclick="SECTIONS=null;paint();">다시 찾기</button>';
+    return h;
+  }
+
+  h += '<div class="addrow">' +
+    '<select id="secPick" style="flex:1;">' +
+      SECTIONS.map(function (s) { return '<option value="' + esc(s.label) + '"' + (s.label === SEC_PICKED ? ' selected' : '') + '>' +
+        esc(s.label) + ' (' + s.chars + '자)</option>'; }).join('') +
+    '</select>' +
+    '<button class="btn accent" onclick="analyzeSection()"' + (SEC_BUSY ? ' disabled' : '') + '>' + (SEC_BUSY ? '분석 중…' : '이 구간 요약') + '</button>' +
+  '</div>';
+
+  if (SEC_ERR) h += '<p class="msg err">' + esc(SEC_ERR) + '</p>';
+
+  if (SEC_RESULT) {
+    var bl = (SEC_RESULT.bullets || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
+    var items = SEC_RESULT.actionItems || [];
+    var itemsHtml = items.length
+      ? '<div class="aitlist">' + items.map(function (t, i) {
+          return '<div class="aitask">' +
+            '<div class="ab"><b>' + esc(t.what) + '</b><div class="tm">' +
+              (t.who ? '<span class="tg who">' + esc(t.who) + '</span>' : '<span class="tg none">담당자 없음</span>') +
+              (t.due ? '<span class="tg">' + esc(월일(t.due)) + '</span>' : '') +
+            '</div></div>' +
+            '<button class="btn mini" onclick="addSecTask(' + i + ')">할 일에 담기</button>' +
+          '</div>';
+        }).join('') + '</div>'
+      : '';
+    h += '<div class="ai-summary" style="margin-top:12px;"><p class="k" style="font-weight:800;margin:0 0 6px;">' +
+      esc(SEC_RESULT.label) + '</p><ul style="margin:0 0 4px 18px;padding:0;">' + bl + '</ul></div>' + itemsHtml;
+  }
+  return h;
+}
+
+function loadSections() {
+  SEC_BUSY = true; SEC_ERR = ''; paint();
+  callServer('minutesSections', [TOKEN, M.meet.id], function (r) {
+    SEC_BUSY = false; SECTIONS = r.sections || []; SEC_PICKED = SECTIONS.length ? SECTIONS[0].label : ''; paint();
+  }, function (e) { SEC_BUSY = false; SEC_ERR = e.message || String(e); paint(); });
+}
+
+function analyzeSection() {
+  var label = el('secPick') ? el('secPick').value : SEC_PICKED;
+  SEC_PICKED = label; SEC_BUSY = true; SEC_ERR = ''; SEC_RESULT = null; paint();
+  callServer('minutesAiAnalyzeDate', [TOKEN, M.meet.id, label], function (r) {
+    SEC_BUSY = false; SEC_RESULT = r; paint();
+  }, function (e) { SEC_BUSY = false; SEC_ERR = e.message || String(e); paint(); });
+}
+
+function addSecTask(i) {
+  var t = SEC_RESULT && SEC_RESULT.actionItems && SEC_RESULT.actionItems[i];
+  if (!t) return;
+  callServer('minutesTaskSave', [TOKEN, { meet: M.meet.id, what: t.what, who: t.who, due: t.due }], function () {
+    SEC_RESULT.actionItems.splice(i, 1);
     callServer('minutesOpen', [TOKEN, M.meet.id], function (r) { M = r; paint(); }, function () { paint(); });
   }, function (e) { alert(e.message || e); });
 }
