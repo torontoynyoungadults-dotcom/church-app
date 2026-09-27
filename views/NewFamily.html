@@ -157,7 +157,38 @@
     position: absolute; top: 14px; right: 20px; color: #fff; font-size: 34px; line-height: 1; cursor: pointer;
   }
   .cellok { display: flex; gap: 10px; align-items: flex-start; background: #FFF6EF; border: 1px solid #F6D2BA; border-radius: 12px; padding: 11px 12px; cursor: pointer; }
-  .cellok input { margin-top: 3px; width: 18px; height: 18px; accent-color: #D2511F; flex: none; }
+  .cellok input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    margin-top: 2px;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    border: 2px solid var(--tone);
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    position: relative;
+    transition: background .15s, border-color .15s;
+  }
+  .cellok input[type="checkbox"]:checked {
+    background: var(--tone);
+    border-color: var(--tone);
+  }
+  .cellok input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 6px;
+    height: 11px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .cellok input[type="checkbox"]:focus-visible {
+    box-shadow: 0 0 0 3px rgba(var(--tone-rgb, 210,81,31), .25);
+  }
   .cellok b { display: block; font-size: 15px; }
   .cellok em { display: block; font-style: normal; font-size: 13px; color: var(--ink-3); margin-top: 2px; line-height: 1.7; }
 
