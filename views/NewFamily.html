@@ -172,9 +172,10 @@
     transition: background .15s, border-color .15s;
   }
   .cellok input[type="checkbox"]:checked {
-    background: var(--tone);
-    border-color: var(--tone);
+    background: var(--tone, #D2511F) !important;
+    border-color: var(--tone, #D2511F) !important;
   }
+
   .cellok input[type="checkbox"]:checked::after {
     content: "";
     position: absolute;
