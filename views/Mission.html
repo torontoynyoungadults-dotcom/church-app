@@ -44,7 +44,7 @@
   .hero .dday.done { background: var(--night-3); color: var(--night-sub); border-color: #2E2D2B; }
   .prog { margin-top: 16px; }
   .progbar { height: 6px; background: var(--night-3); border-radius: 99px; overflow: hidden; }
-  .progbar i { display: block; height: 100%; background: var(--tone); border-radius: 99px; }
+  .progbar i { display: block; height: 100%; background: var(--tone); border-radius: 99px; transition: width .2s ease; }
   .progtxt { font-size: 12.5px; color: var(--night-sub); margin-top: 8px; display: flex; justify-content: space-between; }
   .warnrow {
     margin-top: 13px; background: rgba(168,47,22,.14); border: 1px solid rgba(168,47,22,.3);
@@ -52,9 +52,9 @@
   }
 
   /* 체크리스트 */
-  .ck { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-top: 1px solid var(--hair); cursor: pointer; }
+  .ck { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-top: 1px solid var(--hair); cursor: pointer; user-select: none; }
   .ck:first-of-type { border-top: none; }
-  .ck input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .ck input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
   .ck .box {
     width: 24px; height: 24px; flex: none; border-radius: 8px;
     border: 2px solid #C7C1B7; background: #fff; position: relative;
@@ -116,6 +116,7 @@
     background: #fff; border: 1px solid var(--hair-2); text-align: center; box-shadow: var(--sh-1);
     font-size: 12.5px; font-weight: 750; color: var(--ink-3);
     transition: background .12s, border-color .12s, color .12s;
+    user-select: none;
   }
   .doc.on { background: var(--tone-soft); border-color: var(--tone); color: var(--tone); }
   .doc i { display: block; font-style: normal; font-size: 10.5px; font-weight: 750; margin-top: 3px; opacity: .85; }
@@ -134,7 +135,7 @@
   .fl .at { font-size: 15px; font-weight: 750; }
   .fl .sub2 { font-size: 13px; color: var(--ink-3); margin-top: 2px; }
 
-  /* ---------- 유리 느낌 (배경이 비치는 카드) — 포털과 같은 결 ---------- */
+  /* ---------- 유리 느낌 (배경이 비치는 카드) ---------- */
   body .panel {
     background: rgba(255,255,255,.07) !important;
     border: 1px solid rgba(255,255,255,.14) !important;
@@ -168,7 +169,6 @@
     background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
   }
 
-  /* 안내 박스 · 카드 · 통계 · 줄 버튼도 같은 유리로 */
   body .notice, body .banner, body .callout, body .subnotice,
   body .card, body .nfcard, body .mcard, body .dcard, body .mrow, body .song,
   body .fileitem, body .msrow, body .stat, body .moodbox, body .facebox, body .rowbtn {
@@ -190,8 +190,7 @@
   body table th { background: rgba(255,255,255,.06) !important; color: #EDEAE5 !important; }
   body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
 
-  /* ============ 가독성 최우선 — 어두운 유리 위 글씨는 흰색 ============ */
-body .ck .box,
+  body .ck .box,
   body .xfiles,
   body .doc {
     background: rgba(255,255,255,.075) !important;
@@ -199,10 +198,10 @@ body .ck .box,
     color: #F4F1EC !important;
     box-shadow: none !important;
   }
-body .ck .box b,
+  body .ck .box b,
   body .xfiles b,
   body .doc b { color: #FFFFFF !important; }
-body .ck .box .k,
+  body .ck .box .k,
   body .xfiles .k,
   body .doc .k, body .ck .box .meta,
   body .xfiles .meta,
@@ -225,7 +224,6 @@ body .ck .box .k,
   body .panel hr, body .panel .divider { border-color: rgba(255,255,255,.18) !important; }
   body .panel option, body .panel optgroup { color: #1A1917; }
 
-  /* 어두운 유리 위에서는 글씨 변수 자체를 밝은 쪽으로 (가독성 최우선) */
   body .shell, body .shell * {
     --ink-1: #FFFFFF; --ink-2: #F0EDE8; --ink-3: #DCD7D0; --ink-4: #C2BCB4;
     --night-ink: #FFFFFF; --night-sub: #D9D4CD;
@@ -234,8 +232,7 @@ body .ck .box .k,
   body option, body optgroup { color: #1A1917; background: #FFFFFF; }
   body .ynfoot .cp { color: #CFC9C1 !important; }
 
-  /* 밝은 회색 박스도 유리로 (가독성) */
-body .ck .by,
+  body .ck .by,
   body .rolepill {
     background: rgba(255,255,255,.085) !important;
     border-color: rgba(255,255,255,.16) !important;
@@ -248,7 +245,6 @@ body .ck .by,
   body .btn.accent, body .dirbtn, body .pwsubmit { color: #FFFFFF !important; }
   body .wk.on, body .wk.on * { color: #FFFFFF !important; }
 
-  /* 유리 위 흰 버튼·탭·칩 — 글씨와 배경 짝 맞추기 (가독성) */
   body .btn:not(.accent):not(.danger):not(.primary):not(.ghost) {
     background: rgba(255,255,255,.13) !important;
     border-color: rgba(255,255,255,.22) !important;
@@ -263,11 +259,9 @@ body .ck .by,
   body .st.받는중 { background: #1D6B4B !important; color: #FFFFFF !important; }
   body .st.마감 { background: #8C3416 !important; color: #FFFFFF !important; }
 
-  /* 배경 없는 버튼은 브라우저 기본 검정 글씨가 되므로 밝게 (가독성) */
   body .seg button, body .shell button:not([class]) { color: #DCD7D0 !important; }
   body .seg button.on { color: #FFFFFF !important; }
 
-  /* 상태색 칩·위험 버튼도 어두운 유리 위에서 또렷하게 */
   body .btn.danger { background: rgba(255,255,255,.12) !important; color: #FF9E90 !important;
                      border-color: rgba(255,158,144,.45) !important; }
   body .tn.off, body .tp.off { background: rgba(255,120,100,.22) !important; color: #FFB3A6 !important; }
@@ -275,7 +269,6 @@ body .ck .by,
   body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
   body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
 
-  /* ---------- 입력칸 · 드롭다운은 전부 같은 유리로 (흰 칸이 남지 않게) ---------- */
   body input:not([type=checkbox]):not([type=radio]):not([type=range]),
   body select, body textarea {
     background-color: rgba(255,255,255,.10) !important;
@@ -342,8 +335,6 @@ function jsq(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').repla
 function say(id, t, k) { var m = el(id); if (!m) return; m.className = 'msg' + (k ? ' ' + k : ''); m.textContent = t || ''; }
 function fail(e) { alert(e && e.message ? e.message : '처리에 실패했습니다.'); }
 
-/* ---------- 불러오기 ---------- */
-
 if (!TOKEN) { showLock('포털에서 다시 들어와 주세요.'); } else load();
 
 function showLock(msg) {
@@ -365,7 +356,6 @@ function load(keep) {
     }, function (e) { showLock((e && e.message) ? e.message : '불러오지 못했습니다.'); });
 }
 
-/** 한 팀만 서버에서 다시 받아 화면을 갱신합니다 (전체를 다시 읽지 않습니다) */
 function applyTeam(t) {
   TEAM = t;
   D.list = D.list.map(function (x) { return x.name === t.name ? t : x; });
@@ -415,8 +405,6 @@ function pickTeam(n) {
   window.scrollTo(0, 0);
 }
 
-/* ---------- 화면 ---------- */
-
 function dday(t) {
   if (!t.start || !D.today) return '';
   var a = new Date(D.today), b = new Date(t.start);
@@ -427,14 +415,36 @@ function dday(t) {
   return '<span class="dday">진행 중</span>';
 }
 
-function renderTeam() {
-  var t = TEAM;
-  var done = t.checkDone, total = t.checkTotal;
+function calcStats(t) {
+  var done = 0;
+  D.checks.forEach(function(c) {
+    if (t.checks[c.key]) done++;
+  });
+  t.checkDone = done;
+  t.checkTotal = D.checks.length;
+  
   var 서류총 = t.members.length * 4;
   var 서류한 = t.members.reduce(function (s, m) {
     return s + (m.waiver ? 1 : 0) + (m.passport ? 1 : 0) + (m.cellOk ? 1 : 0) + (m.baptismOk ? 1 : 0);
   }, 0);
-  var pct = total ? Math.round((done / total) * 100) : 0;
+  var pct = t.checkTotal ? Math.round((t.checkDone / t.checkTotal) * 100) : 0;
+  return { done: t.checkDone, total: t.checkTotal, pct: pct, docDone: 서류한, docTotal: 서류총 };
+}
+
+function updateHeroStats() {
+  var st = calcStats(TEAM);
+  var bar = el('heroProgBar');
+  var txt = el('heroProgTxt');
+  if (bar) bar.style.width = st.pct + '%';
+  if (txt) {
+    txt.innerHTML = '<span>제출 현황 ' + st.done + ' / ' + st.total + '</span>' +
+      '<span>팀원 ' + TEAM.members.length + '명 · 서류 ' + st.docDone + ' / ' + st.docTotal + '</span>';
+  }
+}
+
+function renderTeam() {
+  var t = TEAM;
+  var st = calcStats(t);
 
   var hero =
     '<div class="hero">' +
@@ -444,9 +454,9 @@ function renderTeam() {
         (t.end ? ' — ' + esc(t.end) : '') + ' &nbsp;·&nbsp; ' + esc(t.status) + '</div>' +
       dday(t) +
       '<div class="prog">' +
-        '<div class="progbar"><i style="width:' + pct + '%;"></i></div>' +
-        '<div class="progtxt"><span>제출 현황 ' + done + ' / ' + total + '</span>' +
-          '<span>팀원 ' + t.members.length + '명 · 서류 ' + 서류한 + ' / ' + 서류총 + '</span></div>' +
+        '<div class="progbar"><i id="heroProgBar" style="width:' + st.pct + '%;"></i></div>' +
+        '<div class="progtxt" id="heroProgTxt"><span>제출 현황 ' + st.done + ' / ' + st.total + '</span>' +
+          '<span>팀원 ' + t.members.length + '명 · 서류 ' + st.docDone + ' / ' + st.docTotal + '</span></div>' +
       '</div>' +
       (t.missingRoles.length
         ? '<div class="warnrow">필수 역할이 비어 있습니다 — <b>' + esc(t.missingRoles.join(' · ')) +
@@ -458,10 +468,9 @@ function renderTeam() {
       D.checks.map(function (c) {
         var on = !!t.checks[c.key];
         var files = (t.files || {})[c.key] || [];
-        return '<div class="ckitem">' +
-          '<label class="ck' + (on ? ' on' : '') + '">' +
-          '<input type="checkbox"' + (on ? ' checked' : '') +
-            ' onchange="toggleCheck(\'' + c.key + '\', this.checked)">' +
+        return '<div class="ckitem" id="ckitem_' + c.key + '">' +
+          '<label class="ck' + (on ? ' on' : '') + '" onclick="toggleCheck(\'' + c.key + '\', event)">' +
+          '<input type="checkbox"' + (on ? ' checked' : '') + '>' +
           '<span class="box"></span><span class="lbl">' + esc(c.label) + '</span>' +
           (files.length ? '<span class="fc">' + files.length + '</span>' : '') +
           '<span class="by">' + esc(c.by) + '</span></label>' +
@@ -479,11 +488,8 @@ function renderTeam() {
   el('body').innerHTML = hero + checks + membersPanel(t) + flightsPanel(t) + notePanel(t);
 }
 
-/* ---------- 제출 자료 (파일 · 구글시트 링크) ---------- */
-
 var UP = null, LINKING = '';
 
-/** 티케팅은 스케줄표 · 항공권, 나머지는 파일이나 구글시트 링크 */
 function filesBox(c, files) {
   var list = files.map(function (f) {
     var link = f.kind === 'link', pdf = /\.pdf$/i.test(f.name);
@@ -537,8 +543,6 @@ function dropFile(id) {
   callServer('removeMissionFile', [TOKEN, TEAM.name, id], applyTeam, fail);
 }
 
-/* ---------- 팀원 ---------- */
-
 function membersPanel(t) {
   var rows = t.members.length ? t.members.map(memberRow).join('')
     : '<p class="empty">아직 팀원이 없습니다.</p>';
@@ -562,7 +566,7 @@ function memberRow(m) {
   var open = editing === 'm:' + m.name;
 
   var doc = function (k, label, on, note, cls) {
-    return '<div class="doc' + (on ? ' on' : '') + (cls ? ' ' + cls : '') +
+    return '<div class="doc' + (on ? ' on' : '') + (cls ? ' ' + cls : '') + '" id="doc_' + esc(m.name) + '_' + k +
       '" onclick="toggleDoc(\'' + esc(jsq(m.name)) + '\',\'' + k + '\')">' +
       esc(label) + (note ? '<i>' + note + '</i>' : '') + '</div>';
   };
@@ -632,7 +636,15 @@ function toggleDoc(n, k) {
   var m = findMember(n);
   if (!m) return;
   m[k] = !m[k];
-  renderTeam();
+  
+  /* DOM 부분 업데이트로 즉시 반응 */
+  var targetEl = el('doc_' + n + '_' + k);
+  if (targetEl) {
+    if (m[k]) targetEl.classList.add('on');
+    else targetEl.classList.remove('on');
+  }
+  updateHeroStats();
+
   push(m);
 }
 
@@ -659,7 +671,11 @@ function push(m, okMsg) {
       name: m.name, oldName: m.name, roles: m.roles,
       waiver: m.waiver, passport: m.passport, cellOk: m.cellOk, baptismOk: m.baptismOk,
       memo: m.memo
-    }], function (t) { applyTeam(t); if (okMsg) say('mMsg', okMsg, 'ok'); }, function (e) { say('mMsg', e.message || '저장하지 못했습니다.', 'err'); load(TEAM.name); });
+    }], function (t) { 
+      TEAM = t; 
+      D.list = D.list.map(function (x) { return x.name === t.name ? t : x; });
+      if (okMsg) say('mMsg', okMsg, 'ok'); 
+    }, function (e) { say('mMsg', e.message || '저장하지 못했습니다.', 'err'); load(TEAM.name); });
 }
 
 function addMember() {
@@ -674,8 +690,6 @@ function dropMember(n) {
   editing = '';
   callServer('removeMissionMember', [TOKEN, TEAM.name, n], applyTeam, fail);
 }
-
-/* ---------- 항공 일정 ---------- */
 
 function flightsPanel(t) {
   var rows = t.flights.length
@@ -723,12 +737,37 @@ function dropFlight(kind, at) {
   callServer('removeMissionFlight', [TOKEN, TEAM.name, kind, at], applyTeam, fail);
 }
 
-/* ---------- 체크 · 노트 ---------- */
+function toggleCheck(key, evt) {
+  if (evt) evt.preventDefault();
+  
+  var currentState = !TEAM.checks[key];
+  TEAM.checks[key] = currentState;
+  
+  /* DOM 부분 업데이트 */
+  var ckContainer = el('ckitem_' + key);
+  if (ckContainer) {
+    var labelEl = ckContainer.querySelector('.ck');
+    var inputEl = ckContainer.querySelector('input[type=checkbox]');
+    if (currentState) {
+      if (labelEl) labelEl.classList.add('on');
+      if (inputEl) inputEl.checked = true;
+    } else {
+      if (labelEl) labelEl.classList.remove('on');
+      if (inputEl) inputEl.checked = false;
+    }
+  }
+  updateHeroStats();
 
-function toggleCheck(key, on) {
-  var patch = {}; patch[key] = on;
+  var patch = {}; patch[key] = currentState;
   say('ckMsg', '저장하는 중…');
-  callServer('setMissionField', [TOKEN, TEAM.name, patch], function (t) { applyTeam(t); say('ckMsg', ''); }, function (e) { say('ckMsg', e.message || '저장하지 못했습니다.', 'err'); load(TEAM.name); });
+  callServer('setMissionField', [TOKEN, TEAM.name, patch], function (t) { 
+    TEAM = t;
+    D.list = D.list.map(function (x) { return x.name === t.name ? t : x; });
+    say('ckMsg', ''); 
+  }, function (e) { 
+    say('ckMsg', e.message || '저장하지 못했습니다.', 'err'); 
+    load(TEAM.name); 
+  });
 }
 
 function setStatus(v) {
