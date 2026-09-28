@@ -110,18 +110,39 @@
   .msub b { color: var(--ink-1); font-weight: 750; }
   .rolepill { background: var(--sunken) !important; color: var(--ink-2) !important; border-radius: 99px !important; }
   .rolepill.key { background: var(--tone) !important; color: #fff !important; }
+  
+  /* 서류 버튼 상태 스타일 커스텀 */
   .docs { display: flex; gap: 6px; flex-wrap: wrap; }
   .doc {
     flex: 1 1 auto; min-width: 74px; padding: 9px 4px; border-radius: var(--r-sm); cursor: pointer;
-    background: #fff; border: 1px solid var(--hair-2); text-align: center; box-shadow: var(--sh-1);
-    font-size: 12.5px; font-weight: 750; color: var(--ink-3);
-    transition: background .12s, border-color .12s, color .12s;
-    user-select: none;
+    background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.15); text-align: center;
+    font-size: 12.5px; font-weight: 750; color: #F4F1EC;
+    transition: background .12s, border-color .12s, color .12s; user-select: none;
   }
-  .doc.on { background: var(--tone-soft); border-color: var(--tone); color: var(--tone); }
   .doc i { display: block; font-style: normal; font-size: 10.5px; font-weight: 750; margin-top: 3px; opacity: .85; }
-  .doc.miss i { color: var(--bad); }
-  .doc.fit i { color: var(--good); }
+  
+  /* 충족 / 완료 (초록색) */
+  .doc.fit, .doc.on {
+    background: rgba(46, 125, 107, 0.25) !important;
+    border-color: #2E7D6B !important;
+    color: #6FD3BB !important;
+  }
+  .doc.fit i, .doc.on i { color: #6FD3BB !important; }
+
+  /* 미충족 (붉은색/경고) */
+  .doc.miss {
+    background: rgba(255, 120, 100, 0.1) !important;
+    border-color: rgba(255, 120, 100, 0.3) !important;
+    color: #FFB3A6 !important;
+  }
+  .doc.miss i { color: #FF9E90 !important; }
+
+  .ppfile {
+    margin-top: 6px; font-size: 12px; display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.06); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.12);
+  }
+  .ppfile a { color: #FFC9AB; text-decoration: none; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .ppfile button { background: none; border: none; color: #FF9E90; cursor: pointer; font-size: 14px; font-weight: bold; }
 
   /* 항공 */
   .fl { display: flex; align-items: flex-start; gap: 11px; padding: 12px 0; border-top: 1px solid var(--hair); }
@@ -191,21 +212,18 @@
   body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
 
   body .ck .box,
-  body .xfiles,
-  body .doc {
+  body .xfiles {
     background: rgba(255,255,255,.075) !important;
     border-color: rgba(255,255,255,.15) !important;
     color: #F4F1EC !important;
     box-shadow: none !important;
   }
   body .ck .box b,
-  body .xfiles b,
-  body .doc b { color: #FFFFFF !important; }
+  body .xfiles b { color: #FFFFFF !important; }
   body .ck .box .k,
   body .xfiles .k,
-  body .doc .k, body .ck .box .meta,
-  body .xfiles .meta,
-  body .doc .meta { color: #E4E0DA !important; }
+  body .ck .box .meta,
+  body .xfiles .meta { color: #E4E0DA !important; }
 
   body .panel .picklist button .t b, body .picklist button .t b { color: #FFFFFF !important; }
   body .panel .picklist button .t span, body .picklist button .t span { color: #DED9D2 !important; }
@@ -313,6 +331,10 @@
 
   <input type="file" id="mfile" accept="application/pdf,.pdf,image/*,.xlsx,.xls,.docx,.doc,.csv"
     style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" onchange="onMissionFile(this)">
+
+  <!-- 여권 전용 파일 입력 -->
+  <input type="file" id="passportFile" accept="image/*,application/pdf"
+    style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" onchange="onPassportFile(this)">
 
   <footer>
     해외한인장로회 토론토영락교회 &nbsp;|&nbsp; 청년1부 선교팀<br>
@@ -425,7 +447,10 @@ function calcStats(t) {
   
   var 서류총 = t.members.length * 4;
   var 서류한 = t.members.reduce(function (s, m) {
-    return s + (m.waiver ? 1 : 0) + (m.passport ? 1 : 0) + (m.cellOk ? 1 : 0) + (m.baptismOk ? 1 : 0);
+    var a = m.auto || {};
+    var isCell = m.cellOk || a.cellOk;
+    var isBap = m.baptismOk || a.baptismOk;
+    return s + (m.waiver ? 1 : 0) + (m.passport ? 1 : 0) + (isCell ? 1 : 0) + (isBap ? 1 : 0);
   }, 0);
   var pct = t.checkTotal ? Math.round((t.checkDone / t.checkTotal) * 100) : 0;
   return { done: t.checkDone, total: t.checkTotal, pct: pct, docDone: 서류한, docTotal: 서류총 };
@@ -543,13 +568,15 @@ function dropFile(id) {
   callServer('removeMissionFile', [TOKEN, TEAM.name, id], applyTeam, fail);
 }
 
+/* ---------- 팀원 & 서류 ---------- */
+
 function membersPanel(t) {
   var rows = t.members.length ? t.members.map(memberRow).join('')
     : '<p class="empty">아직 팀원이 없습니다.</p>';
 
   return '<div class="panel"><span class="chip">팀원 · 서류</span>' +
-    '<p class="hint">각 칸을 눌러 제출 여부를 표시합니다. 작은 글씨와 회색 줄은 교적에서 자동으로 확인한 값입니다.<br>' +
-      '셀 소속이 있으면 참가 조건을 충족합니다.</p>' +
+    '<p class="hint">각 항목을 눌러 제출/충족 상태를 확인합니다. [여권사본]을 누르면 파일 첨부가 가능합니다.<br>' +
+      '셀 소속 및 세례 정보는 교적 자동 확인 또는 직권 수정으로 관리됩니다.</p>' +
     rows +
     '<div class="addrow" style="margin-top:14px;">' +
       '<input list="dirNames" id="newMember" placeholder="팀원 이름" style="flex:2;">' +
@@ -562,27 +589,43 @@ function membersPanel(t) {
 }
 
 function memberRow(m) {
-  var a = m.auto;
+  var a = m.auto || {};
   var open = editing === 'm:' + m.name;
 
-  var doc = function (k, label, on, note, cls) {
-    return '<div class="doc' + (on ? ' on' : '') + (cls ? ' ' + cls : '') + '" id="doc_' + esc(m.name) + '_' + k +
-      '" onclick="toggleDoc(\'' + esc(jsq(m.name)) + '\',\'' + k + '\')">' +
-      esc(label) + (note ? '<i>' + note + '</i>' : '') + '</div>';
-  };
+  /* 셀 소속 충족 여부 (수동 또는 교적 자동) */
+  var cellFit = m.cellOk || a.cellOk;
+  var cellMemo = a.cell
+    ? (a.rate === null ? '충족 ✓' : a.rate + '% ✓')
+    : (cellFit ? '충족 ✓' : '셀 없음 ✕');
 
-  var 셀메모 = a.cell
-    ? (a.rate === null ? '소속 ✓' : a.rate + '% ✓')
-    : '셀 없음 ✕';
-  var 세례메모 = a.notFound ? '교적 없음'
-    : (a.baptized ? (a.baptismOk ? '충족 ✓' : '미충족 ✕') : '미등록');
+  /* 세례 입교 충족 여부 (수동 또는 교적 자동) */
+  var bapFit = m.baptismOk || a.baptismOk;
+  var bapMemo = bapFit ? '충족 ✓' : (a.notFound ? '교적 없음' : (a.baptized ? '미충족 ✕' : '미등록'));
+
+  /* 여권사본 상태 */
+  var passFit = m.passport || !!m.passportUrl;
+  var passMemo = passFit ? '충족 ✓' : '미제출';
+
+  /* Waiver 상태 */
+  var waiverFit = m.waiver;
+  var waiverMemo = waiverFit ? '충족 ✓' : '미제출';
+
+  var docBtn = function (k, label, fit, note, clickFn) {
+    return '<div class="doc' + (fit ? ' fit' : ' miss') + '" id="doc_' + esc(m.name) + '_' + k + '" onclick="' + clickFn + '">' +
+      esc(label) + '<i>' + esc(note) + '</i></div>';
+  };
 
   var 소속줄 = '<div class="msub">' +
     (a.cell
       ? '소속 셀 <b>' + esc(a.cell) + '</b>' +
         (a.rate === null ? '' : ' · 출석률 <b>' + a.rate + '%</b> (' + a.present + '/' + a.meetings + '회)')
-      : '<span style="color:var(--danger);font-weight:700;">소속 셀 없음</span>') +
+      : '<span style="color:' + (cellFit ? '#6FD3BB' : 'var(--danger)') + ';font-weight:700;">' + (cellFit ? '셀 소속 확인됨' : '소속 셀 없음') + '</span>') +
     (a.baptized ? ' · 세례 ' + esc(a.baptized) : '') + '</div>';
+
+  var passportFileView = m.passportUrl
+    ? '<div class="ppfile">📎 <a href="' + esc(m.passportUrl) + '" target="_blank" rel="noopener">' + esc(m.passportFileName || '여권사본 파일') + '</a>' +
+      '<button type="button" title="여권 삭제" onclick="deletePassport(\'' + esc(jsq(m.name)) + '\')">&times;</button></div>'
+    : '';
 
   return '<div class="mrow">' +
     '<div class="mhead"><span class="nm">' + esc(m.name) + '</span>' +
@@ -595,11 +638,11 @@ function memberRow(m) {
         (open ? '닫기' : '역할') + '</button>' +
     '</div>' + 소속줄 +
     '<div class="docs">' +
-      doc('waiver', 'Waiver', m.waiver, '', '') +
-      doc('passport', '여권사본', m.passport, '', '') +
-      doc('cellOk', '셀 소속', m.cellOk, 셀메모, a.cellOk ? 'fit' : 'miss') +
-      doc('baptismOk', '세례 · 입교', m.baptismOk, 세례메모, a.baptismOk ? 'fit' : 'miss') +
-    '</div>' +
+      docBtn('waiver', 'Waiver', waiverFit, waiverMemo, 'toggleDoc(\'' + esc(jsq(m.name)) + '\',\'waiver\')') +
+      docBtn('passport', '여권사본', passFit, passMemo, 'uploadPassportPrompt(\'' + esc(jsq(m.name)) + '\')') +
+      docBtn('cellOk', '셀 소속', cellFit, cellMemo, 'toggleDoc(\'' + esc(jsq(m.name)) + '\',\'cellOk\')') +
+      docBtn('baptismOk', '세례 · 입교', bapFit, bapMemo, 'toggleDoc(\'' + esc(jsq(m.name)) + '\',\'baptismOk\')') +
+    '</div>' + passportFileView +
     (open ? memberEdit(m) : '') +
     '</div>';
 }
@@ -610,8 +653,8 @@ function memberEdit(m) {
     '<div class="f"><label>역할 (복수 선택 가능)</label><div class="docs">' +
       D.roles.map(function (r) {
         var on = m.roles.indexOf(r) !== -1;
-        return '<div class="doc' + (on ? ' on' : '') + '" data-r="' + esc(r) + '" ' +
-          'onclick="this.className=this.className.indexOf(\'on\')>=0?\'doc\':\'doc on\'">' + esc(r) + '</div>';
+        return '<div class="doc' + (on ? ' fit' : '') + '" data-r="' + esc(r) + '" ' +
+          'onclick="this.classList.toggle(\'fit\')">' + esc(r) + '</div>';
       }).join('') +
     '</div></div>' +
     '<div class="f"><label>그 외 역할 (쉼표로)</label>' +
@@ -632,20 +675,52 @@ function findMember(n) {
   return null;
 }
 
+/* 일반 항목 토글 (Waiver, 셀소속, 세례 등) */
 function toggleDoc(n, k) {
   var m = findMember(n);
   if (!m) return;
   m[k] = !m[k];
-  
-  /* DOM 부분 업데이트로 즉시 반응 */
-  var targetEl = el('doc_' + n + '_' + k);
-  if (targetEl) {
-    if (m[k]) targetEl.classList.add('on');
-    else targetEl.classList.remove('on');
-  }
-  updateHeroStats();
-
+  renderTeam();
   push(m);
+}
+
+/* 여권사본 첨부 관련 */
+var TARGET_MEMBER = '';
+
+function uploadPassportPrompt(memberName) {
+  TARGET_MEMBER = memberName;
+  el('passportFile').click();
+}
+
+function onPassportFile(input) {
+  var f = input.files && input.files[0];
+  input.value = '';
+  if (!f || !TARGET_MEMBER) return;
+  
+  var mName = TARGET_MEMBER;
+  if (f.size > 15 * 1024 * 1024) { alert('여권 파일은 15MB 이하만 가능합니다.'); return; }
+  
+  say('mMsg', mName + ' 님의 여권 파일 올리는 중…');
+  var rd = new FileReader();
+  rd.onload = function () {
+    callServer('uploadPassportFile', [TOKEN, TEAM.name, mName, f.name, rd.result], function (t) {
+      applyTeam(t);
+      say('mMsg', '여권사본이 업로드되었습니다.', 'ok');
+    }, function (e) {
+      say('mMsg', e.message || '여권 업로드에 실패했습니다.', 'err');
+    });
+  };
+  rd.readAsDataURL(f);
+}
+
+function deletePassport(memberName) {
+  if (!confirm(memberName + ' 님의 여권사본을 삭제할까요?')) return;
+  var m = findMember(memberName);
+  if (!m) return;
+  m.passport = false;
+  m.passportUrl = '';
+  m.passportFileName = '';
+  push(m, '여권사본을 삭제했습니다.');
 }
 
 function saveRoles(n) {
@@ -654,7 +729,9 @@ function saveRoles(n) {
   var picked = [];
   var boxes = el('body').querySelectorAll('.doc[data-r]');
   for (var i = 0; i < boxes.length; i++) {
-    if (boxes[i].className.indexOf('on') >= 0) picked.push(boxes[i].getAttribute('data-r'));
+    if (boxes[i].classList.contains('fit') || boxes[i].classList.contains('on')) {
+      picked.push(boxes[i].getAttribute('data-r'));
+    }
   }
   String(el('mExtra').value || '').split(',').forEach(function (x) {
     if (x.trim()) picked.push(x.trim());
@@ -670,10 +747,10 @@ function push(m, okMsg) {
   callServer('saveMissionMember', [TOKEN, TEAM.name, {
       name: m.name, oldName: m.name, roles: m.roles,
       waiver: m.waiver, passport: m.passport, cellOk: m.cellOk, baptismOk: m.baptismOk,
+      passportUrl: m.passportUrl, passportFileName: m.passportFileName,
       memo: m.memo
     }], function (t) { 
-      TEAM = t; 
-      D.list = D.list.map(function (x) { return x.name === t.name ? t : x; });
+      applyTeam(t);
       if (okMsg) say('mMsg', okMsg, 'ok'); 
     }, function (e) { say('mMsg', e.message || '저장하지 못했습니다.', 'err'); load(TEAM.name); });
 }
@@ -690,6 +767,8 @@ function dropMember(n) {
   editing = '';
   callServer('removeMissionMember', [TOKEN, TEAM.name, n], applyTeam, fail);
 }
+
+/* ---------- 항공 일정 ---------- */
 
 function flightsPanel(t) {
   var rows = t.flights.length
@@ -737,13 +816,14 @@ function dropFlight(kind, at) {
   callServer('removeMissionFlight', [TOKEN, TEAM.name, kind, at], applyTeam, fail);
 }
 
+/* ---------- 제출 현황 체크박스 ---------- */
+
 function toggleCheck(key, evt) {
   if (evt) evt.preventDefault();
   
   var currentState = !TEAM.checks[key];
   TEAM.checks[key] = currentState;
   
-  /* DOM 부분 업데이트 */
   var ckContainer = el('ckitem_' + key);
   if (ckContainer) {
     var labelEl = ckContainer.querySelector('.ck');
