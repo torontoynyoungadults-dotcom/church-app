@@ -62,6 +62,9 @@
 
   /* 새가족 카드 */
   .nfcard { padding: 13px 14px; margin-bottom: 8px; }
+  /* 알림에서 바로 넘어온 카드 — 잠깐 강조 */
+  .nfcard.nfhit { outline: 2px solid var(--accent, #F26B21); outline-offset: 2px; animation: nfhit 2.4s ease-out 1; }
+  @keyframes nfhit { 0%, 60% { box-shadow: 0 0 0 6px rgba(242,107,33,.28); } 100% { box-shadow: 0 0 0 0 rgba(242,107,33,0); } }
   .nfhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; }
   .nfname { font-size: 16px; font-weight: 800; }
   .nftrait { font-size: 13px; color: var(--ink-3); }
@@ -603,11 +606,34 @@ function tryLogin(pw, silent) {
       DATA = res.list; STAFF = res.staff; STAGES = res.stages; OPT = res.options; CELLS = res.cells || []; WEEKS = res.weeks || {};
       renderNotify(res);
       renderList();
+      openFromLink();
     }, function (e) {
       try { sessionStorage.removeItem('ynNfToken'); } catch (e2) {}
       if (silent) showLock();
       else { el('pwMsg').textContent = e.message || '로그인에 실패했습니다.'; el('pw').select(); }
     });
+}
+
+/* ---------- 알림에서 바로 넘어온 경우 ----------
+   ?open=이름 (알림 → 포털이 확인 → 이 주소로 옵니다) — 그 새가족의 단계 묶음과 카드를 펼치고 그 자리로 이동합니다. */
+var OPEN_DONE = false;
+function openFromLink() {
+  var id = PREFILL && PREFILL.open;
+  if (!id || OPEN_DONE) return;
+  OPEN_DONE = true;
+  var n = DATA.filter(function (x) { return x.id === id; })[0];
+  if (!n) {
+    el('list').insertAdjacentHTML('afterbegin', '<p class="msg err">알림의 새가족 "' + esc(id) + '" 님을 목록에서 찾지 못했습니다. 이미 정리되었거나 이름이 바뀌었을 수 있습니다.</p>');
+    return;
+  }
+  openStages[n.stage] = true;
+  openId = n.id;
+  renderList();
+  var d = el('d' + cssId(n.id)), card = d && d.parentNode;
+  if (card) {
+    card.classList.add('nfhit');
+    try { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { card.scrollIntoView(); }
+  }
 }
 
 /* ---------- 목록 ---------- */

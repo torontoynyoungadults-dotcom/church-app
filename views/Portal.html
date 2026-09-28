@@ -1311,6 +1311,14 @@ body .mcardlink,
 
 <script>
 var PREFILL = (window.__PREFILL__ || {});
+/* 알림에서 들어온 바로가기(?go=종류&id=번호) — 로그인이 끝난 뒤(구글에 다녀와도) 그 항목으로 바로 갑니다.
+   알림에는 로그인 표가 들어 있지 않고, 서버가 권한을 확인한 뒤 완성된 주소를 돌려줍니다 (resolveDeepLink). */
+(function () {
+  try {
+    var q = new URLSearchParams(location.search), go = q.get('go');
+    if (go) sessionStorage.setItem('ynGo', JSON.stringify({ go: go, id: q.get('id') || '', x: q.get('x') || '', at: Date.now() }));
+  } catch (e) {}
+})();
 var TOKEN = '', ME = null, MENUS = [], ROLES = [], ADMIN = [], editing = false;
 var SERMON = null;
 var _bootT = null, _goT = null, _stuck = false;   // "로그인 중" 에서 멈추지 않게 지켜보는 시계
@@ -2391,6 +2399,21 @@ function onIn(res) {
   paint(res);
 }
 
+/** 알림에서 넘어온 바로가기가 있으면 — 서버에 확인한 뒤 그 항목 화면으로 이동합니다 (한 번만) */
+function followDeepLink() {
+  var g = null;
+  try { g = JSON.parse(sessionStorage.getItem('ynGo') || 'null'); sessionStorage.removeItem('ynGo'); } catch (e) { g = null; }
+  if (!g || !g.go || Date.now() - g.at > 15 * 60 * 1000) return;
+  topMsg('알림의 항목을 여는 중…', '');
+  callServer('resolveDeepLink', [TOKEN, g.go, g.id, g.x], function (r) {
+    if (r && r.ok && r.url) {
+      // 주소는 서버가 만든 것이지만, 어떤 경우에도 이 사이트 안에서만 움직이도록 경로만 씁니다
+      try { var u = new URL(r.url, location.href); location.replace(u.pathname + u.search); return; } catch (e) {}
+    }
+    topMsg((r && r.message) || '열 수 없는 알림입니다.', 'err');
+  }, function (e) { topMsg((e && e.message) || '알림의 항목을 열지 못했습니다.', 'err'); });
+}
+
 /** 받은 자료로 첫 화면을 그립니다 (내 화면이든, 커미티가 보는 다른 사람 화면이든) */
 function paint(res) {
   ME = res.me; MENUS = res.menus || []; ROLES = res.roles || []; ADMIN = res.admin || [];
@@ -2411,6 +2434,7 @@ function paint(res) {
   try { renderForms(res); } catch (e) {}
   try { renderPush(); } catch (e) {}
   openDeepLinkedForm();
+  if (!VIEW) followDeepLink();
   if (!VIEW) renderProfile();
   el('meBtn').style.display = VIEW ? 'none' : '';
   var qs = document.querySelector('.qsearch');

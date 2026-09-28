@@ -413,6 +413,7 @@ function 캐시비움_() {
   캐시판갈기_();
   _rowsCache = {};
   _포털역할캐시 = {};
+  _권한캐시 = {};
   _교적캐시 = null;
   _출석통계캐시 = null;
   _설정캐시 = null;
@@ -985,7 +986,7 @@ function doGet(e) {
   }
 
   if (page === 'newfamily') {
-    return render_('NewFamily', '새가족 관리', { t: p.t || '' }, 'newfamily');
+    return render_('NewFamily', '새가족 관리', { t: p.t || '', open: p.open || '' }, 'newfamily');
   }
 
   if (page === 'forms') {
@@ -2898,7 +2899,8 @@ function 배정대상알림_() {
   var admin = 설정값_('알림받을이메일');
   if (!to) return { sent: [] };
 
-  var url = (앱주소_() || '') + '?page=newfamily';
+  // 한 명이면 그 새가족 화면으로, 여러 명이면 목록으로
+  var url = 신규.length === 1 ? 딥링크주소_('newcomer', 신규[0].name) : (앱주소_() || '') + '?page=newfamily';
   MailApp.sendEmail({
     to: 받는이.join(', '),
     cc: (admin && 받는이.indexOf(admin) === -1) ? admin : '',
@@ -5376,10 +5378,14 @@ function 찬양권한_(token) {
     var r = 포털역할_(me.name);
     var 커미티 = r.roles.indexOf('커미티') !== -1;
     var 태그로찬양 = r.roles.indexOf('찬양팀') !== -1;   // 교적 "포털 역할"에서 손으로 켠 경우
-    if (!명단[me.name] && !커미티 && !태그로찬양) {
+    // 사람마다 따로 정한 권한 (logic/permissions.js) — 없으면 아래는 예전과 똑같이 동작합니다
+    var 개인 = 개인메뉴상태_(me.name, 'worship', r);
+    if (개인.deny) throw new Error('찬양방송팀 허브 접근이 제한되어 있습니다. 커미티에 문의해주세요.');
+    if (개인.scopedOut) 커미티 = false;                     // 위원회 범위 밖 — 커미티라서 열리던 것은 닫힙니다
+    if (!명단[me.name] && !커미티 && !태그로찬양 && !개인.allow) {
       throw new Error('찬양팀 · 방송팀에 속한 분만 볼 수 있습니다. 커미티에 문의해주세요.');
     }
-    out = { name: me.name, canEdit: 커미티 || 태그로찬양 || 찬양팀장_(me.name), admin: false, committee: 커미티 };
+    out = { name: me.name, canEdit: 커미티 || 태그로찬양 || 개인.allow || 찬양팀장_(me.name), admin: false, committee: 커미티 };
   }
   찬양권한캐시_[key] = out;
   return out;
@@ -7119,6 +7125,14 @@ function 포털권한_(token, kind, target) {
   var me = 포털본인_(token);
   if (!me) return false;
   var r = 포털역할_(me.name);
+  // 사람마다 따로 정한 메뉴 · 위원회 권한이 있으면 반영합니다 (logic/permissions.js).
+  // 그런 권한이 하나도 없는 사람은 아래 예전 계산 결과가 그대로 나옵니다.
+  return 개인권한적용_(me.name, { '셀': 'leader', '팀': 'team', '새가족': 'newfamily' }[kind],
+    target, 포털권한예전_(r, kind, target), r);
+}
+
+/** 포털권한_ 의 예전 계산 — 역할만으로 정합니다 (개인 권한 이전과 똑같음) */
+function 포털권한예전_(r, kind, target) {
   if (r.roles.indexOf('커미티') !== -1) return true;
   if (kind === '셀') return r.cells.indexOf(String(target || '').trim()) !== -1;
   if (kind === '팀') return r.teams.indexOf(String(target || '').trim()) !== -1;
@@ -7288,7 +7302,7 @@ function 포털메뉴_(r, token) {
     out.push({ key: 'acct', title: '회계 관리', desc: '지출 신청 · 예산 · Cheque',
       url: base + '?page=admin&scope=acct&key=' + encodeURIComponent(회계키_()), note: '' });
   }
-  return 메뉴순서적용_(out, 'portal');
+  return 메뉴순서적용_(개인권한메뉴_(r, token, out, 'portal'), 'portal');
 }
 
 /**
@@ -7302,7 +7316,8 @@ function 포털관리메뉴_(r, token) {
   if (!커미티 && !새가족팀 && !회계팀) return [];
 
   var app = 앱주소_() || '';
-  var akey = encodeURIComponent(설정값_('관리자키') || '');
+  // 위원회 범위 회원에게는 관리자키를 주소에 실어 보내지 않습니다 (logic/permissions.js)
+  var akey = encodeURIComponent(관리자키줘도되나_(r.name) ? (설정값_('관리자키') || '') : '');
   var base = app + '?page=admin&key=' + akey;
   var st = {};
   try { st = 홈통계_(); } catch (e) { st = {}; }
@@ -7395,7 +7410,7 @@ function 포털관리메뉴_(r, token) {
       ] });
   }
 
-  return 메뉴순서적용_(out, 'admin');
+  return 메뉴순서적용_(개인권한메뉴_(r, token, out, 'admin'), 'admin');
 }
 
 /* =========================================================
@@ -7688,7 +7703,8 @@ function saveAssignNotify(token, emails) {
 function 커미티토큰_(token) {
   if (isAdmin_(token) || 마스터_(token)) return true;
   var me = 포털본인_(token);
-  return !!(me && 포털역할_(me.name).roles.indexOf('커미티') !== -1);
+  // 위원회 범위 회원(logic/permissions.js)은 커미티 "전체" 권한이 아니라 자기 위원회 메뉴만 씁니다
+  return !!(me && 포털역할_(me.name).roles.indexOf('커미티') !== -1 && 전체커미티인가_(me.name));
 }
 
 function saveNewcomerNotify(token, emails) {
@@ -7800,7 +7816,7 @@ function registerNewcomer(link, data) {
   알림보내기_('새가족', 역할인사람_('새가족팀').concat(역할인사람_('커미티')), {
     title: isNew ? '새가족이 등록했습니다' : '새가족이 내용을 고쳤습니다',
     body: finalName + ' (' + gender + ') — ' + plan,
-    url: 앱주소_() + '?page=newfamily', tag: '새가족', keep: true
+    url: 딥링크주소_('newcomer', finalName), tag: '새가족', keep: true
   });
   return { ok: true, isNew: isNew, name: finalName, mine: 새가족내등록_(email), nfToken: 새가족토큰_(email) };
 }
@@ -7809,7 +7825,7 @@ function registerNewcomer(link, data) {
 function 새가족등록알림_(n, isNew) {
   var to = 새가족알림주소_();
   if (!to.length) return;
-  var url = (앱주소_() || '') + '?page=newfamily';
+  var url = 딥링크주소_('newcomer', n.name);       // 누른 사람이 그 새가족 화면으로 바로 갑니다
   var rows = [['이름', n.name], ['성별', n.gender], ['생년월일', n.birthday], ['전화번호', n.contact], ['카카오톡', n.kakao],
     ['구글 계정', n.email], ['수세 여부', n.baptized], ['이전 출석 교회', n.prevChurch], ['직업', n.job],
     ['활동 계획', n.plan], ['문의사항', n.question]];
@@ -9632,6 +9648,11 @@ function 주보등급_(token) {
   var me = 포털본인_(token);
   if (!me) throw new Error(구글만안내);
   var g = 주보권한이름_(me.name);
+  // 사람마다 따로 정한 권한 (logic/permissions.js) — 없으면 예전과 똑같이 동작합니다
+  var 개인 = 개인메뉴상태_(me.name, 'bulletinEdit', 포털역할_(me.name));
+  if (개인.deny) throw new Error('주보 편집이 제한되어 있습니다. 커미티에 문의해주세요.');
+  if (개인.scopedOut) g = { edit: false, publish: false };
+  else if (개인.allow) g = { edit: true, publish: g.publish };
   if (!g.edit) throw new Error('주보 편집 권한이 없습니다. 주보 게시자나 커미티에 지정을 부탁해 주세요.');
   return { name: me.name, edit: true, publish: g.publish };
 }
@@ -11135,7 +11156,7 @@ function sendPushNow(token, target, title, body, url) {
   else if (target === '셀장' || target === '팀장' || target === '커미티') names = 역할인사람_(target);
   else names = target.split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; });
 
-  var r = 푸시보내기_(names, { title: title, body: body, url: url || (앱주소_() + '?page=portal'), tag: 'notice', keep: true });
+  var r = 푸시보내기_(names, { title: title, body: body, url: 딥링크정규화_(url) || (앱주소_() + '?page=portal'), tag: 'notice', keep: true });
   if (r.error) throw new Error(r.error);
   return r;
 }
@@ -11969,7 +11990,7 @@ function addNotice(token, title, body, target, url, until) {
   if (!title) throw new Error('공지 제목을 입력해주세요.');
   var id = 'N' + Date.now().toString(36);
   공지시트_().appendRow([id, title, String(body || '').trim().slice(0, 2000),
-    String(target || '전체').trim(), String(url || '').trim(),
+    String(target || '전체').trim(), 딥링크정규화_(url),
     커미티이름_(token), ymd_(new Date()),
     /^\d{4}-\d{2}-\d{2}$/.test(String(until || '')) ? until : '']);
   캐시비움_();
@@ -12174,7 +12195,7 @@ function 내할일_(token) {
         out.push(할일하나_({ id: 'nf-assign-' + today, kind: 'role', icon: '🌱',
           title: '셀 배정을 기다리는 새가족 ' + 배정.length + '명',
           sub: 배정.slice(0, 4).map(function (n) { return n.name; }).join(', ') + (배정.length > 4 ? ' 외' : ''),
-          url: base + '?page=newfamily&t=' + encodeURIComponent(token), tone: 'warn' }));
+          url: base + '?page=newfamily&t=' + encodeURIComponent(token) + (배정.length === 1 ? '&open=' + encodeURIComponent(배정[0].name) : ''), tone: 'warn' }));
       }
       var 새로 = nf.filter(function (n) {
         return n.joinedAt && (parseYmd_(today) - parseYmd_(n.joinedAt)) / 86400000 <= 7 && n.completedWeeks === 0;
@@ -12183,7 +12204,7 @@ function 내할일_(token) {
         out.push(할일하나_({ id: 'nf-new-' + today, kind: 'role', icon: '👋',
           title: '이번 주 새로 등록한 새가족 ' + 새로.length + '명',
           sub: 새로.map(function (n) { return n.name; }).join(', ') + ' — 담당자를 정해주세요',
-          url: base + '?page=newfamily&t=' + encodeURIComponent(token), tone: 'info' }));
+          url: base + '?page=newfamily&t=' + encodeURIComponent(token) + (새로.length === 1 ? '&open=' + encodeURIComponent(새로[0].name) : ''), tone: 'info' }));
       }
     }
 
@@ -12200,7 +12221,7 @@ function 내할일_(token) {
     if (커미티) {
       var 신청수 = 0;
       try { 신청수 = 셀신청행들_().filter(function (a) { return a.year === 셀년도_(); }).length; } catch (e) {}
-      if (신청수 && 셀신청열림_() && !hidden['cellapp-in-' + today]) {
+      if (신청수 && 셀신청열림_() && !hidden['cellapp-in-' + today] && 관리자키줘도되나_(r.name)) {
         out.push(할일하나_({ id: 'cellapp-in-' + today, kind: 'role', icon: '📥',
           title: '셀 신청 ' + 신청수 + '건 들어옴',
           sub: '편성 화면에서 확인하실 수 있습니다',
@@ -12511,7 +12532,7 @@ function sendNotice(token, d) {
   if (!title) throw new Error('제목을 입력해주세요.');
   var body = String(d.body || '').trim().slice(0, 2000);
   var target = String(d.target || '전체').trim();
-  var url = String(d.url || '').trim();
+  var url = 딥링크정규화_(d.url);
   var until = /^\d{4}-\d{2}-\d{2}$/.test(String(d.until || '')) ? d.until : '';
 
   var who = 대상사람_(target);
@@ -13351,7 +13372,7 @@ function minutesSync(token, id) {
       try {
         알림_('공지', list, { title: '회의 할 일이 등록되었습니다',
           body: m.title + ' — 포털 "내 할 일" 에서 확인해주세요.',
-          url: (앱주소_() || '') + '?page=minutes' });
+          url: 딥링크주소_('minutes', m.id) });
       } catch (e) {}
     }
   }
@@ -13546,7 +13567,7 @@ function minutesTaskSave(token, d) {
   if (who) {
     try {
       알림_('공지', [who], { title: '새 할 일이 생겼습니다', body: what,
-        url: (앱주소_() || '') + '?page=minutes' });
+        url: 딥링크주소_('minutes', String(d.meet || '').trim()) });
     } catch (e) {}
   }
   return { ok: true, id: id };

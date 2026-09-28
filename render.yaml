@@ -12,6 +12,9 @@ services:
         value: production
       - key: SPREADSHEET_ID
         sync: false
+      # 11개 시트가 든 드라이브 폴더 — 넣으면 새 방식, 비우면 예전 방식(시트 하나)입니다
+      - key: DB_FOLDER_ID
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

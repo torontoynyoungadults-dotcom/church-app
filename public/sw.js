@@ -49,6 +49,11 @@ function clearBadge() {
 self.addEventListener('notificationclick', function (event) {
   event.notification.close(); clearBadge();
   var url = (event.notification.data && event.notification.data.url) || '/?page=portal';
+  // 알림에 실려 온 주소는 이 사이트 안의 것만 씁니다 (바로가기는 ?page=portal&go=… 형식)
+  try {
+    var u = new URL(url, self.location.origin);
+    url = u.origin === self.location.origin ? (u.pathname + u.search + u.hash) : '/?page=portal';
+  } catch (e) { url = '/?page=portal'; }
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
       for (var i = 0; i < list.length; i++) {
