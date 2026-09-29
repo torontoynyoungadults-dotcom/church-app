@@ -3,6 +3,7 @@
  * 서버 함수: budgetInit · budgetGetEvent · budgetSaveEvent · budgetSaveLine · budgetSaveTx · budgetDeleteTx · budgetSettle · budgetReopen
  *           budgetTemplateData · budgetImportPreview · budgetImportApply · budgetPullReimbursements · budgetReportPdf · budgetReportHtml
  *           acctAccessList · acctAccessSave · acctAccessDelete · budgetHistory      (logic/eventbudget.js · eventbudget-io.js)
+ *           budgetFlowAct (회계 승인 흐름 — Step 8, logic/eventbudget-flow.js)
  * 이 화면은 버튼을 숨기기만 합니다 — 실제 권한 확인은 서버가 요청마다 다시 합니다.
  */
 (function () {
@@ -89,7 +90,8 @@
     var me = init.me || {};
     $('meChip').style.display = ''; $('meChip').textContent = (me.name || '') + (me.full ? ' · 전체 관리' : '');
     $('btnNewEvent').style.display = me.canCreate ? '' : 'none';
-    $('fltStatus').innerHTML = '<option value="">모든 상태</option>' + init.statuses.map(function (s) { return '<option>' + esc(s) + '</option>'; }).join('');
+    $('fltStatus').innerHTML = '<option value="">모든 상태</option>' + init.statuses.map(function (s) { return '<option>' + esc(s) + '</option>'; }).join('') +
+      (init.stages || []).map(function (s) { return '<option value="' + esc(s.key) + '">[' + esc(s.key) + '] ' + esc(s.name) + '</option>'; }).join('');
     var years = {}; init.events.forEach(function (e) { years[e.year] = 1; });
     var ys = Object.keys(years).sort().reverse();
     $('fltYear').innerHTML = '<option value="">모든 연도</option>' + ys.map(function (y) { return '<option>' + esc(y) + '</option>'; }).join('');
@@ -97,7 +99,7 @@
     $('fltText').oninput = renderList;
     $('btnNewEvent').onclick = function () { eventForm(null); };
     renderList();
-    var h = (location.hash || '').replace('#', '');
+    var h = (location.hash || '').replace('#', '') || evParam();
     if (h && init.events.some(function (e) { return e.id === h; })) openEvent(h);
   }
   window.addEventListener('popstate', function () {
@@ -108,7 +110,7 @@
   /* ---------------------------------------------------------------- 목록 */
   function renderList() {
     var y = $('fltYear').value, st = $('fltStatus').value, q = $('fltText').value.trim().toLowerCase();
-    var list = S.init.events.filter(function (e) { return (!y || e.year === y) && (!st || e.status === st) && (!q || e.name.toLowerCase().indexOf(q) !== -1); });
+    var list = S.init.events.filter(function (e) { return (!y || e.year === y) && (!st || e.status === st || e.stage === st) && (!q || e.name.toLowerCase().indexOf(q) !== -1); });
     if (!list.length) {
       $('evGrid').innerHTML = '<div class="bd-empty" style="grid-column:1/-1;">' + (S.init.events.length ? '조건에 맞는 행사가 없습니다.' : '볼 수 있는 행사가 아직 없습니다.' + (S.init.me.canCreate ? ' 오른쪽 위 [＋ 새 행사]로 시작하세요.' : '')) + '</div>';
       return;
@@ -116,7 +118,7 @@
     $('evGrid').innerHTML = list.map(function (e) {
       var t = e.totals;
       return '<button type="button" class="bd-ev" data-act="open" data-id="' + esc(e.id) + '">' +
-        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;"><div class="nm">' + esc(e.name) + '</div>' + stBadge(e.status) + '</div>' +
+        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;"><div class="nm">' + esc(e.name) + '</div>' + (e.managed ? stageBadge(e.stage) : stBadge(e.status)) + '</div>' +
         '<div class="mt">' + esc(e.year) + '년' + (e.dept ? ' · ' + esc(e.dept) : '') + (e.owner ? ' · 담당 ' + esc(e.owner) : '') + ' · ' + lvChip(e.level) + '</div>' +
         bar(t.actualExpense, t.budgetExpense) +
         '<div class="bd-nums"><span>지출 <b>' + money(t.actualExpense) + '</b> / ' + money(t.budgetExpense) + '</span><span>' + (t.expenseRate == null ? '—' : t.expenseRate + '%') + '</span></div>' +
@@ -149,7 +151,7 @@
     $('topSub').textContent = e.name;
     $('evHead').innerHTML =
       '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;justify-content:space-between;">' +
-        '<div><div style="font-size:21px;font-weight:850;letter-spacing:-.02em;">' + esc(e.name) + ' ' + stBadge(e.status) + '</div>' +
+        '<div><div style="font-size:21px;font-weight:850;letter-spacing:-.02em;">' + esc(e.name) + ' ' + (d.flow && d.flow.managed ? stageBadge(d.flow.stage) : stBadge(e.status)) + '</div>' +
         '<div class="bd-sub" style="margin-top:4px;">' + esc(e.id) + ' · ' + esc(e.year) + '년' + (e.dept ? ' · ' + esc(e.dept) : '') + (e.owner ? ' · 담당 ' + esc(e.owner) : '') +
         (e.start ? ' · ' + esc(e.start) + (e.end && e.end !== e.start ? ' ~ ' + esc(e.end) : '') : '') + ' · ' + lvChip(d.level) + '</div>' +
         (e.memo ? '<div class="bd-sub bd-dim" style="margin-top:4px;">' + esc(e.memo) + '</div>' : '') + '</div>' +
@@ -166,6 +168,7 @@
       tile('지출 잔액', signed(t.expenseRemaining), cls(t.expenseRemaining) === 'bd-pos' ? 'pos' : (t.expenseRemaining < 0 ? 'neg' : '')) +
       tile('수입 (실적/예산)', money(t.actualIncome) + ' / ' + money(t.budgetIncome)) +
       tile('순손익', signed(t.actualNet), t.actualNet > 0 ? 'pos' : (t.actualNet < 0 ? 'neg' : ''));
+    renderFlow();
     var tabs = [['lines', '예산'], ['tx', '거래 ' + d.transactions.length], ['settle', '정산'], ['history', '이력']];
     if (can.access) tabs.push(['access', '접근 권한']);
     $('evTabs').innerHTML = tabs.map(function (x) { return '<button type="button" role="tab" class="bd-tab' + (S.tab === x[0] ? ' on' : '') + '" data-act="tab" data-tab="' + x[0] + '">' + esc(x[1]) + '</button>'; }).join('');
@@ -180,7 +183,7 @@
 
   /* -- 예산 탭 -- */
   function tabLines() {
-    var d = S.ev, can = d.can;
+    var d = S.ev, can = d.can, canLines = can.lines != null ? can.lines : can.manage;
     var part = function (kind) {
       var ls = d.lines.filter(function (l) { return l.kind === kind; });
       var sumB = 0, sumA = 0; ls.forEach(function (l) { sumB += l.budget; sumA += l.actual; });
@@ -189,17 +192,17 @@
           '<td class="r">' + money(l.budget) + '</td><td class="r">' + money(l.actual) + '</td>' +
           '<td class="r ' + (l.kind === '지출' ? cls(l.diff) : cls(l.diff)) + '">' + signed(l.diff) + '</td>' +
           '<td style="min-width:110px;">' + bar(l.actual, l.budget) + '<div class="bd-dim" style="font-size:11.5px;text-align:right;">' + (l.rate == null ? '—' : l.rate + '%') + ' · ' + l.count + '건' +
-          (can.manage ? ' <button class="bd-b sm" data-act="edit-line" data-id="' + esc(l.id) + '" type="button">수정</button>' : '') + '</div></td></tr>';
+          (canLines ? ' <button class="bd-b sm" data-act="edit-line" data-id="' + esc(l.id) + '" type="button">수정</button>' : '') + '</div></td></tr>';
       }).join('') : '<tr><td colspan="6" class="bd-dim">항목이 없습니다.</td></tr>') +
         '<tr class="tot"><td></td><td>합계</td><td class="r">' + money(sumB) + '</td><td class="r">' + money(sumA) + '</td><td class="r">' + signed(kind === '지출' ? sumB - sumA : sumA - sumB) + '</td><td></td></tr>';
     };
     var un = d.unassigned;
     $('tabBody').innerHTML = '<div class="bd-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h2 style="margin:0;">예산 대 실적</h2>' +
-      (can.manage ? '<button class="bd-b pri sm" data-act="add-line" type="button">＋ 예산 항목</button>' : '') + '</div>' +
-      '<div class="bd-scroll"><table class="bd-table"><thead><tr><th>분류</th><th>항목</th><th class="r">예산</th><th class="r">실적</th><th class="r">차이</th><th>집행</th></tr></thead><tbody>' +
+      (canLines ? '<button class="bd-b pri sm" data-act="add-line" type="button">＋ 예산 항목</button>' : '') + '</div>' +
+      lockNote('lines') + '<div class="bd-scroll"><table class="bd-table"><thead><tr><th>분류</th><th>항목</th><th class="r">예산</th><th class="r">실적</th><th class="r">차이</th><th>집행</th></tr></thead><tbody>' +
       part('지출') + part('수입') +
       (un.count ? '<tr><td></td><td class="bd-warn"><b>(미분류)</b> 항목이 연결되지 않은 거래 ' + un.count + '건</td><td class="r">—</td><td class="r">' + money(un.expense + un.income) + '</td><td></td><td></td></tr>' : '') +
-      '</tbody></table></div>' + (!d.lines.length ? '<div class="bd-empty">' + (can.manage ? '[＋ 예산 항목]으로 예산을 적거나, 엑셀로 한 번에 올릴 수 있습니다.' : '아직 예산 항목이 없습니다.') + '</div>' : '') + '</div>';
+      '</tbody></table></div>' + (!d.lines.length ? '<div class="bd-empty">' + (canLines ? '[＋ 예산 항목]으로 예산을 적거나, 엑셀로 한 번에 올릴 수 있습니다.' : '아직 예산 항목이 없습니다.') + '</div>' : '') + '</div>';
   }
 
   /* -- 거래 탭 -- */
@@ -214,7 +217,7 @@
       '<select id="txFilter" aria-label="항목 필터"><option value="">모든 항목</option>' + d.lines.map(function (l) { return '<option value="' + esc(l.id) + '"' + (fl === l.id ? ' selected' : '') + '>' + esc(l.kind) + ' · ' + esc(l.name) + '</option>'; }).join('') +
       '<option value="_none"' + (fl === '_none' ? ' selected' : '') + '>(미분류)</option></select>' +
       (can.edit ? '<button class="bd-b sm" data-act="pull" type="button">환급신청서 가져오기</button><button class="bd-b pri sm" data-act="add-tx" type="button">＋ 거래</button>' : '') + '</div>' +
-      '<div class="bd-scroll"><table class="bd-table"><thead><tr><th>날짜</th><th>구분</th><th>예산 항목</th><th>내용</th><th class="r">금액</th><th class="r">누계</th><th></th></tr></thead><tbody>' +
+      lockNote('tx') + '<div class="bd-scroll"><table class="bd-table"><thead><tr><th>날짜</th><th>구분</th><th>예산 항목</th><th>내용</th><th class="r">금액</th><th class="r">누계</th><th></th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (t) {
         run += t.kind === '지출' ? -t.amount : t.amount;
         return '<tr><td style="white-space:nowrap;">' + esc(t.date) + '</td><td class="' + (t.kind === '수입' ? 'bd-pos' : '') + '">' + esc(t.kind) + '</td>' +
@@ -241,12 +244,13 @@
       '<tr class="tot"><td colspan="2">지출</td><td class="r">' + money(t.budgetExpense) + '</td><td class="r">' + money(t.actualExpense) + '</td><td class="r ' + cls(t.expenseRemaining) + '">' + signed(t.expenseRemaining) + '</td><td></td></tr>' +
       '<tr class="tot"><td colspan="2">수입</td><td class="r">' + money(t.budgetIncome) + '</td><td class="r">' + money(t.actualIncome) + '</td><td></td><td></td></tr>' +
       '<tr class="tot"><td colspan="3">최종 순손익 (실수입 − 실지출)</td><td class="r ' + cls(t.actualNet) + '" colspan="3" style="text-align:right;">' + signed(t.actualNet) + '</td></tr></tbody></table></div>' +
-      (e.status !== '정산완료' && can.settle ? '<div style="margin-top:14px;"><div class="bd-f"><label for="stMemo">정산 메모</label><textarea id="stMemo" rows="2" maxlength="300" placeholder="예: 잔액은 청년부 통장으로 이월"></textarea></div>' +
+      (e.status !== '정산완료' && can.settle && !(d.flow && d.flow.managed) ? '<div style="margin-top:14px;"><div class="bd-f"><label for="stMemo">정산 메모</label><textarea id="stMemo" rows="2" maxlength="300" placeholder="예: 잔액은 청년부 통장으로 이월"></textarea></div>' +
         (un.count ? '<label class="bd-chk"><input type="checkbox" id="stUn"> 미분류 거래 ' + un.count + '건이 있어도 그대로 정산합니다</label>' : '') +
         '<div class="bd-actions" style="justify-content:flex-start;"><button class="bd-b pri" data-act="settle" type="button">정산 확정</button></div>' +
         '<p class="bd-sub bd-dim">확정하면 그 순간의 예산 · 실적이 기록으로 남고 거래 · 예산 수정이 잠깁니다. 필요하면 정산 권한자가 다시 열 수 있습니다.</p></div>' : '') +
       (e.status === '정산완료' && can.reopen ? '<div class="bd-actions" style="justify-content:flex-start;"><button class="bd-b bad" data-act="reopen" type="button">정산 다시 열기</button></div>' : '') +
-      (e.status !== '정산완료' && !can.settle ? '<p class="bd-sub bd-dim">정산 확정은 회계 "정산" 이상 권한이 필요합니다.</p>' : '') + '</div>' +
+      (e.status !== '정산완료' && !can.settle && !(d.flow && d.flow.managed) ? '<p class="bd-sub bd-dim">정산 확정은 회계 "정산" 이상 권한이 필요합니다.</p>' : '') +
+      (d.flow && d.flow.managed && e.status !== '정산완료' ? '<p class="bd-sub bd-dim">이 행사는 회계 승인 절차를 쓰고 있어, 위쪽 "회계 승인" 카드에서 정산을 제출 · 최종 승인합니다.</p>' : '') + '</div>' +
       '<div class="bd-card"><h2>정산 기록</h2>' + (d.settlements.length ? '<div class="bd-scroll"><table class="bd-table"><thead><tr><th>번호</th><th>확정 시각</th><th>확정자</th><th class="r">실지출</th><th class="r">순손익</th><th>메모</th></tr></thead><tbody>' +
         d.settlements.slice().reverse().map(function (s) { return '<tr><td>' + esc(s.no) + '</td><td>' + esc(s.at) + '</td><td>' + esc(s.by) + '</td><td class="r">' + money(s.actualExpense) + '</td><td class="r ' + cls(s.net) + '">' + signed(s.net) + '</td><td>' + esc(s.memo) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="bd-empty">확정된 정산이 아직 없습니다.</div>') + '</div>';
   }
@@ -290,6 +294,77 @@
       '<div class="bd-actions" style="justify-content:flex-start;"><button class="bd-b pri" data-act="acc-add" type="button">저장</button></div><p class="bd-msg" id="acMsg"></p></div>';
   }
 
+  /* ---------------------------------------------------------------- 회계 승인 흐름 (Step 8) */
+  var STAGES = ['Draft', 'Budget Submitted', 'Budget Approved', 'Settlement Submitted', 'Settlement Approved'];
+  var STAGE_KO = { 'Draft': '작성 중', 'Budget Submitted': '예산 제출됨', 'Budget Approved': '예산 승인됨', 'Settlement Submitted': '정산 제출됨', 'Settlement Approved': '정산 승인됨' };
+  var STAGE_ICON = ['✎', '⏳', '✓', '⏳', '✔'];
+  var FLOW_TEXT = {
+    submitBudget: '예산을 회계팀에 제출합니다. 검토가 끝날 때까지 예산 항목을 고칠 수 없고, 회계 담당자에게 알림이 갑니다.',
+    approveBudget: '예산을 승인합니다. 승인 뒤부터 거래를 기록할 수 있고, 팀 쪽에 알림이 갑니다.',
+    requestBudgetRevision: '예산을 작성 단계(Draft)로 되돌립니다. 사유는 팀 쪽에 알림으로 전달됩니다.',
+    reopenBudget: '승인된 예산을 다시 열어 고칠 수 있게 합니다. 다시 제출 · 승인될 때까지 거래 기록은 잠깁니다.',
+    submitSettlement: '거래 기록을 마치고 정산을 제출합니다. 검토가 끝날 때까지 거래를 고칠 수 없고, 회계 담당자에게 알림이 갑니다.',
+    approveSettlement: '정산을 최종 승인합니다. 그 순간의 예산 · 실적이 기록으로 남고 행사가 닫힙니다.',
+    requestSettlementRevision: '정산을 거래 기록 단계(Budget Approved)로 되돌립니다. 사유는 팀 쪽에 알림으로 전달됩니다.',
+    enableFlow: '이 행사에 회계 승인 절차를 켭니다. 지금 상태에 맞는 단계에서 시작하며, 한 번 켜면 끌 수 없습니다.'
+  };
+  var FLOW_NOTE = { requestBudgetRevision: 1, reopenBudget: 1, requestSettlementRevision: 1 };
+  function stageBadge(s) {
+    var i = STAGES.indexOf(s); if (i < 0) return '';
+    return '<span class="bd-badge st' + i + '"><span aria-hidden="true">' + STAGE_ICON[i] + '</span> [' + esc(s) + ']<span class="bd-sr"> — ' + esc(STAGE_KO[s]) + '</span></span>';
+  }
+  function who(at, by) { return [at, by].filter(Boolean).map(esc).join(' · '); }
+  function lockNote(kind) {
+    var f = S.ev.flow; if (!f || !f.managed || S.ev.event.status === '정산완료') return '';
+    var lines = { 'Budget Submitted': '회계 검토 중이라 예산을 고칠 수 없습니다.', 'Budget Approved': '승인된 예산입니다. 바꾸려면 회계 담당자가 "예산 다시 열기"를 해야 합니다.', 'Settlement Submitted': '정산 검토 중이라 예산을 고칠 수 없습니다.' };
+    var txs = { 'Draft': '예산이 승인된 뒤에 거래를 기록할 수 있습니다.', 'Budget Submitted': '예산이 승인된 뒤에 거래를 기록할 수 있습니다.', 'Settlement Submitted': '정산 검토 중이라 거래를 고칠 수 없습니다.' };
+    var m = (kind === 'lines' ? lines : txs)[f.stage];
+    return m ? '<p class="bd-lock" role="note">' + esc(m) + '</p>' : '';
+  }
+  function renderFlow() {
+    var d = S.ev, f = d.flow || {}, box = $('evFlow'), acts = f.actions || [];
+    var btn = function (a) { return '<button type="button" class="bd-b sm' + (a.tone ? ' ' + a.tone : '') + '" data-act="flow" data-flow="' + esc(a.action) + '">' + esc(a.label) + '</button>'; };
+    if (!f.managed) {
+      box.innerHTML = acts.length ? '<div class="bd-card bd-flow"><h2>회계 승인 절차</h2><p class="bd-sub">이 행사는 승인 절차 없이 운영 중입니다(예전 방식). 켜면 예산 제출 → 회계 승인 → 정산 제출 → 최종 승인 순서로 진행되고, 단계에 따라 예산 · 거래 수정이 잠깁니다. 한 번 켜면 끌 수 없습니다.</p>' +
+        '<div class="bd-actions" style="justify-content:flex-start;">' + acts.map(btn).join('') + '</div></div>' : '';
+      return;
+    }
+    var idx = STAGES.indexOf(f.stage), info = f.info || {};
+    var steps = STAGES.map(function (s, i) {
+      return '<li class="' + (i < idx ? 'done' : (i === idx ? 'now' : '')) + '"' + (i === idx ? ' aria-current="step"' : '') + '><b>' + esc(s) + '</b><small>' + esc(STAGE_KO[s]) + '</small></li>';
+    }).join('');
+    var call = '';
+    if (f.stage === 'Draft' && (info.budgetReviewResult === '수정요청' || info.budgetReviewResult === '다시열기')) {
+      call = '<div class="bd-callout" role="note"><b>' + (info.budgetReviewResult === '수정요청' ? '회계 수정 요청' : '예산 다시 열림') + '</b> · ' + who(info.budgetReviewAt, info.budgetReviewBy) + '<br>' + esc(info.budgetReviewNote) + '</div>';
+    } else if (f.stage === 'Budget Approved' && (info.settlementReviewResult === '수정요청' || info.settlementReviewResult === '다시열기')) {
+      call = '<div class="bd-callout" role="note"><b>' + (info.settlementReviewResult === '수정요청' ? '정산 수정 요청' : '정산 다시 열림') + '</b> · ' + who(info.settlementReviewAt, info.settlementReviewBy) + '<br>' + esc(info.settlementReviewNote) + '</div>';
+    }
+    var row = function (k, v) { return v ? '<dt>' + k + '</dt><dd>' + v + '</dd>' : ''; };
+    var rv = function (at, by, res, note) { return at ? who(at, by) + (res ? ' · <b>' + esc(res) + '</b>' : '') + (note ? ' — ' + esc(note) : '') : ''; };
+    var tl = row('예산 제출', who(info.budgetSubmittedAt, info.budgetSubmittedBy)) + row('예산 검토', rv(info.budgetReviewAt, info.budgetReviewBy, info.budgetReviewResult, info.budgetReviewNote)) +
+      row('정산 제출', who(info.settlementSubmittedAt, info.settlementSubmittedBy)) + row('정산 검토', rv(info.settlementReviewAt, info.settlementReviewBy, info.settlementReviewResult, info.settlementReviewNote));
+    box.innerHTML = '<div class="bd-card bd-flow"><h2>회계 승인 ' + stageBadge(f.stage) + '</h2>' +
+      '<ol class="bd-steps" aria-label="승인 단계">' + steps + '</ol>' + call + (tl ? '<dl class="bd-tl">' + tl + '</dl>' : '') +
+      (acts.length ? '<div class="bd-actions" style="justify-content:flex-start;">' + acts.map(btn).join('') + '</div>' : '') +
+      (f.hint ? '<p class="bd-sub bd-dim" style="margin:8px 0 0;">' + esc(f.hint) + '</p>' : '') + '</div>';
+  }
+  function flowDialog(action) {
+    var f = S.ev.flow, a = (f.actions || []).filter(function (x) { return x.action === action; })[0]; if (!a) return;
+    var need = !!FLOW_NOTE[action], un = S.ev.unassigned && S.ev.unassigned.count;
+    openModal('<h3>' + esc(a.label) + '</h3><p class="bd-sub">' + esc(FLOW_TEXT[action] || '') + '</p>' +
+      (action === 'enableFlow' ? '' : '<div class="bd-f"><label for="flNote">' + (need ? '사유<em>*</em>' : '메모 (선택)') + '</label><textarea id="flNote" rows="3" maxlength="300"></textarea></div>') +
+      (action === 'approveSettlement' && un ? '<label class="bd-chk"><input type="checkbox" id="flUn"> 예산 항목에 연결되지 않은 거래 ' + un + '건이 있어도 그대로 승인합니다</label>' : '') +
+      '<p class="bd-msg err" id="mMsg"></p><div class="bd-actions"><button class="bd-b" data-act="close" type="button">취소</button>' +
+      '<button class="bd-b ' + (a.tone === 'bad' ? 'bad' : 'pri') + '" data-act="flow-go" data-flow="' + esc(action) + '" type="button">' + esc(a.label) + '</button></div>');
+  }
+  function flowDone(label, n) {
+    var m = label + ' 완료';
+    if (n && n.sent > 0) m += ' · ' + n.sent + '명에게 알림을 보냈습니다';
+    else if (n && n.to > 0) m += ' · 알림 대상 ' + n.to + '명 (알림을 받는 기기가 없어 보내지 못했습니다)';
+    return m;
+  }
+  function evParam() { try { return new URLSearchParams(location.search).get('ev') || PREFILL.ev || ''; } catch (e) { return PREFILL.ev || ''; } }
+
   /* ---------------------------------------------------------------- 폼 */
   function eventForm(ev) {
     var e = ev || {};
@@ -300,7 +375,8 @@
       '<div class="bd-f"><label for="efDept">부서 / 팀</label><select id="efDept"><option value="">선택 안 함</option>' + depts + '</select></div></div>' +
       '<div class="bd-row2"><div class="bd-f"><label for="efStart">시작일</label><input type="date" id="efStart" value="' + esc(e.start) + '"></div><div class="bd-f"><label for="efEnd">종료일</label><input type="date" id="efEnd" value="' + esc(e.end) + '"></div></div>' +
       '<div class="bd-f"><label for="efOwner">담당자 (교적 이름)</label><input type="text" id="efOwner" maxlength="40" value="' + esc(e.owner) + '"></div>' +
-      '<div class="bd-f"><label for="efMemo">메모</label><textarea id="efMemo" rows="2" maxlength="500">' + esc(e.memo) + '</textarea></div><p class="bd-msg err" id="mMsg"></p>' +
+      '<div class="bd-f"><label for="efMemo">메모</label><textarea id="efMemo" rows="2" maxlength="500">' + esc(e.memo) + '</textarea></div>' +
+      (ev ? '' : '<label class="bd-chk"><input type="checkbox" id="efFlow" checked> 회계 승인 절차 사용 <span class="bd-dim">(예산 제출 → 회계 승인 → 정산 제출 → 최종 승인)</span></label>') + '<p class="bd-msg err" id="mMsg"></p>' +
       '<div class="bd-actions">' + (ev && S.ev.can.manage ? '<button class="bd-b bad" data-act="del-event" type="button" style="margin-right:auto;">행사 지우기</button>' : '') +
       '<button class="bd-b" data-act="close" type="button">취소</button><button class="bd-b pri" data-act="save-event" data-id="' + esc(e.id || '') + '" type="button">저장</button></div>');
   }
@@ -442,7 +518,7 @@
       case 'edit-event': return eventForm(d.event);
       case 'save-event':
         busyBtn(el, true);
-        return api('budgetSaveEvent', [KEY, { id: id, name: num('efName'), year: num('efYear'), dept: num('efDept'), start: num('efStart'), end: num('efEnd'), owner: num('efOwner'), memo: num('efMemo') }]).then(function (r) {
+        return api('budgetSaveEvent', [KEY, { id: id, name: num('efName'), year: num('efYear'), dept: num('efDept'), start: num('efStart'), end: num('efEnd'), owner: num('efOwner'), memo: num('efMemo'), workflow: !!($('efFlow') && $('efFlow').checked) }]).then(function (r) {
           closeModal(); if (id) apply(r, '저장했습니다.'); else { S.tab = 'lines'; api('budgetInit', [KEY]).then(function (i) { S.init.events = i.events; openEvent(r.event.id); toast('행사를 만들었습니다. 예산 항목을 추가하세요.'); }); }
         }, function (e) { busyBtn(el, false); mMsg(e.message); });
       case 'del-event':
@@ -464,6 +540,14 @@
       case 'del-tx':
         if (!confirm('이 거래를 지울까요?')) return;
         return api('budgetDeleteTx', [KEY, d.event.id, id]).then(function (r) { closeModal(); apply(r, '지웠습니다.'); }, function (e) { mMsg(e.message); });
+      case 'flow': return flowDialog(el.getAttribute('data-flow'));
+      case 'flow-go':
+        var fa = el.getAttribute('data-flow'), fn = $('flNote'), note = fn ? fn.value.trim() : '';
+        if (fn && FLOW_NOTE[fa] && !note) return mMsg('사유를 적어주세요.');
+        busyBtn(el, true);
+        return api('budgetFlowAct', [KEY, d.event.id, fa, note, d.flow.stage, { allowUnassigned: !!($('flUn') && $('flUn').checked) }]).then(function (r) {
+          closeModal(); apply(r, flowDone(el.textContent, r.notify));
+        }, function (e) { busyBtn(el, false); mMsg(e.message); if (/먼저 상태를 바꿨/.test(e.message)) reload(); });
       case 'xlsx-down': return xlsxDown();
       case 'xlsx-up': return xlsxUp();
       case 'imp-apply': return impApply(el);

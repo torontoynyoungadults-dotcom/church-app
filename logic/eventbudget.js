@@ -306,9 +306,10 @@ function 행사집계_(lines, txs) {
 
 function 행사요약_(ev, lines, txs, level) {
   var g = 행사집계_(lines, txs);
+  var f0 = 승인행_(ev.id);          // Step 8 — 승인 절차를 쓰는 행사면 단계 (없으면 옛 행사)
   return { id: ev.id, name: ev.name, year: ev.year, dept: ev.dept, owner: ev.owner, status: ev.status, start: ev.start, end: ev.end,
     version: ev.version, level: level, levelName: 회계등급이름_[level], totals: g.totals, unassignedCount: g.unassigned.count,
-    txCount: txs.length, lineCount: lines.length };
+    txCount: txs.length, lineCount: lines.length, managed: !!f0, stage: f0 ? f0.stage : '' };
 }
 
 /* ---------------------------------------------------------------- 화면용 서버 함수 */
@@ -332,7 +333,7 @@ function budgetInit(key) {
   events.sort(function (a, b) { return (b.year || '').localeCompare(a.year || '') || (a.name < b.name ? -1 : 1); });
   return {
     me: { name: s.name, full: !!s.full, kind: s.kind, canCreate: 전체.level >= 4, globalLevel: 전체.level },
-    events: events, depts: 지출부서목록(), statuses: 행사상태들_, methods: 행사결제수단_, today: ymd_(new Date()),
+    events: events, depts: 지출부서목록(), statuses: 행사상태들_, stages: 승인단계들_.map(function (s) { return { key: s, name: 승인단계이름_[s] }; }), methods: 행사결제수단_, today: ymd_(new Date()),
     pdfKinds: [{ key: 'budget', title: '예산서' }, { key: 'transactions', title: '거래 내역' }, { key: 'settlement', title: '정산서' }]
   };
 }
@@ -353,11 +354,14 @@ function budgetGetEvent(key, eventId) {
   var ev = 행사필수_(eventId);
   var lines = 행사항목들_(ev.id), txs = 행사거래들_(ev.id);
   var g = 행사집계_(lines, txs);
+  var f = 승인행_(ev.id);           // Step 8 — 없으면 승인 절차를 쓰지 않는 옛 행사 (아래 can 은 예전 그대로)
   return { event: ev, level: c.level, levelName: 회계등급이름_[c.level], lines: g.lines, transactions: txs, unassigned: g.unassigned,
     totals: g.totals, settlements: 행사정산들_(ev.id).map(function (s) { return { no: s.no, at: s.at, by: s.by, memo: s.memo, net: s.net,
       budgetExpense: s.budgetExpense, actualExpense: s.actualExpense, budgetIncome: s.budgetIncome, actualIncome: s.actualIncome }; }),
-    can: { edit: c.level >= 2 && ev.status !== '정산완료', manage: c.level >= 4 && ev.status !== '정산완료', settle: c.level >= 3,
-      reopen: c.level >= 3 && ev.status === '정산완료', access: c.level >= 4 } };
+    can: { edit: c.level >= 2 && ev.status !== '정산완료' && 거래열림_(f), manage: c.level >= 4 && ev.status !== '정산완료',
+      lines: c.level >= 4 && ev.status !== '정산완료' && 예산열림_(f), settle: c.level >= 3,
+      reopen: c.level >= 3 && ev.status === '정산완료', access: c.level >= 4 },
+    flow: 흐름정보_(ev, f, c.level, c.subject) };
 }
 
 /** 행사 만들기 · 고치기 (관리) */
@@ -398,6 +402,7 @@ function budgetSaveEvent(key, data) {
       [EVB_시작, EVB_종료, EVB_등록, EVB_수정].forEach(function (col) { sh.getRange(at, col + 1).setNumberFormat('@'); });
       sh.getRange(at, 1, 1, row.length).setValues([row]);
       행사이력_(id, c.subject.name, '행사 만들기', name);
+      if (흐름켜기요청_(data.workflow)) 흐름시작_(id, c.subject.name, 'Draft');   // Step 8 — 회계 승인 절차 사용
     } else {
       var i;
       for (i = 1; i < v.length; i++) if (String(v[i][EVB_ID]).trim() === id) break;
@@ -429,6 +434,7 @@ function budgetDeleteEvent(key, eventId) {
     행사표쓰기_(SHEET_행사예산, HEAD_행사예산, pick(SHEET_행사예산, HEAD_행사예산, EVB_ID), [EVB_시작, EVB_종료, EVB_등록, EVB_수정]);
     행사표쓰기_(SHEET_행사항목, HEAD_행사항목, pick(SHEET_행사항목, HEAD_행사항목, EVL_행사));
     행사표쓰기_(SHEET_행사거래, HEAD_행사거래, pick(SHEET_행사거래, HEAD_행사거래, EVT_행사), [EVT_날짜, EVT_입력, EVT_수정]);
+    승인행지우기_(ev.id);
     행사이력_(ev.id, c.subject.name, '행사 지움', ev.name);
   } finally { lock.releaseLock(); }
   return { ok: true };
@@ -437,7 +443,7 @@ function budgetDeleteEvent(key, eventId) {
 /** 예산 항목 한 줄 저장 (관리) */
 function budgetSaveLine(key, eventId, line) {
   var c = 회계필수_(key, eventId, 4, '예산 항목 고치기');
-  var ev = 행사필수_(eventId); 행사열려있어야_(ev);
+  var ev = 행사필수_(eventId); 행사열려있어야_(ev); 예산잠금확인_(ev);
   line = line || {};
   var kind = String(line.kind || '지출').trim();
   if (행사구분들_.indexOf(kind) === -1) throw new Error('구분은 지출 또는 수입입니다.');
@@ -478,7 +484,7 @@ function budgetSaveLine(key, eventId, line) {
 
 function budgetDeleteLine(key, eventId, lineId) {
   var c = 회계필수_(key, eventId, 4, '예산 항목 지우기');
-  var ev = 행사필수_(eventId); 행사열려있어야_(ev);
+  var ev = 행사필수_(eventId); 행사열려있어야_(ev); 예산잠금확인_(ev);
   lineId = String(lineId || '').trim();
   var used = 행사거래들_(ev.id).filter(function (t) { return t.lineId === lineId; }).length;
   if (used) throw new Error('이 항목에 거래가 ' + used + '건 있습니다. 거래의 항목을 바꾸거나 지운 뒤 지워주세요.');
@@ -499,7 +505,7 @@ function budgetDeleteLine(key, eventId, lineId) {
 /** 거래 한 건 저장 (입력) */
 function budgetSaveTx(key, eventId, tx) {
   var c = 회계필수_(key, eventId, 2, '거래 기록');
-  var ev = 행사필수_(eventId); 행사열려있어야_(ev);
+  var ev = 행사필수_(eventId); 행사열려있어야_(ev); 거래잠금확인_(ev);
   tx = tx || {};
   var kind = String(tx.kind || '지출').trim();
   if (행사구분들_.indexOf(kind) === -1) throw new Error('구분은 지출 또는 수입입니다.');
@@ -557,7 +563,7 @@ function 행사상태바꿈_(eventId, status) {
 
 function budgetDeleteTx(key, eventId, txId) {
   var c = 회계필수_(key, eventId, 2, '거래 지우기');
-  var ev = 행사필수_(eventId); 행사열려있어야_(ev);
+  var ev = 행사필수_(eventId); 행사열려있어야_(ev); 거래잠금확인_(ev);
   txId = String(txId || '').trim();
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -582,7 +588,7 @@ function budgetDeleteTx(key, eventId, txId) {
  */
 function budgetPullReimbursements(key, eventId, dryRun, lineId) {
   var c = 회계필수_(key, eventId, 2, '환급신청서 가져오기');
-  var ev = 행사필수_(eventId); 행사열려있어야_(ev);
+  var ev = 행사필수_(eventId); 행사열려있어야_(ev); 거래잠금확인_(ev);
   lineId = String(lineId || '').trim();
   if (lineId && !행사항목들_(ev.id).some(function (l) { return l.id === lineId && l.kind === '지출'; })) throw new Error('지출 예산 항목을 골라주세요.');
   var 이미 = {};
@@ -631,6 +637,7 @@ function budgetSettle(key, eventId, memo, allowUnassigned) {
   lock.waitLock(20000);
   try {
     var ev = 행사필수_(eventId); 행사열려있어야_(ev);
+    흐름정산승인준비_(ev, c.subject);   // Step 8 — 승인 절차를 쓰는 행사는 "정산 제출" 뒤 · 제출자 본인 아님
     var lines = 행사항목들_(ev.id), txs = 행사거래들_(ev.id);
     if (!lines.length && !txs.length) throw new Error('예산 항목도 거래도 없어 정산할 것이 없습니다.');
     var g = 행사집계_(lines, txs);
@@ -664,8 +671,10 @@ function budgetSettle(key, eventId, memo, allowUnassigned) {
     캐시비움_();
     행사올림_(ev.id, c.subject.name);
     행사이력_(ev.id, c.subject.name, '정산 확정', no + ' · 실지출 ' + g.totals.actualExpense + ' / 예산 ' + g.totals.budgetExpense);
+    흐름정산승인기록_(ev, c.subject, memo);   // Step 8
     캐시비움_();
   } finally { lock.releaseLock(); }
+  흐름알림비우기_();                            // Step 8 — 잠금을 푼 뒤 알림
   return budgetGetEvent(key, eventId);
 }
 
@@ -682,8 +691,10 @@ function budgetReopen(key, eventId, reason) {
     캐시비움_();
     행사올림_(ev.id, c.subject.name);
     행사이력_(ev.id, c.subject.name, '정산 다시 열기', reason);
+    흐름재개기록_(ev, c.subject, reason);   // Step 8
     캐시비움_();
   } finally { lock.releaseLock(); }
+  흐름알림비우기_();                          // Step 8
   return budgetGetEvent(key, eventId);
 }
 

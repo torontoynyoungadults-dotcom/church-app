@@ -31,7 +31,8 @@ var 딥링크경로_ = {
   minutes:  { page: 'minutes',   label: '회의록', params: function (id) { return { id: id }; } },
   album:    { page: 'album',     label: '포토 앨범', params: function (id) { return { id: id }; } },
   mission:  { page: 'mission',   label: '선교팀', params: function (id) { return { team: id }; } },
-  cell:     { page: 'leader',    label: '셀모임 보고서', params: function (id, x) { return x ? { cell: id, date: x } : { cell: id }; } }
+  cell:     { page: 'leader',    label: '셀모임 보고서', params: function (id, x) { return x ? { cell: id, date: x } : { cell: id }; } },
+  budget:   { page: 'budget',    label: '행사 예산 · 정산', params: function (id) { return { ev: id }; } }   // Step 8 — 회계 승인 알림
 };
 
 function 딥링크종류인가_(type) {
@@ -107,6 +108,14 @@ function 딥링크확인_(token, type, id, x) {
     if (!cell) return ro('notfound', '셀을 찾지 못했습니다.');
     if (!admin && !포털권한_(token, '셀', cell.name)) return ro('forbidden', '이 셀의 보고서를 볼 권한이 없습니다.');
     return { ok: true, title: cell.name };
+  }
+
+  if (type === 'budget') {                                                           // Step 8 — 행사 예산 · 정산 (회계 등급 조회 이상)
+    var evb = 예산행사찾기_(id);
+    if (!evb) return ro('notfound', '행사를 찾지 못했습니다. 지워졌을 수 있습니다.');
+    var 주체 = admin ? { full: true, name: '관리자', kind: 'admin' } : 회계주체_(token);
+    if (!주체 || 회계등급_(주체, evb.id).level < 1) return ro('forbidden', '이 행사의 회계 권한이 없습니다. 회계팀에 문의해주세요.');
+    return { ok: true, title: evb.name };
   }
 
   return ro('unknown', '알 수 없는 바로가기입니다.');

@@ -200,6 +200,7 @@ function budgetImportPreview(key, eventId, payload, opts) {
   var plan = 행사가져오기계획_(ev, payload, opts, c.level);
   var out = 계획요약_(plan);
   if (ev.status === '정산완료') { out.ok = false; out.errors.unshift({ sheet: '', row: 0, message: '정산이 끝난 행사입니다. 정산을 다시 연 뒤 올려주세요.' }); out.errorCount++; }
+  흐름잠금메시지_(ev, plan).forEach(function (m) { out.ok = false; out.errors.unshift({ sheet: '', row: 0, message: m }); out.errorCount++; });   // Step 8 — 승인 단계 잠금
   out.currentVersion = ev.version;
   return out;
 }
@@ -218,6 +219,8 @@ function budgetImportApply(key, eventId, payload, opts) {
         (plan.errors[0].sheet ? plan.errors[0].sheet + ' ' + plan.errors[0].row + '행 — ' : '') + plan.errors[0].message);
       throw e;
     }
+    var 잠금 = 흐름잠금메시지_(ev, plan);                 // Step 8 — 승인 단계 잠금 (바뀌는 줄이 있을 때만)
+    if (잠금.length) throw new Error(잠금[0]);
     if (plan.stale && !opts.acceptStale) throw new Error('내려받은 뒤 다른 사람이 이 행사를 고쳤습니다. 미리보기를 다시 하거나 "그래도 저장"을 선택해주세요.');
     var now = 행사시각_(), name = c.subject.name;
 
