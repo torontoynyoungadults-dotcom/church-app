@@ -4,11 +4,11 @@ const realtime = require('../../lib/realtime');
 const { mkpdf, SAMPLE, MULTI } = require('./mkpdf');
 const ROOT = path.join(__dirname, '..', '..');
 const USERS = { tokA: { name: 'Alice', canEdit: true, canLead: true, committee: false, admin: false }, tokB: { name: 'Bob', canEdit: false, canLead: false }, tokC: { name: 'Carol', canEdit: true, canLead: true } };
-const store = { team: {}, mine: {}, saves: [], calls: [] };
+const store = { team: {}, mine: {}, saves: [], calls: [], callLog: [] };
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.json': 'application/json' };
 const pdf = mkpdf(SAMPLE), pdfMulti = mkpdf(MULTI);
 function harness() {
-  const scripts = ['formb', 'metro', 'pitch', 'lyrics', 'ytplayer', 'rt', 'anno', 'practice-panels', 'practice', 'stats'].map((n) => `<script src="/worship/${n}.js"></script>`).join('\n');
+  const scripts = ['formb', 'wakelock', 'metro', 'pitch', 'lyrics', 'ytplayer', 'rt', 'anno', 'practice-panels', 'practice', 'stats'].map((n) => `<script src="/worship/${n}.js"></script>`).join('\n');
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/worship/hub.css"><style>body{margin:0;background:#222;color:#eee;font-family:sans-serif}</style>
 <script src="/socket.io/socket.io.js"></script>${scripts}
 <script>
@@ -34,7 +34,7 @@ const server = http.createServer((req, res) => {
     let b = ''; req.on('data', (d) => b += d); req.on('end', () => {
       res.setHeader('content-type', 'application/json');
       try {
-        const args = JSON.parse(b).args || [], fn = p.slice(5); store.calls.push(fn);
+        const args = JSON.parse(b).args || [], fn = p.slice(5); store.calls.push(fn); store.callLog.push({ fn, args: args.slice(1) });
         const me = (USERS[args[0]] || {}).name;
         if (!me) throw new Error('권한이 없습니다.');
         if (fn === 'worshipAnnoLoad') { const k = args[1] + '|' + args[2]; return res.end(JSON.stringify({ result: { team: store.team[k] || [], mine: store.mine[k + '|' + me] || [], me, canEdit: !!USERS[args[0]].canEdit } })); }

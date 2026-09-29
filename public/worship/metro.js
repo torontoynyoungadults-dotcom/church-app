@@ -222,6 +222,66 @@
     noSpeech: '이 기기는 음성 안내를 지원하지 않아 "삐" 소리 패턴으로 대신 알려드립니다.'
   };
 
+  /* ============================================================
+     무음(진동) 모드에서도 소리 내기
+     ------------------------------------------------------------
+     아이폰 · 아이패드는 무음 스위치가 켜져 있으면 Web Audio 를 "벨소리 채널"로 보내 소리를 죽입니다.
+     해결은 두 가지를 함께 씁니다 (기기 · iOS 버전마다 통하는 쪽이 달라서).
+       ① navigator.audioSession.type = 'playback'  — Safari 16.4+ 가 지원하는 공식 방법 ("미디어 재생" 채널로 분류)
+       ② 소리 없는 <audio> 를 반복 재생 — 예전 iOS 는 <audio> 가 재생 중이면 Web Audio 도 미디어 채널로 나갑니다
+     반드시 사용자가 화면을 누른 순간(시작 버튼 · 큐 버튼)에 시작해야 하고, 메트로놈을 멈추면 함께 멈춥니다 (배터리).
+     Mac · 안드로이드 · 컴퓨터에는 무음 스위치가 없어 ①② 는 조용히 아무 일도 하지 않습니다.
+     ============================================================ */
+  var silentUrl = null;
+  /** 1초 길이의 소리 없는 WAV (16bit · 8kHz · 진폭 0) — 파일 없이 코드로 만들어 Blob 주소로 씁니다 */
+  function silentWavUrl() {
+    if (silentUrl) return silentUrl;
+    try {
+      var rate = 8000, n = rate, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+      var w = function (o, str) { for (var i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+      w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+      silentUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    } catch (e) { silentUrl = null; }
+    return silentUrl;
+  }
+  var Media = {
+    el: null, on: false,
+    /** 사용자가 누른 순간에 부르세요. 이미 켜져 있으면 아무 일도 하지 않습니다 */
+    start: function () {
+      if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+      try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) { /* 지원하지 않는 브라우저 */ }
+      try {
+        if (!Media.el) {
+          var url = silentWavUrl(); if (!url) return false;
+          var a = document.createElement('audio');
+          a.src = url; a.loop = true; a.preload = 'auto'; a.setAttribute('playsinline', ''); a.setAttribute('aria-hidden', 'true'); a.volume = 0.01; a.style.display = 'none';
+          Media.el = a;
+        }
+        Media.on = true;
+        var pr = Media.el.play(); if (pr && pr.catch) pr.catch(function () { Media.on = false; });
+      } catch (e) { Media.on = false; }
+      try {
+        if (navigator.mediaSession) {                                       // 잠금 화면 · 제어 센터에 "재생 중"으로 보여 백그라운드에서도 소리가 이어지게 합니다
+          if (typeof MediaMetadata !== 'undefined' && !Media.meta) { Media.meta = true; navigator.mediaSession.metadata = new MediaMetadata({ title: '메트로놈', artist: '세션 / 연습' }); }
+          navigator.mediaSession.playbackState = 'playing';
+        }
+      } catch (e) { /* 무시 */ }
+      return true;
+    },
+    stop: function () {
+      Media.on = false;
+      try { if (Media.el) Media.el.pause(); } catch (e) { /* 무시 */ }
+      try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'none'; } catch (e) { /* 무시 */ }
+    },
+    release: function () {
+      Media.stop();
+      try { if (Media.el) { Media.el.removeAttribute('src'); Media.el.load(); } } catch (e) { /* 무시 */ }
+      Media.el = null;
+      if (silentUrl) { try { URL.revokeObjectURL(silentUrl); } catch (e) { /* 무시 */ } silentUrl = null; }
+    }
+  };
+
   function create(opt) {
     opt = opt || {};
     var AC = typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null;
@@ -265,7 +325,9 @@
     function ensureCtx() {
       if (ctx) return ctx;
       if (!AC) throw new Error(HELP.noAudio);
+      Media.start();
       try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { ctx = new AC(); }
+      try { ctx.onstatechange = onCtxState; } catch (e) { /* 무시 */ }
       try {
         master = ctx.createGain(); master.gain.value = gainOf();
         if (ctx.createDynamicsCompressor) {
@@ -276,6 +338,15 @@
       } catch (e) { master = null; limiter = null; }
       return ctx;
     }
+    /** 전화 · 알림 · 화면 잠금으로 오디오가 멈춘("suspended" · iOS 는 "interrupted") 뒤 다시 살립니다 — 메트로놈이 돌고 있을 때만 */
+    function wake() {
+      if (destroyed || !ctx || !sched.running) return;
+      Media.start();
+      if (ctx.state !== 'running' && ctx.resume) { try { var r = ctx.resume(); if (r && r.catch) r.catch(function () { /* 사용자가 다시 눌러야 하는 경우 */ }); } catch (e) { /* 무시 */ } }
+    }
+    function onCtxState() { if (ctx && ctx.state !== 'running' && sched.running) wake(); }
+    function onVisible() { if (typeof document !== 'undefined' && document.visibilityState === 'visible') wake(); }
+    if (typeof document !== 'undefined' && document.addEventListener) { document.addEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('pageshow', onVisible); }
     function applyGain() {
       if (master && ctx) { try { master.gain.setTargetAtTime(gainOf(), ctx.currentTime, 0.01); } catch (e) { master.gain.value = gainOf(); } }
     }
@@ -292,6 +363,7 @@
       g.gain.linearRampToValueAtTime(peak, time + 0.002);
       g.gain.exponentialRampToValueAtTime(0.0001, time + 0.055);
       o.connect(g); g.connect(master || ctx.destination);
+      o.onended = function () { o.onended = null; try { o.disconnect(); g.disconnect(); } catch (e) { /* 이미 끊김 */ } };   // 다 울린 소리 노드는 바로 끊어 메모리에 쌓이지 않게
       o.start(time); o.stop(time + 0.07);
     }
     /** 음성을 쓸 수 없을 때의 대체 — 종류마다 다른 "삐" 패턴 (오디오 시계에 예약하므로 박에 정확히 맞습니다) */
@@ -303,7 +375,9 @@
         var t = time + i * 0.11, o = ctx.createOscillator(), g = ctx.createGain();
         o.type = 'sine'; o.frequency.value = f;
         g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.5 * cfg.voice, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
-        o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.1);
+        o.connect(g); g.connect(ctx.destination);
+        o.onended = function () { o.onended = null; try { o.disconnect(); g.disconnect(); } catch (e) { /* 이미 끊김 */ } };
+        o.start(t); o.stop(t + 0.1);
       });
     }
 
@@ -335,8 +409,10 @@
     function warmup() { if (speechOk && !cfg.warmed) { cfg.warmed = true; speak(' ', cfg.lang, true); } }
 
     /* ---------- 타이머 (25ms 마다 깨어나 예약만 합니다) ---------- */
+    var lastWake = 0;
     function pump() {
       if (!ctx || destroyed) return;
+      if (ctx.state !== 'running') { var tn = Date.now(); if (tn - lastWake > 1500) { lastWake = tn; wake(); } }      // 오디오가 끊겼으면 (전화 · 알림 등) 1.5초마다 다시 살려 봅니다
       var ev = sched.tick();
       for (var i = 0; i < ev.length; i++) { click(ev[i].time, ev[i].accent, ev[i].countIn); q.push(ev[i]); }
     }
@@ -372,7 +448,7 @@
 
     function state() {
       cfg.first = !!sched.marks[0];
-      return { running: sched.running, bpm: sched.bpm, num: sched.num, den: sched.den, marks: sched.marks.slice(), gain: gainOf(), pitch: cfg.pitch, flash: cfg.flash, cfg: cfg, speech: speechOk, audio: !!AC,
+      return { running: sched.running, bpm: sched.bpm, num: sched.num, den: sched.den, marks: sched.marks.slice(), gain: gainOf(), pitch: cfg.pitch, flash: cfg.flash, cfg: cfg, speech: speechOk, audio: !!AC, media: Media.on,
         pending: pending.map(function (p) { return { label: p.text, landAt: p.plan.landAt, speakAt: p.plan.speakAt }; }) };
     }
     function emitState() { notify('state', state()); }
@@ -389,6 +465,7 @@
         if (!raf) raf = requestAnimationFrame(frame);
         emitState();
       };
+      Media.start();
       var r = c.resume ? c.resume() : null;
       if (r && r.then) r.then(go, function () { notify('error', { message: HELP.blocked }); }); else go();
       if (!speechOk) notify('info', { message: HELP.noSpeech });
@@ -415,6 +492,7 @@
         emitState();
       };
       var t0 = Date.now();
+      Media.start();
       var r = c.resume ? c.resume() : null;
       if (r && r.then) r.then(go, function () { notify('error', { message: HELP.blocked }); }); else go();
       if (!speechOk) notify('info', { message: HELP.noSpeech });
@@ -425,6 +503,7 @@
       pending.forEach(function (p) { clearTimeout(p.timeout); });
       pending = [];
       if (speechOk) { try { window.speechSynthesis.cancel(); } catch (e) { /* 무시 */ } }
+      Media.stop();
       emitState();
     }
 
@@ -447,6 +526,7 @@
       mode = mode || cfg.mode;
       var useSpeech = speechOk && cfg.sound !== 'mute';
       if (!ctx || !sched.running) {                              // 멈춰 있을 때 — 시험 삼아 바로 들려줍니다
+        Media.start(); if (!sched.running) setTimeout(function () { if (!sched.running) Media.stop(); }, 4000);   // 무음 모드에서도 음성이 들리게 잠깐만 미디어 채널로
         if (useSpeech) speak(text, cfg.lang); 
         else if (ctx || AC) { try { ensureCtx(); ctx.resume(); earcon(ctx.currentTime + 0.02, c.g, 0); } catch (e) { return { ok: false, error: HELP.noAudio }; } }
         notify('cue', { status: 'spoken', text: text, immediate: true });
@@ -498,11 +578,14 @@
       destroy: function () {
         destroyed = true; stop();
         if (raf) cancelAnimationFrame(raf);
+        if (typeof document !== 'undefined' && document.removeEventListener) { document.removeEventListener('visibilitychange', onVisible); if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('pageshow', onVisible); }
+        Media.release();
+        try { if (ctx) ctx.onstatechange = null; if (master) master.disconnect(); if (limiter) limiter.disconnect(); } catch (e) { /* 무시 */ }
         if (ctx && ctx.close) { try { ctx.close(); } catch (e) { /* 무시 */ } }
         if (speechOk) { try { window.speechSynthesis.removeEventListener('voiceschanged', loadVoices); } catch (e) { /* 무시 */ } }
       }
     };
   }
 
-  return { CUES: CUES, CUE_BY: CUE_BY, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS, pickVoiceFrom: pickVoiceFrom, isMaleVoice: isMaleVoice, MALE_FALLBACK_PITCH: MALE_FALLBACK_PITCH };
+  return { CUES: CUES, CUE_BY: CUE_BY, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS, pickVoiceFrom: pickVoiceFrom, isMaleVoice: isMaleVoice, MALE_FALLBACK_PITCH: MALE_FALLBACK_PITCH, Media: Media };
 }));

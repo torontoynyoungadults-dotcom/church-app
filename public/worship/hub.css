@@ -607,3 +607,27 @@ body.ht-lock { overflow: hidden; }
 .pv-fl2 input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .09); color: var(--g-ink); font-size: 14px; font-family: inherit; }
 .pv-fl2 input:focus { outline: none; border-color: var(--g-a, #ff8a2a); box-shadow: 0 0 0 2px rgba(255, 138, 42, .28); }
 .pv-songedit h4 small { font-weight: 600; color: var(--g-sub); margin-left: 6px; }
+
+/* ================= Step 2.10 — 메트로놈 시작 버튼은 항상 손 닿는 곳에 ================= */
+/* (a) 패널 "메트로놈" 탭: 시작 · 멈춤 버튼이 맨 위에 붙어 스크롤해도 따라옵니다 */
+.pv-mstick { position: sticky; top: -12px; z-index: 3; margin: -12px -14px 12px; padding: 10px 14px 9px; background: rgba(16, 16, 23, .92); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); border-bottom: 1px solid var(--g-line); }
+.pv-mstick .pv-big { height: 56px; font-size: 20px; }
+/* (b) 악보 화면 위에 떠 있는 작은 유리 버튼 (▶/■ + BPM) — 패널을 열지 않고 누릅니다 */
+.pv-mq { position: absolute; z-index: 6; top: 8px; left: 10px; display: flex; align-items: stretch; gap: 0; border-radius: 999px; overflow: hidden; border: 1px solid var(--g-line2); background: rgba(20, 20, 27, .8); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); box-shadow: 0 8px 26px rgba(0, 0, 0, .5); touch-action: manipulation; }
+.pv-computer .pv-mq { grid-column: 1 / 2; grid-row: 2 / 3; left: auto; right: 22px; top: 10px; }
+.pv-tablet.pv-lefty .pv-mq { left: auto; right: 10px; }
+.pv-mq button { border: none; background: transparent; color: var(--g-ink); font-weight: 900; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pv-mq-go { min-width: 52px; height: 48px; font-size: 20px; color: #1a0f05 !important; background: linear-gradient(135deg, #ff9d47, #ff7a1c) !important; }
+.pv-mq-go.on { background: linear-gradient(135deg, #ff6b6b, #e11d48) !important; color: #fff !important; }
+.pv-mq-bpm { position: relative; display: flex; align-items: baseline; gap: 4px; height: 48px; padding: 0 16px 0 12px; font-variant-numeric: tabular-nums; }
+.pv-mq-bpm b { font-size: 21px; line-height: 48px; } .pv-mq-bpm small { font-size: 10.5px; color: var(--g-dim); font-weight: 800; }
+.pv-mq-dot { position: absolute; right: 6px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--g-a); opacity: 0; }
+.pv-mq-dot.b0 { animation: pvmq0 .28s ease-out; } .pv-mq-dot.b1 { animation: pvmq1 .28s ease-out; }
+.pv-mq-dot.acc { background: #8ecbff; }
+@keyframes pvmq0 { 0% { opacity: 1; transform: scale(1.5); } 100% { opacity: 0; transform: scale(.8); } }
+@keyframes pvmq1 { 0% { opacity: 1; transform: scale(1.5); } 100% { opacity: 0; transform: scale(.8); } }
+.pv-mq.locked .pv-mq-go { opacity: .6; }
+.pv-mq-go:focus-visible, .pv-mq-bpm:focus-visible { outline: 2px solid var(--g-a2); outline-offset: -3px; }
+.pv-tablet .pv-mq-go { min-width: 60px; height: 56px; } .pv-tablet .pv-mq-bpm { height: 56px; } .pv-tablet .pv-mq-bpm b { line-height: 56px; }
+.pv-compact .pv-mq { top: 6px; left: max(8px, env(safe-area-inset-left)); }
+@media (prefers-reduced-motion: reduce) { .pv-mq-dot { animation: none !important; } }

@@ -17,7 +17,7 @@
   var COLOR_NAMES = { '#e53935': '빨강', '#2563eb': '파랑', '#16a34a': '초록', '#7c3aed': '보라', '#111111': '검정', '#ffffff': '흰색 (수정액)' };
   var HL_COLORS = ['#ffe14d', '#7dff8a', '#ff9ad5', '#7fd4ff', '#ffb066'];
   var STRETCH = { tie: 1, cresc: 1, decresc: 1 };
-  /** 송폼 박스 이름표 — 서버(lib/realtime.js FBOX_TAG_RE)는 이 글자들과 같은 모양(영문 · 숫자 · 한글 8자 이내)만 받습니다. Int=인트로 V=절 P=프리코러스 C=후렴 B=브릿지 */
+  /** 송폼 라벨 글자 — 서버(lib/realtime.js FBOX_TAG_RE)는 이 글자들과 같은 모양(영문 · 숫자 · 한글 8자 이내)만 받습니다. Int=인트로 V=절 P=프리코러스 C=후렴 B=브릿지 */
   var FBOX_TAGS = ['Int', 'V', 'V1', 'V2', 'V3', 'P', 'C', 'C2', 'B', 'Inst', 'Itld', 'Solo', 'Tag', 'Turn', 'Out', 'Coda', 'End'];
   var FBOX_NAMES = { Int: '인트로', V: '절', V1: '1절', V2: '2절', V3: '3절', P: '프리코러스', C: '후렴', C2: '후렴 2', B: '브릿지', Inst: '연주', Itld: '간주', Solo: '솔로', Tag: '태그', Turn: '턴어라운드', Out: '아웃트로', Coda: '코다', End: '끝' };
   /** 글꼴 — 글자 · 코드 · 글자 모양 기호(음표 도장 · 다이내믹)에 씁니다. 서버는 이 키(sans · serif · hand)만 받습니다 */
@@ -137,11 +137,11 @@
     return { x1: x - half.w, y1: y - half.h, x2: x + half.w, y2: y + half.h };
   }
 
-  /** 선택 표시 · 잡기용 — 글자 · 기호 · 송폼 박스가 차지하는 사각형(px) */
+  /** 선택 표시 · 잡기용 — 글자 · 기호 · 송폼 라벨이 차지하는 사각형(px) */
   function itemBox(it, W, H) {
     if (it.t === 'text') { var px = Math.max(8, (it.sz || 0.025) * W), w = textWidth(it, W); return { x: it.x * W - 3, y: it.y * H - px - 1, w: w + 6, h: px * 1.3 + 4 }; }
     if (it.t === 'sym') { var b = symBox(it.k, it, W, H); return { x: b.x1, y: b.y1, w: b.x2 - b.x1, h: b.y2 - b.y1 }; }
-    if (it.t === 'fbox') { var lb = fboxLabel(it, W, H), x0 = Math.min(it.x * W, lb.x), y0 = Math.min(it.y * H, lb.y); return { x: x0, y: y0, w: Math.max(it.x * W + it.w * W, lb.x + lb.w) - x0, h: Math.max(it.y * H + it.h * H, lb.y + lb.h) - y0 }; }
+    if (it.t === 'fbox') { var lb = fboxLabel(it, W, H); return { x: lb.x, y: lb.y, w: lb.w, h: lb.h }; }
     return null;
   }
   function movable(it) { return !!it && (it.t === 'text' || it.t === 'sym' || it.t === 'fbox'); }
@@ -151,14 +151,22 @@
   function isLightColor(c) { var m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c || ''); return !!m && (parseInt(m[1], 16) * 0.3 + parseInt(m[2], 16) * 0.59 + parseInt(m[3], 16) * 0.11) > 170; }
   function rrect(c, x, y, w, h, r) { c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r); c.lineTo(x + w, y + h - r); c.quadraticCurveTo(x + w, y + h, x + w - r, y + h); c.lineTo(x + r, y + h); c.quadraticCurveTo(x, y + h, x, y + h - r); c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y); c.closePath(); }
   var _fm = null;
-  /** 이름표(라벨) 칸 — 박스 왼쪽 위 바깥에 붙고, 위가 쪽 밖이면 안쪽으로 들어옵니다 (px) */
+  /**
+   * 송폼 라벨 — 박스 없이 V · C · P · B · Int 같은 글자만 악보 위에 또렷하게 씁니다 (글자 둘레의 흰(또는 어두운) 테두리로 어떤 악보 위에서도 잘 보임).
+   * 저장 형식은 예전 "송폼 박스"(t:'fbox')와 같아서, 이미 그려 둔 박스도 지워지지 않고 글자 라벨만 남겨 그립니다.
+   *  · 새 라벨은 w=h=0.01 로 저장하고, 누른 자리가 글자의 한가운데입니다.
+   *  · 예전 박스(w · h 가 0.03 보다 큼)는 예전 이름표 자리(박스 왼쪽 위)에 그대로 글자만 그립니다.
+   */
+  function fboxLegacy(it) { return (it.w || 0) > 0.03 || (it.h || 0) > 0.03; }
   function fboxLabel(it, W, H) {
-    var px = Math.max(11, Math.min(26, (it.sz || 0.02) * W)), pad = Math.max(4, px * 0.4), tw = 0, s = String(it.k || '');
+    var px = Math.max(12, Math.min(44, (it.sz || 0.026) * W)), pad = Math.max(3, px * 0.28), tw = 0, s = String(it.k || '');
     try { if (typeof document !== 'undefined') { _fm = _fm || document.createElement('canvas').getContext('2d'); _fm.font = '800 ' + px + 'px ' + FONTS.sans; tw = _fm.measureText(s).width; } } catch (e) {}
     if (!tw) tw = s.length * px * 0.62;
-    var h = px + pad, x = it.x * W, y = it.y * H - h;
-    if (y < 0) y = it.y * H;
-    return { x: x, y: y, w: tw + pad * 2, h: h, px: px, pad: pad };
+    var w = tw + pad * 2, h = px + pad, x, y;
+    if (fboxLegacy(it)) { x = it.x * W; y = it.y * H - h; if (y < 0) y = it.y * H; }
+    else { x = it.x * W - w / 2; y = it.y * H - h / 2; }
+    x = Math.max(0, Math.min(Math.max(0, W - w), x)); y = Math.max(0, Math.min(Math.max(0, H - h), y));
+    return { x: x, y: y, w: w, h: h, px: px, pad: pad };
   }
 
   /* ------------------------------------------------------------ 항목 그리기 */
@@ -184,13 +192,11 @@
         c.font = (it.chord ? '800 ' : '600 ') + px + 'px ' + FONTS[fontOf(it)]; c.textBaseline = 'alphabetic';
         c.lineWidth = Math.max(2, px * 0.2); c.strokeStyle = 'rgba(255,255,255,.9)'; c.strokeText(it.s || '', 0, 0);
         c.fillStyle = it.c || '#ff5a1f'; c.fillText(it.s || '', 0, 0);
-      } else if (it.t === 'fbox') {
-        var bx = it.x * W, by = it.y * H, bw = Math.max(4, (it.w || 0.1) * W), bh = Math.max(4, (it.h || 0.05) * H), a0 = o.alpha == null ? 1 : o.alpha;
-        c.lineWidth = Math.max(2, 0.0035 * W); c.lineJoin = 'miter';
-        c.globalAlpha = a0 * 0.07; c.fillRect(bx, by, bw, bh);                                          // 거의 투명한 색 (악보가 그대로 보임)
-        c.globalAlpha = a0; c.strokeRect(bx, by, bw, bh);
-        var lb = fboxLabel(it, W, H); c.fillStyle = it.c || '#ff5a1f'; c.beginPath(); rrect(c, lb.x, lb.y, lb.w, lb.h, Math.min(5, lb.h / 3)); c.fill();
-        c.font = '800 ' + lb.px + 'px ' + FONTS.sans; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = isLightColor(it.c) ? '#111111' : '#ffffff'; c.fillText(String(it.k || ''), lb.x + lb.pad, lb.y + lb.h / 2 + 0.5);
+      } else if (it.t === 'fbox') {                                                        // 송폼 라벨 — 글자만 (박스 · 배경 없음)
+        var lb = fboxLabel(it, W, H), fc = it.c || '#ff5a1f';
+        c.font = '800 ' + lb.px + 'px ' + FONTS.sans; c.textAlign = 'left'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+        c.lineWidth = Math.max(3, lb.px * 0.24); c.strokeStyle = isLightColor(fc) ? 'rgba(17,17,17,.88)' : 'rgba(255,255,255,.95)'; c.strokeText(String(it.k || ''), lb.x + lb.pad, lb.y + lb.h / 2 + 0.5);
+        c.fillStyle = fc; c.fillText(String(it.k || ''), lb.x + lb.pad, lb.y + lb.h / 2 + 0.5);
       } else if (it.t === 'sym') {
         var k = it.k, s = Math.max(8, (it.sz || 0.03) * W);
         c.translate(it.x * W, it.y * H); if (it.rot) c.rotate(it.rot * Math.PI / 180);
@@ -232,13 +238,7 @@
       return false;
     }
     if (it.t === 'text') { var px = Math.max(8, (it.sz || 0.025) * W), w = textWidth(it, W); return x >= it.x * W - tol && x <= it.x * W + w + tol && y >= it.y * H - px - tol && y <= it.y * H + px * 0.3 + tol; }
-    if (it.t === 'fbox') {                                                              // 테두리 · 이름표만 (안쪽은 비어 있어 그 밑의 필기를 가리지 않음)
-      var bx = it.x * W, by = it.y * H, bw = (it.w || 0.1) * W, bh = (it.h || 0.05) * H, t2 = Math.max(tol, 6);
-      var lb = fboxLabel(it, W, H);
-      if (x >= lb.x - 2 && x <= lb.x + lb.w + 2 && y >= lb.y - 2 && y <= lb.y + lb.h + 2) return true;
-      var out = x >= bx - t2 && x <= bx + bw + t2 && y >= by - t2 && y <= by + bh + t2, inn = x > bx + t2 && x < bx + bw - t2 && y > by + t2 && y < by + bh - t2;
-      return out && !inn;
-    }
+    if (it.t === 'fbox') { var lb = fboxLabel(it, W, H); return x >= lb.x - tol && x <= lb.x + lb.w + tol && y >= lb.y - tol && y <= lb.y + lb.h + tol; }   // 글자 칸만
     if (it.t === 'sym') { var b = symBox(it.k, it, W, H); return x >= b.x1 - tol && x <= b.x2 + tol && y >= b.y1 - tol && y <= b.y2 + tol; }
     return false;
   }
@@ -255,12 +255,13 @@
     var cv = o.canvas, host = o.host, ctx = cv.getContext('2d');
     var S = { layers: { team: new Map(), mine: new Map() }, vis: { team: true, mine: true }, page: 1, tool: 'none', color: PALETTE[0], hlColor: HL_COLORS[0],
       pw: 0.003, hw: 0.02, sym: 'sharp', fboxTag: 'V',  symSize: 0.032, textSize: 0.024, font: 'sans', layer: 'team', W: 1, H: 1, dpr: 1, cur: null, live: new Map(), hist: [], redo: [],
-      sawPen: false, sel: null, fboxSize: 0.02, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
+      sawPen: false, sel: null, fboxSize: 0.028, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
     function say(t, bad) { try { if (o.onMessage) o.onMessage(t, !!bad); } catch (e) {} }
     function changed() { try { if (o.onChange) o.onChange(); } catch (e) {} }
 
     /* ---- 그리기 ---- */
-    function invalidate() { if (S.raf || S.dead) return; S.raf = (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (f) { return setTimeout(f, 16); })(function () { S.raf = 0; redraw(); }); }
+    /** 다시 그리기 예약 (한 화면 프레임에 한 번으로 모읍니다). dyn=true 는 "확정된 필기는 그대로, 그리는 중인 획 · 선택 표시 · 남의 실시간 획만 바뀜" — 이때는 확정 필기를 다시 그리지 않고 저장해 둔 그림을 붙입니다 */
+    function invalidate(dyn) { if (!dyn) S.dirty = true; if (S.raf || S.dead) return; S.raf = (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (f) { return setTimeout(f, 16); })(function () { S.raf = 0; redraw(); }); }
     function pageItems(layer, pg) { var out = []; S.layers[layer].forEach(function (it) { if (it.pg === pg) out.push(it); }); return out; }
     function drawPage(c, W, H, pg, vis) {
       vis = vis || S.vis;
@@ -271,10 +272,32 @@
         list.filter(function (i) { return i.t !== 'hl'; }).forEach(function (i) { drawItem(c, i, W, H); });
       });
     }
+    /** 확정된 필기를 따로 그려 두는 그림 — 필기가 많은 쪽(30개↑)에서 획을 긋는 동안만 씁니다 (적은 쪽은 그냥 다시 그리는 게 더 쌉니다) */
+    function baseWorth() {
+      if (!S.cur && !S.live.size) return false;
+      if (cv.width * cv.height > 12e6 || typeof document === 'undefined') return false;
+      var n = 0; ['team', 'mine'].forEach(function (ly) { S.layers[ly].forEach(function (it) { if (it.pg === S.page) n++; }); });
+      return n >= 30;
+    }
+    function buildBase() {
+      try {
+        var bc = S.base || (S.base = document.createElement('canvas'));
+        if (bc.width !== cv.width || bc.height !== cv.height) { bc.width = cv.width; bc.height = cv.height; }
+        var b = bc.getContext('2d'); b.setTransform(1, 0, 0, 1, 0, 0); b.clearRect(0, 0, bc.width, bc.height); b.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+        drawPage(b, S.W, S.H, S.page); S.baseOk = true;
+      } catch (e) { S.baseOk = false; }
+    }
+    function freeBase() { S.baseOk = false; if (S.base) { try { S.base.width = S.base.height = 0; } catch (e) { /* 무시 */ } S.base = null; } }
     function redraw() {
       if (S.dead) return;
-      ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); ctx.clearRect(0, 0, S.W, S.H);
-      drawPage(ctx, S.W, S.H, S.page);
+      var dirty = S.dirty; S.dirty = false; if (dirty) S.baseOk = false;
+      if (!dirty && !S.baseOk && baseWorth()) buildBase();
+      if (!dirty && S.baseOk) {                                                    // 획을 긋는 동안 : 확정된 필기는 저장해 둔 그림을 한 번에 붙임
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(S.base, 0, 0); ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+      } else {
+        ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); ctx.clearRect(0, 0, S.W, S.H);
+        drawPage(ctx, S.W, S.H, S.page);
+      }
       var now = Date.now(), keep = false;
       S.live.forEach(function (l, id) {
         if (now - l.at > 4000) { S.live.delete(id); return; }
@@ -284,7 +307,7 @@
         var lx = l.p[l.p.length - 2] * S.W, ly = l.p[l.p.length - 1] * S.H;
         ctx.save(); ctx.font = '600 11px sans-serif'; ctx.fillStyle = 'rgba(20,20,26,.85)'; var tw = ctx.measureText(l.by || '').width; ctx.fillRect(lx + 6, ly - 20, tw + 8, 15); ctx.fillStyle = '#fff'; ctx.fillText(l.by || '', lx + 10, ly - 9); ctx.restore();
       });
-      if (keep && !S.liveTimer) S.liveTimer = setTimeout(function () { S.liveTimer = 0; invalidate(); }, 1200);
+      if (keep && !S.liveTimer) S.liveTimer = setTimeout(function () { S.liveTimer = 0; invalidate(true); }, 1200);
       if (S.cur && (S.cur.kind === 'pen' || S.cur.kind === 'hl')) {
         var cc = S.cur; drawItem(ctx, { t: cc.kind, c: cc.color, w: cc.w, p: cc.straight ? cc.p.slice(0, 2).concat(cc.p.slice(-2)) : cc.p, line: cc.straight }, S.W, S.H);
       } else if (S.cur && (S.cur.kind === 'sym' || S.cur.kind === 'fbox')) {
@@ -357,7 +380,7 @@
       return gone;
     }
 
-    /** 누른 자리의 옮길 수 있는 항목 (글자 · 코드 · 기호 · 송폼 박스) — 위에 그려진 것부터 */
+    /** 누른 자리의 옮길 수 있는 항목 (글자 · 코드 · 기호 · 송폼 라벨) — 위에 그려진 것부터 */
     function pickMovable(px, py, touch) {
       var tol = touch ? 14 : 7, found = null;
       ['team', 'mine'].forEach(function (ly) {
@@ -402,7 +425,7 @@
         S.cur = { kind: 'sym', ptr: e.pointerId, x0: p.x, y0: p.y, stretch: stretch, item: { id: newId(), t: 'sym', pg: S.page, c: S.color, x: r4(p.x), y: r4(p.y), sz: S.symSize, k: S.sym, f: textLike(S.sym) && S.font !== 'sans' ? S.font : undefined, w2: stretch ? 0.08 : undefined } };
         invalidate();
       } else if (S.tool === 'fbox') {
-        S.cur = { kind: 'fbox', ptr: e.pointerId, x0: p.x, y0: p.y, moved: false, item: { id: newId(), t: 'fbox', pg: S.page, c: S.color, x: r4(p.x), y: r4(p.y), w: 0.001, h: 0.001, sz: S.fboxSize, k: S.fboxTag } };
+        S.cur = { kind: 'fbox', ptr: e.pointerId, x0: p.x, y0: p.y, moved: false, item: { id: newId(), t: 'fbox', pg: S.page, c: S.color, x: r4(clamp(p.x, 0.005, 0.995)), y: r4(clamp(p.y, 0.005, 0.995)), w: 0.01, h: 0.01, sz: S.fboxSize, k: S.fboxTag } };
         invalidate();
       } else if (S.tool === 'text' || S.tool === 'chord') {
         var g2 = pickMovable(p.x * S.W, p.y * S.H, touch);
@@ -428,14 +451,13 @@
           if (Math.abs(q.x - c.p[n - 2]) + Math.abs(q.y - c.p[n - 1]) < 0.0004) continue;
           c.p.push(q.x, q.y);
         }
-        sendLive(c); invalidate();
+        sendLive(c); invalidate(true);
       } else if (c.kind === 'erase') { list.forEach(function (ev) { var q = norm(ev); eraseAt(q.x * S.W, q.y * S.H); }); }
-      else if (c.kind === 'fbox') {
-        var q3 = norm(e), it3 = c.item, x1 = Math.min(c.x0, q3.x), y1 = Math.min(c.y0, q3.y);
-        it3.x = r4(x1); it3.y = r4(y1); it3.w = r4(Math.abs(q3.x - c.x0)); it3.h = r4(Math.abs(q3.y - c.y0));
-        if (it3.w > 0.008 || it3.h > 0.008) c.moved = true; invalidate();
+      else if (c.kind === 'fbox') {                                                            // 누른 채 끌면 글자가 손가락을 따라 다닙니다 (떼는 자리에 놓임)
+        var q3 = norm(e), it3 = c.item;
+        it3.x = r4(clamp(q3.x, 0.005, 0.995)); it3.y = r4(clamp(q3.y, 0.005, 0.995)); c.moved = true; invalidate(true);
       }
-      else if (c.kind === 'sym' && c.stretch) { var q2 = norm(e); c.item.w2 = r4(clamp(Math.abs(q2.x - c.x0), 0.02, 0.5)); invalidate(); }
+      else if (c.kind === 'sym' && c.stretch) { var q2 = norm(e); c.item.w2 = r4(clamp(Math.abs(q2.x - c.x0), 0.02, 0.5)); invalidate(true); }
     }
     function sendLive(c, final) {
       if (S.layer !== 'team' || !o.onLive) return;
@@ -466,11 +488,7 @@
         if (c.straight) it.line = 1;
         addLocal(S.layer, it);
       } else if (c.kind === 'fbox') {
-        var fb = c.item;
-        if (!c.moved || fb.w < 0.012 || fb.h < 0.008) {                                                  // 그냥 눌렀다 뗐으면 기본 크기 박스
-          fb.x = r4(clamp(c.x0, 0, 0.7)); fb.y = r4(clamp(c.y0, 0.02, 0.93)); fb.w = 0.3; fb.h = 0.07;
-        }
-        fb.w = r4(Math.min(fb.w, 1 - fb.x)); fb.h = r4(Math.min(fb.h, 1 - fb.y));
+        var fb = c.item; fb.w = 0.01; fb.h = 0.01;
         addLocal(S.layer, fb);
       } else if (c.kind === 'sym') { var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f; addLocal(S.layer, s); }
       else if (c.kind === 'textpos') { openEditor(c.x, c.y); }
@@ -563,9 +581,12 @@
       resize: function (cssW, cssH) {
         S.dpr = Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1);
         S.W = Math.max(1, Math.round(cssW)); S.H = Math.max(1, Math.round(cssH));
-        cv.width = Math.round(S.W * S.dpr); cv.height = Math.round(S.H * S.dpr); cv.style.width = S.W + 'px'; cv.style.height = S.H + 'px'; invalidate();
+        var pw = Math.round(S.W * S.dpr), ph = Math.round(S.H * S.dpr);
+        if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }            // 크기가 그대로면 캔버스를 다시 만들지 않습니다 (메모리 · 깜빡임 절약)
+        var sw = S.W + 'px', sh = S.H + 'px'; if (cv.style.width !== sw) cv.style.width = sw; if (cv.style.height !== sh) cv.style.height = sh;
+        invalidate();
       },
-      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; S.cur = null; S.sel = null; invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
+      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; S.cur = null; S.sel = null; freeBase(); invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
       setTool: function (t) { closeEditor(true); S.tool = ['none', 'pen', 'hl', 'select', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; S.cur = null; if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord') S.sel = null; changed(); refreshTouch(); invalidate(); },
       setColor: function (c) {
         if (!/^#[0-9a-f]{6}$/i.test(c)) return;
@@ -577,7 +598,7 @@
       setHlColor: function (c) { if (/^#[0-9a-f]{6}$/i.test(c)) S.hlColor = c; },
       setWidth: function (w) { w = +w; if (w > 0) { if (S.tool === 'hl') S.hw = clamp(w, 0.005, 0.06); else S.pw = clamp(w, 0.0008, 0.02); } },
       setSymbol: function (k) { if (SYMBOLS.some(function (s) { return s.k === k; })) S.sym = k; },
-      setFboxTag: function (k) { k = String(k || '').slice(0, 8); if (/^[A-Za-z0-9\u3131-\uD7A3]{1,8}$/.test(k)) S.fboxTag = k; }, setFboxSize: function (v) { S.fboxSize = clamp(+v || 0.02, 0.012, 0.04); },
+      setFboxTag: function (k) { k = String(k || '').slice(0, 8); if (/^[A-Za-z0-9\u3131-\uD7A3]{1,8}$/.test(k)) S.fboxTag = k; }, setFboxSize: function (v) { S.fboxSize = clamp(+v || 0.028, 0.012, 0.06); },
       setSymSize: function (s) { S.symSize = clamp(+s || 0.032, 0.012, 0.12); }, setTextSize: function (s) { S.textSize = clamp(+s || 0.024, 0.012, 0.08); if (S.editor) { S.editor.sz = S.textSize; S.editor.szSet = true; paintEditor(); } },
       setLayer: function (ly) { if (ly === 'team' || ly === 'mine') S.layer = ly; },
       setVisible: function (ly, on) { S.vis[ly] = !!on; invalidate(); },
@@ -588,7 +609,7 @@
       remoteAdd: function (ly, it) { S.layers[ly].set(it.id, it); S.live.delete(it.id); invalidate(); changed(); },
       remoteDel: function (ly, id) { S.layers[ly].delete(id); invalidate(); changed(); },
       remoteClear: function (ly, ids) { (ids || []).forEach(function (id) { S.layers[ly].delete(id); }); invalidate(); changed(); },
-      remoteLive: function (m) { if (!m || !m.id) return; var old = S.live.get(m.id); S.live.set(m.id, { id: m.id, t: m.t, pg: m.pg, c: m.c, w: m.w, p: m.p, by: m.by, at: Date.now() }); invalidate(); },
+      remoteLive: function (m) { if (!m || !m.id) return; var old = S.live.get(m.id); S.live.set(m.id, { id: m.id, t: m.t, pg: m.pg, c: m.c, w: m.w, p: m.p, by: m.by, at: Date.now() }); invalidate(true); },
       undo: undo, redo: redo,
       /** 그리던 획 · 옮기던 항목을 저장하지 않고 버림 (손가락 두 개로 확대를 시작할 때) */
       cancelCurrent: function () { var c = S.cur; if (!c) return false; S.cur = null; if (c.kind === 'move' && S.layers[c.layer]) S.layers[c.layer].set(c.orig.id, c.orig); invalidate(); return true; },
@@ -628,7 +649,7 @@
       drawPage: drawPage,
       state: function () { return { fboxTag: S.fboxTag, cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, sel: S.sel ? { layer: S.sel.layer, id: S.sel.id } : null, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },
       redraw: redraw, closeEditor: function () { closeEditor(true); },
-      destroy: function () { S.dead = true; closeEditor(false); try { cv.remove(); } catch (e) {} }
+      destroy: function () { S.dead = true; if (S.raf && typeof cancelAnimationFrame === 'function') { try { cancelAnimationFrame(S.raf); } catch (e) {} } S.raf = 0; if (S.liveTimer) { clearTimeout(S.liveTimer); S.liveTimer = 0; } freeBase(); S.live.clear(); closeEditor(false); try { cv.remove(); } catch (e) {} }
     };
     return api;
   }

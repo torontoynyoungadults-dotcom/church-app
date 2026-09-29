@@ -175,20 +175,30 @@ const INIT = `(() => {
   await openTab(pc, 'together'); await pc.click('button[data-a="crelease"]');
   check('B 화면: 클릭 컨트롤 없음 → 조작 가능', await L.waitTrue(pb, () => !document.querySelector('[data-role="toggle"]').disabled && /클릭 컨트롤 없음/.test(document.querySelector('.pv-click').textContent), null, 3000));
 
-  console.log('· 송폼 박스 (악보 위 네모 + 이름표)');
+  console.log('· 송폼 라벨 (박스 없이 V · C · P · B · Int 글자만)');
+  const alphaAt = (pg, fx, fy) => pg.evaluate(([x, y]) => { const c = document.querySelector('.pv-anno'), d = c.getContext('2d').getImageData(Math.round(x * c.width), Math.round(y * c.height), 1, 1).data; return d[3]; }, [fx, fy]);
+  const inkIn = (pg, fx, fy, r) => pg.evaluate(([x, y, rr]) => { const c = document.querySelector('.pv-anno'), w = Math.round(rr * c.width), h = Math.round(rr * c.height), d = c.getContext('2d').getImageData(Math.max(0, Math.round(x * c.width) - w), Math.max(0, Math.round(y * c.height) - h), w * 2, h * 2).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++; return n; }, [fx, fy, r]);
   await pa.click('.pv-tool[data-tool="fbox"]');
-  check('송폼 박스 이름표 줄이 나타남', await pa.evaluate(() => document.querySelectorAll('.pv-fbtag').length >= 8));
+  check('송폼 라벨 이름표 줄이 나타남', await pa.evaluate(() => document.querySelectorAll('.pv-fbtag').length >= 8));
+  check('도구 이름이 "송폼 라벨"', await pa.evaluate(() => /송폼 라벨/.test(document.querySelector('.pv-tool[data-tool="fbox"]').textContent)));
   await pa.click('.pv-fbtag[data-fbtag="C"]');
-  await L.drag(pa, [[.2, .4], [.7, .5]]);
-  check('박스가 팀 필기로 저장(fbox · C)', await L.waitTrue(pa, () => window.__pv.P.anno().items('team').some((i) => i.t === 'fbox' && i.k === 'C' && i.w > 0.2), null, 2500));
+  await L.clickAt(pa, .2, .4);
+  check('누른 자리에 라벨이 팀 필기로 저장(fbox · C · 박스 크기 없음)', await L.waitTrue(pa, () => window.__pv.P.anno().items('team').some((i) => i.t === 'fbox' && i.k === 'C' && i.w <= 0.03 && i.h <= 0.03), null, 2500));
   check('B 화면에도 실시간으로 도착', await L.waitTrue(pb, () => window.__pv.P.anno().items('team').some((i) => i.t === 'fbox' && i.k === 'C'), null, 2500));
-  await pa.click('.pv-fbtag[data-fbtag="V"]'); await L.clickAt(pa, .3, .7);
-  check('그냥 누르면 기본 크기 박스(V)', await L.waitTrue(pa, () => window.__pv.P.anno().items('team').some((i) => i.t === 'fbox' && i.k === 'V'), null, 2500));
-  check('박스 안쪽은 비어 있어 악보가 보임 (채움이 투명에 가까움)', await pa.evaluate(() => { const it = window.__pv.P.anno().items('team').find((i) => i.k === 'C'); return !!it && it.w > 0.2; }));
+  await sleep(250);
+  const itC = await pa.evaluate(() => window.__pv.P.anno().items('team').find((i) => i.k === 'C'));
+  check('누른 자리에 글자가 그려짐 (잉크 있음)', (await inkIn(pa, itC.x, itC.y, .02)) > 30, await inkIn(pa, itC.x, itC.y, .02));
+  check('둘레에 네모 테두리가 없음 (옛 박스 자리에 투명)', (await alphaAt(pa, itC.x + .15, itC.y)) === 0 && (await alphaAt(pa, itC.x, itC.y + .05)) === 0);
+  await pa.click('.pv-fbtag[data-fbtag="V"]');
+  { const b = await L.vis(pa); await pa.mouse.move(b.x + .5 * b.width, b.y + .6 * b.height); await pa.mouse.down(); await pa.mouse.move(b.x + .7 * b.width, b.y + .62 * b.height, { steps: 5 }); await pa.mouse.up(); }
+  check('누른 채 끌면 뗀 자리에 놓임 (V — 누른 자리보다 오른쪽)', await L.waitTrue(pa, () => window.__pv.P.anno().items('team').some((i) => i.t === 'fbox' && i.k === 'V' && i.w <= 0.03), null, 2500) && await pa.evaluate(() => { const v = window.__pv.P.anno().items('team').find((i) => i.k === 'V'), c = window.__pv.P.anno().items('team').find((i) => i.k === 'C'); return v.x > c.x + 0.2; }));
+  await pa.evaluate(() => window.__pv.P.anno().remoteAdd('team', { id: 'legacybox1', t: 'fbox', pg: window.__pv.P.page(), k: 'B', x: 0.3, y: 0.75, w: 0.3, h: 0.07, c: '#e53935', sz: 0.02, by: 'Old' })); await sleep(250);
+  { const q = [await alphaAt(pa, 0.6, 0.785), await alphaAt(pa, 0.45, 0.75), await alphaAt(pa, 0.45, 0.82), await inkIn(pa, 0.3 + 0.012, 0.75 - 0.012, 0.02)];
+    check('예전 송폼 박스도 글자만 남기고 박스는 그리지 않음', q[0] === 0 && q[1] === 0 && q[2] === 0 && q[3] > 5, q); }
   await pa.click('.pv-tool[data-tool="eraser"]'); await sleep(300);
-  { const pt = await pa.evaluate(() => { const it = window.__pv.P.anno().items('team').find((i) => i.k === 'C'), r = document.querySelector('.pv-anno').getBoundingClientRect(); return { x: r.left + it.x * r.width, y1: r.top + (it.y + it.h * 0.2) * r.height, y2: r.top + (it.y + it.h * 0.8) * r.height }; });
-    await pa.mouse.move(pt.x, pt.y1); await pa.mouse.down(); await pa.mouse.move(pt.x, pt.y2, { steps: 4 }); await pa.mouse.up(); }    // 박스 테두리(왼쪽 변)를 문지름
-  check('지우개로 박스를 지울 수 있음', await L.waitTrue(pa, () => !window.__pv.P.anno().items('team').some((i) => i.k === 'C'), null, 2500));
+  { const pt = await pa.evaluate(() => { const it = window.__pv.P.anno().items('team').find((i) => i.k === 'C'), r = document.querySelector('.pv-anno').getBoundingClientRect(); return { x: r.left + it.x * r.width, y1: r.top + (it.y - 0.02) * r.height, y2: r.top + (it.y + 0.02) * r.height }; });
+    await pa.mouse.move(pt.x - 4, pt.y1); await pa.mouse.down(); await pa.mouse.move(pt.x + 4, pt.y2, { steps: 5 }); await pa.mouse.up(); }
+  check('지우개로 라벨을 지울 수 있음', await L.waitTrue(pa, () => !window.__pv.P.anno().items('team').some((i) => i.k === 'C'), null, 2500));
   check('B 에서도 지워짐', await L.waitTrue(pb, () => !window.__pv.P.anno().items('team').some((i) => i.k === 'C'), null, 2500));
   check('잔여 오류 없음', noErr(), [A.errs, B.errs, C.errs]);
   await br.close(); S.server.close(); process.exit(L.summary() ? 0 : 1);

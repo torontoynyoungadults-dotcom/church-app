@@ -99,10 +99,11 @@ function 찬양주석저장_(file, scope, owner, items, by) {
    ========================================================= */
 
 /** 필기 읽기 → { team: [...], mine: [...] } (팀 필기는 시트에 저장된 것 — 접속 중이면 실시간 서버가 최신을 줍니다) */
-function worshipAnnoLoad(token, file, scope) {
+function worshipAnnoLoad(token, file, scope, mineOnly) {
   var w = 찬양권한_(token);
   var me = String(w.name || '').trim() || '커미티';
-  return { team: 찬양주석읽기_(file, scope, '*'), mine: 찬양주석읽기_(file, scope, me), me: me, canEdit: !!w.canEdit };
+  // mineOnly=true : 실시간 서버에서 팀 필기를 따로 받는 화면이 시트 읽기를 한 번 덜 하도록 팀 필기는 빼고 돌려줍니다 (team: null). 옛 화면은 이 값을 안 보내므로 그대로 동작합니다.
+  return { team: mineOnly ? null : 찬양주석읽기_(file, scope, '*'), mine: 찬양주석읽기_(file, scope, me), me: me, canEdit: !!w.canEdit };
 }
 
 /** 내 필기 저장 — 나만 보는 층입니다 (팀 필기는 실시간 서버가 저장합니다) */
