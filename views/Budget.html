@@ -36,11 +36,11 @@
       <div id="tabBody"></div>
     </section>
   </div>
-</div>
 
-<!-- 모달 -->
-<div class="bd-modal" id="modal" role="dialog" aria-modal="true"><div class="bd-sheet" id="modalBody"></div></div>
-<div class="bd-toast" id="toast" role="status"></div>
+  <!-- 모달 · 알림 — .bd 안에 두어야 입력칸 · 색 변수(--g-*)가 그대로 적용됩니다 (Step 9: 예전에는 바깥에 있어 입력칸이 기본 회색 모양이었음) -->
+  <div class="bd-modal" id="modal" role="dialog" aria-modal="true"><div class="bd-sheet" id="modalBody"></div></div>
+  <div class="bd-toast" id="toast" role="status"></div>
+</div>
 <input type="file" id="fileXlsx" accept=".xlsx,.xls" style="display:none;">
 
 <script src="/budget/xlsx-io.js"></script>

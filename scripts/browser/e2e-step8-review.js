@@ -122,11 +122,21 @@ const shot = async (page, name) => { try { await page.screenshot({ path: path.jo
   check('예산 승인 → Budget Approved', await waitCur(p승, 'Budget Approved'));
   check('예산 항목은 잠긴 채 · 거래 탭은 열림', await (async () => { await p승.click('[data-tab="tx"]'); return !(await p승.isVisible('[data-act="add-line"]')) && (await p승.isVisible('[data-act="add-tx"]')); })());
   await reopenList(p입, '가을 수련회');
-  await p입.click('[data-tab="tx"]'); await p입.click('[data-act="add-tx"]');
+  await p입.click('[data-tab="tx"]'); await p입.click('[data-act="add-tx"]'); await sleep(90);   // 창이 열린 뒤 30ms 에 첫 칸으로 포커스가 옮겨가므로 그 뒤에 입력
   await p입.fill('#tfDate', today); await p입.selectOption('#tfLine', { label: '식사' }); await p입.fill('#tfDetail', '점심 도시락'); await p입.fill('#tfAmt', '120.5');
   await p입.click('[data-act="save-tx"]');
   check('입력자가 거래를 기록함', await L.waitTrue(p입, () => document.getElementById('tabBody').textContent.includes('점심 도시락'), null, 4000));
   check('입력자에게 "정산 제출" 버튼', await flowBtn(p입, 'submitSettlement'));
+  // Step 9 — 예산과 실적 차이가 큰 항목은 설명을 적어야 정산을 낼 수 있음
+  check('승인 카드에 "정산 제출 전에 … 설명" 안내 + 실적 탭 바로가기', (await txt(p입, '#evFlow .bd-callout')).includes('정산 제출 전에') && await p입.isVisible('#evFlow [data-act="tab"][data-tab="actuals"]'));
+  await doFlow(p입, 'submitSettlement');
+  check('설명 없이 정산 제출하면 이유가 창에 보이고 단계는 그대로', await L.waitTrue(p입, () => (document.getElementById('mMsg') || {}).textContent.includes('차이가 큰 항목의 설명이 필요합니다'), null, 5000) && (await cur(p입)) === 'Budget Approved');
+  await p입.click('[data-act="close"]');
+  await p입.click('[data-tab="actuals"]');
+  await p입.locator('.bd-vx').first().fill('참가자가 예상보다 적었습니다');
+  for (const el of await p입.locator('.bd-vx').all()) if (!(await el.inputValue())) await el.fill('시험 설명');
+  await p입.click('[data-act="save-notes"]');
+  check('설명을 저장하면 실적 탭의 경고가 사라짐', await L.waitTrue(p입, () => !document.querySelector('.bd-need') && !/⚠/.test(document.getElementById('evTabs').textContent), null, 5000));
   await doFlow(p입, 'submitSettlement');
   check('정산 제출 → Settlement Submitted', await waitCur(p입, 'Settlement Submitted'));
   check('거래 탭이 잠김 (추가 · 수정 버튼 없음 + 잠금 안내)', await (async () => { await p입.click('[data-tab="tx"]'); return !(await p입.isVisible('[data-act="add-tx"]')) && !(await p입.isVisible('[data-act="edit-tx"]')) && (await p입.isVisible('.bd-lock')); })());

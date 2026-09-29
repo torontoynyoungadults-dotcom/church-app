@@ -355,7 +355,8 @@ function budgetGetEvent(key, eventId) {
   var lines = 행사항목들_(ev.id), txs = 행사거래들_(ev.id);
   var g = 행사집계_(lines, txs);
   var f = 승인행_(ev.id);           // Step 8 — 없으면 승인 절차를 쓰지 않는 옛 행사 (아래 can 은 예전 그대로)
-  return { event: ev, level: c.level, levelName: 회계등급이름_[c.level], lines: g.lines, transactions: txs, unassigned: g.unassigned,
+  var 실적 = 실적자료_(ev, c.level, f, g, txs);   // Step 9 — 거래에 통화 · 영수증을 합치고 차이 · 노트를 붙임 (옛 필드는 그대로)
+  return { event: ev, level: c.level, levelName: 회계등급이름_[c.level], lines: g.lines, transactions: 실적.transactions, actuals: 실적.actuals, unassigned: g.unassigned,
     totals: g.totals, settlements: 행사정산들_(ev.id).map(function (s) { return { no: s.no, at: s.at, by: s.by, memo: s.memo, net: s.net,
       budgetExpense: s.budgetExpense, actualExpense: s.actualExpense, budgetIncome: s.budgetIncome, actualIncome: s.actualIncome }; }),
     can: { edit: c.level >= 2 && ev.status !== '정산완료' && 거래열림_(f), manage: c.level >= 4 && ev.status !== '정산완료',
@@ -435,8 +436,11 @@ function budgetDeleteEvent(key, eventId) {
     행사표쓰기_(SHEET_행사항목, HEAD_행사항목, pick(SHEET_행사항목, HEAD_행사항목, EVL_행사));
     행사표쓰기_(SHEET_행사거래, HEAD_행사거래, pick(SHEET_행사거래, HEAD_행사거래, EVT_행사), [EVT_날짜, EVT_입력, EVT_수정]);
     승인행지우기_(ev.id);
+    var 지운영수증 = 실적상세지우기_(ev.id, null);     // Step 9
+    실적노트지우기_(ev.id);
     행사이력_(ev.id, c.subject.name, '행사 지움', ev.name);
   } finally { lock.releaseLock(); }
+  실적파일버리기_(ev.id, 지운영수증);
   return { ok: true };
 }
 
@@ -510,8 +514,11 @@ function budgetSaveTx(key, eventId, tx) {
   var kind = String(tx.kind || '지출').trim();
   if (행사구분들_.indexOf(kind) === -1) throw new Error('구분은 지출 또는 수입입니다.');
   var date = 행사날짜검사_(tx.date, '거래 날짜');
-  var amount = 행사금액검사_(tx.amount, '금액');
+  var 옛상세 = String(tx.id || '').trim() ? (실적상세맵_(ev.id)[String(tx.id).trim()] || null) : null;
+  var fx = 실적환산_(ev.id, tx, 옛상세);                 // Step 9 — 통화 · 환율 (통화를 안 보내는 옛 화면은 CAD)
+  var amount = fx.amount;                                // 언제나 CAD
   if (amount <= 0) throw new Error('금액은 0보다 커야 합니다.');
+  var rc = 실적영수증정리_(ev, tx, 옛상세);               // Step 9 — 영수증 (안 보내면 그대로)
   var detail = String(tx.detail || '').trim().slice(0, 200);
   if (!detail) throw new Error('거래 내용을 적어주세요.');
   var lineId = String(tx.lineId || '').trim();
@@ -550,9 +557,12 @@ function budgetSaveTx(key, eventId, tx) {
     캐시비움_();
     행사올림_(ev.id, c.subject.name);
     if (ev.status === '예산작성') 행사상태바꿈_(ev.id, '진행중');
-    행사이력_(ev.id, c.subject.name, at ? '거래 고침' : '거래 기록', id + ' · ' + kind + ' · ' + amount + ' · ' + detail);
+    행사이력_(ev.id, c.subject.name, at ? '거래 고침' : '거래 기록', id + ' · ' + kind + ' · ' + amount + ' · ' + detail +
+      (fx.currency !== 'CAD' ? ' · ' + fx.currency + ' ' + fx.foreign + ' × ' + fx.rate : '') + (rc.changed ? ' · 영수증 ' + rc.list.length + '건' : ''));
+    실적상세저장_(ev.id, id, fx, rc.list, c.subject.name);   // Step 9
     캐시비움_();
   } finally { lock.releaseLock(); }
+  실적파일버리기_(ev.id, rc.removed);
   return budgetGetEvent(key, eventId);
 }
 
@@ -574,8 +584,10 @@ function budgetDeleteTx(key, eventId, txId) {
     행사표쓰기_(SHEET_행사거래, HEAD_행사거래, keep, [EVT_날짜, EVT_입력, EVT_수정]);
     행사올림_(ev.id, c.subject.name);
     행사이력_(ev.id, c.subject.name, '거래 지움', txId);
+    var 지운영수증 = 실적상세지우기_(ev.id, [txId]);   // Step 9 — 통화 · 영수증 상세도 함께 (같은 번호가 다시 쓰일 때 남은 줄이 붙지 않게)
     캐시비움_();
   } finally { lock.releaseLock(); }
+  실적파일버리기_(ev.id, 지운영수증);
   return budgetGetEvent(key, eventId);
 }
 
@@ -593,7 +605,7 @@ function budgetPullReimbursements(key, eventId, dryRun, lineId) {
   if (lineId && !행사항목들_(ev.id).some(function (l) { return l.id === lineId && l.kind === '지출'; })) throw new Error('지출 예산 항목을 골라주세요.');
   var 이미 = {};
   행사거래들_(ev.id).forEach(function (t) { if (t.expNo) 이미[t.expNo] = 1; });
-  var 가져올 = [];
+  var 가져올 = [], 영수증묶음 = [];   // 영수증묶음: 가져올 과 같은 순서 (Step 9 — 신청서 영수증을 거래에 연결)
   지출목록_().forEach(function (e) {
     if (e.budget !== ev.name && e.budget !== ev.id) return;
     if (['Approved', 'Paid', 'Closed'].indexOf(e.status) === -1) return;
@@ -601,6 +613,7 @@ function budgetPullReimbursements(key, eventId, dryRun, lineId) {
       var ref = e.no + '#' + it.seq;
       if (이미[ref]) return;
       가져올.push({ expNo: ref, date: it.date || e.spentAt, detail: it.detail, amount: it.total, applicant: e.name, status: e.status });
+      영수증묶음.push(it.receipts || []);
     });
   });
   var total = Math.round(가져올.reduce(function (s, x) { return s + x.amount; }, 0) * 100) / 100;
@@ -616,6 +629,7 @@ function budgetPullReimbursements(key, eventId, dryRun, lineId) {
       return [ev.id, id, x.date, '지출', lineId, x.detail, x.amount, '환급(수표)', '환급신청 ' + x.applicant, x.expNo, c.subject.name, now, now];
     });
     var first = sh.getLastRow() + 1;
+    var 새ID = 새.map(function (r) { return r[EVT_ID]; }), 새금액 = 새.map(function (r) { return r[EVT_금액]; });
     sh.getRange(first, EVT_날짜 + 1, 새.length, 1).setNumberFormat('@');
     sh.getRange(first, EVT_입력 + 1, 새.length, 2).setNumberFormat('@');
     sh.getRange(first, 1, 새.length, HEAD_행사거래.length).setValues(새);
@@ -623,6 +637,7 @@ function budgetPullReimbursements(key, eventId, dryRun, lineId) {
     행사올림_(ev.id, c.subject.name);
     if (ev.status === '예산작성') 행사상태바꿈_(ev.id, '진행중');
     행사이력_(ev.id, c.subject.name, '환급신청서 가져오기', 새.length + '건 · ' + total);
+    실적영수증연결_(ev.id, 새ID, 새금액, 영수증묶음, c.subject.name);
     캐시비움_();
   } finally { lock.releaseLock(); }
   return { dryRun: false, count: 가져올.length, total: total, items: 가져올 };
@@ -648,6 +663,7 @@ function budgetSettle(key, eventId, memo, allowUnassigned) {
     var snap = { event: { id: ev.id, name: ev.name, year: ev.year, dept: ev.dept, owner: ev.owner, start: ev.start, end: ev.end },
       lines: g.lines.map(function (l) { return { id: l.id, kind: l.kind, category: l.category, name: l.name, budget: l.budget, actual: l.actual, diff: l.diff, count: l.count }; }),
       unassigned: g.unassigned, totals: g.totals, txCount: txs.length, settledAt: now, settledBy: c.subject.name };
+    실적스냅샷붙이기_(snap, ev.id, g, txs);   // Step 9 — 요약 · 비고 · 항목별 차이 설명 · 통화 합계
     var json = JSON.stringify(snap);
     if (json.length > 45000) snap.lines = snap.lines.map(function (l) { return { id: l.id, kind: l.kind, name: l.name, budget: l.budget, actual: l.actual }; });
     json = JSON.stringify(snap).slice(0, 49000);

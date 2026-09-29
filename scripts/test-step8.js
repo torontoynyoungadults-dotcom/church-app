@@ -60,6 +60,8 @@ module.exports = function (T) {
   const line = (k, o, eid) => run((api) => api.budgetSaveLine(k, eid || id, o));
   const tx = (k, o, eid) => run((api) => api.budgetSaveTx(k, eid || id, o));
   const get = (k, eid) => run((api) => api.budgetGetEvent(k || 'ADM', eid || id));
+  // Step 9 — 예산과 실적 차이가 큰 항목은 설명이 있어야 정산 제출이 됩니다. 이 시험은 흐름을 보는 것이라 설명을 채워 두고 제출합니다.
+  const explain = (eid) => { const m = {}; get('ADM', eid).actuals.variance.rows.forEach((r) => { if (r.needs && !r.note) m[r.id] = '시험용 설명'; }); if (Object.keys(m).length) run((api) => api.budgetSaveNotes('ADM', eid || id, { variance: m })); };
 
   // D2. Draft — 제출 전 검사와 권한
   throws(() => act(T정일반, 'submitBudget'), /예산 항목을 하나 이상/, '예산 항목이 하나도 없으면 제출 못 함');
@@ -139,6 +141,7 @@ module.exports = function (T) {
 
   // D8. 정산 제출 → 검토 → 수정 요청 → 최종 승인
   throws(() => run((api) => api.budgetSettle(T김커미티, id, '', true)), /정산 제출/, '승인 절차를 쓰는 행사는 정산 제출 없이 바로 확정 못 함');
+  explain();
   const ss1 = act(T정일반, 'submitSettlement', '', 'Budget Approved');
   eq([ss1.flow.stage, ss1.flow.info.settlementSubmittedBy], ['Settlement Submitted', '정일반'], '정산 제출');
   eq(last().names, ['김커미티', '오팀장', '이예배'].sort(), '정산 제출 알림도 회계 담당에게');
@@ -150,6 +153,7 @@ module.exports = function (T) {
   eq([rs.flow.stage, rs.flow.info.settlementReviewResult], ['Budget Approved', '수정요청'], '정산 수정 요청: Budget Approved 로 (거래 다시 열림)');
   eq(last().names, ['윤팀장', '정일반'], '정산 수정 요청 알림은 팀 쪽');
   tx(T정일반, { date: d1, kind: '지출', lineId: 'B003', detail: '숙소 계약금', amount: 400 });
+  explain();
   act(T정일반, 'submitSettlement', '', 'Budget Approved');
   throws(() => act(T김커미티, 'approveSettlement', '', 'Settlement Submitted'), /연결되지 않은/, '항목 없는 거래가 있으면 그냥은 최종 승인 안 됨');
   eq(get().flow.stage, 'Settlement Submitted', '실패하면 단계가 바뀌지 않음');
@@ -178,6 +182,7 @@ module.exports = function (T) {
   const ap3 = act('ADM', 'approveBudget', '', 'Budget Submitted', null, id3);
   eq(ap3.flow.stage, 'Budget Approved', '관리자키는 예외로 승인 가능');
   tx(T이예배, { date: d1, kind: '지출', lineId: 'B001', detail: '식비', amount: 50 }, id3);
+  explain(id3);
   act(T이예배, 'submitSettlement', '', 'Budget Approved', null, id3);
   throws(() => act(T이예배, 'approveSettlement', '', 'Settlement Submitted', null, id3), /본인이 제출한 정산/, '제출자 본인은 정산 최종 승인 못 함');
   throws(() => run((api) => api.budgetSettle(T이예배, id3, '', false)), /본인이 제출한 정산/, '옛 "정산 확정" 함수로도 우회 못 함');

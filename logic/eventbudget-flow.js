@@ -361,6 +361,7 @@ function budgetFlowAct(key, eventId, action, note, expectedStage, options) {
       }
       if (def.note && !note) throw new Error(def.label + ' 사유를 적어주세요. (기록과 알림에 남습니다)');
       var to, pairs;
+      if (action === 'submitSettlement') 실적차이설명확인_(ev);   // Step 9 — 예산과 차이가 큰 항목은 설명을 적어야 제출
       if (action === 'submitBudget') {
         if (!행사항목들_(ev.id).length) throw new Error('예산 항목을 하나 이상 적은 뒤 제출해주세요.');
         to = 'Budget Submitted';

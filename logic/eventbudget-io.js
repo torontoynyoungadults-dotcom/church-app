@@ -262,6 +262,8 @@ function budgetImportApply(key, eventId, payload, opts) {
       var 내거래 = Object.keys(tById).map(function (id) { return tById[id]; }).sort(function (a, b) { return (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) || (a.id < b.id ? -1 : 1); });
       var 행 = 다른거래.concat(내거래.map(function (t) { return [ev.id, t.id, t.date, t.kind, t.lineId, t.detail, t.amount, t.method, t.note, t.expNo, t.by, t.at, t.updatedAt]; }));
       행사표쓰기_(SHEET_행사거래, HEAD_행사거래, 행, [EVT_날짜, EVT_입력, EVT_수정]);
+      var 버릴영수증 = 실적가져오기정리_(ev.id, plan.txs.remove.map(function (r) { return r.id; }),     // Step 9 — 지운 · 금액이 바뀐 거래의 통화 · 영수증 상세
+        plan.txs.update.map(function (u) { return { id: u.id, amount: u.after.amount }; }));
     }
     var ver = 행사올림_(ev.id, name);
     if (ev.status === '예산작성' && (plan.txs.add.length || plan.txs.update.length)) 행사상태바꿈_(ev.id, '진행중');
@@ -269,6 +271,7 @@ function budgetImportApply(key, eventId, payload, opts) {
       ' / 거래 +' + plan.txs.add.length + ' ~' + plan.txs.update.length + ' -' + plan.txs.remove.length + ' (' + plan.mode + (plan.stale ? ', 낡은 파일 허용' : '') + ')');
     캐시비움_();
     var res = 계획요약_(plan); res.applied = true; res.version = ver;
+    if (typeof 버릴영수증 !== 'undefined' && 버릴영수증.length) 실적파일버리기_(ev.id, 버릴영수증);
     return res;
   } finally { lock.releaseLock(); }
 }
@@ -284,6 +287,7 @@ function 행사금액글_(n, sign) {
 function 행사보고서_(ev, lines, txs, kind, settlement) {
   var g = 행사집계_(lines, txs), T = g.totals;
   var snap = settlement && settlement.snapshot ? settlement.snapshot : null;
+  var X = 실적보고자료_(ev, g, txs, snap);     // Step 9 — 통화 · 영수증 · 요약 · 비고 · 차이 설명
   var lineName = {};
   lines.forEach(function (l) { lineName[l.id] = l.name; });
   var meta = esc_(ev.id) + ' &nbsp;·&nbsp; ' + esc_(ev.year) + '년' + (ev.dept ? ' &nbsp;·&nbsp; ' + esc_(ev.dept) : '') +
@@ -316,7 +320,7 @@ function 행사보고서_(ev, lines, txs, kind, settlement) {
     var rowsHtml = txs.map(function (t) {
       run += t.kind === '지출' ? -t.amount : t.amount;
       return td([[esc_(t.date), 'white-space:nowrap;'], [esc_(t.kind), t.kind === '수입' ? 'color:#1D7A56;' : ''], [esc_(lineName[t.lineId] || 행사미분류_), ''],
-        [esc_(t.detail) + (t.method ? '<br><span style="color:#8B857C;font-size:9pt;">' + esc_(t.method) + (t.expNo ? ' · ' + esc_(t.expNo) : '') + '</span>' : ''), ''],
+        [esc_(t.detail) + (t.method ? '<br><span style="color:#8B857C;font-size:9pt;">' + esc_(t.method) + (t.expNo ? ' · ' + esc_(t.expNo) : '') + '</span>' : '') + 실적거래보조글_(X.details[t.id]), ''],
         [(t.kind === '수입' ? '+' : '-') + 돈표시_(t.amount), R], [행사금액글_(Math.round(run * 100) / 100), R + 'color:#6E6962;']]);
     }).join('');
     var perLine = g.lines.map(function (l) {
@@ -327,8 +331,8 @@ function 행사보고서_(ev, lines, txs, kind, settlement) {
         th([['날짜', W], ['구분', W], ['예산 항목', W], ['내용', W], ['금액', W + R], ['누계(수입−지출)', W + R]]) +
         (rowsHtml || td([['거래가 없습니다.', '']])) + '</table>' +
       '<h2>항목별 실적</h2><table class="grid">' + th([['항목', W], ['구분', W], ['예산', W + R], ['실적', W + R], ['차이', W + R]]) + perLine + '</table>' +
-      '<h2>합계</h2><table class="grid">' + td([['실지출', W], [돈표시_(T.actualExpense), R]]) + td([['실수입', W], [돈표시_(T.actualIncome), R]]) +
-        td([['<b>순손익</b>', W], ['<b>' + 행사금액글_(T.actualNet) + '</b>', R]]) + '</table>';
+      '<h2>합계 (CAD)</h2><table class="grid">' + td([['실지출', W], [돈표시_(T.actualExpense), R]]) + td([['실수입', W], [돈표시_(T.actualIncome), R]]) +
+        td([['<b>순손익</b>', W], ['<b>' + 행사금액글_(T.actualNet) + '</b>', R]]) + '</table>' + 실적통화표_(X.fx);
     return { title: '거래 내역', html: 문서틀_('거래 내역', esc_(ev.name) + ' &nbsp;·&nbsp; ' + meta, body), filename: '거래내역_' + ev.name };
   }
 
@@ -346,11 +350,12 @@ function 행사보고서_(ev, lines, txs, kind, settlement) {
   body = '<table><tr><th>상태</th><td>' + (확정 ? '<b>정산 확정</b> · ' + esc_(S.settledAt) + ' · ' + esc_(S.settledBy) : '<b style="color:#A8420F;">가정산 (아직 확정되지 않음)</b>') + '</td></tr>' +
       (settlement && settlement.memo ? '<tr><th>정산 메모</th><td>' + esc_(settlement.memo) + '</td></tr>' : '') + '</table>' +
     '<h2>예산 대 실적</h2><table class="grid">' + th([['구분', W], ['항목', W], ['예산', W + R], ['실적', W + R], ['차이', W + R], ['집행률', W + R]]) + lrows + un + '</table>' +
+    실적요약글_(X) + 실적차이표_(X) +
     '<h2>정산 결과</h2><table class="grid">' +
       td([['지출 예산', W], [돈표시_(ST.budgetExpense), R]]) + td([['실지출', W], [돈표시_(ST.actualExpense), R]]) +
       td([['<b>지출 잔액 (예산 − 실지출)</b>', W], ['<b>' + 행사금액글_(ST.expenseRemaining != null ? ST.expenseRemaining : ST.budgetExpense - ST.actualExpense, true) + '</b>', R]]) +
       td([['수입 예산', W], [돈표시_(ST.budgetIncome), R]]) + td([['실수입', W], [돈표시_(ST.actualIncome), R]]) +
-      td([['<b>최종 순손익 (실수입 − 실지출)</b>', W], ['<b>' + 행사금액글_(ST.actualNet) + '</b>', R]]) + '</table>' +
+      td([['<b>최종 순손익 (실수입 − 실지출)</b>', W], ['<b>' + 행사금액글_(ST.actualNet) + '</b>', R]]) + '</table>' + 실적통화표_(X.fx) + 실적비고글_(X) +
     '<table class="sign" style="margin-top:34px;"><tr><th style="text-align:center;">담당자 확인</th><th style="text-align:center;">회계팀 확인</th><th style="text-align:center;">담당 목사 확인</th></tr>' +
       '<tr><td style="height:56px;"></td><td></td><td></td></tr></table>';
   return { title: '행사 정산서', html: 문서틀_('행사 정산서', esc_(ev.name) + ' &nbsp;·&nbsp; ' + meta, body), filename: '행사정산서_' + ev.name };

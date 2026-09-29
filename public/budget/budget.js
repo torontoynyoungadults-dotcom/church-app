@@ -4,6 +4,7 @@
  *           budgetTemplateData · budgetImportPreview · budgetImportApply · budgetPullReimbursements · budgetReportPdf · budgetReportHtml
  *           acctAccessList · acctAccessSave · acctAccessDelete · budgetHistory      (logic/eventbudget.js · eventbudget-io.js)
  *           budgetFlowAct (회계 승인 흐름 — Step 8, logic/eventbudget-flow.js)
+ *           budgetSaveNotes · budgetUploadReceipt · budgetDiscardReceipt (실적 — Step 9, logic/eventbudget-actuals.js)
  * 이 화면은 버튼을 숨기기만 합니다 — 실제 권한 확인은 서버가 요청마다 다시 합니다.
  */
 (function () {
@@ -68,7 +69,7 @@
 
   /* ---------------------------------------------------------------- 모달 */
   function openModal(html) { $('modalBody').innerHTML = html; $('modal').className = 'bd-modal on'; var f = $('modalBody').querySelector('input,select,textarea'); if (f) setTimeout(function () { try { f.focus(); } catch (e) {} }, 30); }
-  function closeModal() { $('modal').className = 'bd-modal'; $('modalBody').innerHTML = ''; }
+  function closeModal() { rcCleanup(); $('modal').className = 'bd-modal'; $('modalBody').innerHTML = ''; }
   $('modal').addEventListener('mousedown', function (e) { if (e.target === $('modal')) closeModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
 
@@ -169,7 +170,8 @@
       tile('수입 (실적/예산)', money(t.actualIncome) + ' / ' + money(t.budgetIncome)) +
       tile('순손익', signed(t.actualNet), t.actualNet > 0 ? 'pos' : (t.actualNet < 0 ? 'neg' : ''));
     renderFlow();
-    var tabs = [['lines', '예산'], ['tx', '거래 ' + d.transactions.length], ['settle', '정산'], ['history', '이력']];
+    var miss = d.actuals && d.transactions.length ? d.actuals.variance.missing.length : 0;
+    var tabs = [['lines', '예산'], ['tx', '거래 ' + d.transactions.length], ['actuals', '실적' + (miss ? ' ⚠' + miss : '')], ['settle', '정산'], ['history', '이력']];
     if (can.access) tabs.push(['access', '접근 권한']);
     $('evTabs').innerHTML = tabs.map(function (x) { return '<button type="button" role="tab" class="bd-tab' + (S.tab === x[0] ? ' on' : '') + '" data-act="tab" data-tab="' + x[0] + '">' + esc(x[1]) + '</button>'; }).join('');
     renderTab();
@@ -177,8 +179,124 @@
   function tile(k, v, c) { return '<div class="bd-tile"><div class="k">' + esc(k) + '</div><div class="v ' + (c || '') + '">' + v + '</div></div>'; }
 
   function renderTab() {
-    var f = { lines: tabLines, tx: tabTx, settle: tabSettle, history: tabHistory, access: tabAccess }[S.tab] || tabLines;
+    var f = { lines: tabLines, tx: tabTx, actuals: tabActuals, settle: tabSettle, history: tabHistory, access: tabAccess }[S.tab] || tabLines;
     f();
+  }
+
+  /* -- 실적 (Step 9) — 통화 · 영수증 · 차이 설명 · Executive Summary / 비고. 서버 값: S.ev.actuals -- */
+  var RC_MAX = 8;
+  function fxText(cur, n) {
+    n = Number(n) || 0;
+    return cur + ' ' + (cur === 'JPY' ? Math.round(n).toLocaleString('en-US') : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  }
+  function rcUrl(id) { return 'https://drive.google.com/file/d/' + encodeURIComponent(id) + '/view'; }
+  function lastRate(cur) {
+    var list = (S.ev && S.ev.transactions) || [];
+    for (var i = list.length - 1; i >= 0; i--) if (list[i].currency === cur && list[i].rate) return list[i].rate;
+    return '';
+  }
+  /** 원금액 · 환율 · CAD 금액 중 하나를 고치면 나머지를 맞춥니다 (CAD 금액을 고치면 환율을 역산) */
+  function fxSync(from) {
+    var cur = $('tfCur').value; if (cur === 'CAD') return;
+    var fo = parseFloat($('tfForeign').value), rt = parseFloat($('tfRate').value), ca = parseFloat($('tfAmt').value);
+    if (from === 'amt') { if (fo > 0 && ca > 0) $('tfRate').value = String(Math.round(ca / fo * 1e6) / 1e6); }
+    else if (fo > 0 && rt > 0) $('tfAmt').value = (Math.round(fo * rt * 100) / 100).toFixed(2);
+  }
+  function fxShow() {
+    var cur = $('tfCur').value, fx = cur !== 'CAD';
+    $('tfFxBox').style.display = fx ? '' : 'none';
+    $('tfForeignLbl').innerHTML = '원금액 (' + esc(cur) + ')<em>*</em>';
+    $('tfRateLbl').textContent = '환율 (1 ' + cur + ' = ? CAD)';
+    $('tfForeign').step = cur === 'JPY' ? '1' : '0.01';
+  }
+  function rcDraw() {
+    var rc = S.rc, box = $('tfRc'); if (!box || !rc) return;
+    var chips = rc.list.map(function (f) {
+      return '<span class="bd-rc"><a href="' + esc(rcUrl(f.id)) + '" target="_blank" rel="noopener" title="' + esc(f.name) + '">📎 ' + esc(f.name) + '</a>' +
+        (rc.can ? '<button type="button" class="bd-rcx" data-act="rc-del" data-id="' + esc(f.id) + '" aria-label="영수증 빼기">×</button>' : '') + '</span>';
+    }).join('');
+    box.innerHTML = (chips || '<span class="bd-dim">첨부한 영수증이 없습니다.</span>') + (rc.busy ? ' <span class="bd-warn">올리는 중… (' + rc.busy + ')</span>' : '');
+    var sv = document.querySelector('#modalBody [data-act="save-tx"]'); if (sv) sv.disabled = rc.busy > 0;
+  }
+  /** 큰 사진은 줄여서 올립니다 (휴대폰 사진 10MB 제한 · 데이터 절약). 줄이지 못하면 원본 그대로 */
+  function rcPrep(file) {
+    return new Promise(function (resolve, reject) {
+      var read = function (blob) { var fr = new FileReader(); fr.onload = function () { resolve(fr.result); }; fr.onerror = function () { reject(new Error('파일을 읽지 못했습니다.')); }; fr.readAsDataURL(blob); };
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 1200 * 1024 || !window.URL) return read(file);
+      var img = new Image(), u = URL.createObjectURL(file);
+      img.onload = function () {
+        try {
+          var k = Math.min(1, 1800 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+          c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(u); resolve(c.toDataURL('image/jpeg', 0.82));
+        } catch (e) { URL.revokeObjectURL(u); read(file); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(u); read(file); };
+      img.src = u;
+    });
+  }
+  function rcAdd(files) {
+    var rc = S.rc; if (!rc) return;
+    var arr = Array.prototype.slice.call(files || []);
+    if (rc.list.length + rc.busy + arr.length > RC_MAX) { mMsg('영수증은 한 거래에 ' + RC_MAX + '개까지 붙일 수 있습니다.'); return; }
+    mMsg('');
+    arr.forEach(function (file) { rc.busy++; });
+    rcDraw();
+    arr.reduce(function (p, file) {
+      return p.then(function () {
+        return rcPrep(file).then(function (url) { return api('budgetUploadReceipt', [KEY, S.ev.event.id, file.name, url]); }).then(function (r) {
+          if (S.rc !== rc) { api('budgetDiscardReceipt', [KEY, S.ev.event.id, r.id]).catch(function () {}); return; }   // 그새 창을 닫음
+          rc.list.push({ id: r.id, name: r.name, mime: r.mime }); rc.fresh.push(r.id);
+        }, function (e) { if (S.rc === rc) mMsg(e.message); }).then(function () { rc.busy--; if (S.rc === rc) rcDraw(); });
+      });
+    }, Promise.resolve());
+  }
+  /** 창을 닫을 때 — 올렸지만 거래에 저장하지 않은 파일은 버립니다 */
+  function rcCleanup() {
+    var rc = S.rc; S.rc = null;
+    if (!rc || !S.ev) return;
+    rc.fresh.forEach(function (id) { api('budgetDiscardReceipt', [KEY, S.ev.event.id, id]).catch(function () {}); });
+  }
+
+  function tabActuals() {
+    var d = S.ev, e = d.event, A = d.actuals || {}, can = A.can || {}, V = A.variance || { rows: [], missing: [], rule: { pct: 10, amount: 50 } }, N = A.notes || {}, L = A.limits || { summary: 2000, remarks: 1000, variance: 300 };
+    var meta = function (n) { return n ? '<div class="bd-dim" style="font-size:12px;margin-top:3px;">' + esc(n.by) + ' · ' + esc(n.at) + '</div>' : ''; };
+    var lockMsg = e.status === '정산완료' ? '정산이 끝난 행사라 고칠 수 없습니다.' : (!can.notes ? (d.level >= 2 ? '지금 단계에서는 고칠 수 없습니다. (정산 검토 중)' : '보기만 할 수 있는 등급입니다.') : '');
+    var explainMsg = can.notes && !can.explain ? '차이 설명은 예산이 승인된 뒤(거래를 기록하는 단계)에 적을 수 있습니다.' : '';
+    var fx = (A.byCurrency || []);
+    // 항목마다 한 칸 — 예산 · 실적 · 차이를 위에, 설명 입력칸을 아래에 (좁은 화면에서도 가로로 밀리지 않게)
+    var rows = V.rows.map(function (r) {
+      var open = r.needs || r.note, miss = r.needs && !r.note.trim();
+      var vc = r.variance === 0 ? 'bd-dim' : (r.bad ? 'bd-neg' : 'bd-dim');
+      return '<div class="bd-vitem' + (miss ? ' bd-need' : '') + '"><div class="bd-vh"><span><b>' + esc(r.name) + '</b> <span class="bd-dim">' + esc(r.kind) + (r.category ? ' · ' + esc(r.category) : '') + '</span></span>' +
+        '<span class="' + vc + '"><b>' + signed(r.variance) + '</b>' + (r.pct != null ? ' (' + (r.pct > 0 ? '+' : '') + r.pct + '%)' : '') + '</span></div>' +
+        '<div class="bd-vn"><span>예산 <b>' + money(r.budget) + '</b></span><span>실적 <b>' + money(r.actual) + '</b></span></div>' +
+        (open ? (can.explain ? '<input type="text" class="bd-vx" data-lid="' + esc(r.id) + '" maxlength="' + L.variance + '" value="' + esc(r.note) + '" placeholder="' + (r.needs ? '차이가 난 이유를 적어주세요 (필수)' : '설명 (선택)') + '" aria-label="' + esc(r.name) + ' 차이 설명">'
+          : (r.note ? '<div class="bd-sub">' + esc(r.note) + '</div>' : '<div class="bd-warn">설명 없음</div>')) : '') + '</div>';
+    }).join('');
+    $('tabBody').innerHTML =
+      '<div class="bd-card"><h2>Executive Summary · 비고</h2>' +
+        '<div class="bd-f"><label for="acSummary">Executive Summary</label><textarea id="acSummary" rows="5" maxlength="' + L.summary + '"' + (can.notes ? '' : ' disabled') + ' placeholder="행사의 결과를 한눈에 — 목적, 참석 인원, 예산 집행 요약, 다음에 참고할 점">' + esc(N.summary ? N.summary.text : '') + '</textarea>' + meta(N.summary) + '</div>' +
+        '<div class="bd-f"><label for="acRemarks">비고</label><textarea id="acRemarks" rows="3" maxlength="' + L.remarks + '"' + (can.notes ? '' : ' disabled') + ' placeholder="정산서 맨 아래에 들어갑니다 (미지급 잔금, 이월 등)">' + esc(N.remarks ? N.remarks.text : '') + '</textarea>' + meta(N.remarks) + '</div>' +
+      '</div>' +
+      '<div class="bd-card"><h2>예산 대비 차이</h2><p class="bd-sub">예산과 실적의 차이가 예산의 <b>' + V.rule.pct + '%</b> 이상이면서 <b>' + money(V.rule.amount) + '</b> 이상이면 이유를 적어야 합니다 (예산이 0인 항목은 금액만 봅니다).' +
+        (V.missing.length ? ' <span class="bd-warn">지금 설명이 필요한 항목 ' + V.missing.length + '건</span>' : '') + '</p>' +
+        (explainMsg ? '<p class="bd-lock" role="note">' + esc(explainMsg) + '</p>' : '') +
+        '<div class="bd-vlist">' + (rows || '<div class="bd-empty">예산 항목이 없습니다.</div>') + '</div>' +
+        (d.unassigned.count ? '<p class="bd-sub bd-warn">항목에 연결되지 않은 거래 ' + d.unassigned.count + '건(' + money(d.unassigned.expense + d.unassigned.income) + ')은 위 표에 들어가지 않습니다.</p>' : '') +
+        (can.notes || can.explain ? '<div class="bd-actions" style="justify-content:flex-start;margin-top:12px;"><button class="bd-b pri" data-act="save-notes" type="button">저장</button></div>' : (lockMsg ? '<p class="bd-lock" role="note">' + esc(lockMsg) + '</p>' : '')) +
+      '</div>' +
+      (fx.length ? '<div class="bd-card"><h2>통화별 합계</h2><div class="bd-scroll"><table class="bd-table"><thead><tr><th>통화</th><th class="r">거래</th><th class="r">지출 (원금액)</th><th class="r">지출 (CAD)</th><th class="r">수입 (원금액)</th><th class="r">수입 (CAD)</th></tr></thead><tbody>' +
+        fx.map(function (x) { return '<tr><td><b>' + esc(x.currency) + '</b></td><td class="r">' + x.count + '건</td><td class="r">' + (x.currency === 'CAD' ? '—' : esc(fxText(x.currency, x.expenseForeign))) + '</td><td class="r">' + money(x.expenseCad) + '</td><td class="r">' + (x.currency === 'CAD' ? '—' : esc(fxText(x.currency, x.incomeForeign))) + '</td><td class="r">' + money(x.incomeCad) + '</td></tr>'; }).join('') +
+        '</tbody></table></div><p class="bd-sub bd-dim">집계 · 정산에는 CAD 환산액이 쓰입니다. 환율은 거래마다 적은 값입니다.</p></div>' : '');
+  }
+  /** 승인 카드에 붙는 안내 — 정산 제출 전에 설명해야 할 항목이 있을 때 */
+  function actualsHint() {
+    var d = S.ev, f = d.flow || {}, A = d.actuals;
+    if (!f.managed || f.stage !== 'Budget Approved' || !A || !A.variance.missing.length) return '';
+    return '<div class="bd-callout" role="note"><b>정산 제출 전에</b> 예산과 실적 차이가 큰 항목 <b>' + A.variance.missing.length + '건</b>의 설명을 적어야 합니다. ' +
+      '<button class="bd-b sm" data-act="tab" data-tab="actuals" type="button">실적 탭에서 적기</button></div>';
   }
 
   /* -- 예산 탭 -- */
@@ -222,12 +340,19 @@
         run += t.kind === '지출' ? -t.amount : t.amount;
         return '<tr><td style="white-space:nowrap;">' + esc(t.date) + '</td><td class="' + (t.kind === '수입' ? 'bd-pos' : '') + '">' + esc(t.kind) + '</td>' +
           '<td>' + (nameOf[t.lineId] ? esc(nameOf[t.lineId]) : '<span class="bd-warn">(미분류)</span>') + '</td>' +
-          '<td>' + esc(t.detail) + '<div class="bd-dim" style="font-size:12px;">' + esc([t.method, t.note, t.expNo, t.by].filter(Boolean).join(' · ')) + '</div></td>' +
+          '<td>' + esc(t.detail) + txExtra(t) + '<div class="bd-dim" style="font-size:12px;">' + esc([t.method, t.note, t.expNo, t.by].filter(Boolean).join(' · ')) + '</div></td>' +
           '<td class="r">' + (t.kind === '수입' ? '+' : '-') + money(t.amount) + '</td><td class="r bd-dim">' + signed(run) + '</td>' +
           '<td>' + (can.edit ? '<button class="bd-b sm" data-act="edit-tx" data-id="' + esc(t.id) + '" type="button">수정</button>' : '') + '</td></tr>';
       }).join('') + '<tr class="tot"><td colspan="4">' + (fl ? '필터 합계' : '합계') + ' (수입 − 지출)</td><td class="r ' + cls(sum) + '">' + signed(sum) + '</td><td colspan="2"></td></tr>'
         : '<tr><td colspan="7" class="bd-empty">거래가 없습니다.</td></tr>') + '</tbody></table></div></div>';
     $('txFilter').onchange = function () { S.txFilter = this.value; tabTx(); };
+  }
+
+  function txExtra(t) {
+    var b = [];
+    if (t.currency && t.currency !== 'CAD') b.push('<span class="bd-fxchip" title="원금액 × 환율 = CAD">' + esc(fxText(t.currency, t.foreign)) + ' × ' + esc(t.rate) + '</span>');
+    (t.receipts || []).forEach(function (f, i) { b.push('<a class="bd-rcl" href="' + esc(f.url) + '" target="_blank" rel="noopener" title="' + esc(f.name) + '">📎' + (i + 1) + '</a>'); });
+    return b.length ? '<div class="bd-tx-x">' + b.join(' ') + '</div>' : '';
   }
 
   /* -- 정산 탭 -- */
@@ -346,7 +471,7 @@
     box.innerHTML = '<div class="bd-card bd-flow"><h2>회계 승인 ' + stageBadge(f.stage) + '</h2>' +
       '<ol class="bd-steps" aria-label="승인 단계">' + steps + '</ol>' + call + (tl ? '<dl class="bd-tl">' + tl + '</dl>' : '') +
       (acts.length ? '<div class="bd-actions" style="justify-content:flex-start;">' + acts.map(btn).join('') + '</div>' : '') +
-      (f.hint ? '<p class="bd-sub bd-dim" style="margin:8px 0 0;">' + esc(f.hint) + '</p>' : '') + '</div>';
+      (f.hint ? '<p class="bd-sub bd-dim" style="margin:8px 0 0;">' + esc(f.hint) + '</p>' : '') + actualsHint() + '</div>';
   }
   function flowDialog(action) {
     var f = S.ev.flow, a = (f.actions || []).filter(function (x) { return x.action === action; })[0]; if (!a) return;
@@ -402,9 +527,16 @@
       '<div class="bd-f"><label for="tfKind">구분<em>*</em></label><select id="tfKind"><option' + (t.kind === '지출' ? ' selected' : '') + '>지출</option><option' + (t.kind === '수입' ? ' selected' : '') + '>수입</option></select></div></div>' +
       '<div class="bd-f"><label for="tfLine">예산 항목</label><select id="tfLine"></select></div>' +
       '<div class="bd-f"><label for="tfDetail">내용<em>*</em></label><input type="text" id="tfDetail" maxlength="200" value="' + esc(t.detail) + '" placeholder="예: 점심 도시락"></div>' +
-      '<div class="bd-row2"><div class="bd-f"><label for="tfAmt">금액<em>*</em></label><input type="number" id="tfAmt" step="0.01" min="0" inputmode="decimal" value="' + esc(t.amount != null ? t.amount : '') + '"></div>' +
+      '<div class="bd-f"><label for="tfCur">통화</label><select id="tfCur">' + ((d.actuals && d.actuals.currencies) || ['CAD']).map(function (c) { return '<option' + (c === (t.currency || 'CAD') ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="bd-row2" id="tfFxBox" style="display:none;"><div class="bd-f"><label for="tfForeign" id="tfForeignLbl">원금액<em>*</em></label><input type="number" id="tfForeign" step="0.01" min="0" inputmode="decimal" value="' + esc(t.foreign != null ? t.foreign : '') + '"></div>' +
+      '<div class="bd-f"><label for="tfRate" id="tfRateLbl">환율</label><input type="number" id="tfRate" step="any" min="0" inputmode="decimal" value="' + esc(t.rate != null ? t.rate : '') + '"></div></div>' +
+      '<div class="bd-row2"><div class="bd-f"><label for="tfAmt">금액 (CAD)<em>*</em></label><input type="number" id="tfAmt" step="0.01" min="0" inputmode="decimal" value="' + esc(t.amount != null ? t.amount : '') + '"></div>' +
       '<div class="bd-f"><label for="tfMethod">결제수단</label><select id="tfMethod"><option value=""></option>' + (S.init.methods || []).map(function (m) { return '<option' + (m === t.method ? ' selected' : '') + '>' + esc(m) + '</option>'; }).join('') + '</select></div></div>' +
-      '<div class="bd-f"><label for="tfNote">증빙 메모</label><input type="text" id="tfNote" maxlength="200" value="' + esc(t.note) + '" placeholder="영수증 번호 · 보관 위치 등"></div><p class="bd-msg err" id="mMsg"></p>' +
+      '<div class="bd-f"><label for="tfNote">증빙 메모</label><input type="text" id="tfNote" maxlength="200" value="' + esc(t.note) + '" placeholder="영수증 번호 · 보관 위치 등"></div>' +
+      (d.actuals && d.actuals.can.receipts ? '<div class="bd-f"><label>영수증 <span class="bd-dim">(사진 · PDF, 최대 ' + RC_MAX + '개)</span></label><div class="bd-rcs" id="tfRc"></div>' +
+        '<label class="bd-b sm bd-file">＋ 영수증 추가<input type="file" id="tfFile" accept="image/*,application/pdf" multiple></label></div>'
+        : ((t.receipts || []).length ? '<div class="bd-f"><label>영수증</label><div class="bd-rcs" id="tfRc"></div></div>' : '')) +
+      '<p class="bd-msg err" id="mMsg"></p>' +
       '<div class="bd-actions">' + (t.id ? '<button class="bd-b bad" data-act="del-tx" data-id="' + esc(t.id) + '" type="button" style="margin-right:auto;">지우기</button>' : '') +
       '<button class="bd-b" data-act="close" type="button">취소</button><button class="bd-b pri" data-act="save-tx" data-id="' + esc(t.id || '') + '" type="button">저장</button></div>');
     var fill = function () {
@@ -413,6 +545,14 @@
       if (keep && d.lines.some(function (l) { return l.id === keep && l.kind === k; })) $('tfLine').value = keep;
     };
     fill(); $('tfKind').onchange = function () { t.lineId = ''; fill(); };
+    // Step 9 — 통화 · 영수증
+    S.rc = { list: (t.receipts || []).map(function (f) { return { id: f.id, name: f.name, mime: f.mime, linked: !!f.linked }; }), fresh: [], busy: 0, can: !!(d.actuals && d.actuals.can.receipts) };
+    fxShow(); rcDraw();
+    $('tfCur').onchange = function () { fxShow(); if ($('tfCur').value !== 'CAD' && !$('tfRate').value) { var r = lastRate($('tfCur').value); if (r) { $('tfRate').value = r; fxSync('rate'); } } };
+    $('tfForeign').oninput = function () { fxSync('foreign'); };
+    $('tfRate').oninput = function () { fxSync('rate'); };
+    $('tfAmt').oninput = function () { fxSync('amt'); };
+    if ($('tfFile')) $('tfFile').onchange = function () { var fs = this.files; rcAdd(fs); this.value = ''; };
   }
   function mMsg(m) { var x = $('mMsg'); if (x) x.textContent = m || ''; }
   function busyBtn(btn, on) { if (btn) { btn.disabled = !!on; } }
@@ -536,7 +676,23 @@
       case 'edit-tx': return txForm(d.transactions.filter(function (t) { return t.id === id; })[0]);
       case 'save-tx':
         busyBtn(el, true);
-        return api('budgetSaveTx', [KEY, d.event.id, { id: id, date: num('tfDate'), kind: num('tfKind'), lineId: num('tfLine'), detail: num('tfDetail'), amount: num('tfAmt'), method: num('tfMethod'), note: num('tfNote') }]).then(function (r) { closeModal(); apply(r, '저장했습니다.'); }, function (e) { busyBtn(el, false); mMsg(e.message); });
+        return api('budgetSaveTx', [KEY, d.event.id, { id: id, date: num('tfDate'), kind: num('tfKind'), lineId: num('tfLine'), detail: num('tfDetail'), amount: num('tfAmt'), method: num('tfMethod'), note: num('tfNote'),
+          currency: num('tfCur'), foreignAmount: num('tfForeign'), rate: num('tfRate'),
+          receipts: S.rc && S.rc.can ? S.rc.list.map(function (f) { return { id: f.id, name: f.name, mime: f.mime }; }) : undefined }]).then(function (r) { S.rc = null; closeModal(); apply(r, '저장했습니다.'); }, function (e) { busyBtn(el, false); mMsg(e.message); });
+      case 'rc-del':
+        if (S.rc) {
+          S.rc.list = S.rc.list.filter(function (f) { return f.id !== id; });
+          var fi = S.rc.fresh.indexOf(id);
+          if (fi !== -1) { S.rc.fresh.splice(fi, 1); api('budgetDiscardReceipt', [KEY, d.event.id, id]).catch(function () {}); }   // 방금 올린 파일은 바로 버림 (원래 붙어 있던 것은 저장할 때 정리)
+          rcDraw();
+        }
+        return;
+      case 'save-notes':
+        var A = d.actuals || { can: {} }, patch = {};
+        if (A.can.notes) { patch.summary = $('acSummary').value; patch.remarks = $('acRemarks').value; }
+        if (A.can.explain) { patch.variance = {}; Array.prototype.forEach.call(document.querySelectorAll('.bd-vx'), function (x) { patch.variance[x.getAttribute('data-lid')] = x.value; }); }
+        busyBtn(el, true);
+        return api('budgetSaveNotes', [KEY, d.event.id, patch]).then(function (r) { apply(r, '저장했습니다.'); }, function (e) { busyBtn(el, false); toast(e.message, true); });
       case 'del-tx':
         if (!confirm('이 거래를 지울까요?')) return;
         return api('budgetDeleteTx', [KEY, d.event.id, id]).then(function (r) { closeModal(); apply(r, '지웠습니다.'); }, function (e) { mMsg(e.message); });
