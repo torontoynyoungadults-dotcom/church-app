@@ -656,3 +656,40 @@ body.ht-lock { overflow: hidden; }
 .pv-mini-note:empty { display: none; }
 .pv-mini.locked .pv-mini-go, .pv-mini.locked .pv-mini-in { opacity: .55; }
 .pv-fcues h4 small { font-weight: 600; opacity: .7; }
+
+/* ===== Step 2.11 — 모든 박 깜빡임 · 떠 있는 도구 막대(컴퓨터) · 전체 화면 ===== */
+.pv-flash:not(.acc) { background: rgb(255, 190, 120); }                         /* 첫 박이 아닌 박은 조금 은은하게 */
+.pv-flash.go:not(.acc) { animation-name: pvflashsoft; }
+@keyframes pvflashsoft { 0% { opacity: .32; } 100% { opacity: 0; } }
+.pv-flashall { margin-left: 18px; }
+
+/* 컴퓨터 화면: 필기 · 글꼴 도구를 악보 위에 떠 있는 유리 막대로 (맨 윗줄을 차지하지 않아 악보 칸이 넓어짐).
+   태블릿은 원래부터 오른쪽에 떠 있고, 폰은 아래 메뉴(서랍)라서 그대로 둡니다. */
+.pv:not(.pv-tablet):not(.pv-compact) .pv-tools {
+  position: absolute; z-index: 7; grid-column: auto; grid-row: auto; top: 10px; left: 12px; right: auto; width: min(calc(100% - 230px), 780px); max-width: none; max-height: 96px;
+  flex-wrap: nowrap; align-items: center; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; gap: 4px 12px; padding: 6px 12px; border: 1px solid var(--g-line2); border-radius: 20px;
+  background: rgba(20, 20, 27, .74); box-shadow: 0 10px 34px rgba(0, 0, 0, .5); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+.pv:not(.pv-tablet):not(.pv-compact) .pv-tools::-webkit-scrollbar { display: none; }
+.pv:not(.pv-tablet):not(.pv-compact) .pv-main { grid-template-rows: 0 minmax(0, 1fr); }
+.pv:not(.pv-tablet):not(.pv-compact).pv-sideopen .pv-tools { width: min(calc(100% - 610px), 780px); }
+.pv:not(.pv-tablet):not(.pv-compact) .pv-mq { top: 10px; }
+
+/* 전체 화면 */
+.pv-fsbar, .pv-fshandle { display: none; }
+.pv-fs .pv-top, .pv-fs .pv-tools, .pv-fs .pv-toolsbtn, .pv-fs .pv-menubtn { display: none !important; }
+.pv-fs .pv-main { grid-template-rows: 0 minmax(0, 1fr); }
+.pv-fs .pv-fsbar { display: flex; align-items: center; gap: 6px; position: absolute; z-index: 30; top: 0; left: 0; right: 0; padding: max(8px, env(safe-area-inset-top)) 12px 8px; overflow-x: auto; scrollbar-width: none;
+  background: rgba(16, 16, 23, .88); backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%); border-bottom: 1px solid var(--g-line);
+  transform: translateY(-110%); transition: transform .18s ease; }
+.pv-fs.pv-fsbar-on .pv-fsbar { transform: none; }
+.pv-fsbar .pv-b { min-height: 44px; }
+.pv-fspg { min-width: 64px; text-align: center; font-weight: 800; color: var(--g-ink); }
+.pv-fs .pv-fshandle { display: block; position: absolute; z-index: 29; top: 0; left: 50%; transform: translateX(-50%); width: 92px; height: 28px; padding: 0; border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pv-fshandle span { display: block; width: 44px; height: 5px; margin: 8px auto 0; border-radius: 3px; background: rgba(255, 255, 255, .45); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+.pv-fs.pv-fsbar-on .pv-fshandle { display: none; }
+.pv-fs .pv-mq { top: 34px; }
+.pv-fsbtn[aria-pressed="true"] { background: rgba(255, 138, 42, .3); }
+.pv:not(.pv-tablet):not(.pv-compact) .pv-sympop { top: 190px; }                    /* 떠 있는 도구 막대 아래에 기호 팔레트가 열리게 */
+
+.pv:not(.pv-tablet):not(.pv-compact) .pv-tools > * { flex: 0 0 auto; max-width: none; white-space: nowrap; }        /* 한 줄로 두고 옆으로 밀어서 봅니다 (악보를 덜 가리게) */

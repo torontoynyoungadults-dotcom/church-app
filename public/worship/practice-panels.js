@@ -21,12 +21,13 @@
     var flashEl = null;
     /** 첫 박에 화면 전체가 살짝 깜빡입니다 (끄고 켤 수 있음). 마디가 1초에 3번을 넘게 도는 아주 빠른 박자에서는 눈이 아프지 않게 건너뜁니다. */
     function flash(e) {
-      if (!M || !e || e.beat !== 0) return;
+      if (!M || !e) return;
       var st = M.state(); if (!st.cfg.flash) return;
-      if (st.bpm / 60 / st.num > 3) return;
+      if (st.cfg.flashAll === false && e.beat !== 0) return;                  // 끄면 첫 박만, 기본은 모든 박
+      if (st.cfg.flashAll === false ? st.bpm / 60 / st.num > 3 : st.bpm / 60 > 3) return;   // 초당 3번을 넘는 아주 빠른 깜빡임은 눈이 아프지 않게 건너뜀
       try {
         if (!flashEl) { flashEl = doc.createElement('div'); flashEl.className = 'pv-flash'; flashEl.setAttribute('aria-hidden', 'true'); doc.body.appendChild(flashEl); }
-        flashEl.classList.toggle('ci', !!e.countIn);
+        flashEl.classList.toggle('ci', !!e.countIn); flashEl.classList.toggle('acc', e.beat === 0);
         flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go');
       } catch (x) { /* 화면 효과가 박자에 영향을 주면 안 됩니다 */ }
     }
@@ -390,7 +391,8 @@
           '<label class="pv-chk">시작 전 <select data-o="count"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label></div>' +
           '<div class="pv-dots" data-role="dots" role="group" aria-label="박 — 눌러서 > 강세 켜고 끄기"></div>' +
           '<p class="pv-help pv-dotshelp">원(박)을 누르면 ">" 강세가 켜지고 꺼집니다 — 강세 박은 더 높고 크게 울립니다.</p>' +
-          '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> 💡 전체 화면 깜빡임 <small>(첫 박에 화면이 번쩍)</small></label>' +
+          '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> 💡 전체 화면 깜빡임 <small>(박마다 화면이 번쩍)</small></label>' +
+          '<label class="pv-chk pv-flashchk pv-flashall"><input type="checkbox" data-o="flashall" checked> 모든 박에서 깜빡임 <small>(끄면 마디 첫 박에만)</small></label>' +
           '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="mq" checked> ⏱ 악보 화면 위에 메트로놈 시작 버튼 띄우기 <small>(패널을 열지 않고도 시작 · 멈춤)</small></label>' +
           '<div class="pv-msg2" data-role="msg"></div></div>' +
         '<div class="pv-sec"><h4>음성 큐 — 눌러서 알려주기</h4><p class="pv-help" data-role="cuehelp"></p>' +
@@ -439,7 +441,7 @@
         toggleB.textContent = st.running ? '■ 멈춤' : '▶ 시작'; toggleB.classList.toggle('on', st.running);
         var sigv = st.num + '/' + st.den, ss = q('[data-o="sig"]'); if (ss.value !== sigv) ss.value = sigv;
         if (dotsEl.children.length !== st.num) drawDots(st.num, st.marks); else paintMarks(st.marks);
-        q('[data-o="flash"]').checked = !!c.flash; q('[data-o="mq"]').checked = quick.on();
+        q('[data-o="flash"]').checked = !!c.flash; q('[data-o="flashall"]').checked = c.flashAll !== false; q('[data-o="mq"]').checked = quick.on();
         q('[data-o="pitch"]').value = c.pitch; q('[data-role="pitchout"]').textContent = (c.pitch > 0 ? '+' : '') + c.pitch + ' 반음';
         q('[data-role="clickout"]').textContent = '×' + (Math.round(st.gain * 10) / 10);
         var mode = ctl(), rt = P.rt(), note = q('[data-role="syncnote"]'), lock = mode === 'locked';
@@ -541,7 +543,7 @@
         var t = e.target, o = t.dataset && t.dataset.o; if (!o) return;
         if (o === 'sig') { var p = t.value.split('/'); var rs = act('sig', +p[0], +p[1]); if (rs && rs.locked) { sync(); return; } drawDots(+p[0], m.state().marks); saveMetroSoon(); }
         else if (o === 'count') saveMetroSoon();
-        else if (o === 'flash') m.setFlash(t.checked); else if (o === 'pitch') m.setPitch(+t.value);
+        else if (o === 'flash') m.setFlash(t.checked); else if (o === 'flashall') m.setFlashAll(t.checked); else if (o === 'pitch') m.setPitch(+t.value);
         else if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'mode') m.setMode(t.value);
         else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'gender') m.setGender(t.value); else if (o === 'first') { if (t.checked !== !!m.state().marks[0]) act('mark', 0); }
         else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked); else if (o === 'mq') quick.setOn(t.checked);

@@ -305,14 +305,15 @@
     var q = [];                       // 화면에 보여줄 박 (소리가 나는 때에 맞춰 깜빡임)
     var pending = [];                 // 예약해 둔 큐 {plan, cue, timeout}
     var S = {
-      click: store('gain'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first')
+      click: store('gain'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), flashall: store('flashall'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first')
     };
     var cfg = {
       click: S.click == null ? 0.4 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : S.voice, mode: S.mode || 'lead', lead: S.lead || 2,
       lang: S.lang || 'en', gender: S.gender === 'female' || S.gender === 'any' ? S.gender : 'male', lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
       first: S.first !== false,                                  // 첫 박 강세 (기본 켬) — 끄면 첫 박도 다른 박과 같은 높이 · 세기
       pitch: S.pitch == null ? 0 : clamp(S.pitch, LIMITS.minPitch, LIMITS.maxPitch),   // 딸깍 음높이 (반음 단위, -12 ~ +12)
-      flash: S.flash === true                                    // 첫 박에 화면 전체 깜빡임
+      flash: S.flash === true,                                   // 화면 전체 깜빡임 (켬/끔)
+      flashAll: S.flashall !== false                             // 켬(기본)이면 모든 박마다, 끄면 첫 박에만 (Step 2.11)
     };
     sched.setMark(0, cfg.first);
     var voices = [], speechOk = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
@@ -576,7 +577,7 @@
       setBpm: function (b) { sched.setBpm(b); emitState(); }, setSig: function (n, d) { sched.setSig(n, d); cfg.first = !!sched.marks[0]; emitState(); },
       setClickVolume: function (v) { set('click', clamp(v, 0, 1)); applyGain(); },
       setPitch: function (st) { set('pitch', Math.round(clamp(st, LIMITS.minPitch, LIMITS.maxPitch) * 2) / 2); },
-      setFlash: function (on) { set('flash', !!on); },
+      setFlash: function (on) { set('flash', !!on); }, setFlashAll: function (on) { cfg.flashAll = !!on; store('flashall', !!on); emitState(); },
       /** 박 ">" 강세 — 원을 눌러 켜고 끕니다 (높은 음 · 더 크게) */
       toggleMark: function (i) { var r = sched.toggleMark(i); if (r === null) return null; cfg.first = !!sched.marks[0]; store('first', cfg.first); emitState(); return r; },
       setMarks: function (arr) { var r = sched.setMarks(arr); if (r) { cfg.first = !!sched.marks[0]; store('first', cfg.first); emitState(); } return r; },

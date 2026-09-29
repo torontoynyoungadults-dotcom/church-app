@@ -80,7 +80,7 @@
         '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)">−</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)">＋</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">✂ 여백</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">📖 두 쪽</button></div>' +
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면">📱 태블릿</button><button data-layout="computer" title="컴퓨터 화면">💻 컴퓨터</button></div>' +
         '<div class="pv-grp pv-chips"><span class="pv-chip pv-conn" title="실시간 연결">…</span><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button><button class="pv-chip pv-followm" data-a="followm" title="메트로놈 따라가기 켜기/끄기" style="display:none"></button></div>' +
-        '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기">☰</button>' +
+        '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false">⛶</button><button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기">☰</button>' +
         '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="도구 메뉴 열기" title="도구 메뉴 열기 / 닫기"><span class="ic">🛠</span><span class="nm">메뉴</span></button>' +
       '</header>' +
       '<div class="pv-main">' +
@@ -91,6 +91,7 @@
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
       '</div>' +
+      '<div class="pv-fsbar" role="toolbar" aria-label="전체 화면 메뉴"><button class="pv-b" data-a="fs" title="전체 화면 나가기 (Esc)">✕ 나가기</button><button class="pv-b" data-a="prev" title="이전 쪽">‹</button><span class="pv-fspg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽">›</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="fs-tools" title="필기 도구 보이기/숨기기">✏️ 도구</button><button class="pv-b" data-a="fs-panel" title="메트로놈 · 송폼 패널">☰ 패널</button></div><button type="button" class="pv-fshandle" data-a="fs-bar" aria-label="메뉴 보이기" title="메뉴 보이기"><span></span></button>' +
       '<div class="pv-dback" data-a="drawer-close"></div>' +
       '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
         '<div class="pv-dh"><b>🛠 도구 메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">✕</button></div>' +
@@ -153,7 +154,7 @@
       }
     }
     function autoFit() {                                              // 폰을 옆으로 눕히면 한 쪽이 너무 작아지므로 가로 폭에 맞춤. 사용자가 맞춤을 직접 바꿨다면 존중
-      if (S.fitUser) return; var f = S.layout === 'tablet' && !(S.compact && (root.innerWidth || 0) > (root.innerHeight || 0) && (root.innerHeight || 0) < 500) ? 'page' : 'width';
+      if (S.fitUser) return; var f = (S.compact && (root.innerWidth || 0) > (root.innerHeight || 0) && (root.innerHeight || 0) < 500) ? 'width' : 'page';   // 기본은 "한 쪽 맞춤" (Step 2.11) — 폰을 눕힌 낮은 화면만 가로 폭 맞춤
       if (f !== S.fit) { S.fit = f; S.zoom = 1; if (S.doc) renderPage(); }
     }
     function checkCompact() { var c = calcCompact(); if (c !== !!S.compact) { setCompact(c); if (S.doc) renderSoon(40); } autoFit(); }
@@ -174,6 +175,38 @@
     }
     toolsBtn.onclick = function () { setTools(el.classList.contains('pv-toolshide'), true); };
     if (ls('tools') === '0') setTools(false, false);
+    /* ------------------------------------------------------------ 전체 화면 (악보만 크게) — Step 2.11
+       ⛶ 를 누르면 위 메뉴 · 필기 도구 · 패널이 모두 사라지고 악보가 화면을 꽉 채웁니다(브라우저 주소창도 가능한 곳에서는 숨김).
+       악보를 한 번 톡 누르면 위쪽에 얇은 메뉴(나가기 · 쪽 · 맞춤 · 도구 · 패널)가 나타났다 5초 뒤 사라지고, 필기 중에는 위 가운데 작은 손잡이로 부릅니다. */
+    S.fs = false; S.fsT = 0; S.fsSide = false; S.fsTools = true;
+    function fsBar(on) {
+      clearTimeout(S.fsT); el.classList.toggle('pv-fsbar-on', !!on);
+      if (on) S.fsT = setTimeout(function () { if (!el.classList.contains('pv-sideopen') && !S.dead) el.classList.remove('pv-fsbar-on'); }, 5000);
+    }
+    function fsNative(on) {
+      try {
+        var d = root.document;
+        if (on) { var de = d.documentElement; if (!d.fullscreenElement && de.requestFullscreen) { var r = de.requestFullscreen({ navigationUI: 'hide' }); if (r && r.catch) r.catch(function () { /* 아이폰 등: 브라우저 전체 화면이 없으면 화면 안에서만 */ }); } }
+        else if (d.fullscreenElement && d.exitFullscreen) { var r2 = d.exitFullscreen(); if (r2 && r2.catch) r2.catch(function () {}); }
+      } catch (e) { /* 전체 화면을 못 써도 화면 안 전체 보기는 동작 */ }
+    }
+    function setFs(on) {
+      on = !!on; if (S.fs === on) return; S.fs = on;
+      el.classList.toggle('pv-fs', on); el.querySelector('.pv-fsbtn').setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (on) { S.fsSide = el.classList.contains('pv-sideopen'); S.fsTools = !el.classList.contains('pv-toolshide'); toggleSide(false); setDrawer(false); setTools(false, false); fsBar(true); }
+      else { clearTimeout(S.fsT); el.classList.remove('pv-fsbar-on'); setTools(S.fsTools, false); if (S.fsSide) toggleSide(true); }
+      fsNative(on); renderSoon(120); P.emit('fs', on);
+    }
+    function onFsChange() { if (S.fs && !root.document.fullscreenElement && S.fsNativeOn) setFs(false); S.fsNativeOn = !!root.document.fullscreenElement; }   // 브라우저 Esc 로 나가면 화면 안 전체 보기도 함께 끝냄
+    doc.addEventListener('fullscreenchange', onFsChange);
+    var fsDown = null;
+    function fsPointerDown(e) { fsDown = S.fs && S.tool === 'none' && e.pointerType !== 'pen' && !(e.target.closest && e.target.closest('button,select,input,a,.pv-fsbar,.pv-mq,.pv-side')) ? { x: e.clientX, y: e.clientY, t: Date.now() } : null; }
+    function fsPointerUp(e) {
+      var d = fsDown; fsDown = null; if (!d || !S.fs) return;
+      if (Math.abs(e.clientX - d.x) < 8 && Math.abs(e.clientY - d.y) < 8 && Date.now() - d.t < 450) fsBar(!el.classList.contains('pv-fsbar-on'));      // 톡 = 메뉴 켜기/끄기 (끌거나 확대하는 손짓은 제외)
+    }
+    stage.addEventListener('pointerdown', fsPointerDown); stage.addEventListener('pointerup', fsPointerUp);
+
     function toggleSide(force) {
       var on = force != null ? force : !el.classList.contains('pv-sideopen');
       if (on && S.compact) setDrawer(false);
@@ -403,7 +436,7 @@
       clearTimeout(S.rsT);
       S.rsT = setTimeout(function () { S.rsT = 0; if (S.doc && !S.dead) renderPage(); }, ms == null ? 120 : ms);
     }
-    function pgLabel() { $('.pv-pg').textContent = S.page + ' / ' + S.pages; }
+    function pgLabel() { var t = S.page + ' / ' + S.pages; $('.pv-pg').textContent = t; var f = $('.pv-fspg'); if (f) f.textContent = t; }
 
     function loadSheet(idx, page, fromUser) {
       idx = clamp(idx | 0, 0, sheets.length - 1);
@@ -665,6 +698,7 @@
       lang: function () { return S.lang; }, setLang: function (l) { S.lang = l === 'ko' ? 'ko' : 'en'; ls('lang', S.lang); },
       cacheInfo: function () { return { pages: S.pcache.size, bytes: S.pcBytes, mine: Object.keys(S.mineCache).length }; },
       wake: function () { return wakeCtl ? wakeCtl.state() : { wanted: false, mode: 'none', active: false }; },
+      fit: function () { return S.fit; }, fullscreen: function () { return !!S.fs; }, setFullscreen: function (b) { setFs(b); },
       layout: function () { return S.layout; }, setLayout: function (l) { applyLayout(l, true); }, hand: function () { return S.hand; },
       setHand: function (hd) { S.hand = hd === 'left' ? 'left' : 'right'; ls('hand', S.hand); applyLayout(S.layout, false); },
       anno: function () { return an; }, rt: function () { return rt; }, canEdit: !!opts.canEdit, canLead: function () { return !!(rt && rt.me && rt.me.canLead); },
@@ -1171,6 +1205,7 @@
       else if (a === 'spread') toggleSpread();
       else if (a === 'crop') { S.crop = !S.crop; ls('crop', S.crop ? '1' : '0'); S.zoom = 1; syncCropUi(); renderPage(); sendNav(); toast(S.crop ? '여백을 줄여 악보를 크게 보여 줍니다' : '종이 전체를 보여 줍니다'); }
       else if (a === 'zfit') { S.fitUser = true; S.zoom = 1; S.fit = S.fit === 'page' ? 'width' : 'page'; renderPage(); sendNav(); toast(S.fit === 'page' ? '한 쪽이 다 보이게 맞춤' : '가로 폭에 맞춤'); }
+      else if (a === 'fs') setFs(!S.fs); else if (a === 'fs-bar') fsBar(!el.classList.contains('pv-fsbar-on')); else if (a === 'fs-tools') { setTools(el.classList.contains('pv-toolshide'), false); fsBar(true); } else if (a === 'fs-panel') { toggleSide(); fsBar(true); }
       else if (a === 'panel') toggleSide(); else if (a === 'follow') { if (S.manual) setManual(false); else setFollow(!S.follow); } else if (a === 'followm') setFollowM(!S.followM); else if (a && a.indexOf('tab:') === 0) showTab(a.slice(4));
     });
     stage.addEventListener('click', function (e) {
@@ -1259,7 +1294,7 @@
       e.preventDefault();
       if (m === 'n') nextPage(true); else if (m === 'p') prevPage(true); else if (m === 'zi') setZoom(S.zoom * 1.2, true); else if (m === 'zo') setZoom(S.zoom / 1.2, true);
       else if (m === 'zf') { S.zoom = 1; renderPage(); sendNav(); }
-      else if (m === 'esc') { if (an.selected && an.selected()) { an.deselect(); renderTools(); } else if (el.classList.contains('pv-drawopen')) setDrawer(false); else if (S.tool !== 'none') setTool('none'); else api.close(); } else setTool(m);
+      else if (m === 'esc') { if (S.fs) setFs(false); else if (an.selected && an.selected()) { an.deselect(); renderTools(); } else if (el.classList.contains('pv-drawopen')) setDrawer(false); else if (S.tool !== 'none') setTool('none'); else api.close(); } else setTool(m);
     }
     function onKeyUp(e) { if ((e.key === ' ' || e.key === 'Spacebar') && spaceEaten) { spaceEaten = false; e.preventDefault(); } }   // 버튼에 초점이 있어도 Space 가 그 버튼을 또 누르지 않게
     doc.addEventListener('keyup', onKeyUp);
@@ -1280,12 +1315,12 @@
     var api = {
       el: el, P: P, goPage: function (n) { goPage(n, true); }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
       close: function () {
-        if (S.dead) return; S.dead = true; closeYt(); flushMine(); P.emit('close');
+        if (S.dead) return; S.dead = true; if (S.fs) setFs(false); closeYt(); flushMine(); P.emit('close');
         try { an.closeEditor(); } catch (e) {}
         P.tabs.forEach(function (t) { try { t.api && t.api.destroy && t.api.destroy(); } catch (e) {} });
         try { rt && rt.close(); } catch (e) {} try { an.destroy(); } catch (e) {}
         doc.removeEventListener('keydown', onKey); doc.removeEventListener('keyup', onKeyUp); root.removeEventListener('pagehide', onBeforeUnload);
-        doc.removeEventListener('pointerup', holdStop); root.removeEventListener('orientationchange', onOrient);
+        doc.removeEventListener('pointerup', holdStop); root.removeEventListener('orientationchange', onOrient); doc.removeEventListener('fullscreenchange', onFsChange); clearTimeout(S.fsT);
         if (ro) ro.disconnect(); root.removeEventListener('resize', onResize);
         /* 남아 있는 예약(타이머) · 반복 · 그림 저장소를 모두 정리 — 화면을 여닫아도 메모리가 쌓이지 않게 (내 필기 저장 재시도 S.mineT 만 남겨 둡니다) */
         [rz, orT, wz.t, S.rsT, S.navT, S.msgT, S.toolT, refetchT, scT].forEach(function (t) { if (t) clearTimeout(t); });
