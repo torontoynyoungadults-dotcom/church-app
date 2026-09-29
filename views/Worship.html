@@ -1702,7 +1702,7 @@ function songList(kind, list) {
         (yt ? (s.team ? ' &nbsp;·&nbsp; ' : '') + '<a href="https://www.youtube.com/watch?v=' + esc(yt) +
               '" target="_blank" rel="noopener">▶ YouTube</a>' : '') +
       '</div>' +
-      (s.form ? '<div class="sform">' + esc(s.form) + '</div>' : '') +
+      (s.form ? '<div class="sform">' + esc(window.YNForm && YNForm.pretty && /:\d/.test(s.form) ? YNForm.pretty(s.form) : s.form) + '</div>' : '') +
       soloBox(s.solo) +
       (s.note ? '<div class="snote">' + esc(s.note) + '</div>' : '') +
       (D.canEdit

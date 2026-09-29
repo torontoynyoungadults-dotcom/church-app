@@ -35,7 +35,7 @@
   }
   /** 송폼 칸(V1, C2 …)에서 메트로놈 큐 이름으로 */
   var CUE_MAP = { V: 'v1', V1: 'v1', V2: 'v2', V3: 'v3', C: 'c', C2: 'c', C3: 'c', PC: 'pc', PC2: 'pc', B: 'b', B1: 'b', B2: 'b', Intro: 'intro',
-    Itld: 'itld', Inst: 'itld', Out: 'end', End: 'end', Coda: 'end', Vamp: 'vamp', Solo: 'solo', Break: 'break' };
+    Itld: 'itld', Inst: 'itld', Out: 'end', End: 'end', Coda: 'end', Vamp: 'vamp', Solo: 'solo', Break: 'break', Prayer: 'prayer', KeyUp: 'keyup' };
   function cueIdFor(k) { return CUE_MAP[k] || null; }
   function normName(s) { return String(s || '').toLowerCase().replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[\s_\-\.\(\)\[\]·,]/g, ''); }
   /** 악보 파일 이름에서 어느 곡인지 짐작 (제목이 파일 이름에 들어 있으면) */
@@ -1228,8 +1228,23 @@
       if (scale === 1) { if (pvRaf) { root.cancelAnimationFrame && root.cancelAnimationFrame(pvRaf); pvRaf = 0; } applyPreview(); return; }
       if (!pvRaf) pvRaf = root.requestAnimationFrame ? root.requestAnimationFrame(applyPreview) : (applyPreview(), 0);
     }
+    /* ---- 애플 펜슬 손바닥 무시 (Step 2.12) ----
+       펜슬이 화면에 닿아 있거나 위에 떠 있는 동안(끝난 뒤 700ms 까지), 그리고 닿는 면이 넓은 터치(손바닥)는 쪽 넘기기 · 화면 이동 · 확대에 쓰지 않고 브라우저 스크롤도 막습니다.
+       그리는 캔버스는 처음부터 touch-action:none 이고, 필기 중에는 악보 칸 전체도 잠깁니다(.pv-penlock). */
+    var penT = 0, penLockT = 0;
+    function penNear() { return Date.now() - penT < 700; }
+    function palmTouch(t) { return !!t && Math.max(t.radiusX || 0, t.radiusY || 0) > 30; }
+    function notePenPtr(e) {
+      if (e.pointerType !== 'pen') return;
+      penT = Date.now(); if (!stage.classList.contains('pv-penlock')) stage.classList.add('pv-penlock');
+      clearTimeout(penLockT); penLockT = setTimeout(function () { stage.classList.remove('pv-penlock'); }, 900);
+    }
+    ['pointerdown', 'pointermove', 'pointerover', 'pointerup'].forEach(function (n) { stage.addEventListener(n, notePenPtr, true); });
+    P.on('close', function () { clearTimeout(penLockT); });
     stage.addEventListener('touchstart', function (e) {
       if (S.dead) return;
+      var anyPalm = penNear(); for (var pi = 0; pi < e.touches.length && !anyPalm; pi++) anyPalm = palmTouch(e.touches[pi]);
+      if (anyPalm && !(T && T.pinch)) { T = { palm: true }; if (e.cancelable) e.preventDefault(); return; }      // 손바닥 · 펜슬 근처의 터치: 아무 동작도 하지 않음
       if (e.touches.length >= 2) {
         if (an.cancelCurrent) an.cancelCurrent();
         T = { pinch: true, d0: tdist(e.touches[0], e.touches[1]) || 1, z0: S.zoom, scale: 1 };
@@ -1239,6 +1254,7 @@
     }, { passive: false });
     stage.addEventListener('touchmove', function (e) {
       if (!T) return;
+      if (T.palm) { if (e.cancelable) e.preventDefault(); return; }
       if (T.pinch) {
         if (e.touches.length < 2) return;
         T.scale = clamp(tdist(e.touches[0], e.touches[1]) / T.d0, 0.4, 4) ; T.scale = clamp(T.z0 * T.scale, 0.4, 4) / T.z0;
@@ -1253,6 +1269,7 @@
     }, { passive: false });
     function touchDone(e) {
       if (!T) return;
+      if (T.palm) { if (!e.touches.length) T = null; return; }
       if (T.pinch) {
         if (e.touches.length >= 2) return;
         var sc = T.scale; T = null; pinchPreview(1);

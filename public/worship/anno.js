@@ -255,7 +255,7 @@
     var cv = o.canvas, host = o.host, ctx = cv.getContext('2d');
     var S = { layers: { team: new Map(), mine: new Map() }, vis: { team: true, mine: true }, page: 1, tool: 'none', color: PALETTE[0], hlColor: HL_COLORS[0],
       pw: 0.003, hw: 0.02, sym: 'sharp', fboxTag: 'V',  symSize: 0.032, textSize: 0.024, font: 'sans', layer: 'team', W: 1, H: 1, dpr: 1, cur: null, live: new Map(), hist: [], redo: [],
-      sawPen: false, sel: null, fboxSize: 0.028, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
+      sawPen: false, penT: 0, sel: null, fboxSize: 0.028, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
     function say(t, bad) { try { if (o.onMessage) o.onMessage(t, !!bad); } catch (e) {} }
     function changed() { try { if (o.onChange) o.onChange(); } catch (e) {} }
 
@@ -355,6 +355,8 @@
     /* ---- 입력 ---- */
     function norm(e) { var r = cv.getBoundingClientRect(); return { x: clamp((e.clientX - r.left) / (r.width || 1), 0, 1), y: clamp((e.clientY - r.top) / (r.height || 1), 0, 1) }; }
     function drawing() { return S.tool !== 'none'; }
+    function notePen(e) { if (e.pointerType === 'pen') S.penT = Date.now(); }        // 애플 펜슬이 화면 위(떠 있을 때 포함)에 있는 동안 손바닥을 무시하기 위한 기록
+    cv.addEventListener('pointermove', notePen); cv.addEventListener('pointerover', notePen);
     function refreshTouch() {
       cv.style.pointerEvents = drawing() ? 'auto' : 'none';
       var lockTouch = S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen);
@@ -404,7 +406,7 @@
     function onDown(e) {
       if (!drawing() || S.dead) return;
       if (e.pointerType === 'pen') { if (!S.sawPen) { S.sawPen = true; refreshTouch(); } }
-      else if (e.pointerType === 'touch' && (S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen))) return;      // 손바닥 · 손가락은 무시 (펜만 그림)
+      else if (e.pointerType === 'touch' && (S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen) || Date.now() - S.penT < 700 || ((e.width || 0) > 40 || (e.height || 0) > 40))) return;      // 손바닥 · 손가락은 무시 (펜만 그림) — 펜이 화면 위에 있거나(700ms) 닿는 면이 넓은(손바닥) 터치는 항상 무시
       else if (e.pointerType === 'mouse' && e.button !== 0) return;
       if (S.cur) { S.cur = null; invalidate(); return; }                                                                // 두 번째 손가락 = 그리기 취소 (확대 동작)
       if (S.editor) { closeEditor(true); }

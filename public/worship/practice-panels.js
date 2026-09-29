@@ -364,7 +364,7 @@
       }
       function pick(tok, i, num) {
         cur = i; var id = P.cueIdFor(num && num.cueKey || tok.k);
-        if (host.querySelector('[data-o="cue"]').checked && id) doCue(id);
+        if (host.querySelector('[data-o="cue"]').checked) { if (id) doCue(id); else if (tok && tok.custom && tok.k) doCue(tok.k); }      // 직접 입력한 글은 그 글 그대로 음성 안내
       }
       player = root.YNForm.mountPlayer(host.querySelector('[data-role="player"]'), { value: (P.song() || {}).form || '', lang: P.lang(), onPick: pick });
       sel.onchange = function () { P.setSong(+sel.value); };
@@ -373,7 +373,7 @@
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-a]') : null; if (!b) return;
         var list = player.list(); if (!list.length) { P.toast('이 곡에는 송폼이 없습니다.', true); return; }
-        if (b.dataset.a === 'next') { var t = player.next(); cur = Math.min(list.length - 1, cur + 1); var num = root.YNForm.numbered(list)[cur]; if (host.querySelector('[data-o="cue"]').checked && num) { var id = P.cueIdFor(num.cueKey); if (id) doCue(id); } }
+        if (b.dataset.a === 'next') { var t = player.next(); cur = Math.min(list.length - 1, cur + 1); var num = root.YNForm.numbered(list)[cur]; if (host.querySelector('[data-o="cue"]').checked && num) { var id = P.cueIdFor(num.cueKey); if (id) doCue(id); else if (num.custom && num.k) doCue(num.k); } }
         else { cur = Math.max(0, cur - 1); player.setCurrent(cur); }
       });
       P.on('song', song); P.on('songedit', function () { song(); }); P.on('songs', function () { song(); }); P.on('layer', infoWhere); song();

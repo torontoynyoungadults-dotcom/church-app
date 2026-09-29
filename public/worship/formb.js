@@ -36,7 +36,9 @@
     { k: 'Tag', ko: '태그', cue: 'Tag', cueKo: '태그', g: 'etc' },
     { k: 'Turn', ko: '턴어라운드', cue: 'Turnaround', cueKo: '턴어라운드', g: 'etc' },
     { k: 'Coda', ko: '코다', cue: 'Coda', cueKo: '코다', g: 'etc' },
-    { k: 'End', ko: '끝', cue: 'End', cueKo: '끝', g: 'etc' }
+    { k: 'End', ko: '끝', cue: 'End', cueKo: '끝', g: 'etc' },
+    { k: 'Prayer', ko: '기도', cue: 'Prayer', cueKo: '기도', g: 'etc' },
+    { k: 'KeyUp', ko: '키 업', cue: 'Key Up', cueKo: '키 업', g: 'etc' }       // Step 2.12
   ];
   var BY = {};
   TOKENS.forEach(function (t) { BY[t.k.toLowerCase()] = t; });
@@ -46,21 +48,27 @@
     verse: 'V', 'verse1': 'V1', 'verse2': 'V2', 'verse3': 'V3', chorus: 'C', 'chorus2': 'C2', 'chorus3': 'C3',
     bridge: 'B', 'bridge1': 'B1', 'bridge2': 'B2', prechorus: 'PC', 'pre': 'PC', 'pre-chorus': 'PC', 'prechorus2': 'PC2',
     interlude: 'Itld', inter: 'Itld', 'int': 'Itld', outro: 'Out', ending: 'Out', 'instrumental': 'Inst',
-    'turnaround': 'Turn', '인트로': 'Intro', '후렴': 'C', '브릿지': 'B', '간주': 'Itld', '엔딩': 'Out', '뱀프': 'Vamp', '솔로': 'Solo'
+    'turnaround': 'Turn', '기도': 'Prayer', 'pray': 'Prayer', '키업': 'KeyUp', 'keyup': 'KeyUp', 'keychange': 'KeyUp', '인트로': 'Intro', '후렴': 'C', '브릿지': 'B', '간주': 'Itld', '엔딩': 'Out', '뱀프': 'Vamp', '솔로': 'Solo'
   };
 
   var REP = /^(.+?)\s*[x×*]\s*(\d{1,2})$/i;
+  var BARS = /^(.+?)\s*(?::|\()\s*(\d{1,2})\s*(?:마디|bars?)?\s*\)?$/i;      // "C:8" · "C(8)" · "C:8마디" — 그 칸의 마디 수 (1 ~ 64)
+  var CUSTOM_MAX = 24;
+  function clampBars(n) { n = Math.round(Number(n)); return n >= 1 && n <= 64 ? n : 0; }
 
   function norm(raw) {
     var s = String(raw == null ? '' : raw).trim();
     if (!s) return null;
-    var rep = 1, m = REP.exec(s);
+    var rep = 1, bars = 0, m = REP.exec(s);
     if (m) { s = m[1].trim(); rep = Math.min(9, Math.max(1, Number(m[2]))); }
+    m = BARS.exec(s);
+    if (m) { s = m[1].trim(); bars = clampBars(m[2]); }
     var key = s.toLowerCase().replace(/\s+/g, '');
     var t = BY[key] || (ALIAS[key] && BY[ALIAS[key].toLowerCase()]);
     // 1절 · 2절 처럼 한글 번호 표기
     if (!t) { var ko = /^(\d)절$/.exec(s); if (ko && BY['v' + ko[1]]) t = BY['v' + ko[1]]; }
-    var out = { k: t ? t.k : s.slice(0, 16), rep: rep };
+    var out = { k: t ? t.k : s.slice(0, CUSTOM_MAX), rep: rep };
+    if (bars) out.bars = bars;
     if (!t) out.custom = true;
     return out;
   }
@@ -71,7 +79,9 @@
     // 1) 쉼표 · 하이픈 · 화살표 등으로 나눈 것을 우선합니다 ("Verse 1 > Chorus ×2" 처럼 칸 안에 공백이 있어도 됨)
     var parts = str.split(/\s*[,\-–—>→·|/]+\s*/).filter(function (x) { return x.trim(); });
     // 2) 공백뿐이면 단어 단위로 나누되, "Verse 1" · "Chorus x2" 는 한 덩어리로 묶습니다
-    if (parts.length === 1 && /\s/.test(parts[0])) {
+    // (직접 입력한 글이 공백을 포함해 한 칸뿐이면 — 마디 수 표기가 있거나 한글이고 모르는 단어가 섞여 있으면 — 쪼개지 않고 한 칸으로 둡니다)
+    var keepWhole = parts.length === 1 && /[:(가-힣]/.test(parts[0]) && parts[0].split(/\s+/).some(function (w) { var n = norm(w); return !n || n.custom; }) && !/^\d절\b/.test(parts[0]);
+    if (parts.length === 1 && /\s/.test(parts[0]) && !keepWhole) {
       var words = parts[0].split(/\s+/), merged = [];
       words.forEach(function (w) {
         var last = merged[merged.length - 1];
@@ -83,7 +93,7 @@
     return parts.map(norm).filter(Boolean);
   }
   function stringify(list) {
-    return (list || []).map(function (t) { return t.k + (t.rep > 1 ? '×' + t.rep : ''); }).join('-');
+    return (list || []).map(function (t) { return t.k + (t.bars ? ':' + t.bars : '') + (t.rep > 1 ? '×' + t.rep : ''); }).join('-');
   }
   function info(k) { return BY[String(k || '').toLowerCase()] || null; }
   function label(k, lang) {
@@ -102,7 +112,7 @@
   function numbered(list) {
     var seen = {};
     return (list || []).map(function (t) {
-      var out = { k: t.k, rep: t.rep, custom: t.custom, cueKey: t.k };
+      var out = { k: t.k, rep: t.rep, bars: t.bars || 0, custom: t.custom, cueKey: t.k };
       if (t.k === 'V' || t.k === 'C' || t.k === 'B' || t.k === 'PC') {
         seen[t.k] = (seen[t.k] || 0) + 1;
         if (t.k === 'V' && seen.V <= 3) out.cueKey = 'V' + seen.V;
@@ -133,19 +143,34 @@
       draw();
       if (opt.onChange) { try { opt.onChange(stringify(list), list.slice()); } catch (e) { if (window.console) console.error(e); } }
     }
-    function add(k) {
+    function add(k, bars) {
       push();
       var at = sel >= 0 ? sel + 1 : list.length;
-      list.splice(at, 0, { k: k, rep: 1 });
+      var t = { k: k, rep: 1 }; if (clampBars(bars)) t.bars = clampBars(bars);
+      list.splice(at, 0, t);
       sel = at;
       changed();
     }
+    /** 직접 입력 — 아무 글이나 한 칸으로 (예: "키 업", "기도", "마지막 줄 한 번 더"). 표준 이름이면 그 칸으로 바뀜 */
+    function addCustom(text, bars) {
+      var clean = String(text == null ? '' : text).replace(/[,\-–—>→·|/:()×*\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim();       // 칸을 나누는 기호는 공백으로
+      if (!clean) return false;
+      var t = norm(clean); if (!t) return false;
+      push();
+      if (clampBars(bars)) t.bars = clampBars(bars);
+      var at = sel >= 0 ? sel + 1 : list.length; list.splice(at, 0, t); sel = at; changed(); return true;
+    }
+    function setBars(n) { if (sel < 0) return; push(); if (clampBars(n)) list[sel].bars = clampBars(n); else delete list[sel].bars; changed(); }
+    var busy = false;                                                   // 다시 그리는 도중(입력칸이 사라지며 blur → change)에 또 그리지 않도록
     function draw() {
-      if (destroyed) return;
+      if (destroyed || busy) return; busy = true;
+      try { drawNow(); } finally { busy = false; }
+    }
+    function drawNow() {
       var seq = list.length ? list.map(function (t, i) {
         var inf = info(t.k);
         return '<span class="fb-chip' + (i === sel ? ' on' : '') + (t.custom ? ' custom' : '') + '" role="button" tabindex="0" data-i="' + i + '" title="' + h(inf ? inf.ko : t.k) + '">' +
-          '<b>' + h(t.k) + '</b>' + (t.rep > 1 ? '<i>×' + t.rep + '</i>' : '') + '</span>';
+          '<b>' + h(t.k) + '</b>' + (t.bars ? '<em>' + t.bars + '마디</em>' : '') + (t.rep > 1 ? '<i>×' + t.rep + '</i>' : '') + '</span>';
       }).join('<span class="fb-arr" aria-hidden="true">›</span>') : '<span class="fb-empty">아래 버튼을 눌러 순서대로 넣어주세요</span>';
       var pal = GROUPS.map(function (g) {
         return '<div class="fb-row">' + TOKENS.filter(function (t) { return t.g === g[0]; }).map(function (t) {
@@ -163,13 +188,21 @@
             '<button type="button" class="fb-t" data-act="undo"' + (undo.length ? '' : ' disabled') + '>되돌리기</button>' +
             '<button type="button" class="fb-t" data-act="clear"' + (list.length ? '' : ' disabled') + '>모두 지우기</button>' +
           '</div>' +
+          (sel >= 0 ? '<div class="fb-bars" role="group" aria-label="선택한 칸의 마디 수"><span>마디 수</span>' +
+            [0, 2, 4, 8, 12, 16].map(function (n) { return '<button type="button" class="fb-t' + ((list[sel].bars || 0) === n ? ' on' : '') + '" data-bars="' + n + '">' + (n ? n : '없음') + '</button>'; }).join('') +
+            '<input type="text" class="fb-num" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="2" autocomplete="off" data-role="barsin" placeholder="직접" value="' + ([0, 2, 4, 8, 12, 16].indexOf(list[sel].bars || 0) < 0 ? list[sel].bars : '') + '" aria-label="마디 수 직접 입력"></div>' : '') +
           '<div class="fb-pal">' + pal + '</div>' +
-          '<p class="fb-hint">칩을 누르면 선택됩니다. 선택한 칩 뒤에 새 칸이 들어가고, 선택이 없으면 맨 끝에 붙습니다.</p>' +
+          '<div class="fb-custom"><span>직접 입력</span><input type="text" class="fb-cin" maxlength="' + CUSTOM_MAX + '" autocomplete="off" data-role="cin" placeholder="예: 키 업 · 기도 · 마지막 줄 한 번 더">' +
+            '<input type="text" class="fb-num" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="2" autocomplete="off" data-role="cbars" placeholder="마디" aria-label="마디 수 (선택)">' +
+            '<button type="button" class="fb-t primary" data-act="addcustom">＋ 넣기</button></div>' +
+          '<p class="fb-hint">칩을 누르면 선택됩니다. 선택한 칩 뒤에 새 칸이 들어가고, 선택이 없으면 맨 끝에 붙습니다. 칩을 선택하면 "마디 수"(예: 4 · 8마디)를 붙일 수 있고, "직접 입력"에는 어떤 글이든 한 칸으로 넣을 수 있습니다.</p>' +
         '</div>';
     }
     function onClick(ev) {
-      var t = ev.target.closest ? ev.target.closest('[data-i],[data-add],[data-act]') : null;
+      var t = ev.target.closest ? ev.target.closest('[data-i],[data-add],[data-act],[data-bars]') : null;
       if (!t || !el.contains(t)) return;
+      if (t.hasAttribute('data-bars')) { setBars(Number(t.getAttribute('data-bars'))); return; }
+      if (t.getAttribute('data-act') === 'addcustom') { var ci = el.querySelector('[data-role="cin"]'), cb = el.querySelector('[data-role="cbars"]'); if (!addCustom(ci && ci.value, cb && cb.value)) { if (ci) ci.focus(); } return; }
       if (t.hasAttribute('data-add')) { add(t.getAttribute('data-add')); return; }
       if (t.hasAttribute('data-i')) { var i = Number(t.getAttribute('data-i')); sel = (sel === i ? -1 : i); draw(); return; }
       var a = t.getAttribute('data-act');
@@ -184,16 +217,21 @@
       changed();
     }
     function onKey(ev) {
+      var tg = ev.target, role = tg && tg.getAttribute && tg.getAttribute('data-role');
+      if (ev.key === 'Enter' && (role === 'cin' || role === 'cbars')) { ev.preventDefault(); var ci = el.querySelector('[data-role="cin"]'), cb = el.querySelector('[data-role="cbars"]'); addCustom(ci && ci.value, cb && cb.value); return; }
+      if (ev.key === 'Enter' && role === 'barsin') { ev.preventDefault(); setBars(tg.value); return; }
       if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.getAttribute && ev.target.getAttribute('data-i') != null) { ev.preventDefault(); onClick(ev); }
     }
     el.addEventListener('click', onClick);
     el.addEventListener('keydown', onKey);
+    function onChange(ev) { if (busy) return; var tg = ev.target; if (tg && tg.getAttribute && tg.getAttribute('data-role') === 'barsin') setBars(tg.value); }
+    el.addEventListener('change', onChange);
     draw();
     return {
       get: function () { return stringify(list); },
       list: function () { return list.slice(); },
       set: function (s) { list = parse(s); sel = -1; undo = []; draw(); },
-      destroy: function () { destroyed = true; el.removeEventListener('click', onClick); el.removeEventListener('keydown', onKey); el.innerHTML = ''; }
+      destroy: function () { destroyed = true; el.removeEventListener('click', onClick); el.removeEventListener('keydown', onKey); el.removeEventListener('change', onChange); el.innerHTML = ''; }
     };
   }
 
@@ -210,7 +248,7 @@
       el.innerHTML = '<div class="fp">' + list.map(function (t, i) {
         var inf = info(t.k);
         return '<button type="button" class="fp-chip' + (i === cur ? ' on' : (i < cur ? ' done' : '')) + '" data-i="' + i + '" title="' + h(inf ? inf.ko : t.k) + '">' +
-          '<b>' + h(t.k) + '</b>' + (t.rep > 1 ? '<i>×' + t.rep + '</i>' : '') + '<small>' + h(label(t.k, lang === 'ko' ? 'ko' : 'ko')) + '</small></button>';
+          '<b>' + h(t.k) + '</b>' + (t.rep > 1 ? '<i>×' + t.rep + '</i>' : '') + (t.bars ? '<em>' + t.bars + '마디</em>' : '') + '<small>' + h(label(t.k, lang === 'ko' ? 'ko' : 'ko')) + '</small></button>';
       }).join('') + '</div>';
     }
     function onClick(ev) {
@@ -232,5 +270,8 @@
     };
   }
 
-  return { TOKENS: TOKENS, parse: parse, stringify: stringify, info: info, label: label, cueFor: cueFor, numbered: numbered, mount: mount, mountPlayer: mountPlayer };
+  /** 보기 좋게 — "V1:8-C×2" → "V1 (8마디) › C ×2" (허브 곡 카드 등 글로 보여줄 때) */
+  function pretty(str) { return parse(str).map(function (t) { return t.k + (t.bars ? ' (' + t.bars + '마디)' : '') + (t.rep > 1 ? ' ×' + t.rep : ''); }).join(' › '); }
+
+  return { pretty: pretty, TOKENS: TOKENS, parse: parse, stringify: stringify, info: info, label: label, cueFor: cueFor, numbered: numbered, mount: mount, mountPlayer: mountPlayer };
 }));

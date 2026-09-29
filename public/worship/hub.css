@@ -693,3 +693,16 @@ body.ht-lock { overflow: hidden; }
 .pv:not(.pv-tablet):not(.pv-compact) .pv-sympop { top: 190px; }                    /* 떠 있는 도구 막대 아래에 기호 팔레트가 열리게 */
 
 .pv:not(.pv-tablet):not(.pv-compact) .pv-tools > * { flex: 0 0 auto; max-width: none; white-space: nowrap; }        /* 한 줄로 두고 옆으로 밀어서 봅니다 (악보를 덜 가리게) */
+
+/* ===== Step 2.12 — 송폼: 마디 수 · 직접 입력 ===== */
+.fb-chip em, .fp-chip em { font-style: normal; font-size: 11.5px; font-weight: 800; color: var(--g-a2, #ffb066); margin-left: 4px; }
+.fb-chip.on em { color: #5a2a00; }
+.fp-chip em { display: block; margin: 0; line-height: 1.1; }
+.fb-bars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, .05); border: 1px solid var(--g-line); }
+.fb-bars > span, .fb-custom > span { font-size: 12.5px; font-weight: 800; color: var(--g-a2, #ffb066); margin-right: 2px; }
+.fb-bars .fb-t.on { background: linear-gradient(135deg, #ff9d47, #ff7a1c); color: #1a0f05; border-color: transparent; }
+.fb-num { width: 62px; height: 40px; text-align: center; font-size: 16px; font-weight: 800; color: var(--g-ink); border-radius: 10px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .08); }
+.fb-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--g-line); }
+.fb-cin { flex: 1 1 180px; min-width: 0; height: 42px; padding: 0 12px; font-size: 15px; color: var(--g-ink); border-radius: 10px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .08); }
+.fb-t.primary { background: linear-gradient(135deg, #ff9d47, #ff7a1c); color: #1a0f05; border-color: transparent; font-weight: 800; }
+.pv-stage.pv-penlock { touch-action: none !important; overscroll-behavior: none; }          /* 애플 펜슬로 쓰는 동안 손바닥이 닿아도 악보가 움직이지 않음 */

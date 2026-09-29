@@ -16,7 +16,7 @@
     "test:step3": "node scripts/test-step3.js && node scripts/browser/e2e-portal.js && node scripts/browser/e2e-budget.js",
     "test:step2:browser": "node scripts/browser/e2e-a.js && node scripts/browser/e2e-b.js && node scripts/browser/e2e-c.js && node scripts/browser/e2e-step2c.js && node scripts/browser/e2e-full.js",
     "test:step29": "node scripts/test-step29.js && node scripts/browser/e2e-step29.js && node scripts/browser/e2e-step29-sync.js",
-    "test:step212": "node scripts/browser/e2e-step212.js",
+    "test:step212": "node scripts/test-step212.js && node scripts/browser/e2e-step212.js && node scripts/browser/e2e-step212b.js",
     "test:step211": "node scripts/test-step211.js && node scripts/browser/e2e-step211.js",
     "test:step210": "node scripts/test-step210.js && node scripts/browser/e2e-step210.js",
     "test:step28": "node scripts/test-step28.js && node scripts/test-step28-client.js && node scripts/test-step28-metro.js && node scripts/browser/e2e-step28.js && node scripts/browser/e2e-metro.js"
