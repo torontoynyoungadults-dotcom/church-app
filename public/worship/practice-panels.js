@@ -14,7 +14,7 @@
   function hhmm(t) { var d = new Date(t); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
 
   function build(P) {
-    var M = null, mUi = null, lastBeat = -1;
+    var M = null, mUi = null, lastBeat = -1, onBpmUser = null;
     var tabs = [];
 
     /* ------------------------------------------------------------ 메트로놈 (여러 탭이 함께 씁니다) */
@@ -47,26 +47,33 @@
       var b = s && +s.bpm; if (M && b >= 30 && b <= 300) { M.setBpm(b); if (mUi) mUi.sync(); }
     });
     P.on('close', function () { try { M && M.destroy(); } catch (e) {} M = null; });
+    /* 단축키용 — 메트로놈 탭을 한 번도 안 열었어도 ↑↓ (BPM) · Space (시작/멈춤) 이 동작합니다. 쓸 수 없으면 null */
+    P.metroKey = function (act, d) {
+      var m = metro(); if (!m) return null;
+      if (act === 'bpm') { var v = Math.max(30, Math.min(300, Math.round(m.state().bpm) + (d || 0))); m.setBpm(v); if (onBpmUser) onBpmUser(); if (mUi) mUi.sync(); P.toast('BPM ' + v, false, 700); return { ok: true, bpm: v }; }
+      if (act === 'toggle') { var r = m.toggle(mUi ? mUi.count() : 0); if (r && r.ok === false) { P.toast(r.error || '소리를 낼 수 없습니다.', true); return { ok: false }; } if (mUi) mUi.sync(); P.toast(m.state().running ? '▶ 메트로놈 시작' : '■ 메트로놈 멈춤', false, 700); return { ok: true, running: m.state().running }; }
+      return null;
+    };
 
     /* ------------------------------------------------------------ 필기 */
     tabs.push({ id: 'anno', icon: '✏️', label: '필기', build: function (host) {
       host.innerHTML =
-        '<div class="pv-sec"><h4>누가 볼 수 있나요</h4><div class="pv-radio" data-g="layer"><button data-v="mine">🔒 나만 보기</button><button data-v="team">👥 팀 공유</button></div>' +
-          '<p class="pv-help">"나만 보기"는 나에게만, "팀 공유"는 이 예배를 연 모든 사람 화면에 실시간으로 나타납니다.</p></div>' +
+        '<div class="pv-sec"><h4>누가 볼 수 있나요</h4><label class="pv-chk"><input type="checkbox" data-o="mineonly"> 🔒 나만 보기</label>' +
+          '<p class="pv-help">체크하면 내 필기는 나에게만 보입니다. 체크하지 않으면(기본) 이 예배를 연 모든 사람 화면에 실시간으로 공유됩니다.</p></div>' +
         '<div class="pv-sec"><h4>필기가 붙는 곳</h4><div class="pv-radio" data-g="scope"><button data-v="song">📌 이 곡에 계속</button><button data-v="date">📅 이 날짜(콘티)만</button></div>' +
           '<p class="pv-help">"이 곡에 계속"은 다음 주에 같은 악보를 열어도 남아 있고, "이 날짜만"은 이번 예배에서만 보입니다.</p></div>' +
         '<div class="pv-sec"><h4>보이기</h4><label class="pv-chk"><input type="checkbox" data-vis="mine" checked> 내 필기 보이기</label><label class="pv-chk"><input type="checkbox" data-vis="team" checked> 팀 필기 보이기</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="straight"> 형광펜을 반듯한 직선으로</label>' +
           '<label class="pv-chk pv-penrow">펜 입력 <select data-o="pen"><option value="auto">자동 (펜이 감지되면 손가락 무시)</option><option value="always">항상 펜만 (손바닥 방지)</option><option value="off">손가락도 그림</option></select></label></div>' +
-        '<div class="pv-sec"><h4>지우기</h4><div class="pv-row"><button class="pv-btn2" data-a="mine">이 쪽 내 필기 지우기</button>' + (P.canEdit ? '<button class="pv-btn2 warn" data-a="all">이 쪽 모두 지우기</button>' : '') + '</div><p class="pv-help">지운 뒤에도 화면 왼쪽(위)의 ↶ 로 되돌릴 수 있습니다.</p></div>' +
+        '<div class="pv-sec"><h4>지우기</h4><div class="pv-row"><button class="pv-btn2" data-a="mine">현재 페이지 내 필기 지우기</button>' + (P.canEdit ? '<button class="pv-btn2 warn" data-a="all">현재 페이지 모두 지우기</button>' : '') + '</div><p class="pv-help">지운 뒤에도 화면 왼쪽(위)의 ↶ 로 되돌릴 수 있습니다.</p></div>' +
         '<div class="pv-sec"><h4>저장</h4><div class="pv-save" data-role="save"></div><div class="pv-row"><button class="pv-btn2" data-a="save">지금 저장</button></div></div>' +
-        '<div class="pv-sec"><h4>내보내기 · 인쇄 (필기 포함)</h4><div class="pv-row"><button class="pv-btn2" data-a="png">이 쪽 그림(PNG)</button><button class="pv-btn2" data-a="pdf">전체 PDF</button><button class="pv-btn2" data-a="print">인쇄</button></div></div>' +
+        '<div class="pv-sec"><h4>내보내기 · 인쇄 (필기 포함)</h4><div class="pv-row"><button class="pv-btn2" data-a="png">현재 페이지 그림(PNG)</button><button class="pv-btn2" data-a="pdf">전체 PDF</button><button class="pv-btn2" data-a="print">인쇄</button></div></div>' +
         '<div class="pv-sec"><h4>화면 설정</h4><div class="pv-radio" data-g="layout"><button data-v="tablet">📱 태블릿</button><button data-v="computer">💻 컴퓨터</button></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="lefty"> 왼손잡이 (도구 막대를 왼쪽에)</label>' +
-          '<p class="pv-help">태블릿: 큰 버튼 · 화면 양쪽 가장자리를 눌러 쪽 넘김 · 도구 막대가 떠 있음. 컴퓨터: 위쪽 도구 줄 · 오른쪽 패널 · 단축키(←→ 쪽, P 펜, H 형광펜, T 글자, C 코드, E 지우개, Ctrl+Z 취소).</p></div>';
+          '<p class="pv-help">태블릿: 큰 버튼 · 화면 양쪽 가장자리를 눌러 쪽 넘김 · 도구 막대가 떠 있음. 컴퓨터: 위쪽 도구 줄 · 오른쪽 패널 · 단축키(←→ 쪽, P 펜, H 형광펜, T 글자, C 코드, E 지우개, Ctrl+Z 취소, ↑↓ BPM, Space 메트로놈).</p></div>';
       var an = function () { return P.anno(); };
       function paint() {
-        [['layer', P.getLayer()], ['scope', P.getScope()], ['layout', P.layout()]].forEach(function (x) {
+        [['scope', P.getScope()], ['layout', P.layout()]].forEach(function (x) {
           Array.prototype.forEach.call(host.querySelectorAll('[data-g="' + x[0] + '"] button'), function (b) { b.classList.toggle('on', b.dataset.v === x[1]); });
         });
         var st = P.status(), t = [];
@@ -75,15 +82,15 @@
         if (st.minePending) t.push('내 필기 저장 대기 ' + st.minePending + '건');
         t.push(st.savedAt ? '마지막 저장 ' + hhmm(st.savedAt) : '아직 저장한 기록 없음');
         host.querySelector('[data-role="save"]').innerHTML = t.map(function (x) { return '<div>' + h(x) + '</div>'; }).join('');
-        host.querySelector('[data-o="lefty"]').checked = P.hand() === 'left';
+        host.querySelector('[data-o="lefty"]').checked = P.hand() === 'left'; host.querySelector('[data-o="mineonly"]').checked = P.getLayer() === 'mine';
       }
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
         var g = b.parentNode && b.parentNode.dataset && b.parentNode.dataset.g;
-        if (g === 'layer') P.setLayer(b.dataset.v); else if (g === 'scope') { if (b.dataset.v === 'date' && !P.opts.room) P.toast('날짜 정보가 없어 이 곡에만 붙일 수 있습니다.', true); else P.setScope(b.dataset.v); } else if (g === 'layout') P.setLayout(b.dataset.v);
+        if (g === 'scope') { if (b.dataset.v === 'date' && !P.opts.room) P.toast('날짜 정보가 없어 이 곡에만 붙일 수 있습니다.', true); else P.setScope(b.dataset.v); } else if (g === 'layout') P.setLayout(b.dataset.v);
         var a = b.dataset.a;
         if (a === 'mine') { var n = an().clearPage(P.getLayer(), false); P.toast(n ? n + '개를 지웠습니다.' : '지울 내 필기가 없습니다.'); }
-        else if (a === 'all') { if (root.confirm('이 쪽의 모든 사람의 필기를 지울까요? (내 것뿐 아니라 팀 필기 전체)')) { var n2 = an().clearPage(P.getLayer(), true); P.toast(n2 ? n2 + '개를 지웠습니다.' : '지울 필기가 없습니다.'); } }
+        else if (a === 'all') { if (root.confirm('현재 페이지의 모든 사람의 필기를 지울까요? (내 것뿐 아니라 팀 필기 전체)')) { var n2 = an().clearPage(P.getLayer(), true); P.toast(n2 ? n2 + '개를 지웠습니다.' : '지울 필기가 없습니다.'); } }
         else if (a === 'save') { P.saveNow(); P.toast('저장을 요청했습니다.'); setTimeout(paint, 900); }
         else if (a === 'png') P.exportPng(); else if (a === 'pdf') P.exportPdf(false); else if (a === 'print') P.exportPdf(true);
         paint();
@@ -93,6 +100,7 @@
         else if (t.dataset.o === 'straight') an().setStraight(t.checked);
         else if (t.dataset.o === 'pen') an().setPenMode(t.value);
         else if (t.dataset.o === 'lefty') P.setHand(t.checked ? 'left' : 'right');
+        else if (t.dataset.o === 'mineonly') P.setLayer(t.checked ? 'mine' : 'team');
       });
       ['sync', 'layer', 'scope', 'conn'].forEach(function (n) { P.on(n, paint); });
       paint();
@@ -184,7 +192,7 @@
         q('[data-role="cuestat"]').textContent = pend;
       }
       mUi = {
-        sync: sync,
+        sync: sync, count: function () { return +q('[data-o="count"]').value || 0; },
         beat: function (e) {
           var ds = dotsEl.children; for (var i = 0; i < ds.length; i++) ds[i].classList.remove('on', 'ci');
           var d = ds[e.beat]; if (d) { d.classList.add('on'); if (e.countIn) d.classList.add('ci'); }
@@ -212,6 +220,7 @@
          곡 정보에 BPM 이 없거나 현장에서 바꾸고 싶으면 그대로 고치면 됩니다 (−/＋ · 탭 · 직접 입력). 고친 값은 그 곡에만 기억되어 다시 돌아와도 유지됩니다. */
       var bpmOver = {}, curSongKey = '';
       function rememberBpm() { if (curSongKey) bpmOver[curSongKey] = Math.round(m.state().bpm); }
+      onBpmUser = rememberBpm;
       host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-a="b-"],[data-a="b+"],[data-a="tap"]')) setTimeout(rememberBpm, 0); });
       function applySongBpm(x) {
         if (!x) { curSongKey = ''; return; }
@@ -238,11 +247,11 @@
       return { onShow: function () { labels(); sync(); }, destroy: function () { mUi = null; } };
     } });
 
-    /* ------------------------------------------------------------ 음정 (피아노롤) */
-    tabs.push({ id: 'pitch', icon: '🎹', label: '음정', build: function (host) {
-      if (!need('음정', root.YNPitch, host)) return;
-      var s = P.song(), pr = root.YNPitch.mount(host, { bpm: s && +s.bpm || 80, key: s && s.key || '', onError: function (t) { P.toast(t, true); } });
-      P.on('song', function (x) { if (x) { if (+x.bpm) pr.setBpm(+x.bpm); pr.setKey(x.key || ''); } });
+    /* ------------------------------------------------------------ 음정 (시작음 확인용 가로 피아노) */
+    tabs.push({ id: 'pitch', icon: '🎹', label: '시작음', build: function (host) {
+      if (!need('시작음 피아노', root.YNPitch, host)) return;
+      var s = P.song(), pr = root.YNPitch.mount(host, { key: s && s.key || '', onError: function (t) { P.toast(t, true); } });
+      P.on('song', function (x) { if (x) pr.setKey(x.key || ''); });
       return { destroy: function () { try { pr.destroy(); } catch (e) {} } };
     } });
 

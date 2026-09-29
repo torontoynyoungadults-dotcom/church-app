@@ -75,12 +75,13 @@
     el.innerHTML =
       '<header class="pv-top">' +
         '<button class="pv-b" data-a="close" title="닫기 (Esc)">✕</button>' +
-        '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><span class="pv-songinfo"></span><button type="button" class="pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">▶ YouTube</button></div>' +
+        '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><select class="pv-sel pv-songsel" style="display:none" aria-label="이 쪽의 곡 (자동으로 찾은 곡을 바꿀 수 있습니다)" title="이 쪽이 어느 곡인지 — 자동으로 찾은 곡이 틀리면 여기서 바꾸세요. 곡이 여러 쪽이면 다음 곡이 나올 때까지 같은 곡으로 봅니다."></select><span class="pv-songinfo"></span><button type="button" class="pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">▶ YouTube</button></div>' +
         '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)">‹</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)">›</button></div>' +
-        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)">−</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)">＋</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">📖 두 쪽</button></div>' +
+        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)">−</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)">＋</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">✂ 여백</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">📖 두 쪽</button></div>' +
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면">📱 태블릿</button><button data-layout="computer" title="컴퓨터 화면">💻 컴퓨터</button></div>' +
         '<div class="pv-grp pv-chips"><span class="pv-chip pv-conn" title="실시간 연결">…</span><button class="pv-chip pv-lead" data-a="tab:together" title="리더 · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="리더 화면 따라가기 켜기/끄기"></button></div>' +
         '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기">☰</button>' +
+        '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="도구 메뉴 열기" title="도구 메뉴 열기 / 닫기"><span class="ic">🛠</span><span class="nm">메뉴</span></button>' +
       '</header>' +
       '<div class="pv-main">' +
         '<div class="pv-tools" role="toolbar" aria-label="필기 도구"></div>' +
@@ -89,7 +90,14 @@
           '<div class="pv-loading">악보를 불러오는 중…</div><div class="pv-toast" role="status" aria-live="polite"></div><div class="pv-sympop"></div></div>' +
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
-      '</div>';
+      '</div>' +
+      '<div class="pv-dback" data-a="drawer-close"></div>' +
+      '<aside class="pv-drawer" id="pvDrawer" role="dialog" aria-label="도구 메뉴" aria-hidden="true">' +
+        '<div class="pv-dh"><b>🛠 도구 메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">✕</button></div>' +
+        '<section class="pv-ds"><h5>보기</h5><div class="pv-dslot" data-slot="view"></div></section>' +
+        '<section class="pv-ds"><h5>필기 도구</h5><div class="pv-dslot" data-slot="tools"></div></section>' +
+        '<section class="pv-ds"><h5>패널</h5><div class="pv-dslot"><button type="button" class="pv-btn2 primary" data-a="drawer-panel">🎛 메트로놈 · 시작음 · 가사 · 함께 (패널 열기)</button></div></section>' +
+      '</aside>';
     doc.body.appendChild(el); doc.body.classList.add('pv-lock');
     function $(sel) { return el.querySelector(sel); }
     var stage = $('.pv-stage'), box = $('.pv-pagebox'), pdfCv = $('.pv-pdf'), annoCv = $('.pv-anno'), loading = $('.pv-loading'), toastEl = $('.pv-toast');
@@ -109,11 +117,49 @@
       if (save) { ls('layout', S.layout); S.fit = S.layout === 'tablet' ? 'page' : 'width'; S.zoom = 1; }
       el.classList.toggle('pv-tablet', S.layout === 'tablet'); el.classList.toggle('pv-computer', S.layout === 'computer');
       el.classList.toggle('pv-lefty', S.hand === 'left');
-      el.classList.toggle('pv-sideopen', S.layout === 'computer' ? ls('side') !== '0' : false);
+      el.classList.toggle('pv-sideopen', S.layout === 'computer' && !S.compact ? ls('side') !== '0' : false);
       Array.prototype.forEach.call(el.querySelectorAll('[data-layout]'), function (b) { b.classList.toggle('on', b.getAttribute('data-layout') === S.layout); b.setAttribute('aria-pressed', b.getAttribute('data-layout') === S.layout ? 'true' : 'false'); });
       an && an.setPenMode(S.layout === 'tablet' ? 'auto' : 'off');
+      if (S.compact !== calcCompact()) setCompact(calcCompact());
       if (S.doc) setTimeout(function () { renderPage(); }, 30);
     }
+    /* ------------------------------------------------------------ 좁은 화면 (아이폰 · 아이패드 세로 · 좁은 창)
+       모든 도구(보기 · 필기 도구)를 "🛠 메뉴" 서랍 하나에 모읍니다. 서랍은 닫혀 있는 것이 기본이라 악보를 가리지 않고, 버튼 하나로 열고 닫습니다.
+       화면 위 버튼을 서랍으로 "옮기기만" 하므로 (새로 만들지 않음) 필기 · 확대 · 화면 배치 · 실시간 동작은 그대로입니다. */
+    var drawerEl = $('.pv-drawer'), menuBtn = $('.pv-menubtn'), holders = [];
+    function calcCompact() { var w = root.innerWidth || 1200, hh = root.innerHeight || 800; return w < (S.layout === 'tablet' ? 1100 : 900) || hh < 500; }
+    function hold(node, slot) {                                       // 원래 자리를 표시해 두고 서랍으로 옮김
+      var ph = doc.createComment('pv'); node.parentNode.insertBefore(ph, node); holders.push({ node: node, ph: ph }); slot.appendChild(node);
+    }
+    function setDrawer(open) {
+      open = !!open && S.compact;
+      el.classList.toggle('pv-drawopen', open); drawerEl.setAttribute('aria-hidden', open ? 'false' : 'true');
+      menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); menuBtn.setAttribute('aria-label', open ? '도구 메뉴 닫기' : '도구 메뉴 열기');
+      menuBtn.querySelector('.ic').textContent = open ? '✕' : '🛠'; menuBtn.querySelector('.nm').textContent = open ? '닫기' : '메뉴';
+      if (open) { el.classList.remove('pv-sideopen'); try { drawerEl.querySelector('.pv-dclose').focus({ preventScroll: true }); } catch (e) {} }
+    }
+    function setCompact(on) {
+      on = !!on; if (on === !!S.compact && holders.length === (on ? 4 : 0)) return;
+      S.compact = on; el.classList.toggle('pv-compact', on);
+      if (on) {
+        var v = drawerEl.querySelector('[data-slot="view"]'), t = drawerEl.querySelector('[data-slot="tools"]');
+        [$('.pv-zoom'), $('.pv-layoutseg'), $('.pv-chips')].forEach(function (n) { if (n) hold(n, v); });
+        hold(toolsEl, t);
+        el.classList.remove('pv-sideopen');
+      } else {
+        setDrawer(false);
+        holders.splice(0).forEach(function (x) { if (x.ph.parentNode) { x.ph.parentNode.insertBefore(x.node, x.ph); x.ph.remove(); } });
+        if (S.layout === 'computer' && ls('side') !== '0') el.classList.add('pv-sideopen');
+      }
+    }
+    function autoFit() {                                              // 폰을 옆으로 눕히면 한 쪽이 너무 작아지므로 가로 폭에 맞춤. 사용자가 맞춤을 직접 바꿨다면 존중
+      if (S.fitUser) return; var f = S.layout === 'tablet' && !(S.compact && (root.innerWidth || 0) > (root.innerHeight || 0) && (root.innerHeight || 0) < 500) ? 'page' : 'width';
+      if (f !== S.fit) { S.fit = f; S.zoom = 1; if (S.doc) renderPage(); }
+    }
+    function checkCompact() { var c = calcCompact(); if (c !== !!S.compact) { setCompact(c); if (S.doc) setTimeout(renderPage, 40); } autoFit(); }
+    menuBtn.onclick = function () { setDrawer(!el.classList.contains('pv-drawopen')); };
+    root.addEventListener('orientationchange', function () { setTimeout(checkCompact, 200); });
+
     /* 필기 도구 막대 접기/펴기 — 접으면 악보가 화면 전체 폭을 씁니다. 도구 막대는 그대로 두고 숨기기만 해서 필기 · 실시간 동기화에 영향이 없습니다 */
     var toolsBtn = $('.pv-toolsbtn');
     function setTools(show, save) {
@@ -129,8 +175,9 @@
     if (ls('tools') === '0') setTools(false, false);
     function toggleSide(force) {
       var on = force != null ? force : !el.classList.contains('pv-sideopen');
+      if (on && S.compact) setDrawer(false);
       el.classList.toggle('pv-sideopen', on);
-      if (S.layout === 'computer') ls('side', on ? '1' : '0');
+      if (S.layout === 'computer' && !S.compact) ls('side', on ? '1' : '0');
       if (on && !S.tab && P.tabs.length) showTab(P.tabs[0].id);
       setTimeout(function () { S.doc && renderPage(); }, 260);
     }
@@ -177,10 +224,41 @@
         var t = info.draw(cv, scale); return t.promise.then(function () { return info; });
       });
     }
-    function fitScale(info) {
-      var aw = Math.max(200, stage.clientWidth - (S.layout === 'computer' ? 24 : 8)), ah = Math.max(200, stage.clientHeight - 8);
+    /* ------------------------------------------------------------ 자동 여백 맞춤 (악보를 화면에 최대한 크게)
+       쪽의 "글자 · 음표가 있는 부분"만 찾아(작은 그림으로 훑어서) 그 부분이 화면을 꽉 채우도록 확대하고, 스크롤 위치를 그 부분 시작점에 맞춥니다.
+       여백을 자르지 않고 "확대 + 스크롤 위치"만 쓰기 때문에 필기 좌표(쪽 전체 기준 0~1)와 다른 사람 화면과의 동기화는 그대로입니다. 여백은 스크롤하면 보입니다. */
+    S.crop = ls('crop') !== '0';
+    var cropBtn = $('.pv-cropbtn');
+    function syncCropUi() { cropBtn.classList.toggle('on', !!S.crop); cropBtn.setAttribute('aria-pressed', S.crop ? 'true' : 'false'); }
+    syncCropUi();
+    var CROP_PAD = 0.025, CROP_MAX_UP = 2.4, CROP_MIN_GAIN = 1.06;
+    /** 작은 그림 데이터에서 잉크(어두운 점)가 있는 범위를 0~1 로. 없으면 null — 순수 계산이라 시험에서도 씁니다 */
+    function inkBounds(data, w, h) {
+      var rows = new Array(h).fill(0), cols = new Array(w).fill(0), i, x, y;
+      for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = (y * w + x) * 4; if (data[i + 3] > 40 && (data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11) < 225) { rows[y]++; cols[x]++; } }
+      function span(a, n) { var lo = -1, hi = -1; for (var k = 0; k < a.length; k++) if (a[k] >= n) { if (lo < 0) lo = k; hi = k; } return lo < 0 ? null : [lo, hi + 1]; }
+      var r = span(rows, 2), c = span(cols, 2); if (!r || !c) return null;
+      return { x0: c[0] / w, x1: c[1] / w, y0: r[0] / h, y1: r[1] / h };
+    }
+    function cropOf(d, pg, info) {
+      d.crops = d.crops || {}; if (d.crops[pg] !== undefined) return Promise.resolve(d.crops[pg]);
+      var cv = doc.createElement('canvas'), sc = 280 / Math.max(1, info.w); cv.width = Math.max(8, Math.round(info.w * sc)); cv.height = Math.max(8, Math.round(info.h * sc));
+      var c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height);
+      var t; try { t = info.draw(cv, sc); } catch (e) { d.crops[pg] = null; return Promise.resolve(null); }
+      return t.promise.then(function () {
+        var b = null; try { b = inkBounds(c.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height); } catch (e) {}
+        if (b) { b.x0 = Math.max(0, b.x0 - CROP_PAD); b.y0 = Math.max(0, b.y0 - CROP_PAD); b.x1 = Math.min(1, b.x1 + CROP_PAD); b.y1 = Math.min(1, b.y1 + CROP_PAD);
+          if ((b.x1 - b.x0) > 0.94 && (b.y1 - b.y0) > 0.94) b = null; }                // 이미 꽉 찬 쪽은 그대로
+        d.crops[pg] = b; return b;
+      }, function () { d.crops[pg] = null; return null; });
+    }
+    function fitScale(info, cr) {
+      var aw = Math.max(200, stage.clientWidth - (S.layout === 'computer' && !S.compact ? 24 : 8)), ah = Math.max(200, stage.clientHeight - 8);
       if (spreadOn()) aw = Math.max(150, (aw - 12) / 2);                 // 두 쪽 : 각 쪽이 가로 절반
-      var fw = aw / info.w, fh = ah / info.h; return S.fit === 'page' ? Math.min(fw, fh) : fw;
+      function one(w, h) { var fw = aw / w, fh = ah / h; return S.fit === 'page' ? Math.min(fw, fh) : fw; }
+      var full = one(info.w, info.h); if (!cr) return full;
+      var up = one(info.w * (cr.x1 - cr.x0), info.h * (cr.y1 - cr.y0));
+      return up < full * CROP_MIN_GAIN ? full : Math.min(up, full * CROP_MAX_UP);
     }
     /* ------------------------------------------------------------ 두 쪽 나란히 (컴퓨터 화면)
        왼쪽 = 지금 쪽 (필기 · 실시간 동기화는 이 쪽에만 — 기존 그대로). 오른쪽 = 다음 쪽 (보기 전용, 눌러서 왼쪽으로 가져오면 필기 가능). */
@@ -216,13 +294,21 @@
       if (S.task) { try { S.task.cancel(); } catch (e) {} S.task = null; }
       return pageInfo(d, pg).then(function (info) {
         if (id !== S.rid) return;
-        var base = fitScale(info) * S.zoom, cssW = Math.max(50, Math.floor(info.w * base)), cssH = Math.max(50, Math.floor(info.h * base));
+        return (S.crop && !spreadOn() ? cropOf(d, pg, info) : Promise.resolve(null)).then(function (cr) { return [info, cr]; });
+      }).then(function (ic) {
+        if (!ic || id !== S.rid) return; var info = ic[0], cr = ic[1];
+        var base = fitScale(info, cr) * S.zoom, cssW = Math.max(50, Math.floor(info.w * base)), cssH = Math.max(50, Math.floor(info.h * base));
         var dpr = Math.min(2, root.devicePixelRatio || 1); while (cssW * cssH * dpr * dpr > 14e6 && dpr > 1) dpr -= 0.25;
         box.style.width = cssW + 'px'; box.style.height = cssH + 'px';
         pdfCv.style.width = cssW + 'px'; pdfCv.style.height = cssH + 'px';
         pdfCv.width = Math.round(cssW * dpr); pdfCv.height = Math.round(cssH * dpr);
         var c = pdfCv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, pdfCv.width, pdfCv.height);
         an.resize(cssW, cssH); an.setPage(pg);
+        S.cropNow = cr || null;
+        if (S.zoom === 1) {                                                        // 자동 맞춤: 글자가 있는 부분의 시작점에 스크롤을 맞춤 (여백은 위 · 옆으로 스크롤하면 보임)
+          stage.scrollLeft = cr && !spreadOn() ? Math.max(0, box.offsetLeft + cr.x0 * cssW - 4) : 0;
+          stage.scrollTop = cr && !spreadOn() ? Math.max(0, box.offsetTop + cr.y0 * cssH - 4) : 0;
+        }
         var t = info.draw(pdfCv, base * dpr); S.task = t;
         renderRight(id, pg, d, base, dpr);
         return t.promise.then(function () { if (id === S.rid) { S.task = null; loading.style.display = 'none'; } }, function (e) {
@@ -242,6 +328,7 @@
         if (lid !== S.loadId || S.dead) return;
         S.doc = d; S.pages = d.n; S.page = clamp(page || 1, 1, d.n); pgLabel();
         loadAnno(); P.emit('sheet', { file: f, doc: d });
+        syncSongForPage(); scanTitles(d, f);
         return renderPage().then(function () { if (fromUser) sendNav(); });
       }).catch(function (e) {
         if (lid !== S.loadId) return;
@@ -250,7 +337,7 @@
     }
     function goPage(n, fromUser) {
       if (!S.doc) return; n = clamp(n | 0, 1, S.pages); if (n === S.page) return;
-      S.page = n; pgLabel(); stage.scrollTop = 0; an.closeEditor(); renderPage(); P.emit('page', n);
+      S.page = n; pgLabel(); stage.scrollTop = 0; an.closeEditor(); syncSongForPage(); renderPage(); P.emit('page', n);
       if (fromUser) sendNav();
     }
     function nextPage(user) {
@@ -264,6 +351,69 @@
     function setZoom(z, user) { S.zoom = clamp(z, 0.4, 4); renderPage(); if (user) sendNav(); }
     function scrollFrac() { var sh = stage.scrollHeight - stage.clientHeight; return sh > 4 ? clamp(stage.scrollTop / sh, 0, 1) : 0; }
 
+    /* ------------------------------------------------------------ 쪽 ↔ 곡 연결
+       PDF 한 파일에 여러 곡이 들어 있을 수 있으므로 BPM · 송폼은 "파일"이 아니라 "쪽"에 붙습니다.
+       ① 쪽 위쪽 글자에서 곡 제목을 찾아 자동 연결 (제목이 없는 쪽은 앞 쪽의 곡이 이어짐)  ② 사진 악보 · 글자가 없는 PDF 는 파일 이름으로 짐작
+       ③ 틀리면 위 드롭다운으로 그 쪽의 곡을 직접 고름 (기기에 기억) — 고친 쪽부터 다음 제목이 나올 때까지 이어집니다. */
+    S.maps = {};
+    function mapOf(f) {
+      var m = S.maps[f.id];
+      if (!m) {
+        var saved = {}; try { saved = JSON.parse(ls('map.' + (S.room || '') + '.' + f.id) || '{}') || {}; } catch (e) { saved = {}; }
+        m = S.maps[f.id] = { auto: {}, manual: saved, scanned: false, scanning: false, base: guessSong(f.name, songs) };
+      }
+      return m;
+    }
+    function saveManual(f) { try { ls('map.' + (S.room || '') + '.' + f.id, JSON.stringify(mapOf(f).manual)); } catch (e) {} }
+    function resolveSong(f, pg) {
+      var m = mapOf(f), cur = m.base;
+      for (var p = 1; p <= pg; p++) { if (m.manual[p] != null) cur = m.manual[p]; else if (m.auto[p] != null) cur = m.auto[p]; }
+      return cur;
+    }
+    function autoSongAt(f, pg) { var m = mapOf(f), cur = m.base; for (var p = 1; p <= pg; p++) if (m.auto[p] != null) cur = m.auto[p]; return cur; }
+    function scanTitles(d, f) {
+      var m = mapOf(f);
+      if (m.scanned || m.scanning || !d.pdf || !songs.length) { m.scanned = true; return Promise.resolve(); }
+      m.scanning = true;
+      var titles = songs.map(function (x) { return normName(x.title); }), pg = 1, last = Math.min(d.n, 120);
+      function step() {
+        if (pg > last || S.dead) { m.scanning = false; m.scanned = true; return Promise.resolve(); }
+        var p = pg++;
+        return d.pdf.getPage(p).then(function (page) {
+          var top = page.view ? page.view[3] : 0;
+          return page.getTextContent().then(function (tc) {
+            var head = tc.items.filter(function (it) { return it.str && (!top || !it.transform || it.transform[5] >= top * 0.6); }).slice(0, 40).map(function (it) { return it.str; }).join('');
+            var n = normName(head), best = -1, bl = 0;
+            titles.forEach(function (t, i) { if (t.length >= 2 && n.indexOf(t) >= 0 && t.length > bl) { best = i; bl = t.length; } });
+            if (best >= 0) m.auto[p] = best;
+          });
+        }).catch(function () {}).then(step);
+      }
+      return step().then(function () { if (S.doc === d) syncSongForPage(); });
+    }
+    function songLabel(i) { return i >= 0 && songs[i] ? (i + 1) + '. ' + songs[i].title : '없음'; }
+    function renderSongSel() {
+      var sel = $('.pv-songsel'); if (!sel) return;
+      if (!songs.length) { sel.style.display = 'none'; return; }
+      var f = sheets[S.sheetIdx], m = mapOf(f), man = m.manual[S.page], auto = autoSongAt(f, S.page);
+      var html = '<option value="auto">자동 · ' + h(songLabel(auto)) + '</option>' + songs.map(function (x, i) { return '<option value="' + i + '">' + h((i + 1) + '. ' + x.title) + '</option>'; }).join('');
+      sel.innerHTML = html; sel.value = man != null ? String(man) : 'auto'; sel.style.display = '';
+      sel.classList.toggle('manual', man != null);
+    }
+    function syncSongForPage() {
+      if (S.applying || !S.doc || S.dead) return;
+      var idx = resolveSong(sheets[S.sheetIdx], S.page);
+      if (idx >= 0 && idx !== S.songIdx) setSong(idx, true);
+      renderSongSel();
+    }
+    $('.pv-songsel').onchange = function () {
+      var f = sheets[S.sheetIdx], m = mapOf(f), v = this.value;
+      if (v === 'auto') delete m.manual[S.page]; else m.manual[S.page] = +v;
+      saveManual(f); var idx = resolveSong(f, S.page);
+      if (idx >= 0) setSong(idx, true); renderSongSel(); sendNav();
+      toast(v === 'auto' ? '이 쪽을 자동 연결로 되돌렸습니다.' : '이 쪽부터 "' + ((songs[+v] || {}).title || '') + '" 로 연결했습니다. (BPM · 송폼도 이 곡 기준)');
+    };
+
     function setSong(i, silent) {
       S.songIdx = i >= 0 && i < songs.length ? i : -1;
       var s = songs[S.songIdx], t = $('.pv-songinfo');
@@ -274,26 +424,29 @@
     }
     /* 유튜브 참고 영상 — 리더가 곡 정보에 넣어 둔 링크를 앱 안의 작은 창으로 재생 (악보 화면을 떠나지 않음, 필기 · 실시간 동기화와 무관) */
     function ytIdOf(url) { var m = /(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{6,})/.exec(String(url || '')); return m ? m[1] : ''; }
-    var ytBtn = $('.pv-ytbtn'), ytBox = null;
-    function closeYt() { if (ytBox) { ytBox.remove(); ytBox = null; } }
-    function setYt(s) { var id = s ? ytIdOf(s.link) : ''; ytBtn.style.display = id ? '' : 'none'; ytBtn.setAttribute('data-id', id); if (!id) closeYt(); }
+    var ytBtn = $('.pv-ytbtn'), ytBox = null, ytCtl = null;
+    function closeYt() { if (ytCtl) { try { ytCtl.destroy(); } catch (e) {} ytCtl = null; } if (ytBox) { ytBox.remove(); ytBox = null; } }
+    function setYt(s) { var id = s ? ytIdOf(s.link) : ''; if (ytBox && ytBtn.getAttribute('data-id') !== id) closeYt(); ytBtn.style.display = id ? '' : 'none'; ytBtn.setAttribute('data-id', id); if (!id) closeYt(); }
     ytBtn.onclick = function () {
       var id = ytBtn.getAttribute('data-id'); if (!id) return;
       if (ytBox) { closeYt(); return; }
       ytBox = doc.createElement('div'); ytBox.className = 'pv-yt'; ytBox.setAttribute('role', 'dialog'); ytBox.setAttribute('aria-label', '유튜브 참고 영상');
-      ytBox.innerHTML = '<div class="pv-yth"><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">✕</button></div>' +
-        '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1&autoplay=1" title="유튜브 참고 영상" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
-      ytBox.querySelector('button').onclick = closeYt;
+      ytBox.innerHTML = '<div class="pv-yth"><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">✕</button></div><div class="pv-ytbody"></div>';
+      ytBox.querySelector('.pv-yth button').onclick = closeYt;
       el.appendChild(ytBox);
+      var body = ytBox.querySelector('.pv-ytbody');
+      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi });        // 공식 IFrame API: 속도 · A-B 반복
+      else body.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1&autoplay=1" title="유튜브 참고 영상" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
     };
 
     /* ------------------------------------------------------------ 패널과 주고받는 통로 */
     var handlers = {};
     var P = {
+      yt: function () { return ytCtl; },
       el: el, opts: opts, songs: songs, sheets: sheets, tabs: [], toast: toast,
       on: function (n, fn) { (handlers[n] = handlers[n] || []).push(fn); return P; },
       emit: function (n, a, b) { (handlers[n] || []).slice().forEach(function (fn) { try { fn(a, b); } catch (e) { if (root.console) root.console.error('[practice:' + n + ']', e); } }); },
-      song: function () { return songs[S.songIdx] || null; }, songIdx: function () { return S.songIdx; }, setSong: function (i) { setSong(i); },
+      song: function () { return songs[S.songIdx] || null; }, pageSong: function (pg) { return resolveSong(sheets[S.sheetIdx], pg == null ? S.page : pg); }, songIdx: function () { return S.songIdx; }, setSong: function (i) { setSong(i); },
       file: function () { return sheets[S.sheetIdx]; }, page: function () { return S.page; },
       pdf: function () { return S.doc && S.doc.pdf || null; }, canvas: function () { return pdfCv; },
       lang: function () { return S.lang; }, setLang: function (l) { S.lang = l === 'ko' ? 'ko' : 'en'; ls('lang', S.lang); },
@@ -301,7 +454,7 @@
       setHand: function (hd) { S.hand = hd === 'left' ? 'left' : 'right'; ls('hand', S.hand); applyLayout(S.layout, false); },
       anno: function () { return an; }, rt: function () { return rt; }, canEdit: !!opts.canEdit, canLead: function () { return !!(rt && rt.me && rt.me.canLead); },
       isLeader: function () { return !!(rt && rt.isLeader); }, showTab: function (id) { showTab(id); },
-      getLayer: function () { return S.layer; }, getScope: function () { return S.scope; }, setLayer: function (l) { setLayer(l); }, setScope: function (s) { setScope(s); },
+      getLayer: function () { return S.layer; }, getScope: function () { return S.scope; }, setLayer: function (l) { setLayer(l, true); }, setScope: function (s) { setScope(s); },
       recvCue: function (v) { if (v !== undefined) { S.recvCue = !!v; ls('recvcue', v ? '1' : '0'); } return S.recvCue; },
       sendCueOn: function (v) { if (v !== undefined) { S.sendCue = !!v; ls('sendcue', v ? '1' : '0'); } return S.sendCue; },
       cueIdFor: cueIdFor,
@@ -329,7 +482,13 @@
       onLive: function (m) { if (rt && rt.online) rt.fire('anno:live', Object.assign({ file: sheets[S.sheetIdx].id }, m)); },
       onChange: function () { P.emit('annochange'); },
       onMessage: function (t, bad) { toast(t, bad); },
-      teamBlocked: function () { return !rt || rt.state === 'unavailable' || rt.state === 'denied' ? '팀 공유에 연결되어 있지 않습니다. "나만 보기"로 바꿔서 쓰거나 새로고침해 주세요.' : ''; }
+      keepEditor: function (a) { return !!(a && (toolsEl.contains(a) || (drawerEl && drawerEl.contains(a)))); },
+      teamBlocked: function () {
+        var blocked = !rt || rt.state === 'unavailable' || rt.state === 'denied';
+        if (!blocked) return '';
+        if (!S.layerUser) { S.layer = 'mine'; an.setLayer('mine'); renderTools(); toast('팀에 연결되어 있지 않아 이번에는 "나만 보기"로 씁니다.'); return ''; }       // 직접 고르지 않았다면 필기가 막히지 않도록 임시로 내 것으로
+        return '팀 공유에 연결되어 있지 않습니다. "나만 보기"를 체크해서 쓰거나 새로고침해 주세요.';
+      }
     }) : { setPenMode: function () {}, resize: function () {}, setPage: function () {}, closeEditor: function () {}, setItems: function () {}, items: function () { return []; }, setTool: function () {}, setLayer: function () {}, count: function () { return 0; }, drawPage: function () {}, remoteAdd: function () {}, remoteDel: function () {}, remoteClear: function () {}, remoteLive: function () {}, undo: function () {}, redo: function () {}, state: function () { return {}; }, destroy: function () {}, setVisible: function () {}, setPerms: function () {}, setColor: function () {}, setWidth: function () {}, setSymbol: function () {}, setSymSize: function () {}, setTextSize: function () {}, clearPage: function () { return 0; }, setHlColor: function () {}, setStraight: function () {} };
 
     function fileId() { return sheets[S.sheetIdx].id; }
@@ -412,7 +571,7 @@
         rt.call('anno:load', { file: file, scope: sc }).then(function (r) { if (id !== S.annoId || file !== fileId()) return; S.teamFrom[sc] = 'rt'; replaceScope('team', sc, r.items || []); }, function (e) { if (id === S.annoId) toast('팀 필기를 불러오지 못했습니다: ' + e.message, true); });
       });
     }
-    function setLayer(l) { S.layer = l === 'mine' ? 'mine' : 'team'; ls('layer', S.layer); an.setLayer(S.layer); P.emit('layer', S.layer); renderTools(); }
+    function setLayer(l, byUser) { S.layer = l === 'mine' ? 'mine' : 'team'; if (byUser) { S.layerUser = true; ls('layer', S.layer); } an.setLayer(S.layer); P.emit('layer', S.layer); renderTools(); }
     function setScope(s) { S.scope = s === 'date' ? 'date' : 'song'; ls('scope', S.scope); P.emit('scope', S.scope); renderTools(); }
     /* scope 를 서버에 보낼 때: 'song' 그대로 / 'date' = 방(날짜) 키 */
     Object.defineProperty(S, 'scopeKey', { get: function () { return S.scope === 'date' && S.room ? S.room : 'song'; } });
@@ -516,8 +675,9 @@
     var SIZES = { pen: [0.0018, 0.003, 0.0055], hl: [0.012, 0.02, 0.032], text: [0.018, 0.024, 0.034], sym: [0.022, 0.032, 0.05] };
     S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false;
     function sizeKey() { return S.tool === 'hl' ? 'hl' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
+    S.fsz = {}; S.font = ls('font') && YA && YA.FONTS[ls('font')] ? ls('font') : 'sans';
     function applySize() {
-      var v = SIZES[sizeKey()][S.sizeIdx];
+      var v = S.fsz[sizeKey()] || SIZES[sizeKey()][S.sizeIdx];
       if (S.tool === 'pen' || S.tool === 'hl') an.setWidth(v); else if (S.tool === 'text' || S.tool === 'chord') an.setTextSize(v); else if (S.tool === 'sym') an.setSymSize(v);
     }
     function setTool(t) {
@@ -528,34 +688,53 @@
       if (hint) toast(hint, false, 2600);
     }
     function renderTools() {
+      var ae = doc.activeElement;
+      if (ae && ae.tagName === 'INPUT' && ae.type === 'range' && toolsEl.contains(ae)) { S.toolsDirty = true; return; }          // 슬라이더를 끄는 중에는 다시 그리지 않음
+      S.toolsDirty = false;
       var st = an.state ? an.state() : {}, hl = S.tool === 'hl', cols = hl ? YA.HL_COLORS : YA.PALETTE;
-      var cur = hl ? (an.hlColor || cols[0]) : (S.color || cols[0]);
+      var txt = S.tool === 'text' || S.tool === 'chord' || S.tool === 'sym', isSym = S.tool === 'sym';
+      var fsz = isSym ? (st.symSize || 0.032) : (st.textSize || 0.024);
+      var fontRow = !txt ? '' :
+        '<div class="pv-tg pv-fontrow"><label class="pv-fl"><span>글꼴</span><select data-font aria-label="글꼴">' + YA.FONT_KEYS.map(function (k) { return '<option value="' + k + '"' + (S.font === k ? ' selected' : '') + '>' + h(YA.FONT_NAMES[k]) + '</option>'; }).join('') + '</select></label>' +
+        '<label class="pv-fl"><span>크기</span><input type="range" data-fsz min="0.012" max="' + (isSym ? '0.09' : '0.08') + '" step="0.002" value="' + fsz + '" aria-label="글자 크기"><output>' + Math.round(fsz * 1000) + '</output></label></div>';
       toolsEl.innerHTML =
         '<div class="pv-tg">' + TOOLS.map(function (t) { return '<button class="pv-tool' + (S.tool === t.t ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + (S.tool === t.t) + '"><span class="ic">' + t.ic + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
-        '<div class="pv-tg pv-colors">' + cols.map(function (c) { return '<button class="pv-col' + (c === S.curColor ? ' on' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="색 ' + c + '" aria-label="색"></button>'; }).join('') + '</div>' +
-        '<div class="pv-tg pv-sizes">' + [0, 1, 2].map(function (i) { return '<button class="pv-size' + (S.sizeIdx === i ? ' on' : '') + '" data-size="' + i + '" title="굵기 ' + (i + 1) + '"><i style="--s:' + (4 + i * 4) + 'px"></i></button>'; }).join('') + '</div>' +
+        '<div class="pv-tg pv-colors">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === S.curColor ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === S.curColor) + '"></button>'; }).join('') + '</div>' +
+        fontRow +
+        '<div class="pv-tg pv-sizes">' + [0, 1, 2].map(function (i) { return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[sizeKey()] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + '"><i style="--s:' + (4 + i * 4) + 'px"></i></button>'; }).join('') + '</div>' +
         '<div class="pv-tg"><button class="pv-tool sm" data-a="undo" title="되돌리기 (Ctrl+Z)"' + (st.canUndo ? '' : ' disabled') + '><span class="ic">↶</span><span class="nm">취소</span></button>' +
           '<button class="pv-tool sm" data-a="redo" title="다시 (Ctrl+Shift+Z)"' + (st.canRedo ? '' : ' disabled') + '><span class="ic">↷</span><span class="nm">다시</span></button>' +
-          '<button class="pv-tool sm" data-a="clearpg" title="이 쪽에 내가 쓴 필기 지우기"><span class="ic">🗑</span><span class="nm">이 쪽</span></button></div>' +
-        '<div class="pv-tg pv-pills"><button class="pv-pill ' + S.layer + '" data-a="layer" title="누가 볼 수 있나요? (눌러서 바꾸기)">' + (S.layer === 'team' ? '👥 팀 공유' : '🔒 나만 보기') + '</button>' +
+          '<button class="pv-tool sm" data-a="clearpg" title="현재 페이지에 내가 쓴 필기 지우기"><span class="ic">🗑</span><span class="nm">현재 페이지</span></button></div>' +
+        '<div class="pv-tg pv-pills"><label class="pv-mineonly' + (S.layer === 'mine' ? ' on' : '') + '" title="체크하면 나에게만 보입니다. 체크하지 않으면(기본) 팀 모두의 화면에 실시간으로 나타납니다."><input type="checkbox" data-a="mineonly"' + (S.layer === 'mine' ? ' checked' : '') + '><span>나만 보기</span></label>' +
           '<button class="pv-pill scope" data-a="scope" title="필기가 어디에 붙나요? (눌러서 바꾸기)">' + (S.scope === 'date' && S.room ? '📅 이 날짜만' : '📌 곡에 계속') + '</button></div>';
     }
     toolsEl.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
       if (b.dataset.tool) { setTool(b.dataset.tool === S.tool && b.dataset.tool !== 'none' ? 'none' : b.dataset.tool); return; }
-      if (b.dataset.color) { S.curColor = b.dataset.color; if (S.tool === 'hl') { an.setHlColor(S.curColor); S.hlSel = S.curColor; } else { an.setColor(S.curColor); S.penSel = S.curColor; } renderTools(); return; }
-      if (b.dataset.size != null) { S.sizeIdx = +b.dataset.size; applySize(); renderTools(); return; }
+      if (b.dataset.color) { S.curColor = b.dataset.color; if (S.tool === 'hl') { an.setHlColor(S.curColor); S.hlSel = S.curColor; } else { an.setColor(S.curColor); S.penSel = S.curColor; } renderTools(); an.focusEditor && an.focusEditor(); return; }
+      if (b.dataset.size != null) { S.sizeIdx = +b.dataset.size; delete S.fsz[sizeKey()]; applySize(); renderTools(); an.focusEditor && an.focusEditor(); return; }
       var a = b.dataset.a;
       if (a === 'undo') { an.undo(); renderTools(); } else if (a === 'redo') { an.redo(); renderTools(); }
       else if (a === 'clearpg') { var n = an.clearPage(S.layer, false); if (n) toast(n + '개를 지웠습니다. ↶ 로 되돌릴 수 있어요.'); renderTools(); }
-      else if (a === 'layer') setLayer(S.layer === 'team' ? 'mine' : 'team');
       else if (a === 'scope') { if (!S.room) toast('이 곡에만 붙일 수 있습니다.'); else setScope(S.scope === 'song' ? 'date' : 'song'); }
+    });
+    /* 나만 보기 체크박스 · 글꼴 · 크기 슬라이더 */
+    toolsEl.addEventListener('change', function (e) {
+      var t = e.target;
+      if (t.dataset && t.dataset.a === 'mineonly') { setLayer(t.checked ? 'mine' : 'team', true); toast(t.checked ? '이제 나만 보이게 씁니다.' : '이제 팀 모두에게 공유됩니다.', false, 1400); }
+      else if (t.dataset && t.dataset.font != null) { S.font = t.value; ls('font', S.font); an.setFont(S.font); renderTools(); an.focusEditor && an.focusEditor(); }
+      else if (t.dataset && t.dataset.fsz != null) { S.toolsDirty && renderTools(); an.focusEditor && an.focusEditor(); }
+    });
+    toolsEl.addEventListener('input', function (e) {
+      var t = e.target; if (!(t.dataset && t.dataset.fsz != null)) return;
+      var v = +t.value, key = sizeKey(); S.fsz[key] = v; if (key === 'sym') an.setSymSize(v); else an.setTextSize(v);
+      var o = t.parentNode && t.parentNode.querySelector('output'); if (o) o.textContent = Math.round(v * 1000);
     });
     P.on('annochange', function () { clearTimeout(S.toolT); S.toolT = setTimeout(renderTools, 60); });
     /* 색은 도구마다 기억 (펜/글자는 같은 색, 형광펜은 따로) */
     S.curColor = YA ? YA.PALETTE[0] : '#ff5a1f';
     var origSetTool = setTool;
-    setTool = function (t) { origSetTool(t); S.curColor = t === 'hl' ? (S.hlSel || YA.HL_COLORS[0]) : (S.penSel || YA.PALETTE[0]); if (t === 'hl') an.setHlColor(S.curColor); else if (t !== 'none') an.setColor(S.curColor); renderTools(); };
+    setTool = function (t) { origSetTool(t); S.curColor = t === 'hl' ? (S.hlSel || YA.HL_COLORS[0]) : (S.penSel || YA.PALETTE[0]); if (t === 'hl') an.setHlColor(S.curColor); else if (t !== 'none') an.setColor(S.curColor); renderTools(); if (S.compact && t !== 'none' && (root.innerWidth || 0) < 600) setDrawer(false); };
 
     function renderSymPop() {
       var pop = $('.pv-sympop'); pop.style.display = S.symOpen ? 'block' : 'none';
@@ -643,10 +822,12 @@
       var b = e.target.closest ? e.target.closest('[data-a],[data-layout]') : null; if (!b || toolsEl.contains(b)) return;
       if (b.dataset.layout) { applyLayout(b.dataset.layout, true); return; }
       var a = b.dataset.a;
-      if (a === 'close') api.close(); else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
+      if (a === 'drawer-close') setDrawer(false); else if (a === 'drawer-panel') { setDrawer(false); toggleSide(true); }
+      else if (a === 'close') api.close(); else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
       else if (a === 'zin') setZoom(S.zoom * 1.2, true); else if (a === 'zout') setZoom(S.zoom / 1.2, true);
       else if (a === 'spread') toggleSpread();
-      else if (a === 'zfit') { S.zoom = 1; S.fit = S.fit === 'page' ? 'width' : 'page'; renderPage(); sendNav(); toast(S.fit === 'page' ? '한 쪽이 다 보이게 맞춤' : '가로 폭에 맞춤'); }
+      else if (a === 'crop') { S.crop = !S.crop; ls('crop', S.crop ? '1' : '0'); S.zoom = 1; syncCropUi(); renderPage(); sendNav(); toast(S.crop ? '여백을 줄여 악보를 크게 보여 줍니다' : '종이 전체를 보여 줍니다'); }
+      else if (a === 'zfit') { S.fitUser = true; S.zoom = 1; S.fit = S.fit === 'page' ? 'width' : 'page'; renderPage(); sendNav(); toast(S.fit === 'page' ? '한 쪽이 다 보이게 맞춤' : '가로 폭에 맞춤'); }
       else if (a === 'panel') toggleSide(); else if (a === 'follow') setFollow(!S.follow); else if (a && a.indexOf('tab:') === 0) showTab(a.slice(4));
     });
     stage.addEventListener('click', function (e) {
@@ -662,22 +843,40 @@
     });
     var scT = 0; stage.addEventListener('scroll', function () { clearTimeout(scT); scT = setTimeout(sendNav, 250); });
     stage.addEventListener('wheel', function (e) { if (e.ctrlKey) { e.preventDefault(); setZoom(S.zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08), true); } }, { passive: false });
+    /* 글자를 치는 중인지 — 그때는 단축키를 모두 끕니다. (체크박스 · 슬라이더 · 버튼에 초점이 남아 있는 것은 "치는 중"이 아니므로 단축키가 계속 됩니다) */
+    var NOTYPE = { checkbox: 1, radio: 1, range: 1, button: 1, submit: 1, reset: 1, color: 1, file: 1, image: 1 };
+    function isTyping(t) {
+      if (!t || !t.tagName) return false;
+      var tag = t.tagName; if (tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return true;
+      return tag === 'INPUT' && !NOTYPE[String(t.type || 'text').toLowerCase()];
+    }
+    var spaceEaten = false;
     function onKey(e) {
-      var t = e.target, tag = t && t.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      if (S.dead || isTyping(e.target)) return;
       var k = e.key, mod = e.ctrlKey || e.metaKey;
       if (mod && (k === 'z' || k === 'Z')) { e.preventDefault(); e.shiftKey ? an.redo() : an.undo(); renderTools(); return; }
       if (mod && (k === 'y' || k === 'Y')) { e.preventDefault(); an.redo(); renderTools(); return; }
       if (mod || e.altKey) return;
-      var map = { ArrowRight: 'n', PageDown: 'n', ArrowLeft: 'p', PageUp: 'p', '+': 'zi', '=': 'zi', '-': 'zo', '0': 'zf', Escape: 'esc', v: 'none', p: 'pen', h: 'hl', t: 'text', c: 'chord', s: 'sym', e: 'eraser' };
-      var m = map[k]; if (!m) return; e.preventDefault();
+      var map = { ArrowRight: 'n', PageDown: 'n', ArrowLeft: 'p', PageUp: 'p', ArrowUp: 'bu', ArrowDown: 'bd', ' ': 'sp', Spacebar: 'sp', '+': 'zi', '=': 'zi', '-': 'zo', '0': 'zf', Escape: 'esc', v: 'none', p: 'pen', h: 'hl', t: 'text', c: 'chord', s: 'sym', e: 'eraser' };
+      var m = map[k]; if (!m) return;
+      if (m === 'bu' || m === 'bd' || m === 'sp') {                                    // 메트로놈: ↑↓ BPM · Space 시작/멈춤 — 메트로놈을 쓸 수 없으면 원래 동작(스크롤 등) 그대로
+        if (!P.metroKey) return;
+        var r = m === 'sp' ? (e.repeat ? { ok: true } : P.metroKey('toggle')) : P.metroKey('bpm', (m === 'bu' ? 1 : -1) * (e.shiftKey ? 5 : 1));
+        if (!r) return; e.preventDefault(); if (m === 'sp') spaceEaten = true; return;
+      }
+      e.preventDefault();
       if (m === 'n') nextPage(true); else if (m === 'p') prevPage(true); else if (m === 'zi') setZoom(S.zoom * 1.2, true); else if (m === 'zo') setZoom(S.zoom / 1.2, true);
       else if (m === 'zf') { S.zoom = 1; renderPage(); sendNav(); }
-      else if (m === 'esc') { if (S.tool !== 'none') setTool('none'); else api.close(); } else setTool(m);
+      else if (m === 'esc') { if (el.classList.contains('pv-drawopen')) setDrawer(false); else if (S.tool !== 'none') setTool('none'); else api.close(); } else setTool(m);
     }
+    function onKeyUp(e) { if ((e.key === ' ' || e.key === 'Spacebar') && spaceEaten) { spaceEaten = false; e.preventDefault(); } }   // 버튼에 초점이 있어도 Space 가 그 버튼을 또 누르지 않게
+    doc.addEventListener('keyup', onKeyUp);
+    el.addEventListener('change', function (e) { var t = e.target; if (t && t.tagName === 'SELECT') { try { t.blur(); } catch (x) {} } });   // 목록을 고른 뒤에도 단축키가 바로 먹도록
     doc.addEventListener('keydown', onKey);
     var rz = 0, ro = null;
-    function onResize() { clearTimeout(rz); rz = setTimeout(function () { S.doc && renderPage(); }, 150); }
-    if (root.ResizeObserver) { ro = new root.ResizeObserver(onResize); ro.observe(stage); } else root.addEventListener('resize', onResize);
+    function onResize() { clearTimeout(rz); rz = setTimeout(function () { checkCompact(); S.doc && renderPage(); }, 150); }
+    root.addEventListener('resize', onResize);
+    if (root.ResizeObserver) { ro = new root.ResizeObserver(onResize); ro.observe(stage); }
     function onVis() { if (doc.visibilityState === 'visible') { requestWake(); } }
     function requestWake() { try { if (root.navigator.wakeLock && !S.wake) root.navigator.wakeLock.request('screen').then(function (l) { S.wake = l; l.addEventListener('release', function () { S.wake = null; }); }, function () {}); } catch (e) {} }
     doc.addEventListener('visibilitychange', onVis);
@@ -688,12 +887,12 @@
     var api = {
       el: el, P: P, goPage: function (n) { goPage(n, true); }, loadSheet: function (i, pg) { return loadSheet(i, pg, true); },
       close: function () {
-        if (S.dead) return; S.dead = true; flushMine(); P.emit('close');
+        if (S.dead) return; S.dead = true; closeYt(); flushMine(); P.emit('close');
         try { an.closeEditor(); } catch (e) {}
         P.tabs.forEach(function (t) { try { t.api && t.api.destroy && t.api.destroy(); } catch (e) {} });
         try { rt && rt.close(); } catch (e) {} try { an.destroy(); } catch (e) {}
-        doc.removeEventListener('keydown', onKey); doc.removeEventListener('visibilitychange', onVis); root.removeEventListener('pagehide', onBeforeUnload);
-        if (ro) ro.disconnect(); else root.removeEventListener('resize', onResize);
+        doc.removeEventListener('keydown', onKey); doc.removeEventListener('keyup', onKeyUp); doc.removeEventListener('visibilitychange', onVis); root.removeEventListener('pagehide', onBeforeUnload);
+        if (ro) ro.disconnect(); root.removeEventListener('resize', onResize);
         try { S.wake && S.wake.release(); } catch (e) {}
         Object.keys(S.cache).forEach(function (k) { try { S.cache[k].pdf && S.cache[k].pdf.destroy(); } catch (e) {} });
         el.remove(); doc.body.classList.remove('pv-lock'); current = null;
@@ -701,8 +900,8 @@
       }
     };
     current = api;
-    S.layer = ls('layer') === 'team' ? 'team' : 'mine'; S.scope = ls('scope') === 'date' && S.room ? 'date' : 'song'; an.setLayer(S.layer);
-    applyLayout(S.layout, false); renderTools(); buildTabs(); connect(); requestWake();
+    S.layer = ls('layer') === 'mine' ? 'mine' : 'team'; S.layerUser = !!ls('layer'); S.scope = ls('scope') === 'date' && S.room ? 'date' : 'song'; an.setLayer(S.layer); if (an.setFont) an.setFont(S.font);
+    setCompact(calcCompact()); autoFit(); applyLayout(S.layout, false); renderTools(); buildTabs(); connect(); requestWake();
     var g0 = typeof opts.song === 'number' ? opts.song : guessSong(sheets[S.sheetIdx].name, songs); if (g0 >= 0) setSong(g0, true);
     loadSheet(S.sheetIdx, 1, false);
     if (S.layout === 'computer' && ls('side') !== '0' && P.tabs.length) showTab(P.tabs[0].id);

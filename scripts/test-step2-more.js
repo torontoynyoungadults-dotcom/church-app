@@ -12,31 +12,31 @@ const near = (a, b, tol, m) => ok(Math.abs(a - b) <= tol, m + ' → ' + a + ' vs
 const section = (t) => console.log('\n■ ' + t);
 
 function testPitch() {
-  section('음정 (pitch.js)');
+  section('시작음 피아노 (pitch.js)');
   const P = W('pitch.js');
   near(P.midiToFreq(69), 440, 1e-9, 'A4 = 440Hz'); eq(P.freqToMidi(440), 69, '440Hz → 69'); eq(P.noteName(60), 'C4', '60 = C4');
   near(P.freqToMidi(P.midiToFreq(50.3)), 50.3, 1e-9, '주파수 ↔ 음 왕복');
-  eq(P.parseKey('Bb').tonic, 10, 'Bb 의 으뜸음'); eq(P.parseKey('Am').minor, true, 'Am 은 단조'); eq(P.parseKey(''), null, '빈 키');
+  eq(P.parseKey('Bb').tonic, 10, 'Bb 의 으뜸음'); eq(P.parseKey('Am').minor, true, 'Am 은 단조'); eq(P.parseKey(''), null, '빈 키'); eq(P.parseKey('F#m').name, 'F#m', 'F#m 이름');
   eq(P.scalePcs(P.parseKey('G')).slice().sort((a, b) => a - b), [0, 2, 4, 6, 7, 9, 11], 'G 장음계');
-  eq(P.centsBetween(60, 72, true), 0, '옥타브 무관이면 도 = 높은 도'); eq(P.centsBetween(60, 72, false), -1200, '옥타브 구분이면 1200¢ 차이');
-  // 순음 → 음높이 (여러 높이 · 표본율)
-  for (const sr of [44100, 48000]) for (const f of [110, 196, 261.63, 330, 440, 660, 880]) {
-    const buf = new Float32Array(2048); for (let i = 0; i < buf.length; i++) buf[i] = 0.6 * Math.sin(2 * Math.PI * f * i / sr);
-    const r = P.detectPitch(buf, sr); ok(r && Math.abs(1200 * Math.log2(r.freq / f)) < 8 && r.prob > 0.9, `${f}Hz @${sr} 를 찾음 → ${r && r.freq}`);
-  }
-  // 배음이 섞인 소리 · 잡음 섞임
-  { const sr = 48000, f = 220, buf = new Float32Array(2048); let s = 7; const rnd = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296 - .5; };
-    for (let i = 0; i < buf.length; i++) buf[i] = 0.5 * Math.sin(2 * Math.PI * f * i / sr) + 0.3 * Math.sin(2 * Math.PI * 2 * f * i / sr) + 0.15 * Math.sin(2 * Math.PI * 3 * f * i / sr) + 0.05 * rnd();
-    const r = P.detectPitch(buf, sr); ok(r && Math.abs(1200 * Math.log2(r.freq / f)) < 15, '배음 + 잡음에서도 기본음 220Hz → ' + (r && r.freq)); }
-  ok(P.detectPitch(new Float32Array(2048), 48000) === null, '무음은 null');
-  { const buf = new Float32Array(2048); let s = 3; for (let i = 0; i < buf.length; i++) { s = (s * 1664525 + 1013904223) % 4294967296; buf[i] = (s / 4294967296 - .5) * 0.8; } const r = P.detectPitch(buf, 48000); ok(r === null || r.prob < 0.7, '순수 잡음은 음으로 오인하지 않음'); }
-  // 점수
-  const notes = [{ beat: 0, len: 2, midi: 60 }, { beat: 2, len: 2, midi: 64 }];
-  const frames = [{ beat: .2, midi: 60 }, { beat: .6, midi: 60.1 }, { beat: 1.2, midi: 60 }, { beat: 2.2, midi: 60 }, { beat: 2.8, midi: 60 }];
-  const sc = P.scoreNotes(notes, frames, { octave: true });
-  eq(sc.length, 2, '음마다 결과'); ok(sc[0].pct === 100, '맞게 부른 음 100%'); ok(sc[1].pct === 0, '엉뚱한 음 0%');
-  const none = P.scoreNotes(notes, [], { octave: true }); ok(none.every((r) => r.frames === 0), '부른 소리가 없으면 frames 0');
-  const sm = []; const out = [60, 60, 72, 60, 60].map((m) => P.medianSmooth(sm, m, 5)); ok(out.every((v) => Math.abs(v - 60) < 1) || out[2] < 72, '튀는 값을 중앙값으로 눌러 줌');
+  eq(P.startMidi('G'), 67, 'G 곡의 시작음 = G4'); eq(P.startMidi('C'), 60, 'C 곡의 시작음 = C4'); eq(P.startMidi(''), null, 'Key 가 없으면 시작음 없음');
+  ok(P.detectPitch === undefined && P.scoreNotes === undefined && P.medianSmooth === undefined, '옛 음정 검출 · 점수 기능은 제거됨');
+  // 건반 배치
+  { const L = P.layout(48, 72); eq(L.nWhite, 15, '두 옥타브 + 도 = 흰 건반 15'); eq(L.blacks.length, 10, '검은 건반 10'); ok(L.blacks.every((b) => b.after >= 0 && b.after < L.nWhite - 1), '검은 건반은 흰 건반 사이');
+    eq(L.blacks[0], { midi: 49, pc: 1, after: 0 }, '첫 검은 건반은 C 와 D 사이'); ok(P.layout(49, 71).lo === 50 && P.layout(49, 71).hi === 71, '검은 건반 시작은 안쪽 흰 건반으로'); }
+  // ADSR
+  { const lo = P.adsr(40, .8), hi = P.adsr(90, .8);
+    ok(lo.attack < 0.02 && lo.attack > 0, '어택은 아주 짧음'); ok(lo.sustain > 0 && lo.sustain < 1, '서스테인은 0~1 비율'); ok(lo.decay > hi.decay && lo.release > hi.release && lo.hold > hi.hold, '높은 음일수록 빨리 잦아듦');
+    ok(P.adsr(60, 1).peak > P.adsr(60, .2).peak, '세게 칠수록 큼'); ok(P.adsr(60, 1).cutoffStart > P.adsr(60, .2).cutoffStart, '세게 칠수록 밝음'); ok(lo.peak < 0.8, '최고 음량은 여유 있게 (깨짐 방지)'); }
+  // 가짜 AudioContext 로 합성 구조 확인
+  { const log = []; const param = (n) => ({ value: 0, setValueAtTime(v, t) { log.push([n, 'set', v, t]); }, linearRampToValueAtTime(v, t) { log.push([n, 'lin', v, t]); }, exponentialRampToValueAtTime(v, t) { log.push([n, 'exp', v, t]); }, setTargetAtTime(v, t, k) { log.push([n, 'target', v, t, k]); }, cancelScheduledValues() { log.push([n, 'cancel']); } });
+    const node = (kind) => ({ kind, connect() {}, disconnect() {}, gain: param('gain'), frequency: param('freq'), Q: { value: 0 }, start() { log.push([kind, 'start']); }, stop(t) { log.push([kind, 'stop', t]); } });
+    const ctx = { currentTime: 1, createGain: () => node('gain'), createOscillator: () => node('osc'), createBiquadFilter: () => node('filter') };
+    const syn = P.createSynth(ctx, node('dest')); const v = syn.on(60, .8, 1);
+    eq(log.filter((l) => l[0] === 'osc' && l[1] === 'start').length, P.PARTIALS.length, '배음 개수만큼 오실레이터'); eq(syn.count(), 1, '음 1개 재생 중');
+    ok(log.some((l) => l[0] === 'gain' && l[1] === 'lin'), 'Attack 램프'); ok(log.filter((l) => l[0] === 'gain' && l[1] === 'target').length >= 2, 'Decay · Sustain 감쇠');
+    ok(log.some((l) => l[0] === 'freq' && l[1] === 'exp'), '필터 열림이 점점 닫힘 (밝음 → 부드러움)');
+    v.off(2); ok(log.some((l) => l[0] === 'gain' && l[1] === 'cancel'), 'Release: 예약된 곡선 취소'); ok(log.filter((l) => l[0] === 'osc' && l[1] === 'stop').length === 6, 'Release 뒤 오실레이터 정지'); eq(syn.count(), 0, '뗀 뒤 목록에서 빠짐');
+    for (let i = 0; i < 20; i++) syn.on(48 + i, .8); ok(syn.count() <= 12, '동시 음 수 제한 (' + syn.count() + ')'); syn.allOff(); eq(syn.count(), 0, 'allOff'); }
 }
 
 function testLyrics() {
@@ -62,7 +62,7 @@ function testLyrics() {
 function testAnno() {
   section('필기 계산 (anno.js)');
   const A = W('anno.js');
-  eq(A.SYMBOLS.length, 31, '악보 기호 31개');
+  eq(A.SYMBOLS.length, 35, '악보 기호 35개 (음표 도장 4개 포함)');
   // 서버가 받아 주는 기호와 화면 기호가 같은 목록
   const RT = require(path.join(__dirname, '..', 'lib', 'realtime.js'));
   if (RT.SYMBOLS) eq(A.SYMBOLS.map((s) => s.k || s), Array.from(RT.SYMBOLS), '화면 기호 = 서버 허용 기호');
@@ -76,6 +76,43 @@ function testAnno() {
   const tx = { id: 'b', t: 'text', pg: 1, c: '#000', x: 0.2, y: 0.2, sz: 0.02, s: 'Hello' }; ok(A.hit(tx, 210, 200, 1000, 1000, 4) || A.hit(tx, 215, 195, 1000, 1000, 4), '글자 상자 안을 누르면 잡힘');
 }
 
-testPitch(); testLyrics(); testAnno();
+
+function testAnnoNew() {
+  section('필기 개선 (색 · 글꼴 · 음표 도장)');
+  const A = W('anno.js'), RT = require(path.join(__dirname, '..', 'lib', 'realtime.js'));
+  eq(A.PALETTE.length, 6, '색은 6개'); eq(A.PALETTE.map((c) => A.COLOR_NAMES[c]).map((n) => n.split(' ')[0]), ['빨강', '파랑', '초록', '보라', '검정', '흰색'], '빨강 · 파랑 · 초록 · 보라 · 검정 · 흰색');
+  ok(A.PALETTE.every((c) => /^#[0-9a-f]{6}$/i.test(c)) && A.PALETTE[5] === '#ffffff', '흰색(수정액)이 있음');
+  eq(A.FONT_KEYS, ['sans', 'serif', 'hand'], '글꼴 3가지'); ok(A.FONT_KEYS.every((k) => A.FONTS[k] && A.FONT_NAMES[k]), '글꼴마다 이름 · 글꼴 목록');
+  eq(['g:quarter', 'g:eighth', 'g:sharp', 'g:flat'].map((k) => A.GLYPHS[k.slice(2)]), ['\u2669', '\u266a', '\u266f', '\u266d'], '♩ ♪ ♯ ♭');
+  ok(['g:quarter', 'g:eighth', 'g:sharp', 'g:flat'].every((k) => A.SYMBOLS.some((s) => s.k === k) && RT.SYMBOLS.indexOf(k) >= 0), '음표 도장이 화면과 서버 목록에 모두 있음');
+  // 그리기: 기록용 가짜 캔버스
+  const calls = []; const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : (...a) => { calls.push([k, ...a]); }), set: (t, k, v) => { t[k] = v; if (k === 'font') calls.push(['font', v]); return true; } });
+  A.drawItem(ctx, { t: 'sym', k: 'g:quarter', c: '#2563eb', x: .5, y: .5, sz: .04, f: 'hand' }, 1000, 1000);
+  ok(calls.some((c) => c[0] === 'fillText' && c[1] === '\u2669'), '♩ 를 글자로 그림'); ok(calls.some((c) => c[0] === 'font' && /Segoe Print|cursive/.test(c[1])), '손글씨 글꼴 적용');
+  calls.length = 0; A.drawItem(ctx, { t: 'text', s: 'Verse', c: '#fff', x: .1, y: .1, sz: .03, f: 'serif' }, 1000, 1000);
+  ok(calls.some((c) => c[0] === 'font' && /Times New Roman/.test(c[1])), '명조 글꼴로 글자'); calls.length = 0;
+  A.drawItem(ctx, { t: 'text', s: 'Old', c: '#ff5a1f', x: .1, y: .1, sz: .03 }, 1000, 1000); ok(calls.some((c) => c[0] === 'font' && /Segoe UI/.test(c[1])), 'f 가 없는 예전 글자는 고딕');
+  const b = A.symBox('g:flat', { x: .5, y: .5, sz: .04 }, 1000, 1000); ok(b.x2 > b.x1 && b.y2 > b.y1, '도장 판정 상자');
+  ok(A.hit({ t: 'sym', k: 'g:sharp', x: .5, y: .5, sz: .04 }, 500, 500, 1000, 1000, 4), '도장을 누르면 잡힘(지우개)');
+  // 서버 정리
+  const U = { name: 'T' }, base = { id: 'abcdef12', pg: 1, c: '#e53935', x: .3, y: .3, sz: .03 };
+  eq(RT.cleanItem(Object.assign({}, base, { t: 'text', s: 'hi', f: 'serif' }), U, 1).f, 'serif', '글자 글꼴 저장 (명조)');
+  eq(RT.cleanItem(Object.assign({}, base, { t: 'text', s: 'hi', f: 'hand', chord: 1 }), U, 1).f, 'hand', '코드 글꼴 저장 (손글씨)');
+  ok(RT.cleanItem(Object.assign({}, base, { t: 'text', s: 'hi', f: 'sans' }), U, 1).f === undefined, '고딕은 기본이라 저장 안 함');
+  ok(RT.cleanItem(Object.assign({}, base, { t: 'text', s: 'hi', f: '<script>' }), U, 1).f === undefined, '이상한 글꼴 값은 버림');
+  eq(RT.cleanItem(Object.assign({}, base, { t: 'sym', k: 'g:eighth', f: 'serif' }), U, 1).k, 'g:eighth', '♪ 도장 저장'); eq(RT.cleanItem(Object.assign({}, base, { t: 'sym', k: 'g:eighth', f: 'serif' }), U, 1).f, 'serif', '도장 글꼴 저장');
+  ok(RT.cleanItem(Object.assign({}, base, { t: 'sym', k: 'tie', f: 'serif' }), U, 1).f === undefined, '그림 기호에는 글꼴을 붙이지 않음');
+  eq(RT.cleanItem(Object.assign({}, base, { t: 'sym', k: 'g:nope' }), U, 1), null, '없는 도장은 거절');
+  eq(RT.cleanItem(Object.assign({}, base, { t: 'text', s: 'x', c: '#ffffff' }), U, 1).c, '#ffffff', '흰색 저장');
+}
+function testYt() {
+  section('유튜브 (ytplayer.js)');
+  const Y = W('ytplayer.js');
+  eq(Y.RATES, [0.5, 0.75, 1, 1.25], '속도 4가지'); eq(Y.fmtTime(75.34), '1:15.3', '시간 표시'); eq(Y.fmtTime(-3), '0:00.0', '음수는 0');
+  eq(Y.normLoop(10, 20), { a: 10, b: 20 }, '정상 구간'); eq(Y.normLoop(10, null), { a: 10, b: null }, 'A 만'); eq(Y.normLoop(10, 10.2), null, '너무 짧은 구간 거절'); eq(Y.normLoop(10, 5), null, 'B < A 거절'); eq(Y.normLoop(-1, 5), null, '음수 A 거절');
+  eq(Y.loopStep(19.95, 10, 20), 10, 'B 근처 → A 로'); eq(Y.loopStep(15, 10, 20), null, '구간 안 → 그대로'); eq(Y.loopStep(21, 10, 20), 10, 'B 를 살짝 넘겼으면 A 로'); eq(Y.loopStep(60, 10, 20), null, '한참 뒤로 직접 넘겼으면 건드리지 않음'); eq(Y.loopStep(19.95, 10, null), null, 'B 가 없으면 반복 안 함');
+}
+
+testPitch(); testLyrics(); testAnno(); testAnnoNew(); testYt();
 console.log(fail ? `\n✗ 실패 ${fail} (통과 ${pass})` : `\n✓ 모두 통과 (통과 ${pass})`);
 process.exit(fail ? 1 : 0);

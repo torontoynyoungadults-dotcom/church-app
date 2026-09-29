@@ -1,14 +1,14 @@
 /** 브라우저 시험용 작은 서버 — 실제 lib/realtime.js + 가짜 인증 · 저장소 + 시험용 PDF */
 const http = require('http'), fs = require('fs'), path = require('path');
 const realtime = require('../../lib/realtime');
-const { mkpdf, SAMPLE } = require('./mkpdf');
+const { mkpdf, SAMPLE, MULTI } = require('./mkpdf');
 const ROOT = path.join(__dirname, '..', '..');
 const USERS = { tokA: { name: 'Alice', canEdit: true, canLead: true, committee: false, admin: false }, tokB: { name: 'Bob', canEdit: false, canLead: false }, tokC: { name: 'Carol', canEdit: true, canLead: true } };
 const store = { team: {}, mine: {}, saves: [], calls: [] };
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.json': 'application/json' };
-const pdf = mkpdf(SAMPLE);
+const pdf = mkpdf(SAMPLE), pdfMulti = mkpdf(MULTI);
 function harness() {
-  const scripts = ['formb', 'metro', 'pitch', 'lyrics', 'rt', 'anno', 'practice-panels', 'practice', 'stats'].map((n) => `<script src="/worship/${n}.js"></script>`).join('\n');
+  const scripts = ['formb', 'metro', 'pitch', 'lyrics', 'ytplayer', 'rt', 'anno', 'practice-panels', 'practice', 'stats'].map((n) => `<script src="/worship/${n}.js"></script>`).join('\n');
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/worship/hub.css"><style>body{margin:0;background:#222;color:#eee;font-family:sans-serif}</style>
 <script src="/socket.io/socket.io.js"></script>${scripts}
 <script>
@@ -28,7 +28,7 @@ window.OPEN = function (o) {
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x'); const p = u.pathname;
   if (p === '/h.html') { res.setHeader('content-type', MIME['.html']); return res.end(harness()); }
-  if (p.startsWith('/sheet/')) { res.setHeader('content-type', 'application/pdf'); return res.end(pdf); }
+  if (p.startsWith('/sheet/')) { res.setHeader('content-type', 'application/pdf'); return res.end(p.indexOf('MULTI') >= 0 ? pdfMulti : pdf); }
   if (p === '/__store') { res.setHeader('content-type', 'application/json'); return res.end(JSON.stringify(store)); }
   if (p.startsWith('/api/') && req.method === 'POST') {
     let b = ''; req.on('data', (d) => b += d); req.on('end', () => {

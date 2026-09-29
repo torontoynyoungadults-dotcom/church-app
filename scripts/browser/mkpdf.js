@@ -24,4 +24,11 @@ const SAMPLE = [
   [{ t: 'Page two', size: 22, dy: 40 }, { t: 'Verse 2' }, { t: 'Twas grace that taught my heart to fear' }],
   [{ t: 'Page three', size: 22, dy: 40 }, { t: 'Bridge' }, { t: 'Praise the Lord' }],
 ];
-module.exports = { mkpdf, SAMPLE };
+/** 한 PDF 에 곡 둘이 들어 있는 4쪽 (1~2쪽 Amazing Grace, 3~4쪽 Second Song) — 쪽별 곡 연결 시험용 */
+const MULTI = [
+  [{ t: 'Amazing Grace', size: 26, dy: 40 }, { t: 'Verse 1' }, { t: 'Amazing grace how sweet the sound' }],
+  [{ t: 'continued', size: 20, dy: 40 }, { t: 'Verse 2' }, { t: 'Twas grace that taught my heart to fear' }],
+  [{ t: 'Second Song', size: 26, dy: 40 }, { t: 'Verse 1' }, { t: 'Another melody here' }],
+  [{ t: 'more of it', size: 20, dy: 40 }, { t: 'Chorus' }, { t: 'Praise the Lord' }],
+];
+module.exports = { mkpdf, SAMPLE, MULTI };

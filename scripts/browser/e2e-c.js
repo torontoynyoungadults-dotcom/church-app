@@ -16,43 +16,28 @@ const INIT = `(() => { window.__osc = []; window.__ctxs = []; const AC0 = window
   await L.waitTrue(page, () => document.querySelector('.pv-pg') && /1 \//.test(document.querySelector('.pv-pg').textContent), null, 8000); await sleep(600);
   const inkOf = (sel, test) => page.evaluate(([s, t]) => { const c = document.querySelector(s); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3]; if (t === 'orange' && a > 200 && r > 230 && g > 120 && g < 160 && b < 80) n++; else if (t === 'green' && a > 200 && g > 230 && r < 120) n++; else if (t === 'red' && a > 200 && r > 230 && g < 120 && b < 120) n++; else if (t === 'blue' && a > 200 && b > 240 && r < 170 && g > 180 && g < 220) n++; } return n; }, [sel, test]);
 
-  console.log('· 음정 피아노롤');
+  console.log('· 시작음 피아노 건반');
   await page.click('.pv-tabbtn[data-tab="pitch"]');
-  check('피아노롤이 그려짐 (건반 + 칸)', await L.waitTrue(page, () => document.querySelector('.pr-keys') && document.querySelector('.pr-grid')));
-  const before = await inkOf('.pr-grid', 'orange');
-  const gb = await page.locator('.pr-grid').boundingBox();
-  await page.mouse.click(gb.x + gb.width * 0.30, gb.y + 14 * 12 + 7);
-  await sleep(200);
-  const after = await inkOf('.pr-grid', 'orange');
-  check('칸을 누르면 목표 음이 찍힘', after > before + 100, { before, after });
-  await page.mouse.click(gb.x + gb.width * 0.30, gb.y + 14 * 12 + 7); await sleep(150);
-  check('다시 누르면 지워짐', (await inkOf('.pr-grid', 'orange')) <= before + 5);
-  await page.mouse.click(gb.x + gb.width * 0.30, gb.y + 14 * 12 + 7); await sleep(150);
+  check('가로 건반이 그려짐 (흰 15 + 검은 10)', await L.waitTrue(page, () => document.querySelectorAll('.pk-w').length === 15 && document.querySelectorAll('.pk-b').length === 10));
+  check('옛 음정 그리드 · 마이크 · 재생 UI 는 없음', await page.evaluate(() => !document.querySelector('.pr-grid') && !document.querySelector('.pr-keys')));
+  const key0 = await page.evaluate(() => document.querySelector('.pk-startname').textContent);
+  check('시작음 버튼에 곡 Key 의 시작음이 표시됨', /^[A-G]#?\d$/.test(key0), key0);
   const n0 = await page.evaluate(() => window.__osc.length);
-  const kb = await page.locator('.pr-keys').boundingBox();
-  await page.mouse.click(kb.x + 10, kb.y + 14 * 12 + 7); await sleep(300);
+  await page.click('.pk-btn[data-a="start"]'); await sleep(2100);
   const osc = await page.evaluate((n) => window.__osc.slice(n), n0);
-  check('건반을 누르면 기준음이 남', osc.length >= 1 && osc[0].f > 100 && osc[0].f < 2000, osc);
-  await page.click('.pr-btn:has-text("목표 음")'); await sleep(1500);
-  check('목표 음 듣기가 오류 없이 동작', !(await page.evaluate(() => document.querySelector('.pr-info').classList.contains('bad'))));
-  // 마이크 — 도(C4, 261.63Hz) 순음을 마이크 입력으로 흉내
-  await page.click('.pr-btn:has-text("모두 지우기")'); await sleep(100);
-  await page.selectOption('.pr-sel', '4');
-  const yC4 = gb.y + (84 - 60) * 14 + 7, yE4 = gb.y + (84 - 64) * 14 + 7;
-  await page.mouse.click(gb.x + gb.width * (0.5 / 16), yC4);           // 0~4박: 도 (맞음)
-  await page.mouse.click(gb.x + gb.width * (4.5 / 16), yE4);           // 4~8박: 미 (일부러 틀린 목표)
-  await sleep(150);
-  await page.click('.pr-btn:has-text("마이크")');
-  await sleep(4800);
-  await page.locator('.pr-root').screenshot({ path: '/tmp/shot-pitch.png' });
-  const info = await page.evaluate(() => document.querySelector('.pr-info').textContent + '|' + document.querySelector('.pr-info').className);
-  const gr = await inkOf('.pr-grid', 'green'), rd = await inkOf('.pr-grid', 'red');
-  check('마이크가 켜지고 오류 없음', !/bad/.test(info.split('|')[1]), info);
-  check('맞는 음(도)은 초록 선', gr > 10, { gr, rd });
-  check('틀린 목표 구간(미)은 빨강 선', rd > 30, { gr, rd });
-  await page.click('.pr-btn:has-text("마이크"), .pr-btn:has-text("멈춤")').catch(() => {}); await sleep(300);
-  await page.click('.pr-btn:has-text("점수")').catch(() => {}); await sleep(300);
-  check('점수 보기 후에도 화면 유지', await page.evaluate(() => !!document.querySelector('.pr-grid')));
+  check('시작음 듣기 → 배음이 겹친 소리가 남 (오실레이터 6개)', osc.length === 6 && osc[0].f > 100 && osc[0].f < 700, osc);
+  const kb = await page.locator('.pk-w').first().boundingBox();
+  const n1 = await page.evaluate(() => window.__osc.length);
+  await page.mouse.move(kb.x + kb.width / 2, kb.y + kb.height - 12); await page.mouse.down(); await sleep(150);
+  check('누르는 동안 건반이 눌린 모양', await page.evaluate(() => !!document.querySelector('.pk-w.on')));
+  await page.mouse.up(); await sleep(150);
+  check('손을 떼면 건반이 원래대로', await page.evaluate(() => !document.querySelector('.pk-w.on, .pk-b.on')));
+  const osc1 = await page.evaluate((n) => window.__osc.slice(n), n1);
+  check('건반을 누르면 도(C3=130.8Hz) 소리', osc1.length >= 6 && Math.abs(osc1[0].f - 130.81) < 1, osc1.slice(0, 2));
+  await page.click('.pk-btn[data-a="oct+"]'); await sleep(100);
+  check('옥타브 올리기', await page.evaluate(() => /옥타브 4/.test(document.querySelector('.pk-octl').textContent)));
+  check('오류 표시 없음', !(await page.evaluate(() => document.querySelector('.pk-info').classList.contains('bad'))));
+  await page.locator('.pk-root').screenshot({ path: '/tmp/shot-pitch.png' });
 
   console.log('· 가사 추출');
   await page.click('.pv-tabbtn[data-tab="lyrics"]');
@@ -90,7 +75,11 @@ const INIT = `(() => { window.__osc = []; window.__ctxs = []; const AC0 = window
   await page.click('.pv-tabbtn[data-tab="anno"]'); await page.click('[data-layout="tablet"]'); await sleep(500);
   await page.screenshot({ path: '/tmp/shot-tablet-a.png' });
   await page.setViewportSize({ width: 1024, height: 768 }); await sleep(600);
-  await page.click('.pv-panelbtn'); await sleep(500); await page.screenshot({ path: '/tmp/shot-tablet-b.png' });
+  check('1024px 태블릿: 도구 메뉴 버튼이 보이고 도구 막대는 서랍 안', await page.evaluate(() => getComputedStyle(document.querySelector('.pv-menubtn')).display !== 'none' && !!document.querySelector('.pv-drawer .pv-tools')));
+  await page.click('.pv-menubtn'); await sleep(450); await page.screenshot({ path: '/tmp/shot-tablet-drawer.png' });
+  check('서랍이 열리고 필기 도구가 보임', await page.evaluate(() => { const r = document.querySelector('.pv-drawer .pv-tool').getBoundingClientRect(); return document.querySelector('.pv').classList.contains('pv-drawopen') && r.width > 0 && r.right <= innerWidth; }));
+  await page.click('[data-a="drawer-panel"]'); await sleep(500); await page.screenshot({ path: '/tmp/shot-tablet-b.png' });
+  check('패널 시트가 열리고 서랍은 닫힘', await page.evaluate(() => document.querySelector('.pv').classList.contains('pv-sideopen') && !document.querySelector('.pv').classList.contains('pv-drawopen')));
   check('오류 없음', errs.length === 0, errs.slice(0, 5));
   await br.close(); S.server.close();
   process.exit(L.summary() ? 0 : 1);

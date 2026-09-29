@@ -49,7 +49,7 @@ const run = (fn) => global.__runtime.run((api) => fn(api)).result;
   { await page.evaluate(() => { const P = window.YNPractice.current().P; const sg = P.song(); if (sg) sg.link = 'https://youtu.be/dQw4w9WgXcQ'; P.setSong(P.songIdx()); });
     check('유튜브 링크가 있으면 ▶ YouTube 버튼이 보임', await page.evaluate(() => getComputedStyle(document.querySelector('.pv-ytbtn')).display !== 'none'));
     await page.click('.pv-ytbtn');
-    check('앱 안 작은 창에 임베드 재생기가 뜸', await page.evaluate(() => { const f = document.querySelector('.pv-yt iframe'); return !!f && /youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(f.src); }));
+    check('앱 안 작은 창에 임베드 재생기가 뜸 (API 를 못 불러오면 기본 임베드로 대신)', await L.waitTrue(page, () => { const f = document.querySelector('.pv-yt iframe'); return !!f && /youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(f.src); }, null, 13000));
     await page.click('.pv-yth button');
     check('닫으면 사라지고 악보 화면은 그대로', await page.evaluate(() => !document.querySelector('.pv-yt') && !!document.querySelector('.pv-pdf'))); }
   { await page.click('.pv-tabbtn[data-tab="metro"]'); await sleep(400);
@@ -88,7 +88,7 @@ const run = (fn) => global.__runtime.run((api) => fn(api)).result;
   console.log('· 필기 → 진짜 시트 저장');
   await page.click('.pv-tabbtn[data-tab="together"]'); await page.click('button[data-a="claim"]');
   check('관리자가 리더가 됨', await L.waitTrue(page, () => /내가 리더/.test(document.querySelector('.pv-lead').textContent)));
-  await L.ensureTool(page, 'pen'); await page.click('[data-a="layer"]');
+  await L.ensureTool(page, 'pen');
   await L.drag(page, [[.2, .3], [.5, .34], [.8, .3]]);
   await page.click('.pv-tabbtn[data-tab="anno"]'); await page.click('button[data-a="save"]');
   let teamRows = [];
