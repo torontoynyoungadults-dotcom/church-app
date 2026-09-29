@@ -1,0 +1,12 @@
+{
+  "name": "토론토영락교회 청년1부",
+  "short_name": "청년1부",
+  "start_url": "/?page=portal",
+  "display": "standalone",
+  "background_color": "#1C1C1C",
+  "theme_color": "#1C1C1C",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

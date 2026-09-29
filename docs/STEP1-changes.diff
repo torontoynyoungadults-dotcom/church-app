@@ -1,0 +1,665 @@
+--- /sessions/rcw-011sxkhptptvaz3hvcavhjp2/orig/render.yaml	2026-09-28 21:46:57.202000144 +0000
++++ render.yaml	2026-09-28 21:49:15.203288396 +0000
+@@ -12,6 +12,9 @@
+         value: production
+       - key: SPREADSHEET_ID
+         sync: false
++      # 11개 시트가 든 드라이브 폴더 — 넣으면 새 방식, 비우면 예전 방식(시트 하나)입니다
++      - key: DB_FOLDER_ID
++        sync: false
+       - key: GOOGLE_CLIENT_ID
+         sync: false
+       - key: GOOGLE_CLIENT_SECRET
+--- /sessions/rcw-011sxkhptptvaz3hvcavhjp2/orig/scripts/check-setup.js	2026-09-28 21:46:57.203000144 +0000
++++ scripts/check-setup.js	2026-09-28 21:56:37.031263604 +0000
+@@ -9,22 +9,30 @@
+ const bad = (m) => { console.log('  ✗ ' + m); process.exitCode = 1; };
+ 
+ console.log('\n[환경 변수]');
+-['SPREADSHEET_ID', 'GMAIL_USER', 'CRON_SECRET'].forEach((k) =>
++['GMAIL_USER', 'CRON_SECRET'].forEach((k) =>
+   (process.env[k] ? ok(k) : bad(k + ' 가 없습니다')));
++// 시트 위치 — DB_FOLDER_ID 가 있으면 11개 시트 방식, 없으면 SPREADSHEET_ID 하나짜리 예전 방식
++if (process.env.DB_FOLDER_ID) {
++  ok('DB_FOLDER_ID (11개 시트 방식) — 자세한 점검: npm run db:status');
++  process.env.SPREADSHEET_ID ? ok('SPREADSHEET_ID (옛 시트 — 아직 안 옮긴 탭을 읽는 예비)') : console.log('  · SPREADSHEET_ID 없음 (옮기기를 모두 끝낸 상태라면 정상)');
++} else if (process.env.SPREADSHEET_ID) ok('SPREADSHEET_ID (예전 방식 — 시트 하나)');
++else bad('SPREADSHEET_ID 가 없습니다 (또는 11개 시트 방식이면 DB_FOLDER_ID)');
+ if (process.env.GOOGLE_REFRESH_TOKEN) ok('구글 인증: 청년부 계정 (리프레시 토큰)');
+ else if (process.env.GOOGLE_SERVICE_ACCOUNT) ok('구글 인증: 서비스 계정 (파일 올리기는 막힐 수 있습니다 — README 참고)');
+ else bad('GOOGLE_REFRESH_TOKEN (또는 GOOGLE_SERVICE_ACCOUNT) 가 없습니다');
+ console.log('  · 앱 주소: ' + (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '(없음 — Render 에서는 자동으로 잡힙니다)'));
+ 
+ console.log('\n[구글 시트]');
+-try {
++if (!process.env.SPREADSHEET_ID) console.log('  · SPREADSHEET_ID 가 없어 옛 시트 점검은 건너뜁니다');
++else try {
+   const d = bridge.sheets('spreadsheets.get', { spreadsheetId: process.env.SPREADSHEET_ID, fields: 'properties(title,timeZone),sheets(properties(title))' });
+   ok('"' + d.properties.title + '" · 시트 ' + d.sheets.length + '개 · 시간대 ' + d.properties.timeZone);
+   if (d.properties.timeZone !== process.env.TZ) bad('시트 시간대(' + d.properties.timeZone + ')와 서버 TZ(' + process.env.TZ + ')가 다릅니다. TZ 환경 변수를 시트와 같게 맞춰주세요.');
+ } catch (e) { bad('시트를 열 수 없습니다: ' + e.message); }
+ 
+ console.log('\n[구글 드라이브]');
+-try {
++if (!process.env.SPREADSHEET_ID) console.log('  · SPREADSHEET_ID 가 없어 건너뜁니다');
++else try {
+   const f = bridge.drive('files.get', { fileId: process.env.SPREADSHEET_ID, fields: 'name,modifiedTime', supportsAllDrives: true });
+   ok('드라이브 접근 가능 (시트 수정 시각 ' + f.modifiedTime + ')');
+ } catch (e) { bad('드라이브 접근 실패: ' + e.message); }
+--- /sessions/rcw-011sxkhptptvaz3hvcavhjp2/orig/views/Portal.html	2026-09-28 21:46:57.201000144 +0000
++++ views/Portal.html	2026-09-28 21:56:37.029152251 +0000
+@@ -1311,6 +1311,14 @@
+ 
+ <script>
+ var PREFILL = (window.__PREFILL__ || {});
++/* 알림에서 들어온 바로가기(?go=종류&id=번호) — 로그인이 끝난 뒤(구글에 다녀와도) 그 항목으로 바로 갑니다.
++   알림에는 로그인 표가 들어 있지 않고, 서버가 권한을 확인한 뒤 완성된 주소를 돌려줍니다 (resolveDeepLink). */
++(function () {
++  try {
++    var q = new URLSearchParams(location.search), go = q.get('go');
++    if (go) sessionStorage.setItem('ynGo', JSON.stringify({ go: go, id: q.get('id') || '', x: q.get('x') || '', at: Date.now() }));
++  } catch (e) {}
++})();
+ var TOKEN = '', ME = null, MENUS = [], ROLES = [], ADMIN = [], editing = false;
+ var SERMON = null;
+ var _bootT = null, _goT = null, _stuck = false;   // "로그인 중" 에서 멈추지 않게 지켜보는 시계
+@@ -2391,6 +2399,21 @@
+   paint(res);
+ }
+ 
++/** 알림에서 넘어온 바로가기가 있으면 — 서버에 확인한 뒤 그 항목 화면으로 이동합니다 (한 번만) */
++function followDeepLink() {
++  var g = null;
++  try { g = JSON.parse(sessionStorage.getItem('ynGo') || 'null'); sessionStorage.removeItem('ynGo'); } catch (e) { g = null; }
++  if (!g || !g.go || Date.now() - g.at > 15 * 60 * 1000) return;
++  topMsg('알림의 항목을 여는 중…', '');
++  callServer('resolveDeepLink', [TOKEN, g.go, g.id, g.x], function (r) {
++    if (r && r.ok && r.url) {
++      // 주소는 서버가 만든 것이지만, 어떤 경우에도 이 사이트 안에서만 움직이도록 경로만 씁니다
++      try { var u = new URL(r.url, location.href); location.replace(u.pathname + u.search); return; } catch (e) {}
++    }
++    topMsg((r && r.message) || '열 수 없는 알림입니다.', 'err');
++  }, function (e) { topMsg((e && e.message) || '알림의 항목을 열지 못했습니다.', 'err'); });
++}
++
+ /** 받은 자료로 첫 화면을 그립니다 (내 화면이든, 커미티가 보는 다른 사람 화면이든) */
+ function paint(res) {
+   ME = res.me; MENUS = res.menus || []; ROLES = res.roles || []; ADMIN = res.admin || [];
+@@ -2411,6 +2434,7 @@
+   try { renderForms(res); } catch (e) {}
+   try { renderPush(); } catch (e) {}
+   openDeepLinkedForm();
++  if (!VIEW) followDeepLink();
+   if (!VIEW) renderProfile();
+   el('meBtn').style.display = VIEW ? 'none' : '';
+   var qs = document.querySelector('.qsearch');
+--- /sessions/rcw-011sxkhptptvaz3hvcavhjp2/orig/views/NewFamily.html	2026-09-28 21:46:57.200000144 +0000
++++ views/NewFamily.html	2026-09-28 21:56:37.023937786 +0000
+@@ -62,6 +62,9 @@
+ 
+   /* 새가족 카드 */
+   .nfcard { padding: 13px 14px; margin-bottom: 8px; }
++  /* 알림에서 바로 넘어온 카드 — 잠깐 강조 */
++  .nfcard.nfhit { outline: 2px solid var(--accent, #F26B21); outline-offset: 2px; animation: nfhit 2.4s ease-out 1; }
++  @keyframes nfhit { 0%, 60% { box-shadow: 0 0 0 6px rgba(242,107,33,.28); } 100% { box-shadow: 0 0 0 0 rgba(242,107,33,0); } }
+   .nfhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; }
+   .nfname { font-size: 16px; font-weight: 800; }
+   .nftrait { font-size: 13px; color: var(--ink-3); }
+@@ -603,6 +606,7 @@
+       DATA = res.list; STAFF = res.staff; STAGES = res.stages; OPT = res.options; CELLS = res.cells || []; WEEKS = res.weeks || {};
+       renderNotify(res);
+       renderList();
++      openFromLink();
+     }, function (e) {
+       try { sessionStorage.removeItem('ynNfToken'); } catch (e2) {}
+       if (silent) showLock();
+@@ -610,6 +614,28 @@
+     });
+ }
+ 
++/* ---------- 알림에서 바로 넘어온 경우 ----------
++   ?open=이름 (알림 → 포털이 확인 → 이 주소로 옵니다) — 그 새가족의 단계 묶음과 카드를 펼치고 그 자리로 이동합니다. */
++var OPEN_DONE = false;
++function openFromLink() {
++  var id = PREFILL && PREFILL.open;
++  if (!id || OPEN_DONE) return;
++  OPEN_DONE = true;
++  var n = DATA.filter(function (x) { return x.id === id; })[0];
++  if (!n) {
++    el('list').insertAdjacentHTML('afterbegin', '<p class="msg err">알림의 새가족 "' + esc(id) + '" 님을 목록에서 찾지 못했습니다. 이미 정리되었거나 이름이 바뀌었을 수 있습니다.</p>');
++    return;
++  }
++  openStages[n.stage] = true;
++  openId = n.id;
++  renderList();
++  var d = el('d' + cssId(n.id)), card = d && d.parentNode;
++  if (card) {
++    card.classList.add('nfhit');
++    try { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { card.scrollIntoView(); }
++  }
++}
++
+ /* ---------- 목록 ---------- */
+ 
+ function load() {
+--- /sessions/rcw-011sxkhptptvaz3hvcavhjp2/orig/lib/runtime.js	2026-09-28 21:46:57.192000144 +0000
++++ lib/runtime.js	2026-09-28 21:48:31.065578042 +0000
+@@ -14,7 +14,16 @@
+ const SERVICE_NAMES = ['SpreadsheetApp', 'DriveApp', 'CalendarApp', 'MailApp', 'GmailApp', 'UrlFetchApp',
+   'Utilities', 'Session', 'CacheService', 'LockService', 'MimeType', 'Logger', 'HOST'];
+ 
+-const code = fs.readFileSync(FILE, 'utf8');
++/**
++ * logic/app.js 뒤에 이어 붙여 같은 범위에서 함께 실행하는 확장 파일들.
++ * app.js 의 함수 · 변수를 그대로 쓰므로 app.js 를 더 키우지 않고 새 기능을 나누어 둘 수 있습니다.
++ * (없는 파일은 건너뜁니다. app.js 가 앞에 오므로 app.js 의 줄 번호는 그대로입니다)
++ */
++const EXTRA_FILES = ['permissions.js', 'deeplink.js'];
++const code = [FILE]
++  .concat(EXTRA_FILES.map((f) => path.join(__dirname, '..', 'logic', f)).filter((p) => fs.existsSync(p)))
++  .map((p) => fs.readFileSync(p, 'utf8'))
++  .join('\n;\n');
+ const ALL_NAMES = Array.from(code.matchAll(/^function\s+([^\s(]+)\s*\(/gm), (m) => m[1]);
+ const NAMES = Array.from(new Set(ALL_NAMES));
+ // 같은 이름의 함수가 두 번 있으면 뒤의 것이 앞의 것을 덮어써 엉뚱하게 동작합니다 — 시작할 때 알려줍니다
+@@ -60,12 +69,7 @@
+     hasGemini: () => !!process.env.GEMINI_API_KEY,
+     push: (o) => bridge.call('push', o),
+     /** 지금 당장 시트를 다시 읽게 합니다 (화면의 "새로고침" 버튼) */
+-    forget: () => {
+-      try { if (store.book) store.book.flush(); } catch (e) { /* 아래에서 어차피 다시 읽습니다 */ }
+-      store.resetAll();
+-      store.lastCheck = 0;
+-      store.knownModified = '';
+-    },
++    forget: () => { store.forget(); },
+     page: (file, title, params, favicon) => ({ __page: true, file, title, params, favicon }),
+   };
+   const services = Object.assign(makeServices(exec), { HOST });
+@@ -77,7 +81,7 @@
+   } catch (e) {
+     failure = e;
+   }
+-  let wroteActive = false;
++  const wrote = [];
+   for (const book of exec.books) {
+     try {
+       book.flush();
+@@ -85,10 +89,10 @@
+       console.error('[시트 쓰기 실패]', e.message);
+       if (!failure) failure = new Error('시트에 저장하지 못했습니다: ' + e.message);
+     }
+-    if (book.wrote && book === store.book) wroteActive = true;
++    if (book.wrote && store.owns(book)) wrote.push(book);
+     book.wrote = false;
+   }
+-  if (wroteActive) store.afterWrite();
++  if (wrote.length) store.afterWrite(wrote);
+   if (failure) throw failure;
+   return { result, alerts: exec.alerts };
+ }
+--- /sessions/rcw-011sxkhptptvaz3hvcavhjp2/orig/lib/google.js	2026-09-28 21:46:57.192000144 +0000
++++ lib/google.js	2026-09-28 22:03:01.474546613 +0000
+@@ -12,6 +12,7 @@
+  */
+ const crypto = require('crypto');
+ const bridge = require('./bridge');
++const db = require('./db');
+ const { formatDate, serialToDate, dateToSheetText } = require('./dates');
+ 
+ const TZ = () => process.env.TZ || 'America/Toronto';
+@@ -196,18 +197,94 @@
+   }
+ }
+ 
+-/* ---------- 앱이 쓰는 스프레드시트 하나는 계속 들고 있습니다 ---------- */
++/* ---------- 앱이 쓰는 스프레드시트는 계속 들고 있습니다 ----------
++ *  · 예전 방식 (DB_FOLDER_ID 없음): SPREADSHEET_ID 시트 하나 — 동작이 예전과 똑같습니다.
++ *  · 새 방식   (DB_FOLDER_ID 있음): 드라이브 폴더 안의 11개 시트 (탭 → 시트 지도는 lib/db.js).
++ *    SPREADSHEET_ID 가 남아 있으면 "아직 옮기지 않은 탭"을 읽어 주는 예비로만 씁니다. */
++function missingMsg(key) {
++  const w = db.BY_KEY[key];
++  return 'DB 폴더에 "' + db.fileTitle(w) + '" 시트가 없습니다. 폴더에 이름 앞에 [' + w.code + '] 를 붙인 시트를 만들거나 ' +
++    '`npm run db:create` 를 실행해주세요.';
++}
++
+ const store = {
+-  book: null,
++  book: null,               // 예전 방식의 시트 하나 (새 방식에서는 예비로 남겨 둔 옛 시트)
++  books: new Map(),         // 새 방식: 시트 ID → Book
++  registry: null,           // 새 방식: db.resolve() 결과 { byKey, missing, duplicates, extra }
++  modified: new Map(),      // 새 방식: 시트 ID → 마지막으로 본 수정 시각
+   lastCheck: 0,
+   lastReset: 0,
+-  knownModified: '',
++  knownModified: '',        // 예전 방식의 수정 시각
++
++  multi() { return db.enabled(); },
++
++  /** 예전 시트(SPREADSHEET_ID) — 없으면 null */
++  legacy() {
++    const id = process.env.SPREADSHEET_ID;
++    if (!id) return null;
++    if (!this.book || this.book.id !== id) this.book = new Book(id);
++    return this.book;
++  },
+   active() {
++    if (this.multi()) return this.primary();
+     const id = process.env.SPREADSHEET_ID;
+     if (!id) throw new Error('SPREADSHEET_ID 환경 변수가 없습니다.');
+     if (!this.book || this.book.id !== id) this.book = new Book(id);
+     return this.book;
+   },
++
++  /* ----- 새 방식 ----- */
++  loadRegistry(force) {
++    if (this.registry && !force) return this.registry;
++    const files = db.listFolder();
++    this.registry = db.resolve(files);
++    files.forEach((f) => { if (f.modifiedTime && !this.modified.has(f.id)) this.modified.set(f.id, f.modifiedTime); });
++    return this.registry;
++  },
++  bookOf(entry) {
++    let b = this.books.get(entry.id);
++    if (!b) { b = new Book(entry.id); this.books.set(entry.id, b); }
++    return b;
++  },
++  /** 설정 · 시간대처럼 "앱 전체" 정보를 읽는 대표 시트 ('기타 시스템 자료') */
++  primary() {
++    const ent = this.loadRegistry().byKey.system;
++    if (ent) return this.bookOf(ent);
++    const lg = db.legacyFallback() ? this.legacy() : null;
++    if (lg) return lg;
++    throw new Error(missingMsg('system'));
++  },
++  /** 이 탭을 찾아볼 시트들 — 새 시트가 먼저, 옛 시트는 예비 */
++  candidates(tab) {
++    const w = db.BY_KEY[db.keyFor(tab)];
++    const ent = this.loadRegistry().byKey[w.key];
++    const out = [];
++    if (ent) out.push(this.bookOf(ent));
++    const lg = db.legacyFallback() ? this.legacy() : null;
++    if (lg && out.indexOf(lg) === -1) out.push(lg);
++    if (!out.length) throw new Error(missingMsg(w.key));
++    return out;
++  },
++  /** 알고 있는 모든 시트 — 새 시트들이 앞, 예비 옛 시트가 뒤 */
++  everyBook() {
++    if (!this.multi()) return this.book ? [this.book] : [];
++    const reg = this.loadRegistry(), out = [];
++    db.WORKBOOKS.forEach((w) => { if (reg.byKey[w.key]) out.push(this.bookOf(reg.byKey[w.key])); });
++    const lg = db.legacyFallback() ? this.legacy() : null;
++    if (lg) out.push(lg);
++    return out;
++  },
++  /** 시트 ID 로 이미 들고 있는 시트를 찾습니다 (없으면 null) */
++  bookById(id) {
++    if (this.books.has(id)) return this.books.get(id);
++    if (this.book && this.book.id === id) return this.book;
++    if (!this.multi()) { const a = this.active(); return a.id === id ? a : null; }
++    return null;
++  },
++  /** 이 시트가 앱이 쓰는 시트(새 시트들 또는 옛 시트)인지 */
++  owns(book) { return book === this.book || Array.from(this.books.values()).indexOf(book) !== -1; },
++  flushAll() { if (this.book) this.book.flush(); this.books.forEach((b) => b.flush()); },
++
+   /**
+    * 누가 시트를 직접 고쳤는지 확인 (몇 초에 한 번만).
+    * 너무 짧게 잡으면 구글이 알려주는 수정 시각이 우리 쓰기 직후에도 흔들려서
+@@ -220,6 +297,7 @@
+     const every = sec * 1000;
+     if (Date.now() - this.lastCheck < every) return;
+     this.lastCheck = Date.now();
++    if (this.multi()) { this.checkMulti(); return; }
+     const book = this.active();
+     let m = '';
+     try {
+@@ -235,8 +313,45 @@
+     }
+     if (m) this.knownModified = m;
+   },
++  /** 새 방식: 폴더를 한 번 훑어 11개 시트의 수정 시각을 모두 봅니다 — 바뀐 시트만 다시 읽게 합니다 */
++  checkMulti() {
++    let files;
++    try { files = db.listFolder(); } catch (e) { return; }
++    const sig = (r) => (r ? JSON.stringify(Object.keys(r.byKey).sort().map((k) => [k, r.byKey[k].id])) : '');
++    const before = sig(this.registry);
++    this.registry = db.resolve(files);
++    const changed = [];
++    const seen = (id, m) => {
++      const prev = this.modified.get(id);
++      if (prev && m && prev !== m) changed.push(id);
++      if (m) this.modified.set(id, m);
++    };
++    files.forEach((f) => seen(f.id, f.modifiedTime));
++    const lg = db.legacyFallback() ? this.legacy() : null;
++    if (lg) {
++      try { seen(lg.id, bridge.drive('files.get', { fileId: lg.id, fields: 'modifiedTime', supportsAllDrives: true }).modifiedTime || ''); }
++      catch (e) { /* 예비 시트를 못 봐도 새 시트 확인은 계속합니다 */ }
++    }
++    if ((changed.length || before !== sig(this.registry)) && Date.now() - (this.lastReset || 0) >= 4000) {
++      this.lastReset = Date.now();
++      changed.forEach((id) => { const b = this.bookById(id); if (b) b.invalidate(); });
++      cacheStore.clear();
++    }
++  },
+   /** 우리가 쓴 뒤 — 지금 수정 시각을 기억해 두어 우리 쓰기를 남의 수정으로 착각하지 않게 합니다 */
+-  afterWrite() {
++  afterWrite(written) {
++    if (this.multi()) {
++      try {
++        const ids = new Set((written || []).map((b) => b.id));
++        db.listFolder().forEach((f) => { if (ids.has(f.id) && f.modifiedTime) this.modified.set(f.id, f.modifiedTime); });
++        if (this.book && ids.has(this.book.id)) {
++          const m = bridge.drive('files.get', { fileId: this.book.id, fields: 'modifiedTime', supportsAllDrives: true }).modifiedTime;
++          if (m) this.modified.set(this.book.id, m);
++        }
++        this.lastCheck = Date.now();
++      } catch (e) { /* 다음 확인 때 맞춰집니다 */ }
++      return;
++    }
+     try {
+       const m = bridge.drive('files.get', { fileId: this.active().id, fields: 'modifiedTime', supportsAllDrives: true }).modifiedTime;
+       if (m) this.knownModified = m;
+@@ -245,8 +360,18 @@
+   },
+   resetAll() {
+     if (this.book) this.book.invalidate();
++    this.books.forEach((b) => b.invalidate());
++    this.registry = null;
+     cacheStore.clear();
+   },
++  /** 화면의 "새로고침" — 안 보낸 쓰기를 보내고 전부 다시 읽게 합니다 */
++  forget() {
++    try { this.flushAll(); } catch (e) { /* 아래에서 어차피 다시 읽습니다 */ }
++    this.resetAll();
++    this.lastCheck = 0;
++    this.knownModified = '';
++    this.modified.clear();
++  },
+ };
+ 
+ /* =========================================================
+@@ -571,10 +696,49 @@
+     }
+   }
+ 
++  /**
++   * 11개 시트를 하나처럼 보이게 하는 껍데기 (새 방식에서만 씁니다).
++   * 로직은 예전처럼 getSheetByName('새가족') 만 부르고, 어느 시트에 있는 탭인지는 lib/db.js 의 지도가 정합니다.
++   * 새 시트에 탭이 없고 옛 시트(SPREADSHEET_ID)에 있으면 옛 것을 씁니다 — 아직 안 옮긴 탭이 멈추지 않게.
++   */
++  class MultiSpreadsheet {
++    primary() { const b = use(store.primary()); b.ensureMeta(); return b; }
++    getId() { return store.primary().id; }
++    getName() { return this.primary().meta.title; }
++    getUrl() { return 'https://docs.google.com/spreadsheets/d/' + store.primary().id + '/edit'; }
++    getSpreadsheetTimeZone() { return this.primary().meta.timeZone || TZ(); }
++    getSheetByName(name) {
++      name = String(name);
++      const list = store.candidates(name);
++      for (let i = 0; i < list.length; i++) {
++        const b = use(list[i]);
++        b.ensureMeta();
++        const st = b.sheets.get(name);
++        if (st) return new Sheet(b, st);
++      }
++      return null;
++    }
++    getSheets() {
++      const seen = new Set(), out = [];
++      store.everyBook().forEach((b) => {
++        use(b);
++        b.ensureMeta();
++        Array.from(b.sheets.values()).sort((x, y) => x.index - y.index).forEach((st) => {
++          if (seen.has(st.title)) return;        // 새 시트의 탭이 옛 시트의 같은 이름 탭보다 우선
++          seen.add(st.title);
++          out.push(new Sheet(b, st));
++        });
++      });
++      return out;
++    }
++    insertSheet(name) { return new Spreadsheet(store.candidates(String(name))[0]).insertSheet(name); }
++    deleteSheet(sheet) { return new Spreadsheet(sheet.book).deleteSheet(sheet); }
++  }
++
+   const SpreadsheetApp = {
+-    getActiveSpreadsheet() { return new Spreadsheet(store.active()); },
+-    getActive() { return new Spreadsheet(store.active()); },
+-    openById(id) { return new Spreadsheet(id === store.active().id ? store.active() : new Book(id)); },
++    getActiveSpreadsheet() { return store.multi() ? new MultiSpreadsheet() : new Spreadsheet(store.active()); },
++    getActive() { return store.multi() ? new MultiSpreadsheet() : new Spreadsheet(store.active()); },
++    openById(id) { return new Spreadsheet(store.bookById(id) || new Book(id)); },
+     create(name) {
+       const d = bridge.sheets('spreadsheets.create', {
+         requestBody: { properties: { title: String(name), timeZone: TZ() } },
+--- /sessions/rcw-011sxkhptptvaz3hvcavhjp2/orig/package.json	2026-09-28 21:46:57.202000144 +0000
++++ package.json	2026-09-28 21:49:15.202434262 +0000
+@@ -7,7 +7,11 @@
+   "scripts": {
+     "start": "node server.js",
+     "auth": "node scripts/get-refresh-token.js",
+-    "check": "node scripts/check-setup.js"
++    "check": "node scripts/check-setup.js",
++    "db:status": "node scripts/db-setup.js status",
++    "db:create": "node scripts/db-setup.js create",
++    "db:migrate": "node scripts/db-setup.js migrate",
++    "test:step1": "node scripts/test-step1.js"
+   },
+   "engines": {
+     "node": ">=20"
+--- /sessions/rcw-011sxkhptptvaz3hvcavhjp2/orig/public/sw.js	2026-09-28 21:46:57.201000144 +0000
++++ public/sw.js	2026-09-28 21:56:37.030427013 +0000
+@@ -49,6 +49,11 @@
+ self.addEventListener('notificationclick', function (event) {
+   event.notification.close(); clearBadge();
+   var url = (event.notification.data && event.notification.data.url) || '/?page=portal';
++  // 알림에 실려 온 주소는 이 사이트 안의 것만 씁니다 (바로가기는 ?page=portal&go=… 형식)
++  try {
++    var u = new URL(url, self.location.origin);
++    url = u.origin === self.location.origin ? (u.pathname + u.search + u.hash) : '/?page=portal';
++  } catch (e) { url = '/?page=portal'; }
+   event.waitUntil(
+     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+       for (var i = 0; i < list.length; i++) {
+--- /sessions/rcw-011sxkhptptvaz3hvcavhjp2/orig/logic/app.js	2026-09-28 21:46:57.199000144 +0000
++++ logic/app.js	2026-09-28 22:03:01.266827235 +0000
+@@ -413,6 +413,7 @@
+   캐시판갈기_();
+   _rowsCache = {};
+   _포털역할캐시 = {};
++  _권한캐시 = {};
+   _교적캐시 = null;
+   _출석통계캐시 = null;
+   _설정캐시 = null;
+@@ -985,7 +986,7 @@
+   }
+ 
+   if (page === 'newfamily') {
+-    return render_('NewFamily', '새가족 관리', { t: p.t || '' }, 'newfamily');
++    return render_('NewFamily', '새가족 관리', { t: p.t || '', open: p.open || '' }, 'newfamily');
+   }
+ 
+   if (page === 'forms') {
+@@ -2898,7 +2899,8 @@
+   var admin = 설정값_('알림받을이메일');
+   if (!to) return { sent: [] };
+ 
+-  var url = (앱주소_() || '') + '?page=newfamily';
++  // 한 명이면 그 새가족 화면으로, 여러 명이면 목록으로
++  var url = 신규.length === 1 ? 딥링크주소_('newcomer', 신규[0].name) : (앱주소_() || '') + '?page=newfamily';
+   MailApp.sendEmail({
+     to: 받는이.join(', '),
+     cc: (admin && 받는이.indexOf(admin) === -1) ? admin : '',
+@@ -5376,10 +5378,14 @@
+     var r = 포털역할_(me.name);
+     var 커미티 = r.roles.indexOf('커미티') !== -1;
+     var 태그로찬양 = r.roles.indexOf('찬양팀') !== -1;   // 교적 "포털 역할"에서 손으로 켠 경우
+-    if (!명단[me.name] && !커미티 && !태그로찬양) {
++    // 사람마다 따로 정한 권한 (logic/permissions.js) — 없으면 아래는 예전과 똑같이 동작합니다
++    var 개인 = 개인메뉴상태_(me.name, 'worship', r);
++    if (개인.deny) throw new Error('찬양방송팀 허브 접근이 제한되어 있습니다. 커미티에 문의해주세요.');
++    if (개인.scopedOut) 커미티 = false;                     // 위원회 범위 밖 — 커미티라서 열리던 것은 닫힙니다
++    if (!명단[me.name] && !커미티 && !태그로찬양 && !개인.allow) {
+       throw new Error('찬양팀 · 방송팀에 속한 분만 볼 수 있습니다. 커미티에 문의해주세요.');
+     }
+-    out = { name: me.name, canEdit: 커미티 || 태그로찬양 || 찬양팀장_(me.name), admin: false, committee: 커미티 };
++    out = { name: me.name, canEdit: 커미티 || 태그로찬양 || 개인.allow || 찬양팀장_(me.name), admin: false, committee: 커미티 };
+   }
+   찬양권한캐시_[key] = out;
+   return out;
+@@ -7119,6 +7125,14 @@
+   var me = 포털본인_(token);
+   if (!me) return false;
+   var r = 포털역할_(me.name);
++  // 사람마다 따로 정한 메뉴 · 위원회 권한이 있으면 반영합니다 (logic/permissions.js).
++  // 그런 권한이 하나도 없는 사람은 아래 예전 계산 결과가 그대로 나옵니다.
++  return 개인권한적용_(me.name, { '셀': 'leader', '팀': 'team', '새가족': 'newfamily' }[kind],
++    target, 포털권한예전_(r, kind, target), r);
++}
++
++/** 포털권한_ 의 예전 계산 — 역할만으로 정합니다 (개인 권한 이전과 똑같음) */
++function 포털권한예전_(r, kind, target) {
+   if (r.roles.indexOf('커미티') !== -1) return true;
+   if (kind === '셀') return r.cells.indexOf(String(target || '').trim()) !== -1;
+   if (kind === '팀') return r.teams.indexOf(String(target || '').trim()) !== -1;
+@@ -7288,7 +7302,7 @@
+     out.push({ key: 'acct', title: '회계 관리', desc: '지출 신청 · 예산 · Cheque',
+       url: base + '?page=admin&scope=acct&key=' + encodeURIComponent(회계키_()), note: '' });
+   }
+-  return 메뉴순서적용_(out, 'portal');
++  return 메뉴순서적용_(개인권한메뉴_(r, token, out, 'portal'), 'portal');
+ }
+ 
+ /**
+@@ -7302,7 +7316,8 @@
+   if (!커미티 && !새가족팀 && !회계팀) return [];
+ 
+   var app = 앱주소_() || '';
+-  var akey = encodeURIComponent(설정값_('관리자키') || '');
++  // 위원회 범위 회원에게는 관리자키를 주소에 실어 보내지 않습니다 (logic/permissions.js)
++  var akey = encodeURIComponent(관리자키줘도되나_(r.name) ? (설정값_('관리자키') || '') : '');
+   var base = app + '?page=admin&key=' + akey;
+   var st = {};
+   try { st = 홈통계_(); } catch (e) { st = {}; }
+@@ -7395,7 +7410,7 @@
+       ] });
+   }
+ 
+-  return 메뉴순서적용_(out, 'admin');
++  return 메뉴순서적용_(개인권한메뉴_(r, token, out, 'admin'), 'admin');
+ }
+ 
+ /* =========================================================
+@@ -7688,7 +7703,8 @@
+ function 커미티토큰_(token) {
+   if (isAdmin_(token) || 마스터_(token)) return true;
+   var me = 포털본인_(token);
+-  return !!(me && 포털역할_(me.name).roles.indexOf('커미티') !== -1);
++  // 위원회 범위 회원(logic/permissions.js)은 커미티 "전체" 권한이 아니라 자기 위원회 메뉴만 씁니다
++  return !!(me && 포털역할_(me.name).roles.indexOf('커미티') !== -1 && 전체커미티인가_(me.name));
+ }
+ 
+ function saveNewcomerNotify(token, emails) {
+@@ -7800,7 +7816,7 @@
+   알림보내기_('새가족', 역할인사람_('새가족팀').concat(역할인사람_('커미티')), {
+     title: isNew ? '새가족이 등록했습니다' : '새가족이 내용을 고쳤습니다',
+     body: finalName + ' (' + gender + ') — ' + plan,
+-    url: 앱주소_() + '?page=newfamily', tag: '새가족', keep: true
++    url: 딥링크주소_('newcomer', finalName), tag: '새가족', keep: true
+   });
+   return { ok: true, isNew: isNew, name: finalName, mine: 새가족내등록_(email), nfToken: 새가족토큰_(email) };
+ }
+@@ -7809,7 +7825,7 @@
+ function 새가족등록알림_(n, isNew) {
+   var to = 새가족알림주소_();
+   if (!to.length) return;
+-  var url = (앱주소_() || '') + '?page=newfamily';
++  var url = 딥링크주소_('newcomer', n.name);       // 누른 사람이 그 새가족 화면으로 바로 갑니다
+   var rows = [['이름', n.name], ['성별', n.gender], ['생년월일', n.birthday], ['전화번호', n.contact], ['카카오톡', n.kakao],
+     ['구글 계정', n.email], ['수세 여부', n.baptized], ['이전 출석 교회', n.prevChurch], ['직업', n.job],
+     ['활동 계획', n.plan], ['문의사항', n.question]];
+@@ -9632,6 +9648,11 @@
+   var me = 포털본인_(token);
+   if (!me) throw new Error(구글만안내);
+   var g = 주보권한이름_(me.name);
++  // 사람마다 따로 정한 권한 (logic/permissions.js) — 없으면 예전과 똑같이 동작합니다
++  var 개인 = 개인메뉴상태_(me.name, 'bulletinEdit', 포털역할_(me.name));
++  if (개인.deny) throw new Error('주보 편집이 제한되어 있습니다. 커미티에 문의해주세요.');
++  if (개인.scopedOut) g = { edit: false, publish: false };
++  else if (개인.allow) g = { edit: true, publish: g.publish };
+   if (!g.edit) throw new Error('주보 편집 권한이 없습니다. 주보 게시자나 커미티에 지정을 부탁해 주세요.');
+   return { name: me.name, edit: true, publish: g.publish };
+ }
+@@ -11135,7 +11156,7 @@
+   else if (target === '셀장' || target === '팀장' || target === '커미티') names = 역할인사람_(target);
+   else names = target.split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+ 
+-  var r = 푸시보내기_(names, { title: title, body: body, url: url || (앱주소_() + '?page=portal'), tag: 'notice', keep: true });
++  var r = 푸시보내기_(names, { title: title, body: body, url: 딥링크정규화_(url) || (앱주소_() + '?page=portal'), tag: 'notice', keep: true });
+   if (r.error) throw new Error(r.error);
+   return r;
+ }
+@@ -11969,7 +11990,7 @@
+   if (!title) throw new Error('공지 제목을 입력해주세요.');
+   var id = 'N' + Date.now().toString(36);
+   공지시트_().appendRow([id, title, String(body || '').trim().slice(0, 2000),
+-    String(target || '전체').trim(), String(url || '').trim(),
++    String(target || '전체').trim(), 딥링크정규화_(url),
+     커미티이름_(token), ymd_(new Date()),
+     /^\d{4}-\d{2}-\d{2}$/.test(String(until || '')) ? until : '']);
+   캐시비움_();
+@@ -12174,7 +12195,7 @@
+         out.push(할일하나_({ id: 'nf-assign-' + today, kind: 'role', icon: '🌱',
+           title: '셀 배정을 기다리는 새가족 ' + 배정.length + '명',
+           sub: 배정.slice(0, 4).map(function (n) { return n.name; }).join(', ') + (배정.length > 4 ? ' 외' : ''),
+-          url: base + '?page=newfamily&t=' + encodeURIComponent(token), tone: 'warn' }));
++          url: base + '?page=newfamily&t=' + encodeURIComponent(token) + (배정.length === 1 ? '&open=' + encodeURIComponent(배정[0].name) : ''), tone: 'warn' }));
+       }
+       var 새로 = nf.filter(function (n) {
+         return n.joinedAt && (parseYmd_(today) - parseYmd_(n.joinedAt)) / 86400000 <= 7 && n.completedWeeks === 0;
+@@ -12183,7 +12204,7 @@
+         out.push(할일하나_({ id: 'nf-new-' + today, kind: 'role', icon: '👋',
+           title: '이번 주 새로 등록한 새가족 ' + 새로.length + '명',
+           sub: 새로.map(function (n) { return n.name; }).join(', ') + ' — 담당자를 정해주세요',
+-          url: base + '?page=newfamily&t=' + encodeURIComponent(token), tone: 'info' }));
++          url: base + '?page=newfamily&t=' + encodeURIComponent(token) + (새로.length === 1 ? '&open=' + encodeURIComponent(새로[0].name) : ''), tone: 'info' }));
+       }
+     }
+ 
+@@ -12200,7 +12221,7 @@
+     if (커미티) {
+       var 신청수 = 0;
+       try { 신청수 = 셀신청행들_().filter(function (a) { return a.year === 셀년도_(); }).length; } catch (e) {}
+-      if (신청수 && 셀신청열림_() && !hidden['cellapp-in-' + today]) {
++      if (신청수 && 셀신청열림_() && !hidden['cellapp-in-' + today] && 관리자키줘도되나_(r.name)) {
+         out.push(할일하나_({ id: 'cellapp-in-' + today, kind: 'role', icon: '📥',
+           title: '셀 신청 ' + 신청수 + '건 들어옴',
+           sub: '편성 화면에서 확인하실 수 있습니다',
+@@ -12511,7 +12532,7 @@
+   if (!title) throw new Error('제목을 입력해주세요.');
+   var body = String(d.body || '').trim().slice(0, 2000);
+   var target = String(d.target || '전체').trim();
+-  var url = String(d.url || '').trim();
++  var url = 딥링크정규화_(d.url);
+   var until = /^\d{4}-\d{2}-\d{2}$/.test(String(d.until || '')) ? d.until : '';
+ 
+   var who = 대상사람_(target);
+@@ -13351,7 +13372,7 @@
+       try {
+         알림_('공지', list, { title: '회의 할 일이 등록되었습니다',
+           body: m.title + ' — 포털 "내 할 일" 에서 확인해주세요.',
+-          url: (앱주소_() || '') + '?page=minutes' });
++          url: 딥링크주소_('minutes', m.id) });
+       } catch (e) {}
+     }
+   }
+@@ -13546,7 +13567,7 @@
+   if (who) {
+     try {
+       알림_('공지', [who], { title: '새 할 일이 생겼습니다', body: what,
+-        url: (앱주소_() || '') + '?page=minutes' });
++        url: 딥링크주소_('minutes', String(d.meet || '').trim()) });
+     } catch (e) {}
+   }
+   return { ok: true, id: id };

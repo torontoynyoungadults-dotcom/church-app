@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* 선교팀 관리 — 구조만 정의합니다. 색·여백·버튼은 Theme 이 맡습니다 */
+  :root { --accent: #2E7D6B; --tone-rgb: 46,125,107; }
+  * { box-sizing: border-box; }
+
+  /* 팀 선택 */
+  .tabs {
+    display: flex; gap: 6px; padding: 0 12px 14px; overflow-x: auto; scrollbar-width: none;
+    background: none !important; border: none !important; margin: 0 !important;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .yearbar { display: flex; align-items: center; gap: 9px; margin: 0 12px 10px; }
+  .yearbar label { font-size: 13px; font-weight: 800; color: #E3DFD9; flex: none; }
+  .yearbar select {
+    width: auto !important; min-width: 130px; padding: 8px 11px !important; font-size: 14.5px !important;
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important; color: #FFFFFF !important;
+  }
+  .yearbar .ycnt { font-size: 13px; color: #B7B0A7; margin-left: auto; }
+  .tabs button {
+    flex: 0 0 auto; padding: 9px 16px !important; font-size: 13.5px !important;
+    background: var(--night-2) !important; border: 1px solid var(--hair-night) !important;
+    border-radius: 99px !important; color: var(--night-sub) !important; box-shadow: none !important;
+  }
+  .tabs button.on { background: var(--tone) !important; border-color: var(--tone) !important; color: #fff !important; }
+
+  /* 팀 머리말 */
+  .hero {
+    background:
+      radial-gradient(120% 90% at 0% 0%, rgba(var(--tone-rgb), .22) 0%, rgba(var(--tone-rgb), 0) 60%),
+      linear-gradient(160deg, #1A1A19 0%, #131312 100%) !important;
+  }
+  .hero .country { font-size: 11.5px; color: var(--night-sub); font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+  .hero h2 { font-size: 23px; font-weight: 800; margin: 8px 0 0; color: #FFFFFF; letter-spacing: -0.035em; }
+  .hero .when { font-size: 13.5px; color: var(--night-sub); margin-top: 7px; }
+  .hero .dday {
+    display: inline-block; margin-top: 12px; font-size: 12.5px; font-weight: 800;
+    padding: 5px 14px; border-radius: 99px;
+    background: rgba(var(--tone-rgb), .18); color: #6FD3BB; border: 1px solid rgba(var(--tone-rgb), .34);
+  }
+  .hero .dday.done { background: var(--night-3); color: var(--night-sub); border-color: #2E2D2B; }
+  .prog { margin-top: 16px; }
+  .progbar { height: 6px; background: var(--night-3); border-radius: 99px; overflow: hidden; }
+  .progbar i { display: block; height: 100%; background: var(--tone); border-radius: 99px; transition: width .2s ease; }
+  .progtxt { font-size: 12.5px; color: var(--night-sub); margin-top: 8px; display: flex; justify-content: space-between; }
+  .warnrow {
+    margin-top: 13px; background: rgba(168,47,22,.14); border: 1px solid rgba(168,47,22,.3);
+    border-radius: var(--r-sm); padding: 10px 13px; font-size: 13.5px; color: #F0A28B; line-height: 1.8;
+  }
+
+  /* 체크리스트 */
+  .ck { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-top: 1px solid var(--hair); cursor: pointer; user-select: none; }
+  .ck:first-of-type { border-top: none; }
+  .ck input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+  .ck .box {
+    width: 24px; height: 24px; flex: none; border-radius: 8px;
+    border: 2px solid #C7C1B7; background: #fff; position: relative;
+    transition: background .15s, border-color .15s;
+  }
+  .ck .box:after {
+    content: ""; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px;
+    border: solid #fff; border-width: 0 2.6px 2.6px 0; transform: rotate(45deg) scale(.4);
+    opacity: 0; transition: opacity .15s, transform .15s;
+  }
+  .ck.on .box { background: var(--tone); border-color: var(--tone); }
+  .ck.on .box:after { opacity: 1; transform: rotate(45deg) scale(1); }
+  .ck .lbl {
+    flex: 1; font-size: 15px !important; font-weight: 750; color: var(--ink-1) !important;
+    letter-spacing: 0 !important; text-transform: none !important; margin: 0 !important;
+  }
+  .ck .by {
+    font-size: 11px; font-weight: 800; color: var(--ink-3); background: var(--sunken);
+    border-radius: 6px; padding: 3px 9px; white-space: nowrap;
+    letter-spacing: .05em; text-transform: uppercase;
+  }
+
+  /* 제출 자료 */
+  .ckitem { border-top: 1px solid var(--hair); }
+  .ckitem:first-of-type { border-top: none; }
+  .ckitem .ck { border-top: none; }
+  .ck .fc { font-size: 12.5px; font-weight: 800; color: #fff; background: var(--tone); border-radius: 99px; padding: 1px 8px; }
+  .xfiles { margin: -2px 0 12px 36px; padding: 11px 12px; background: #fff; border: 1px solid var(--hair-2); border-radius: var(--r-md); }
+  .xf { display: flex; align-items: center; gap: 6px; padding: 5px 0; }
+  .xf a { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink-1); font-size: 15px; font-weight: 700; }
+  .xf .ic {
+    flex: none; min-width: 36px; height: 24px; border-radius: 6px; background: var(--tone-soft); color: var(--tone);
+    font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 4px;
+  }
+  .xf .ic.lk { background: #E6F2EC; color: #1D7A56; }
+  .xf .fn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xf em { font-style: normal; flex: none; font-size: 12.5px; font-weight: 800; color: #9A5B00; background: #FFF3DA; border-radius: 6px; padding: 1px 7px; }
+  .xf .xx { flex: none; width: 28px; height: 28px; border: none; background: none; color: var(--ink-4); font-size: 20px; cursor: pointer; }
+  .xf .xx:hover { color: var(--bad); }
+  .xnone { font-size: 14px; color: var(--ink-3); margin: 0 0 4px; }
+  .xbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .xlink { margin-top: 10px; display: grid; gap: 7px; }
+
+  /* 팀원 */
+  .mrow {
+    border: none !important; border-top: 1px solid var(--hair) !important; border-radius: 0 !important;
+    background: none !important; box-shadow: none !important; padding: 14px 0;
+  }
+  .mrow:first-child { border-top: none !important; }
+  .mhead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 9px; }
+  .mhead .nm { font-size: 16px; font-weight: 800; }
+  .msub { font-size: 13px; color: var(--ink-3); line-height: 1.82; margin: -3px 0 9px; }
+  .msub b { color: var(--ink-1); font-weight: 750; }
+  .rolepill { background: var(--sunken) !important; color: var(--ink-2) !important; border-radius: 99px !important; }
+  .rolepill.key { background: var(--tone) !important; color: #fff !important; }
+  
+  /* 서류 버튼 상태 스타일 커스텀 */
+  .docs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .doc {
+    flex: 1 1 auto; min-width: 74px; padding: 9px 4px; border-radius: var(--r-sm); cursor: pointer;
+    background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.15); text-align: center;
+    font-size: 12.5px; font-weight: 750; color: #F4F1EC;
+    transition: background .12s, border-color .12s, color .12s; user-select: none;
+  }
+  .doc i { display: block; font-style: normal; font-size: 10.5px; font-weight: 750; margin-top: 3px; opacity: .85; }
+  
+  /* 충족 / 완료 (초록색) */
+  .doc.fit, .doc.on {
+    background: rgba(46, 125, 107, 0.25) !important;
+    border-color: #2E7D6B !important;
+    color: #6FD3BB !important;
+  }
+  .doc.fit i, .doc.on i { color: #6FD3BB !important; }
+
+  /* 미충족 (붉은색/경고) */
+  .doc.miss {
+    background: rgba(255, 120, 100, 0.1) !important;
+    border-color: rgba(255, 120, 100, 0.3) !important;
+    color: #FFB3A6 !important;
+  }
+  .doc.miss i { color: #FF9E90 !important; }
+
+  .ppfile {
+    margin-top: 6px; font-size: 12px; display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.06); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.12);
+  }
+  .ppfile a { color: #FFC9AB; text-decoration: none; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .ppfile button { background: none; border: none; color: #FF9E90; cursor: pointer; font-size: 14px; font-weight: bold; }
+
+  /* 항공 */
+  .fl { display: flex; align-items: flex-start; gap: 11px; padding: 12px 0; border-top: 1px solid var(--hair); }
+  .fl:first-child { border-top: none; }
+  .fl .k {
+    font-size: 11px; font-weight: 800; color: #fff; background: var(--ink-1);
+    padding: 4px 10px; border-radius: 99px; white-space: nowrap; margin-top: 2px;
+    letter-spacing: .04em;
+  }
+  .fl .b { flex: 1; min-width: 0; }
+  .fl .at { font-size: 15px; font-weight: 750; }
+  .fl .sub2 { font-size: 13px; color: var(--ink-3); margin-top: 2px; }
+
+  /* ---------- 유리 느낌 (배경이 비치는 카드) ---------- */
+  body .panel {
+    background: rgba(255,255,255,.07) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    color: var(--night-ink) !important;
+    box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+  }
+  body .panel .chip { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .fnote, body .panel .lede,
+  body .panel .empty, body .panel .meta { color: #E9E5DF !important; }
+  body .panel label, body .panel .fl, body .panel .k { color: #F2EFEA !important; }
+  body .panel b, body .panel strong { color: #FFFFFF; }
+  body .panel input, body .panel select, body .panel textarea {
+    background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important;
+    color: #FFFFFF !important;
+  }
+  body .panel input::placeholder, body .panel textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel .picklist button {
+    background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.14) !important;
+    color: #F5F3EF !important;
+  }
+  body .panel .picklist button.picked {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #fff !important;
+  }
+  body .panel .btn:not(.accent):not(.danger) {
+    background: rgba(255,255,255,.1) !important; border-color: rgba(255,255,255,.18) !important;
+    color: #FFFFFF !important;
+  }
+  body .panel .btn.accent, body .panel .submit {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important; border: none !important;
+  }
+
+  body .notice, body .banner, body .callout, body .subnotice,
+  body .card, body .nfcard, body .mcard, body .dcard, body .mrow, body .song,
+  body .fileitem, body .msrow, body .stat, body .moodbox, body .facebox, body .rowbtn {
+    background: rgba(255,255,255,.055) !important;
+    border-color: rgba(255,255,255,.12) !important;
+    color: var(--night-ink) !important;
+    box-shadow: none !important;
+  }
+  body .notice b, body .banner b, body .callout b,
+  body .card b, body .nfcard b, body .mcard b, body .dcard b, body .stat .v {
+    color: #FFFFFF !important;
+  }
+  body .notice p, body .banner p, body .callout p, body .subnotice p,
+  body .card .meta, body .stat .k, body .tag, body .rolepill.none, body .rolepill.soft {
+    color: #E9E5DF !important;
+  }
+  body .tag, body .rolepill.none, body .rolepill.soft { background: rgba(255,255,255,.08) !important; }
+  body .bar { background: rgba(255,255,255,.12) !important; }
+  body table th { background: rgba(255,255,255,.06) !important; color: #EDEAE5 !important; }
+  body table td { border-color: rgba(255,255,255,.1) !important; color: var(--night-ink); }
+
+  body .ck .box,
+  body .xfiles {
+    background: rgba(255,255,255,.075) !important;
+    border-color: rgba(255,255,255,.15) !important;
+    color: #F4F1EC !important;
+    box-shadow: none !important;
+  }
+  body .ck .box b,
+  body .xfiles b { color: #FFFFFF !important; }
+  body .ck .box .k,
+  body .xfiles .k,
+  body .ck .box .meta,
+  body .xfiles .meta { color: #E4E0DA !important; }
+
+  body .panel .picklist button .t b, body .picklist button .t b { color: #FFFFFF !important; }
+  body .panel .picklist button .t span, body .picklist button .t span { color: #DED9D2 !important; }
+  body .picklist button.picked .t b, body .picklist button.picked .t span { color: #FFFFFF !important; }
+  body .panel .closing { color: #E9E5DF !important; }
+  body .panel .closing b { color: #FFFFFF !important; }
+  body .panel .hint, body .panel .sub, body .panel .lede, body .panel .fnote,
+  body .panel .empty, body .panel .meta, body .panel .desc, body .panel .note,
+  body .panel .cap, body .panel small, body .panel .msg, body .panel .fs { color: #E4E0DA !important; }
+  body .panel > p, body .panel li { color: #ECE9E4; }
+  body .panel h1, body .panel h2, body .panel h3, body .panel h4,
+  body .panel .tit, body .panel .ttl, body .panel .nm { color: #FFFFFF !important; }
+  body .panel input::placeholder, body .panel textarea::placeholder,
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body .panel a:not(.btn) { color: #FFC9AB; }
+  body .panel hr, body .panel .divider { border-color: rgba(255,255,255,.18) !important; }
+  body .panel option, body .panel optgroup { color: #1A1917; }
+
+  body .shell, body .shell * {
+    --ink-1: #FFFFFF; --ink-2: #F0EDE8; --ink-3: #DCD7D0; --ink-4: #C2BCB4;
+    --night-ink: #FFFFFF; --night-sub: #D9D4CD;
+    --hair: rgba(255,255,255,.15); --hair-2: rgba(255,255,255,.22);
+  }
+  body option, body optgroup { color: #1A1917; background: #FFFFFF; }
+  body .ynfoot .cp { color: #CFC9C1 !important; }
+
+  body .ck .by,
+  body .rolepill {
+    background: rgba(255,255,255,.085) !important;
+    border-color: rgba(255,255,255,.16) !important;
+    color: #F4F1EC !important;
+  }
+  body button:disabled, body .submit:disabled, body .btn:disabled {
+    background: rgba(255,255,255,.14) !important; color: #CFC9C1 !important;
+    border-color: rgba(255,255,255,.18) !important; opacity: 1 !important;
+  }
+  body .btn.accent, body .dirbtn, body .pwsubmit { color: #FFFFFF !important; }
+  body .wk.on, body .wk.on * { color: #FFFFFF !important; }
+
+  body .btn:not(.accent):not(.danger):not(.primary):not(.ghost) {
+    background: rgba(255,255,255,.13) !important;
+    border-color: rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body .tabs button { color: #DCD7D0 !important; }
+  body .tabs button.on {
+    background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+    border-color: transparent !important; color: #FFFFFF !important;
+  }
+  body .st.준비중, body .st.보관 { background: rgba(255,255,255,.16) !important; color: #FFFFFF !important; }
+  body .st.받는중 { background: #1D6B4B !important; color: #FFFFFF !important; }
+  body .st.마감 { background: #8C3416 !important; color: #FFFFFF !important; }
+
+  body .seg button, body .shell button:not([class]) { color: #DCD7D0 !important; }
+  body .seg button.on { color: #FFFFFF !important; }
+
+  body .btn.danger { background: rgba(255,255,255,.12) !important; color: #FF9E90 !important;
+                     border-color: rgba(255,158,144,.45) !important; }
+  body .tn.off, body .tp.off { background: rgba(255,120,100,.22) !important; color: #FFB3A6 !important; }
+  body .tn.guest { background: rgba(var(--tone-rgb,210,81,31),.26) !important; color: #FFC0A1 !important; }
+  body .tn.hl, body .tp.hl { color: #FFFFFF !important; }
+  body .oc, body .mo { color: #FFB3A6 !important; background: rgba(255,120,100,.2) !important; }
+
+  body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  body select, body textarea {
+    background-color: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    color: #FFFFFF !important;
+  }
+  body select option, body select optgroup { background: #FFFFFF; color: #1A1917; }
+  body input::placeholder, body textarea::placeholder { color: #B7B0A7 !important; }
+  body input:focus, body select:focus, body textarea:focus {
+    border-color: rgba(var(--tone-rgb,210,81,31),.9) !important;
+    background-color: rgba(255,255,255,.15) !important;
+  }
+  body input:disabled, body select:disabled, body textarea:disabled {
+    color: #CFC9C1 !important; opacity: 1 !important;
+  }
+</style>
+<!--#include Theme-->
+</head>
+<body>
+<div class="shell">
+  <header>
+    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
+    <h1>선교팀 관리</h1>
+    <p class="meta">YNTORONTO &nbsp;·&nbsp; MISSION</p>
+  </header>
+
+  <div id="lock" style="display:none;">
+    <div class="panel">
+      <p class="hint" id="lockMsg" style="margin:0;">불러오는 중…</p>
+    </div>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="yearbar" id="yearBar" style="display:none;">
+      <label>연도</label>
+      <select id="yearSel" onchange="pickYear()"></select>
+      <span class="ycnt" id="yearCount"></span>
+    </div>
+    <div class="tabs" id="teamTabs"></div>
+    <div id="body"></div>
+  </div>
+
+  <input type="file" id="mfile" accept="application/pdf,.pdf,image/*,.xlsx,.xls,.docx,.doc,.csv"
+    style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" onchange="onMissionFile(this)">
+
+  <!-- 여권 전용 파일 입력 -->
+  <input type="file" id="passportFile" accept="image/*,application/pdf"
+    style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" onchange="onPassportFile(this)">
+
+  <footer>
+    해외한인장로회 토론토영락교회 &nbsp;|&nbsp; 청년1부 선교팀<br>
+    650 McNicoll Ave. Toronto, ON M2H 2E1
+  </footer>
+</div>
+
+<script>
+var PREFILL = (window.__PREFILL__ || {});
+var TOKEN = PREFILL.key || PREFILL.t || '';
+var D = null, TEAM = null, editing = '';
+
+function el(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+function jsq(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function say(id, t, k) { var m = el(id); if (!m) return; m.className = 'msg' + (k ? ' ' + k : ''); m.textContent = t || ''; }
+function fail(e) { alert(e && e.message ? e.message : '처리에 실패했습니다.'); }
+
+if (!TOKEN) { showLock('포털에서 다시 들어와 주세요.'); } else load();
+
+function showLock(msg) {
+  el('lock').style.display = 'block';
+  el('app').style.display = 'none';
+  el('lockMsg').textContent = msg;
+}
+
+function load(keep) {
+  callServer('missionLogin', [TOKEN], function (d) {
+      D = d;
+      if (!D.list.length) { showLock('등록된 선교팀이 없습니다. 커미티에 문의해주세요.'); return; }
+      el('lock').style.display = 'none';
+      el('app').style.display = 'block';
+      var name = keep || (TEAM && TEAM.name) || PREFILL.team || D.list[0].name;
+      TEAM = D.list.filter(function (t) { return t.name === name; })[0] || D.list[0];
+      YEAR = yearOf(TEAM);
+      renderYears(); renderTabs(); renderTeam();
+    }, function (e) { showLock((e && e.message) ? e.message : '불러오지 못했습니다.'); });
+}
+
+function applyTeam(t) {
+  TEAM = t;
+  D.list = D.list.map(function (x) { return x.name === t.name ? t : x; });
+  renderTeam();
+}
+
+var YEAR = '';
+
+function yearOf(t) { return t.year || String(t.start || '').slice(0, 4) || '기타'; }
+
+function renderYears() {
+  var ys = {};
+  D.list.forEach(function (t) { ys[yearOf(t)] = (ys[yearOf(t)] || 0) + 1; });
+  var keys = Object.keys(ys).sort().reverse();
+  if (!YEAR || keys.indexOf(YEAR) === -1) YEAR = (TEAM && yearOf(TEAM)) || keys[0] || '';
+  el('yearBar').style.display = keys.length > 1 ? 'flex' : 'none';
+  el('yearSel').innerHTML = keys.map(function (y) {
+    return '<option value="' + esc(y) + '"' + (y === YEAR ? ' selected' : '') + '>' + esc(y) + '년 (' + ys[y] + '팀)</option>';
+  }).join('');
+  el('yearCount').textContent = (ys[YEAR] || 0) + '팀';
+}
+
+function pickYear() {
+  YEAR = el('yearSel').value;
+  var first = D.list.filter(function (t) { return yearOf(t) === YEAR; })[0];
+  if (first) { TEAM = first; editing = ''; }
+  renderYears(); renderTabs(); renderTeam();
+  window.scrollTo(0, 0);
+}
+
+function renderTabs() {
+  var list = D.list.filter(function (t) { return yearOf(t) === YEAR; });
+  if (!list.length) list = D.list;
+  el('teamTabs').style.display = list.length > 1 ? 'flex' : 'none';
+  el('teamTabs').innerHTML = list.map(function (t) {
+    return '<button type="button" class="' + (TEAM.name === t.name ? 'on' : '') +
+      '" onclick="pickTeam(\'' + esc(jsq(t.name)) + '\')" title="' + esc(t.name) + '">' +
+      esc(t.short || t.name) + '</button>';
+  }).join('');
+}
+
+function pickTeam(n) {
+  TEAM = D.list.filter(function (t) { return t.name === n; })[0];
+  editing = '';
+  YEAR = yearOf(TEAM);
+  renderYears(); renderTabs(); renderTeam();
+  window.scrollTo(0, 0);
+}
+
+function dday(t) {
+  if (!t.start || !D.today) return '';
+  var a = new Date(D.today), b = new Date(t.start);
+  var n = Math.round((b - a) / 86400000);
+  if (t.end && D.today > t.end) return '<span class="dday done">일정 종료</span>';
+  if (n > 0) return '<span class="dday">출발 D-' + n + '</span>';
+  if (n === 0) return '<span class="dday">오늘 출발</span>';
+  return '<span class="dday">진행 중</span>';
+}
+
+function calcStats(t) {
+  var done = 0;
+  D.checks.forEach(function(c) {
+    if (t.checks[c.key]) done++;
+  });
+  t.checkDone = done;
+  t.checkTotal = D.checks.length;
+  
+  var 서류총 = t.members.length * 4;
+  var 서류한 = t.members.reduce(function (s, m) {
+    var a = m.auto || {};
+    var isCell = m.cellOk || a.cellOk;
+    var isBap = m.baptismOk || a.baptismOk;
+    return s + (m.waiver ? 1 : 0) + (m.passport ? 1 : 0) + (isCell ? 1 : 0) + (isBap ? 1 : 0);
+  }, 0);
+  var pct = t.checkTotal ? Math.round((t.checkDone / t.checkTotal) * 100) : 0;
+  return { done: t.checkDone, total: t.checkTotal, pct: pct, docDone: 서류한, docTotal: 서류총 };
+}
+
+function updateHeroStats() {
+  var st = calcStats(TEAM);
+  var bar = el('heroProgBar');
+  var txt = el('heroProgTxt');
+  if (bar) bar.style.width = st.pct + '%';
+  if (txt) {
+    txt.innerHTML = '<span>제출 현황 ' + st.done + ' / ' + st.total + '</span>' +
+      '<span>팀원 ' + TEAM.members.length + '명 · 서류 ' + st.docDone + ' / ' + st.docTotal + '</span>';
+  }
+}
+
+function renderTeam() {
+  var t = TEAM;
+  var st = calcStats(t);
+
+  var hero =
+    '<div class="hero">' +
+      '<div class="country">' + esc(t.country || '—') + '</div>' +
+      '<h2>' + esc(t.name) + '</h2>' +
+      '<div class="when">' + esc(t.start || '기간 미정') +
+        (t.end ? ' — ' + esc(t.end) : '') + ' &nbsp;·&nbsp; ' + esc(t.status) + '</div>' +
+      dday(t) +
+      '<div class="prog">' +
+        '<div class="progbar"><i id="heroProgBar" style="width:' + st.pct + '%;"></i></div>' +
+        '<div class="progtxt" id="heroProgTxt"><span>제출 현황 ' + st.done + ' / ' + st.total + '</span>' +
+          '<span>팀원 ' + t.members.length + '명 · 서류 ' + st.docDone + ' / ' + st.docTotal + '</span></div>' +
+      '</div>' +
+      (t.missingRoles.length
+        ? '<div class="warnrow">필수 역할이 비어 있습니다 — <b>' + esc(t.missingRoles.join(' · ')) +
+          '</b><br>아래 팀원 명단에서 역할을 지정해 주세요.</div>' : '') +
+    '</div>';
+
+  var checks =
+    '<div class="panel"><span class="chip">제출 현황</span>' +
+      D.checks.map(function (c) {
+        var on = !!t.checks[c.key];
+        var files = (t.files || {})[c.key] || [];
+        return '<div class="ckitem" id="ckitem_' + c.key + '">' +
+          '<label class="ck' + (on ? ' on' : '') + '" onclick="toggleCheck(\'' + c.key + '\', event)">' +
+          '<input type="checkbox"' + (on ? ' checked' : '') + '>' +
+          '<span class="box"></span><span class="lbl">' + esc(c.label) + '</span>' +
+          (files.length ? '<span class="fc">' + files.length + '</span>' : '') +
+          '<span class="by">' + esc(c.by) + '</span></label>' +
+          ((on || files.length) ? filesBox(c, files) : '') +
+        '</div>';
+      }).join('') +
+      '<div class="f" style="margin:14px 0 0;"><label>진행 상태</label>' +
+        '<select onchange="setStatus(this.value)">' +
+          D.statuses.map(function (s) {
+            return '<option' + (s === t.status ? ' selected' : '') + '>' + esc(s) + '</option>';
+          }).join('') + '</select></div>' +
+      '<p class="msg" id="ckMsg"></p>' +
+    '</div>';
+
+  el('body').innerHTML = hero + checks + membersPanel(t) + flightsPanel(t) + notePanel(t);
+}
+
+var UP = null, LINKING = '';
+
+function filesBox(c, files) {
+  var list = files.map(function (f) {
+    var link = f.kind === 'link', pdf = /\.pdf$/i.test(f.name);
+    return '<div class="xf"><a href="' + esc(f.url) + '" target="_blank" rel="noopener">' +
+      '<span class="ic' + (link ? ' lk' : '') + '">' + (link ? (/spreadsheets/.test(f.url) ? 'SHEET' : 'LINK') : (pdf ? 'PDF' : 'FILE')) + '</span>' +
+      '<span class="fn">' + esc(f.name) + '</span>' + (f.label ? '<em>' + esc(f.label) + '</em>' : '') + '</a>' +
+      '<button type="button" class="xx" title="지우기" onclick="dropFile(\'' + esc(jsq(f.id)) + '\')">&times;</button></div>';
+  }).join('');
+  var btns = c.key === 'ticket'
+    ? '<button type="button" class="btn mini" onclick="pickFile(\'ticket\',\'스케줄표\')">＋ 스케줄표</button>' +
+      '<button type="button" class="btn mini" onclick="pickFile(\'ticket\',\'항공권\')">＋ 항공권</button>' +
+      '<button type="button" class="btn mini" onclick="LINKING=\'ticket\';renderTeam();">＋ 링크</button>'
+    : '<button type="button" class="btn mini" onclick="pickFile(\'' + c.key + '\',\'\')">＋ 파일 올리기</button>' +
+      '<button type="button" class="btn mini" onclick="LINKING=\'' + c.key + '\';renderTeam();">＋ 구글시트 · 링크</button>';
+  var linkForm = LINKING === c.key
+    ? '<div class="xlink"><input type="url" id="lk_' + c.key + '" placeholder="https://docs.google.com/spreadsheets/..." >' +
+        '<input type="text" id="lkn_' + c.key + '" placeholder="이름 (선택) — 예: 예산안 v2">' +
+        '<div class="addrow"><button class="btn" onclick="LINKING=\'\';renderTeam();">취소</button>' +
+        '<button class="btn accent" style="flex:1;" onclick="addLink(\'' + c.key + '\')">링크 붙이기</button></div></div>'
+    : '';
+  return '<div class="xfiles">' + (list || '<p class="xnone">' + (c.key === 'ticket' ? '스케줄표와 항공권을 올려주세요.' : '파일을 올리거나 구글시트 링크를 붙여주세요.') + '</p>') +
+    '<div class="xbtns">' + btns + '</div>' + linkForm + '<p class="msg" id="xMsg_' + c.key + '" style="min-height:0;margin:6px 0 0;"></p></div>';
+}
+
+function pickFile(key, label) { UP = { key: key, label: label }; el('mfile').click(); }
+
+function onMissionFile(input) {
+  var f = input.files && input.files[0];
+  input.value = '';
+  if (!f || !UP) return;
+  var up = UP;
+  if (f.size > 20 * 1024 * 1024) { say('xMsg_' + up.key, '파일은 20MB까지 올릴 수 있습니다.', 'err'); return; }
+  say('xMsg_' + up.key, f.name + ' 올리는 중…');
+  var rd = new FileReader();
+  rd.onload = function () {
+    callServer('uploadMissionFile', [TOKEN, TEAM.name, up.key, f.name, rd.result, up.label], function (t) { applyTeam(t); say('xMsg_' + up.key, '올렸습니다.', 'ok'); }, function (e) { say('xMsg_' + up.key, e.message || '올리지 못했습니다.', 'err'); });
+  };
+  rd.onerror = function () { say('xMsg_' + up.key, '파일을 읽지 못했습니다.', 'err'); };
+  rd.readAsDataURL(f);
+}
+
+function addLink(key) {
+  var url = el('lk_' + key).value.trim();
+  if (!url) { say('xMsg_' + key, '링크를 붙여넣어 주세요.', 'err'); return; }
+  say('xMsg_' + key, '저장하는 중…');
+  callServer('addMissionLink', [TOKEN, TEAM.name, key, url, el('lkn_' + key).value.trim(), key === 'ticket' ? '링크' : ''], function (t) { LINKING = ''; applyTeam(t); }, function (e) { say('xMsg_' + key, e.message || '저장하지 못했습니다.', 'err'); });
+}
+
+function dropFile(id) {
+  if (!confirm('이 자료를 지울까요?')) return;
+  callServer('removeMissionFile', [TOKEN, TEAM.name, id], applyTeam, fail);
+}
+
+/* ---------- 팀원 & 서류 ---------- */
+
+function membersPanel(t) {
+  var rows = t.members.length ? t.members.map(memberRow).join('')
+    : '<p class="empty">아직 팀원이 없습니다.</p>';
+
+  return '<div class="panel"><span class="chip">팀원 · 서류</span>' +
+    '<p class="hint">각 항목을 눌러 제출/충족 상태를 확인합니다. [여권사본]을 누르면 파일 첨부가 가능합니다.<br>' +
+      '셀 소속 및 세례 정보는 교적 자동 확인 또는 직권 수정으로 관리됩니다.</p>' +
+    rows +
+    '<div class="addrow" style="margin-top:14px;">' +
+      '<input list="dirNames" id="newMember" placeholder="팀원 이름" style="flex:2;">' +
+      '<button class="btn accent" onclick="addMember()">추가</button>' +
+    '</div>' +
+    '<datalist id="dirNames">' +
+      D.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') +
+    '</datalist>' +
+    '<p class="msg" id="mMsg"></p></div>';
+}
+
+function memberRow(m) {
+  var a = m.auto || {};
+  var open = editing === 'm:' + m.name;
+
+  /* 셀 소속 충족 여부 (수동 또는 교적 자동) */
+  var cellFit = m.cellOk || a.cellOk;
+  var cellMemo = a.cell
+    ? (a.rate === null ? '충족 ✓' : a.rate + '% ✓')
+    : (cellFit ? '충족 ✓' : '셀 없음 ✕');
+
+  /* 세례 입교 충족 여부 (수동 또는 교적 자동) */
+  var bapFit = m.baptismOk || a.baptismOk;
+  var bapMemo = bapFit ? '충족 ✓' : (a.notFound ? '교적 없음' : (a.baptized ? '미충족 ✕' : '미등록'));
+
+  /* 여권사본 상태 */
+  var passFit = m.passport || !!m.passportUrl;
+  var passMemo = passFit ? '충족 ✓' : '미제출';
+
+  /* Waiver 상태 */
+  var waiverFit = m.waiver;
+  var waiverMemo = waiverFit ? '충족 ✓' : '미제출';
+
+  var docBtn = function (k, label, fit, note, clickFn) {
+    return '<div class="doc' + (fit ? ' fit' : ' miss') + '" id="doc_' + esc(m.name) + '_' + k + '" onclick="' + clickFn + '">' +
+      esc(label) + '<i>' + esc(note) + '</i></div>';
+  };
+
+  var 소속줄 = '<div class="msub">' +
+    (a.cell
+      ? '소속 셀 <b>' + esc(a.cell) + '</b>' +
+        (a.rate === null ? '' : ' · 출석률 <b>' + a.rate + '%</b> (' + a.present + '/' + a.meetings + '회)')
+      : '<span style="color:' + (cellFit ? '#6FD3BB' : 'var(--danger)') + ';font-weight:700;">' + (cellFit ? '셀 소속 확인됨' : '소속 셀 없음') + '</span>') +
+    (a.baptized ? ' · 세례 ' + esc(a.baptized) : '') + '</div>';
+
+  var passportFileView = m.passportUrl
+    ? '<div class="ppfile">📎 <a href="' + esc(m.passportUrl) + '" target="_blank" rel="noopener">' + esc(m.passportFileName || '여권사본 파일') + '</a>' +
+      '<button type="button" title="여권 삭제" onclick="deletePassport(\'' + esc(jsq(m.name)) + '\')">&times;</button></div>'
+    : '';
+
+  return '<div class="mrow">' +
+    '<div class="mhead"><span class="nm">' + esc(m.name) + '</span>' +
+      m.roles.map(function (r) {
+        var key = ['팀장', '회계', '서기'].indexOf(r) !== -1;
+        return '<span class="rolepill' + (key ? ' key' : '') + '">' + esc(r) + '</span>';
+      }).join('') +
+      '<span style="flex:1;"></span>' +
+      '<button class="btn mini" onclick="editMember(\'' + esc(jsq(m.name)) + '\')">' +
+        (open ? '닫기' : '역할') + '</button>' +
+    '</div>' + 소속줄 +
+    '<div class="docs">' +
+      docBtn('waiver', 'Waiver', waiverFit, waiverMemo, 'toggleDoc(\'' + esc(jsq(m.name)) + '\',\'waiver\')') +
+      docBtn('passport', '여권사본', passFit, passMemo, 'uploadPassportPrompt(\'' + esc(jsq(m.name)) + '\')') +
+      docBtn('cellOk', '셀 소속', cellFit, cellMemo, 'toggleDoc(\'' + esc(jsq(m.name)) + '\',\'cellOk\')') +
+      docBtn('baptismOk', '세례 · 입교', bapFit, bapMemo, 'toggleDoc(\'' + esc(jsq(m.name)) + '\',\'baptismOk\')') +
+    '</div>' + passportFileView +
+    (open ? memberEdit(m) : '') +
+    '</div>';
+}
+
+function memberEdit(m) {
+  return '<div style="margin-top:11px;background:rgba(255,255,255,.075);border:1px solid var(--line);' +
+      'border-radius:12px;padding:13px;">' +
+    '<div class="f"><label>역할 (복수 선택 가능)</label><div class="docs">' +
+      D.roles.map(function (r) {
+        var on = m.roles.indexOf(r) !== -1;
+        return '<div class="doc' + (on ? ' fit' : '') + '" data-r="' + esc(r) + '" ' +
+          'onclick="this.classList.toggle(\'fit\')">' + esc(r) + '</div>';
+      }).join('') +
+    '</div></div>' +
+    '<div class="f"><label>그 외 역할 (쉼표로)</label>' +
+      '<input type="text" id="mExtra" value="' + esc(m.roles.filter(function (r) {
+        return D.roles.indexOf(r) === -1;
+      }).join(', ')) + '" placeholder="예: 운전, 회계보조"></div>' +
+    '<div class="f"><label>메모</label><input type="text" id="mMemo" value="' + esc(m.memo) + '"></div>' +
+    '<div class="addrow">' +
+      '<button class="btn danger" onclick="dropMember(\'' + esc(jsq(m.name)) + '\')">팀에서 제외</button>' +
+      '<button class="btn accent" style="flex:1;" onclick="saveRoles(\'' + esc(jsq(m.name)) + '\')">저장</button>' +
+    '</div></div>';
+}
+
+function editMember(n) { editing = (editing === 'm:' + n) ? '' : 'm:' + n; renderTeam(); }
+
+function findMember(n) {
+  for (var i = 0; i < TEAM.members.length; i++) if (TEAM.members[i].name === n) return TEAM.members[i];
+  return null;
+}
+
+/* 일반 항목 토글 (Waiver, 셀소속, 세례 등) */
+function toggleDoc(n, k) {
+  var m = findMember(n);
+  if (!m) return;
+  m[k] = !m[k];
+  renderTeam();
+  push(m);
+}
+
+/* 여권사본 첨부 관련 */
+var TARGET_MEMBER = '';
+
+function uploadPassportPrompt(memberName) {
+  TARGET_MEMBER = memberName;
+  el('passportFile').click();
+}
+
+function onPassportFile(input) {
+  var f = input.files && input.files[0];
+  input.value = '';
+  if (!f || !TARGET_MEMBER) return;
+  
+  var mName = TARGET_MEMBER;
+  if (f.size > 15 * 1024 * 1024) { alert('여권 파일은 15MB 이하만 가능합니다.'); return; }
+  
+  say('mMsg', mName + ' 님의 여권 파일 올리는 중…');
+  var rd = new FileReader();
+  rd.onload = function () {
+    callServer('uploadPassportFile', [TOKEN, TEAM.name, mName, f.name, rd.result], function (t) {
+      applyTeam(t);
+      say('mMsg', '여권사본이 업로드되었습니다.', 'ok');
+    }, function (e) {
+      say('mMsg', e.message || '여권 업로드에 실패했습니다.', 'err');
+    });
+  };
+  rd.readAsDataURL(f);
+}
+
+function deletePassport(memberName) {
+  if (!confirm(memberName + ' 님의 여권사본을 삭제할까요?')) return;
+  var m = findMember(memberName);
+  if (!m) return;
+  m.passport = false;
+  m.passportUrl = '';
+  m.passportFileName = '';
+  push(m, '여권사본을 삭제했습니다.');
+}
+
+function saveRoles(n) {
+  var m = findMember(n);
+  if (!m) return;
+  var picked = [];
+  var boxes = el('body').querySelectorAll('.doc[data-r]');
+  for (var i = 0; i < boxes.length; i++) {
+    if (boxes[i].classList.contains('fit') || boxes[i].classList.contains('on')) {
+      picked.push(boxes[i].getAttribute('data-r'));
+    }
+  }
+  String(el('mExtra').value || '').split(',').forEach(function (x) {
+    if (x.trim()) picked.push(x.trim());
+  });
+  m.roles = picked;
+  m.memo = el('mMemo').value.trim();
+  editing = '';
+  push(m, '저장했습니다.');
+}
+
+function push(m, okMsg) {
+  say('mMsg', okMsg ? '저장하는 중…' : '');
+  callServer('saveMissionMember', [TOKEN, TEAM.name, {
+      name: m.name, oldName: m.name, roles: m.roles,
+      waiver: m.waiver, passport: m.passport, cellOk: m.cellOk, baptismOk: m.baptismOk,
+      passportUrl: m.passportUrl, passportFileName: m.passportFileName,
+      memo: m.memo
+    }], function (t) { 
+      applyTeam(t);
+      if (okMsg) say('mMsg', okMsg, 'ok'); 
+    }, function (e) { say('mMsg', e.message || '저장하지 못했습니다.', 'err'); load(TEAM.name); });
+}
+
+function addMember() {
+  var n = el('newMember').value.trim();
+  if (!n) { say('mMsg', '이름을 입력해주세요.', 'err'); return; }
+  say('mMsg', '추가하는 중…');
+  callServer('saveMissionMember', [TOKEN, TEAM.name, { name: n, roles: ['팀원'] }], function (t) { el('newMember').value = ''; applyTeam(t); say('mMsg', ''); }, function (e) { say('mMsg', e.message || '추가하지 못했습니다.', 'err'); });
+}
+
+function dropMember(n) {
+  if (!confirm(n + '님을 이 선교팀에서 제외할까요?')) return;
+  editing = '';
+  callServer('removeMissionMember', [TOKEN, TEAM.name, n], applyTeam, fail);
+}
+
+/* ---------- 항공 일정 ---------- */
+
+function flightsPanel(t) {
+  var rows = t.flights.length
+    ? t.flights.map(function (f) {
+        return '<div class="fl"><span class="k">' + esc(f.kind) + '</span>' +
+          '<div class="b"><div class="at">' + esc(f.at) + '</div>' +
+            (f.flight || f.memo
+              ? '<div class="sub2">' + esc([f.flight, f.memo].filter(function (x) { return x; }).join(' · ')) + '</div>'
+              : '') +
+          '</div>' +
+          '<button class="btn mini danger" onclick="dropFlight(\'' + esc(jsq(f.kind)) + '\',\'' +
+            esc(jsq(f.at)) + '\')">삭제</button></div>';
+      }).join('')
+    : '<p class="empty">등록된 항공 일정이 없습니다.</p>';
+
+  return '<div class="panel"><span class="chip">항공 일정</span>' + rows +
+    '<div style="margin-top:14px;">' +
+      '<div class="two">' +
+        '<div class="f"><label>구분</label><select id="fKind">' +
+          D.kinds.map(function (k) { return '<option>' + esc(k) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="f"><label>일시</label><input type="datetime-local" id="fAt"></div>' +
+      '</div>' +
+      '<div class="two">' +
+        '<div class="f"><label>편명</label><input type="text" id="fNo" placeholder="AC 001"></div>' +
+        '<div class="f"><label>메모</label><input type="text" id="fMemo" placeholder="터미널 · 경유 등"></div>' +
+      '</div>' +
+      '<button class="btn accent full" onclick="addFlight()">일정 추가</button>' +
+      '<p class="msg" id="fMsg"></p>' +
+    '</div></div>';
+}
+
+function addFlight() {
+  var at = el('fAt').value.trim();
+  if (!at) { say('fMsg', '일시를 선택해주세요.', 'err'); return; }
+  say('fMsg', '추가하는 중…');
+  callServer('saveMissionFlight', [TOKEN, TEAM.name, {
+      kind: el('fKind').value, at: at.replace('T', ' '),
+      flight: el('fNo').value.trim(), memo: el('fMemo').value.trim()
+    }], function (t) { applyTeam(t); say('fMsg', ''); }, function (e) { say('fMsg', e.message || '추가하지 못했습니다.', 'err'); });
+}
+
+function dropFlight(kind, at) {
+  if (!confirm('이 일정을 삭제할까요?')) return;
+  callServer('removeMissionFlight', [TOKEN, TEAM.name, kind, at], applyTeam, fail);
+}
+
+/* ---------- 제출 현황 체크박스 ---------- */
+
+function toggleCheck(key, evt) {
+  if (evt) evt.preventDefault();
+  
+  var currentState = !TEAM.checks[key];
+  TEAM.checks[key] = currentState;
+  
+  var ckContainer = el('ckitem_' + key);
+  if (ckContainer) {
+    var labelEl = ckContainer.querySelector('.ck');
+    var inputEl = ckContainer.querySelector('input[type=checkbox]');
+    if (currentState) {
+      if (labelEl) labelEl.classList.add('on');
+      if (inputEl) inputEl.checked = true;
+    } else {
+      if (labelEl) labelEl.classList.remove('on');
+      if (inputEl) inputEl.checked = false;
+    }
+  }
+  updateHeroStats();
+
+  var patch = {}; patch[key] = currentState;
+  say('ckMsg', '저장하는 중…');
+  callServer('setMissionField', [TOKEN, TEAM.name, patch], function (t) { 
+    TEAM = t;
+    D.list = D.list.map(function (x) { return x.name === t.name ? t : x; });
+    say('ckMsg', ''); 
+  }, function (e) { 
+    say('ckMsg', e.message || '저장하지 못했습니다.', 'err'); 
+    load(TEAM.name); 
+  });
+}
+
+function setStatus(v) {
+  say('ckMsg', '저장하는 중…');
+  callServer('setMissionField', [TOKEN, TEAM.name, { status: v }], function (t) { applyTeam(t); say('ckMsg', ''); }, function (e) { say('ckMsg', e.message || '저장하지 못했습니다.', 'err'); });
+}
+
+function notePanel(t) {
+  return '<div class="panel"><span class="chip">노트</span>' +
+    '<textarea id="note" placeholder="비자 · 예방접종 · 현지 연락처 · 준비물 등 자유롭게 적어주세요.">' +
+      esc(t.note) + '</textarea>' +
+    '<button class="btn accent full" style="margin-top:10px;" onclick="saveNote()">노트 저장</button>' +
+    '<p class="msg" id="nMsg"></p></div>';
+}
+
+function saveNote() {
+  say('nMsg', '저장하는 중…');
+  callServer('setMissionField', [TOKEN, TEAM.name, { note: el('note').value }], function (t) { TEAM.note = t.note; D.list = D.list.map(function (x) {
+        return x.name === t.name ? t : x; }); say('nMsg', '저장했습니다.', 'ok'); }, function (e) { say('nMsg', e.message || '저장하지 못했습니다.', 'err'); });
+}
+</script>
+</body>
+</html>

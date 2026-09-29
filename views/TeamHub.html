@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --accent: #D9862F; --tone-rgb: 210,81,31; }
+  * { box-sizing: border-box; }
+  .thhello { padding: 4px 2px 14px; }
+  .thhello b { display: block; font-size: 19px; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
+  .thhello span { display: block; font-size: 13.5px; color: #C9C4BC; margin-top: 4px; line-height: 1.6; }
+  .thgrid { display: grid; gap: 10px; }
+  .thtile {
+    display: flex; align-items: center; gap: 12px; padding: 15px 16px; border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.06); text-decoration: none;
+  }
+  .thtile .thi {
+    flex: none; width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--tone), var(--accent)); color: #fff; font-size: 18px; font-weight: 800;
+  }
+  .thtile .tht { flex: 1; min-width: 0; }
+  .thtile .tht b { display: block; font-size: 15.5px; font-weight: 800; color: #fff; }
+  .thtile .tht span { display: block; font-size: 12.5px; color: #C9C4BC; margin-top: 2px; line-height: 1.55; }
+  .thtile .tha { flex: none; color: #C9C4BC; font-size: 18px; }
+  .thempty { padding: 30px 16px; text-align: center; color: #C9C4BC; font-size: 14.5px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
+    <h1>팀 계정</h1>
+    <p class="meta">YNTORONTO &nbsp;·&nbsp; TEAM ACCOUNT</p>
+  </header>
+  <div id="root"><div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div></div>
+  <footer></footer>
+</div>
+<!--#include Theme-->
+<script>
+var P = window.__PREFILL__ || {};
+var TOKEN = P.t || '';
+
+function el(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+function boot() {
+  if (!TOKEN) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">링크가 올바르지 않습니다. 커미티에게 받은 링크로 다시 들어와 주세요.</p></div>';
+    return;
+  }
+  callServer('teamPortalOpen', [TOKEN], draw, function (e) {
+    el('root').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || '열지 못했습니다.') + '</p></div>';
+  });
+}
+
+function draw(d) {
+  var tiles = (d.tiles || []).map(function (t) {
+    return '<a class="thtile" href="' + esc(t.url) + '">' +
+      '<span class="thi">' + esc((t.title || '?').charAt(0)) + '</span>' +
+      '<span class="tht"><b>' + esc(t.title) + '</b>' + (t.help ? '<span>' + esc(t.help) + '</span>' : '') + '</span>' +
+      '<span class="tha">&#8250;</span></a>';
+  }).join('');
+  el('root').innerHTML =
+    '<div class="panel thhello"><b>' + esc(d.name) + '</b><span>아래에서 쓸 수 있는 메뉴를 골라 들어가세요.</span></div>' +
+    '<div class="panel"><div class="thgrid">' + (tiles || '<p class="thempty">아직 열린 메뉴가 없습니다. 커미티에게 문의해주세요.</p>') + '</div></div>';
+}
+
+boot();
+</script>
+</body>
+</html>

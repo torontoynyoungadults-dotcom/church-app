@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: church-app
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: TZ
+        value: America/Toronto
+      - key: NODE_ENV
+        value: production
+      - key: SPREADSHEET_ID
+        sync: false
+      # 11개 시트가 든 드라이브 폴더 — 넣으면 새 방식, 비우면 예전 방식(시트 하나)입니다
+      - key: DB_FOLDER_ID
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: CRON_SECRET
+        sync: false
