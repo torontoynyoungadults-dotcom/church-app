@@ -706,3 +706,55 @@ body.ht-lock { overflow: hidden; }
 .fb-cin { flex: 1 1 180px; min-width: 0; height: 42px; padding: 0 12px; font-size: 15px; color: var(--g-ink); border-radius: 10px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .08); }
 .fb-t.primary { background: linear-gradient(135deg, #ff9d47, #ff7a1c); color: #1a0f05; border-color: transparent; font-weight: 800; }
 .pv-stage.pv-penlock { touch-action: none !important; overscroll-behavior: none; }          /* 애플 펜슬로 쓰는 동안 손바닥이 닿아도 악보가 움직이지 않음 */
+
+/* ===== Step 2.14 — 스와이프 축 고정 · 쪽 슬라이드 · 태블릿 위 캡슐 도크 ===== */
+/* (1) 악보 칸: 고무줄 당김(바운스) · 바깥으로 번지는 스크롤 차단.
+   한 쪽이 화면에 다 들어오면(확대 전 · 가로로 안 넘침) 화면 쪽 JS(syncTouch)가 터치 스크롤을 아예 끕니다 → 쓸어도 악보가 밀려 다니지 않음 */
+.pv-stage { overscroll-behavior: contain; overscroll-behavior-x: none; }
+.pv-stage.pv-gest.pv-tx-none { touch-action: none; }
+.pv-stage.pv-gest.pv-tx-y { touch-action: pan-y; }
+.pv-pagebox.pv-slide-n { animation: pvslideN .26s cubic-bezier(.2, .8, .2, 1) backwards; }
+.pv-pagebox.pv-slide-p { animation: pvslideP .26s cubic-bezier(.2, .8, .2, 1) backwards; }
+@keyframes pvslideN { from { transform: translateX(48px); opacity: .15; } to { transform: none; opacity: 1; } }
+@keyframes pvslideP { from { transform: translateX(-48px); opacity: .15; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pv-pagebox.pv-slide-n, .pv-pagebox.pv-slide-p { animation: none; } }
+
+/* (2) 태블릿(넓은 화면): 오른쪽 세로 막대 → 위 가운데 얇은 캡슐 도크 (높이 44px, 한 줄).
+   좁은 화면(폰 · 아이패드 세로)은 예전처럼 "🛠 메뉴" 서랍을 씁니다. */
+.pv-dk { display: none; }
+.pv-tablet:not(.pv-compact) .pv-tools {
+  top: 8px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); flex-direction: row; align-items: center; gap: 6px;
+  width: max-content; max-width: calc(100% - 440px); height: 44px; max-height: 44px; padding: 3px 8px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  border-radius: 999px; background: rgba(20, 20, 27, .58); backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%); box-shadow: 0 6px 22px rgba(0, 0, 0, .42);
+}
+.pv-tablet.pv-lefty:not(.pv-compact) .pv-tools { left: 50%; right: auto; }
+.pv-tablet:not(.pv-compact) .pv-tools > * { flex: 0 0 auto; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-tg { flex-direction: row; align-items: center; gap: 4px; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-tg + .pv-tg { padding-left: 6px; border-left: 1px solid var(--g-line); }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-tool { min-width: 38px; width: 38px; height: 36px; padding: 0; border-radius: 999px; flex-direction: row; justify-content: center; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-tool .nm { display: none; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-tool .ic { font-size: 18px; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-dk { display: flex; align-items: center; justify-content: center; width: 38px; height: 36px; padding: 0; border-radius: 999px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .08); color: var(--g-ink); cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-dk .ic { font-size: 18px; line-height: 1; font-weight: 800; } .pv-tablet:not(.pv-compact) .pv-tools .pv-dk .nm { display: none; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-dk:hover { background: rgba(255, 255, 255, .16); }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-dk[aria-pressed="true"] { background: rgba(255, 138, 42, .3); border-color: rgba(255, 138, 42, .7); }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-dk:focus-visible { outline: 2px solid var(--g-a2, #ffb066); outline-offset: 1px; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-colors { display: flex; grid-template-columns: none; gap: 6px; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-col { width: 26px; height: 26px; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-size { width: 34px; height: 34px; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-pills { flex-direction: row; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-pill, .pv-tablet:not(.pv-compact) .pv-tools .pv-mineonly { padding: 6px 12px; font-size: 12.5px; white-space: nowrap; min-height: 34px; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-fontrow { width: auto; flex-direction: row; align-items: center; gap: 8px; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-fl { flex-direction: row; align-items: center; gap: 4px; white-space: nowrap; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-fl > span:first-child { font-size: 11px; }
+.pv-tablet:not(.pv-compact) .pv-tools select { height: 32px; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-selhint { max-width: none; font-size: 12px; white-space: nowrap; }
+.pv-tablet:not(.pv-compact) .pv-tools .pv-sec { display: none; }                                        /* 보조 옵션은 ⋯ 를 눌러야 펼쳐짐 */
+.pv-tablet:not(.pv-compact).pv-dockmore .pv-tools .pv-sec { display: flex; }
+.pv-tablet:not(.pv-compact) .pv-toolsbtn { top: 8px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); height: 36px; padding: 0 14px; font-size: 12.5px; }
+.pv-tablet:not(.pv-compact):not(.pv-toolshide) .pv-toolsbtn { display: none; }                         /* 도크가 열려 있으면 도크 안의 ▴ 로 접습니다 */
+.pv-tablet.pv-lefty:not(.pv-compact) .pv-toolsbtn { left: 50%; right: auto; }
+.pv-tablet:not(.pv-compact):not(.pv-toolshide):not(.pv-fs) .pv-stage { padding-top: 54px; }             /* 악보는 도크 바로 밑에서 시작 */
+.pv-tablet:not(.pv-compact) .pv-mq { top: 8px; }
+.pv-tablet:not(.pv-compact) .pv-mq-go { height: 44px; min-width: 54px; } .pv-tablet:not(.pv-compact) .pv-mq-bpm { height: 44px; } .pv-tablet:not(.pv-compact) .pv-mq-bpm b { line-height: 44px; }
+.pv-tablet:not(.pv-compact) .pv-sympop { top: 62px; }

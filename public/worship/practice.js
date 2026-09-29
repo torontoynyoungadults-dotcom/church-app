@@ -174,6 +174,12 @@
       renderSoon(60);            // 넓어진(좁아진) 칸에 맞춰 악보를 다시 그림
     }
     toolsBtn.onclick = function () { setTools(el.classList.contains('pv-toolshide'), true); };
+    /* 태블릿 위 캡슐 도크 — 기본은 "도구 아이콘 + 되돌리기 + ⋯"만. ⋯ 를 누르면 색 · 굵기 · 글꼴 · 나만 보기가 펼쳐지고, ▴ 를 누르면 도크 전체가 작은 알약(✏️ 도구 열기)으로 접힙니다 */
+    S.dockMore = ls('dockmore') === '1'; el.classList.toggle('pv-dockmore', S.dockMore);
+    function setDockMore(on, save) {
+      S.dockMore = !!on; el.classList.toggle('pv-dockmore', S.dockMore); if (save) ls('dockmore', S.dockMore ? '1' : '0');
+      var b = toolsEl.querySelector('[data-a="dockmore"]'); if (b) { b.setAttribute('aria-pressed', S.dockMore ? 'true' : 'false'); b.setAttribute('aria-expanded', S.dockMore ? 'true' : 'false'); }
+    }
     if (ls('tools') === '0') setTools(false, false);
     /* ------------------------------------------------------------ 전체 화면 (악보만 크게) — Step 2.11
        ⛶ 를 누르면 위 메뉴 · 필기 도구 · 패널이 모두 사라지고 악보가 화면을 꽉 채웁니다(브라우저 주소창도 가능한 곳에서는 숨김).
@@ -286,8 +292,11 @@
         d.crops[pg] = b; return b;
       }, function () { d.crops[pg] = null; return null; });
     }
+    /** 태블릿 위 캡슐 도크가 열려 있으면 그 밑에서부터 악보가 시작 (도크가 악보 윗부분을 가리지 않게) */
+    function dockPad() { return S.layout === 'tablet' && !S.compact && !S.fs && !el.classList.contains('pv-toolshide') ? DOCK_PAD - 8 : 0; }
+    var DOCK_PAD = 54;
     function fitScale(info, cr) {
-      var aw = Math.max(200, stage.clientWidth - (S.layout === 'computer' && !S.compact ? 24 : 8)), ah = Math.max(200, stage.clientHeight - 8);
+      var aw = Math.max(200, stage.clientWidth - (S.layout === 'computer' && !S.compact ? 24 : 8)), ah = Math.max(200, stage.clientHeight - 8 - dockPad());
       if (spreadOn()) aw = Math.max(150, (aw - 12) / 2);                 // 두 쪽 : 각 쪽이 가로 절반
       function one(w, h) { var fw = aw / w, fh = ah / h; return S.fit === 'page' ? Math.min(fw, fh) : fw; }
       var full = one(info.w, info.h); if (!cr) return full;
@@ -398,7 +407,7 @@
       }).then(function (ic) {
         if (!ic || id !== S.rid) return; var info = ic[0], cr = ic[1], L = layoutOf(info, cr), cssW = L.cssW, cssH = L.cssH, dpr = L.dpr, base = L.base;
         var sig = pcSig(d, pg, cssW, cssH, dpr) + (spreadOn() ? '|s' : '');
-        if (!force && S.drawnOk && S.drawnSig === sig) { S.cropNow = cr || null; loading.style.display = 'none'; S.rid = S.drawnId; return; }      // (번호를 되돌려, 진행 중인 미리 그리기가 취소되지 않게)
+        if (!force && S.drawnOk && S.drawnSig === sig) { S.cropNow = cr || null; loading.style.display = 'none'; S.rid = S.drawnId; syncTouch(); return; }      // (번호를 되돌려, 진행 중인 미리 그리기가 취소되지 않게)
         if (!force && S.pending && S.pending.sig === sig) { S.rid = S.pending.id; return S.pending.p; }              // 같은 그림을 이미 그리는 중
         if (S.task) { try { S.task.cancel(); } catch (e) {} S.task = null; }
         S.drawnOk = false; S.drawnSig = null;
@@ -411,9 +420,9 @@
         S.cropNow = cr || null;
         if (S.zoom === 1) {                                                        // 자동 맞춤: 글자가 있는 부분의 시작점에 스크롤을 맞춤 (여백은 위 · 옆으로 스크롤하면 보임)
           stage.scrollLeft = cr && !spreadOn() ? Math.max(0, box.offsetLeft + cr.x0 * cssW - 4) : 0;
-          stage.scrollTop = cr && !spreadOn() ? Math.max(0, box.offsetTop + cr.y0 * cssH - 4) : 0;
+          stage.scrollTop = cr && !spreadOn() ? Math.max(0, box.offsetTop + cr.y0 * cssH - (dockPad() ? DOCK_PAD : 4)) : 0;      // 글자 시작점이 (도크가 열려 있으면) 도크 바로 밑에 오게
         }
-        var done = function () { if (id === S.rid) { S.task = null; S.pcCur = pcSig(d, pg, cssW, cssH, dpr); S.drawnSig = sig; S.drawnId = id; S.drawnOk = true; S.pending = null; loading.style.display = 'none'; prefetch(d, pg, id); } };
+        var done = function () { if (id === S.rid) { S.task = null; S.pcCur = pcSig(d, pg, cssW, cssH, dpr); S.drawnSig = sig; S.drawnId = id; S.drawnOk = true; S.pending = null; loading.style.display = 'none'; syncTouch(); prefetch(d, pg, id); } };
         var hit = pcGet(pcSig(d, pg, cssW, cssH, dpr));
         if (hit) {                                                                 // 이미 그려 둔 그림 — 붙이기만
           c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(hit.cv, 0, 0); renderRight(id, pg, d, base, dpr); done(); return;
@@ -1040,19 +1049,21 @@
         (sel ? '<button type="button" class="pv-tool sm pv-del" data-a="delsel" title="선택한 것 지우기 (Delete)"' + lock + '><span class="ic">🗑</span><span class="nm">지우기</span></button>' : '') + '</div>';
       if (S.tool === 'select' && !sel) fontRow = '<div class="pv-tg pv-selhint">글자 · 코드 · 기호 · 송폼 라벨을 눌러 선택하세요. 선택한 뒤 끌면 옮겨집니다.</div>';
       var curCol = sel && sel.c ? sel.c : S.curColor;
-      var colRow = S.tool === 'select' && !sel ? '' : '<div class="pv-tg pv-colors">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
+      var colRow = S.tool === 'select' && !sel ? '' : '<div class="pv-tg pv-colors pv-sec">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === curCol ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === curCol) + '"' + lock + '></button>'; }).join('') + '</div>';
       var fbRow = S.tool !== 'fbox' ? '' :
         '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 라벨">' + YA.FBOX_TAGS.map(function (k) { return '<button type="button" class="pv-fbtag' + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h(YA.FBOX_NAMES[k] || k) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>'; }).join('') + '</div>';
       toolsEl.innerHTML =
+        '<button type="button" class="pv-dk" data-a="dockhide" title="도구 접기" aria-label="도구 접기"><span class="ic">▴</span><span class="nm">접기</span></button>' +
         '<div class="pv-tg">' + TOOLS.map(function (t) { return '<button class="pv-tool' + (S.tool === t.t ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + (S.tool === t.t) + '"><span class="ic">' + t.ic + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
         colRow +
         fontRow +
         fbRow +
-        (S.tool === 'select' ? '' : '<div class="pv-tg pv-sizes">' + [0, 1, 2].map(function (i) { return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[sizeKey()] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + '"><i style="--s:' + (4 + i * 4) + 'px"></i></button>'; }).join('') + '</div>') +
+        (S.tool === 'select' ? '' : '<div class="pv-tg pv-sizes pv-sec">' + [0, 1, 2].map(function (i) { return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[sizeKey()] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + '"><i style="--s:' + (4 + i * 4) + 'px"></i></button>'; }).join('') + '</div>') +
         '<div class="pv-tg"><button class="pv-tool sm" data-a="undo" title="되돌리기 (Ctrl+Z)"' + (st.canUndo ? '' : ' disabled') + '><span class="ic">↶</span><span class="nm">취소</span></button>' +
           '<button class="pv-tool sm" data-a="redo" title="다시 (Ctrl+Shift+Z)"' + (st.canRedo ? '' : ' disabled') + '><span class="ic">↷</span><span class="nm">다시</span></button>' +
-          '<button class="pv-tool sm" data-a="clearpg" title="현재 페이지에 내가 쓴 필기 지우기"><span class="ic">🗑</span><span class="nm">현재 페이지</span></button></div>' +
-        '<div class="pv-tg pv-pills"><label class="pv-mineonly' + (S.layer === 'mine' ? ' on' : '') + '" title="체크하면 나에게만 보입니다. 체크하지 않으면(기본) 팀 모두의 화면에 실시간으로 나타납니다."><input type="checkbox" data-a="mineonly"' + (S.layer === 'mine' ? ' checked' : '') + '><span>나만 보기</span></label>' +
+          '<button class="pv-tool sm pv-sec" data-a="clearpg" title="현재 페이지에 내가 쓴 필기 지우기"><span class="ic">🗑</span><span class="nm">현재 페이지</span></button></div>' +
+        '<button type="button" class="pv-dk" data-a="dockmore" aria-pressed="' + (S.dockMore ? 'true' : 'false') + '" aria-expanded="' + (S.dockMore ? 'true' : 'false') + '" title="더 보기 — 색 · 굵기 · 글꼴" aria-label="더 보기"><span class="ic">⋯</span><span class="nm">더 보기</span></button>' +
+        '<div class="pv-tg pv-pills pv-sec"><label class="pv-mineonly' + (S.layer === 'mine' ? ' on' : '') + '" title="체크하면 나에게만 보입니다. 체크하지 않으면(기본) 팀 모두의 화면에 실시간으로 나타납니다."><input type="checkbox" data-a="mineonly"' + (S.layer === 'mine' ? ' checked' : '') + '><span>나만 보기</span></label>' +
           '<button class="pv-pill scope" data-a="scope" title="필기가 어디에 붙나요? (눌러서 바꾸기)">' + (S.scope === 'date' && S.room ? '📅 이 날짜만' : '📌 곡에 계속') + '</button></div>';
     }
     toolsEl.addEventListener('click', function (e) {
@@ -1064,6 +1075,8 @@
       if (b.dataset.color) { S.curColor = b.dataset.color; if (S.tool === 'hl') { an.setHlColor(S.curColor); S.hlSel = S.curColor; } else { an.setColor(S.curColor); S.penSel = S.curColor; } renderTools(); an.focusEditor && an.focusEditor(); return; }
       if (b.dataset.size != null) { S.sizeIdx = +b.dataset.size; delete S.fsz[sizeKey()]; applySize(); renderTools(); an.focusEditor && an.focusEditor(); return; }
       var a = b.dataset.a;
+      if (a === 'dockhide') { setTools(false, true); return; }
+      if (a === 'dockmore') { setDockMore(!S.dockMore, true); return; }
       if (a === 'undo') { an.undo(); renderTools(); } else if (a === 'redo') { an.redo(); renderTools(); }
       else if (a === 'clearpg') { var n = an.clearPage(S.layer, false); if (n) toast(n + '개를 지웠습니다. ↶ 로 되돌릴 수 있어요.'); renderTools(); }
       else if (a === 'delsel') { if (an.deleteSelected()) { toast('지웠습니다. ↶ 로 되돌릴 수 있어요.', false, 1600); } renderTools(); }
@@ -1218,6 +1231,22 @@
        · 필기 도구를 쓰는 중에는 손가락 한 개는 그리기에 쓰이므로 쓸어 넘기기는 꺼집니다 (펜슬 전용 모드에서는 손가락이 넘기기 · 화면 이동)
        · 두 손가락은 언제나 확대 · 축소 (그리던 획은 버림) */
     var T = null;
+    var SWIPE_MIN_DX = 60, SWIPE_MAX_SLOPE = 0.5, SWIPE_ZOOM = 1.05;            // 옆으로 60px 넘게, 세로는 가로의 절반 미만일 때만 쪽 넘김
+    /** 쪽 넘김 + 부드러운 슬라이드 — 손가락을 따라 악보가 끌려다니지 않고, 넘어간 뒤 새 쪽이 옆에서 미끄러져 들어옵니다 */
+    var slideT = 0;
+    function slideFlip(dir) {
+      var before = S.page + ':' + S.sheetIdx; dir > 0 ? nextPage(true) : prevPage(true);
+      if (before === S.page + ':' + S.sheetIdx) return;                                           // 첫 쪽 · 마지막 쪽이라 안 넘어감
+      if (root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      box.classList.remove('pv-slide-n', 'pv-slide-p'); void box.offsetWidth; box.classList.add(dir > 0 ? 'pv-slide-n' : 'pv-slide-p');
+      clearTimeout(slideT); slideT = setTimeout(function () { box.classList.remove('pv-slide-n', 'pv-slide-p'); }, 320);
+    }
+    /** 브라우저가 악보 칸을 스스로 밀지 않게 — 한 쪽이 화면에 다 들어오면(확대 전 · 가로로 넘치지 않음) 터치 스크롤을 아예 끕니다 (아이패드 고무줄 당김 방지) */
+    function syncTouch() {
+      if (S.dead) return;
+      var hx = stage.scrollWidth > stage.clientWidth + 2, vy = stage.scrollHeight > stage.clientHeight + 2, free = S.zoom <= SWIPE_ZOOM && !hx;
+      S.noHx = free; stage.classList.toggle('pv-tx-none', free && !vy); stage.classList.toggle('pv-tx-y', free && vy);
+    }
     function tdist(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
     function fingerFree() { return S.tool === 'none' || (an.fingerDraws && !an.fingerDraws()); }        // 손가락 한 개를 "쓸기 · 화면 이동"에 써도 되는가
     /** 확대 미리보기 — 손가락이 움직이는 대로 매 이벤트마다 스타일을 바꾸지 않고, 화면 프레임마다 마지막 값 하나만 적용 */
@@ -1250,7 +1279,7 @@
         T = { pinch: true, d0: tdist(e.touches[0], e.touches[1]) || 1, z0: S.zoom, scale: 1 };
         if (e.cancelable) e.preventDefault(); return;
       }
-      if (e.touches.length === 1) { var t = e.touches[0]; T = { x0: t.clientX, y0: t.clientY, lx: t.clientX, ly: t.clientY, t0: Date.now(), free: fingerFree(), moved: false }; }
+      if (e.touches.length === 1) { var t = e.touches[0]; T = { x0: t.clientX, y0: t.clientY, lx: t.clientX, ly: t.clientY, t0: Date.now(), free: fingerFree(), moved: false, axis: null }; }
     }, { passive: false });
     stage.addEventListener('touchmove', function (e) {
       if (!T) return;
@@ -1262,6 +1291,11 @@
       }
       if (e.touches.length !== 1) return;
       var t = e.touches[0]; T.moved = T.moved || Math.abs(t.clientX - T.x0) > 8 || Math.abs(t.clientY - T.y0) > 8;
+      /* 축 고정 (Step 2.14) — 10px 이상 움직인 순간 한 번만 정합니다: 세로 흔들림이 가로의 절반 미만(|dy/dx| < 0.5)이면 "가로 쓸기".
+         가로 쓸기로 정해지면 (확대하지 않았고 가로로 밀 자리가 없을 때) 브라우저 스크롤 · 고무줄 당김을 막아 악보 쪽이 제자리에 그대로 있습니다. */
+      var adx = Math.abs(t.clientX - T.x0), ady = Math.abs(t.clientY - T.y0);
+      if (!T.axis && (adx > 10 || ady > 10)) T.axis = adx > 10 && ady < adx * 0.5 ? 'h' : 'v';
+      if (T.free && T.axis === 'h' && S.zoom <= SWIPE_ZOOM && S.noHx) { if (e.cancelable) e.preventDefault(); T.lx = t.clientX; T.ly = t.clientY; return; }
       if (T.free && S.tool !== 'none') {                                                          // 펜슬 전용 모드 — 캔버스가 브라우저의 스크롤을 막고 있으니 화면 이동은 직접
         stage.scrollLeft -= t.clientX - T.lx; stage.scrollTop -= t.clientY - T.ly; if (e.cancelable) e.preventDefault();
       }
@@ -1279,7 +1313,7 @@
       var me = T; if (e.touches.length) return; T = null;
       if (e.type === 'touchcancel' || !me.free || !e.changedTouches.length) return;
       var t = e.changedTouches[0], dx = t.clientX - me.x0, dy = t.clientY - me.y0, dt = Date.now() - me.t0;
-      if (S.zoom <= 1.05 && Math.abs(dx) > 60 && Math.abs(dy) < Math.abs(dx) * 0.6 && Math.abs(dy) < 90 && dt < 800) { dx < 0 ? nextPage(true) : prevPage(true); }
+      if (S.zoom <= SWIPE_ZOOM && Math.abs(dx) > SWIPE_MIN_DX && Math.abs(dy) < Math.abs(dx) * SWIPE_MAX_SLOPE && dt < 800) { slideFlip(dx < 0 ? 1 : -1); }
     }
     stage.addEventListener('touchend', touchDone, { passive: true });
     stage.addEventListener('touchcancel', touchDone, { passive: true });

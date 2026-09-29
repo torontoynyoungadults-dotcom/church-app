@@ -154,6 +154,7 @@ const INIT = `(() => {
   await pa.selectOption('.pv-tools [data-font]', 'dodum'); await sleep(300);
   check('"고운돋움" 글꼴도 적용', (await findOn(pa, (i) => i.id === hello.id)).f === 'dodum');
   check('두 글꼴이 캔버스 글꼴 목록(FONTS)에 있고 구글 폰트 링크가 붙음', await pa.evaluate(() => /Nanum Pen Script/.test(YNAnno.FONTS.pen) && /Gowun Dodum/.test(YNAnno.FONTS.dodum) && !!document.getElementById('yn-anno-fonts') && /fonts\.googleapis\.com\/css2\?family=Nanum\+Pen\+Script&family=Gowun\+Dodum/.test(document.getElementById('yn-anno-fonts').href)));
+  if (await pa.evaluate(() => { const b = document.querySelector('.pv-tools [data-a="dockmore"]'); return !!b && b.offsetWidth > 0 && b.getAttribute('aria-pressed') !== 'true'; })) await pa.click('.pv-tools [data-a="dockmore"]');   // 태블릿 도크: 색은 ⋯ 를 눌러야 펼쳐짐 (Step 2.14)
   await pa.click('.pv-tools .pv-col[title="파랑"]'); await sleep(300);
   check('선택한 글자의 색 바꾸기', (await findOn(pa, (i) => i.id === hello.id)).c === '#2563eb' || (await findOn(pa, (i) => i.id === hello.id)).c !== hello.c);
   // 새 글자를 쓸 때 손글씨 글꼴이 그대로 쓰임 (글자 도구 · 코드 도구)
@@ -161,7 +162,7 @@ const INIT = `(() => {
   await L.clickAt(pa, .6, .15); await pa.waitForSelector('.an-input'); await pa.keyboard.type('한글 필기'); await pa.keyboard.press('Enter'); await sleep(300);
   check('새 글자: 손글씨(pen) 글꼴로 저장', !!(await findOn(pa, (i) => i.s === '한글 필기' && i.f === 'pen')));
   await pa.click('.pv-tool[data-tool="chord"]'); await sleep(300); await pa.selectOption('.pv-tools [data-font]', 'dodum'); await sleep(200);
-  await L.clickAt(pa, .5, .6); await pa.waitForSelector('.an-input'); await pa.keyboard.type('D/F#'); await pa.keyboard.press('Enter'); await sleep(300);
+  await L.clickAt(pa, .8, .75); await pa.waitForSelector('.an-input'); await pa.keyboard.type('D/F#'); await pa.keyboard.press('Enter'); await sleep(300);
   check('코드도 고운돋움 글꼴로 저장', !!(await findOn(pa, (i) => i.s === 'D/F#' && i.f === 'dodum' && i.chord === 1)));
   // 삭제
   await pa.click('.pv-tool[data-tool="select"]'); await sleep(300);
