@@ -271,3 +271,84 @@ button.pv-chip { cursor: pointer; }
 .yg-tl span { color: var(--g-sub); font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .yg-ov, .yg-sh, .pv-side, .pv-toast, .pv-tool, .pv-b { transition: none !important; } }
 @media (forced-colors: active) { .yg-row, .yg-chip, .pv-tool, .pv-b { border: 1px solid CanvasText; } }
+
+/* ================= 7가지 수정 (1) 필기 도구 막대 접기 · (2) 연주 시작 버튼 · (5) 체크박스 · 슬라이더 ================= */
+
+/* (1) 도구 막대 접기 / 펴기 */
+.pv-main { position: relative; }
+.pv-toolsbtn {
+  position: absolute; z-index: 7; left: 12px; bottom: 14px; display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px;
+  border-radius: 999px; border: 1px solid var(--g-line2, rgba(255, 255, 255, .22)); background: rgba(20, 20, 27, .78);
+  backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+  color: var(--g-ink, #f4f4f8); font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 26px rgba(0, 0, 0, .5);
+}
+.pv-toolsbtn:hover { border-color: var(--g-a, #ff8a2a); }
+.pv-toolsbtn:focus-visible { outline: 2px solid var(--g-a2, #ffb066); outline-offset: 2px; }
+.pv-toolsbtn .ic { font-size: 15px; line-height: 1; color: var(--g-a, #ff8a2a); }
+.pv-tablet .pv-toolsbtn { height: 52px; padding: 0 18px; font-size: 14px; }
+.pv-tablet.pv-lefty .pv-toolsbtn { left: auto; right: 12px; }
+.pv-toolshide .pv-tools { display: none; }                                   /* 데스크톱 : 맨 윗줄이 사라져 악보 칸이 늘어남 */
+.pv-toolshide .pv-main { grid-template-rows: 0 minmax(0, 1fr); }
+.pv-toolshide.pv-tablet .pv-stage { padding: 4px 4px 12px; }
+.pv-toolshide .pv-toolsbtn { border-color: rgba(var(--g-a-rgb, 255, 138, 42), .7); }
+
+/* (2) 연주 시작 — 이 주의 말씀과 주일 편성 사이 */
+.pvstart { padding: 10px !important; }
+.pvstartbtn {
+  display: flex !important; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%; min-height: 56px; padding: 12px 18px;
+  border-radius: 16px; border: 1px solid rgba(255, 255, 255, .28); font-size: 18px; font-weight: 900; letter-spacing: -.01em; cursor: pointer;
+  background: linear-gradient(135deg, #ffa24f, #ff7a1c); color: #1a0f05; box-shadow: 0 10px 30px rgba(255, 122, 28, .35);
+}
+.pvstartbtn small { font-size: 12px; font-weight: 700; opacity: .8; }
+.pvstartbtn:hover { filter: brightness(1.06); }
+.pvstartbtn:active { transform: translateY(1px); }
+.pvstartbtn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* (5) 체크박스 — 어두운 투명 바탕 + 얇은 테두리, 선택하면 주황 바탕 + 체크 표시 */
+input[type=checkbox]:not(.pv-switch input) {
+  -webkit-appearance: none; appearance: none; flex: none; position: relative; width: 22px; height: 22px; margin: 0; padding: 0; vertical-align: middle;
+  border-radius: 7px; border: 1.5px solid rgba(255, 255, 255, .38); background: rgba(255, 255, 255, .05); cursor: pointer;
+  transition: background .15s, border-color .15s, box-shadow .15s;
+}
+input[type=checkbox]:not(.pv-switch input):hover { border-color: rgba(255, 176, 102, .9); background: rgba(255, 138, 42, .10); }
+input[type=checkbox]:not(.pv-switch input):checked { background: #ff8a2a; border-color: #ffb066; box-shadow: 0 0 0 3px rgba(255, 138, 42, .25); }
+input[type=checkbox]:not(.pv-switch input):checked::after {
+  content: ''; position: absolute; left: 6.5px; top: 2.5px; width: 6px; height: 11px; border: solid #1a0f05; border-width: 0 2.6px 2.6px 0; transform: rotate(45deg);
+}
+input[type=checkbox]:not(.pv-switch input):focus-visible { outline: 2px solid #ffb066; outline-offset: 2px; }
+input[type=checkbox]:not(.pv-switch input):disabled { opacity: .4; cursor: not-allowed; }
+.pv-tablet input[type=checkbox]:not(.pv-switch input) { width: 28px; height: 28px; border-radius: 9px; }
+.pv-tablet input[type=checkbox]:not(.pv-switch input):checked::after { left: 9px; top: 3.5px; width: 7px; height: 14px; border-width: 0 3px 3px 0; }
+.pv-chk input[type=checkbox] { width: 22px; height: 22px; }
+/* 켜고 끄는 스위치(리더 화면 따라가기)도 흰 덩어리 대신 어두운 바탕 → 주황 */
+.pv-switch span { background: rgba(255, 255, 255, .06); border: 1.5px solid rgba(255, 255, 255, .34); }
+.pv-switch span::after { background: rgba(255, 255, 255, .78); }
+.pv-switch input:checked + span { background: #ff8a2a; border-color: #ffb066; }
+.pv-switch input:checked + span::after { background: #1a0f05; }
+
+/* (5) 슬라이더(딸깍 소리 · 음성 볼륨 …) — 어두운 트랙 + 채워진 부분은 주황.
+   채움 폭은 --fill (%) 로 그립니다. 값이 바뀔 때 practice-panels 가 --fill 을 갱신합니다 (아래 스크립트가 없어도 손잡이 · 트랙은 정상). */
+input[type=range] {
+  -webkit-appearance: none; appearance: none; --fill: 50%; flex: 1; min-width: 0; height: 26px; margin: 0; padding: 0; background: transparent; cursor: pointer;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  height: 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .16);
+  background: linear-gradient(90deg, #ff8a2a 0, #ffb066 var(--fill), rgba(255, 255, 255, .10) var(--fill), rgba(255, 255, 255, .10) 100%);
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%;
+  background: #14141b; border: 3px solid #ff8a2a; box-shadow: 0 2px 10px rgba(0, 0, 0, .55);
+}
+input[type=range]:hover::-webkit-slider-thumb { border-color: #ffb066; }
+input[type=range]:active::-webkit-slider-thumb { transform: scale(1.12); }
+input[type=range]::-moz-range-track { height: 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .10); }
+input[type=range]::-moz-range-progress { height: 8px; border-radius: 999px; background: linear-gradient(90deg, #ff8a2a, #ffb066); }
+input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #14141b; border: 3px solid #ff8a2a; box-shadow: 0 2px 10px rgba(0, 0, 0, .55); }
+input[type=range]:focus-visible { outline: none; }
+input[type=range]:focus-visible::-webkit-slider-thumb { outline: 2px solid #ffb066; outline-offset: 2px; }
+input[type=range]:focus-visible::-moz-range-thumb { outline: 2px solid #ffb066; outline-offset: 2px; }
+input[type=range]:disabled { opacity: .4; cursor: not-allowed; }
+.pv-tablet input[type=range] { height: 36px; }
+.pv-tablet input[type=range]::-webkit-slider-runnable-track { height: 10px; }
+.pv-tablet input[type=range]::-webkit-slider-thumb { width: 30px; height: 30px; margin-top: -11px; }
+.pv-rng input { accent-color: #ff8a2a; }

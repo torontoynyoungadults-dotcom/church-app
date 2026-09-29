@@ -87,6 +87,7 @@
         '<div class="pv-stage"><div class="pv-pagebox"><canvas class="pv-pdf"></canvas><canvas class="pv-anno"></canvas></div>' +
           '<div class="pv-loading">악보를 불러오는 중…</div><div class="pv-toast" role="status" aria-live="polite"></div><div class="pv-sympop"></div></div>' +
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
+        '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
       '</div>';
     doc.body.appendChild(el); doc.body.classList.add('pv-lock');
     function $(sel) { return el.querySelector(sel); }
@@ -112,6 +113,19 @@
       an && an.setPenMode(S.layout === 'tablet' ? 'auto' : 'off');
       if (S.doc) setTimeout(function () { renderPage(); }, 30);
     }
+    /* 필기 도구 막대 접기/펴기 — 접으면 악보가 화면 전체 폭을 씁니다. 도구 막대는 그대로 두고 숨기기만 해서 필기 · 실시간 동기화에 영향이 없습니다 */
+    var toolsBtn = $('.pv-toolsbtn');
+    function setTools(show, save) {
+      el.classList.toggle('pv-toolshide', !show);
+      toolsBtn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      toolsBtn.setAttribute('aria-label', show ? '필기 도구 숨기기' : '필기 도구 보이기');
+      toolsBtn.querySelector('.ic').textContent = show ? '▴' : '✏️';
+      toolsBtn.querySelector('.nm').textContent = show ? '도구' : '도구 열기';
+      if (save) ls('tools', show ? '1' : '0');
+      setTimeout(function () { S.doc && renderPage(); }, 60);            // 넓어진(좁아진) 칸에 맞춰 악보를 다시 그림
+    }
+    toolsBtn.onclick = function () { setTools(el.classList.contains('pv-toolshide'), true); };
+    if (ls('tools') === '0') setTools(false, false);
     function toggleSide(force) {
       var on = force != null ? force : !el.classList.contains('pv-sideopen');
       el.classList.toggle('pv-sideopen', on);
@@ -522,8 +536,18 @@
         try { t.api = t.build(pane) || {}; } catch (e) { pane.innerHTML = '<p class="pv-err">이 패널을 열지 못했습니다: ' + h(e.message) + '</p>'; if (root.console) root.console.error(e); }
       }
       try { if (t.api && t.api.onShow) t.api.onShow(); } catch (e) {}
+      paintRanges();
       setTimeout(function () { S.doc && renderPage(); }, 260);
     }
+    /* 슬라이더의 주황 채움 폭(--fill) — 값이 바뀔 때마다 갱신 (손잡이를 움직이거나 패널이 값을 넣을 때) */
+    function paintRanges() {
+      Array.prototype.forEach.call(el.querySelectorAll('input[type=range]'), function (r) {
+        var mn = parseFloat(r.min || 0), mx = parseFloat(r.max || 100), v = parseFloat(r.value);
+        r.style.setProperty('--fill', (mx > mn ? Math.max(0, Math.min(100, (v - mn) / (mx - mn) * 100)) : 0) + '%');
+      });
+    }
+    el.addEventListener('input', function (e) { if (e.target && e.target.type === 'range') paintRanges(); }, true);
+    el.addEventListener('change', function (e) { if (e.target && e.target.type === 'range') paintRanges(); }, true);
     function buildTabs() {
       try { P.tabs = root.YNPanels ? root.YNPanels.build(P) : []; } catch (e) { P.tabs = []; toast('패널을 불러오지 못했습니다: ' + e.message, true); }
       tabsEl.innerHTML = P.tabs.map(function (t) { return '<button class="pv-tabbtn" role="tab" data-tab="' + t.id + '"><span>' + t.icon + '</span>' + h(t.label) + '</button>'; }).join('');

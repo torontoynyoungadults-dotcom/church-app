@@ -1408,10 +1408,19 @@ function planTab() {
   return '<div class="panel"><span class="chip">' + title + '</span>' + sesBar + when +
       '<p class="msg" id="paperMsg"></p></div>' +
     '<div class="panel"><span class="chip">' + (ev ? '말씀' : '이 주의 말씀') + '</span>' + verse + '</div>' +
+    startBar() +
     '<div class="panel"><span class="chip">' + (ev ? '편성' : '주일 편성') + '</span>' +
       '<div class="lineup2">' + lineupHtml(off) + '</div>' +
       (D.canEdit ? '<p class="fnote">줄을 눌러 사람을 넣고 빼세요. 바로 저장됩니다.</p>' : '') +
       '<p class="msg" id="planMsg"></p>' + offbar + '</div>';
+}
+
+/** 연주 시작 — 이 주의 말씀과 주일 편성 사이에 두어 바로 눌러 들어가게 합니다 (악보가 없으면 안내만) */
+function startBar() {
+  var n = (W.sheets || []).length + (W.finalSheets || []).length;
+  return '<div class="panel pvstart">' + (n
+    ? '<button type="button" class="pvgo pvstartbtn" onclick="openPractice(\'\')" title="연습 · 필기 · 메트로놈 화면을 엽니다">▶ 연주 시작 <small>악보 ' + n + '개 · 필기 · 메트로놈 · 함께 보기</small></button>'
+    : '<p class="fnote" style="margin:0;">악보를 올리면 여기에 <b>연주 시작</b> 버튼이 나타납니다.</p>') + '</div>';
 }
 
 /** 세션 사이 이동 (같은 행사 안) */
