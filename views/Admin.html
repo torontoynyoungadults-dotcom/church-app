@@ -1317,6 +1317,7 @@ header h1 { color: #F26B21 !important; }
       <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
       <span class="sectitle">회계 관리</span>
       <span class="secspace"></span>
+      <a class="btn mini accent" href="#" onclick="location.href='?page=budget&key=' + encodeURIComponent(KEY); return false;">행사 예산 · 정산 ↗</a>
     </div>
     <div class="tabs subtabs scroll">
       <button type="button" id="st_acct_expense" onclick="go('acct','expense')">지출 신청</button>
@@ -1375,12 +1376,8 @@ header h1 { color: #F26B21 !important; }
           영수증 첨부는 선택이고, 상태와 Cheque 번호를 처음부터 지정하실 수 있습니다.
         </p>
 
-        <div class="two">
-          <div class="f"><label>신청자 이름<em>*</em></label>
-            <input type="text" id="ceName" placeholder="홍길동"></div>
-          <div class="f"><label>지출일<em>*</em></label>
-            <input type="date" id="ceSpentAt"></div>
-        </div>
+        <div class="f"><label>신청자 이름<em>*</em></label>
+          <input type="text" id="ceName" placeholder="홍길동"></div>
 
         <div class="two">
           <div class="f"><label>부서 / 팀<em>*</em></label>
@@ -3834,7 +3831,7 @@ function dirFields(prefix, p) {
     '<div class="efield"><label>생년월일</label><input type="date" id="' + prefix + 'b" value="' + esc(p.birthday || '') + '"></div>' +
     '<div class="efield"><label>성별</label>' + selectHtml(prefix + 'g', GENDERS, p.gender) + '</div>' +
     '<div class="efield"><label>세례여부</label>' + selectHtml(prefix + 'z', BAPTISM, p.baptized) + '</div>' +
-    '<div class="efield"><label>제자훈련</label>' + selectHtml(prefix + 'd', DISCIPLESHIP, p.discipleship) + '</div>' +
+    '<div class="efield"><label>제자훈련 <span class="sub">(제자훈련 화면에서 관리)</span></label><div class="v">' + esc(p.discipleship || '—') + '</div></div>' +
     '<div class="efield"><label>주소</label><input type="text" id="' + prefix + 'ad" value="' + esc(p.address || '') + '" placeholder="650 McNicoll Ave, Toronto ON"></div>' +
     '<div class="efield"><label>등록일 <span class="sub">(청년부 등록)</span></label><input type="date" id="' + prefix + 'jd" value="' + esc(p.joinedAt || '') + '"></div>' +
     '<div class="efield"><label>멤버십 등록일 <span class="sub">(교회 등록)</span></label><input type="date" id="' + prefix + 'ms" value="' + esc(p.memberSince || '') + '"></div>' +
@@ -3881,7 +3878,6 @@ function dirInfo(prefix) {
     phone: el(prefix + 'p').value.trim(), kakao: el(prefix + 'k').value.trim(),
     email: el(prefix + 'e').value.trim(), birthday: el(prefix + 'b').value.trim(),
     gender: el(prefix + 'g').value, baptized: el(prefix + 'z').value,
-    discipleship: el(prefix + 'd').value,
     engName: el(prefix + 'en').value.trim(), address: el(prefix + 'ad').value.trim(),
     joinedAt: el(prefix + 'jd').value.trim(), memberSince: el(prefix + 'ms').value.trim(),
     envelopeNo: el(prefix + 'ev').value.trim(), roleTags: roleTagsOf(prefix)
@@ -4605,7 +4601,7 @@ function openExpense(no, silent) {
         g('부서 / 팀', esc(e.dept)) +
         g('연락처', esc(e.phone)) +
         g('이메일', esc(e.email)) +
-        g('지출일', esc(e.spentAt)) +
+        g('지출일', esc(exDateRange(e))) +
         g('Payable to', '<b>' + esc(e.payableTo) + '</b>') +
         (e.headcount ? g('식사 인원', esc(e.headcount) + '명') : '') +
         (e.cheque ? g('Cheque', '<b>#' + esc(e.cheque) + '</b>' +
@@ -4617,6 +4613,7 @@ function openExpense(no, silent) {
         '<table class="exsum"><tbody>' + e.items.map(function (it) {
           return '<tr><td>' +
             (e.items.length > 1 ? '<b>' + it.seq + '.</b> ' : '') + esc(it.detail) +
+            (it.date ? '<div class="sub">' + esc(it.date) + '</div>' : '') +
             (it.receipts.length ? '<div class="sub">' +
               it.receipts.map(function (f) {
                 return '<a href="' + esc(f.url) + '" target="_blank" rel="noopener" ' +
@@ -4772,7 +4769,7 @@ function printExpense(no) {
       r('부서 / 팀', esc(e.dept)) +
       r('연락처', esc(e.phone)) +
       r('이메일', esc(e.email)) +
-      r('지출일', esc(e.spentAt)) +
+      r('지출일', esc(exDateRange(e))) +
       r('지출 내역', esc(e.detail).replace(/\n/g, '<br>')) +
       r('Before Tax Amount', exMoney(e.beforeTax)) +
       r('HST / GST', exMoney(e.tax)) +
@@ -4981,7 +4978,7 @@ function ceMakeKey() { return 'ce' + Math.random().toString(16).slice(2, 10); }
 
 function ceAddItem() {
   ceSync();
-  ceItems.push({ key: ceMakeKey(), detail: '', beforeTax: '', tax: '' });
+  ceItems.push({ key: ceMakeKey(), detail: '', beforeTax: '', tax: '', date: (EX && EX.today) || '' });
   ceRender();
 }
 
@@ -4994,7 +4991,8 @@ function ceRemoveItem(key) {
 
 function ceSync() {
   ceItems.forEach(function (it) {
-    var d = el('ced_' + it.key), b = el('ceb_' + it.key), t = el('cet_' + it.key);
+    var d = el('ced_' + it.key), b = el('ceb_' + it.key), t = el('cet_' + it.key), dt = el('cedt_' + it.key);
+    if (dt) it.date = dt.value;
     if (d) it.detail = d.value;
     if (b) it.beforeTax = b.value;
     if (t) it.tax = t.value;
@@ -5008,6 +5006,8 @@ function ceRender() {
       '<div class="ih"><span>항목 ' + (i + 1) + '</span>' +
         (ceItems.length > 1 ? '<button onclick="ceRemoveItem(\'' + it.key + '\')">삭제</button>' : '') +
       '</div>' +
+      '<div class="field"><label class="sub" for="cedt_' + it.key + '">지출일 (영수증 날짜)</label>' +
+        '<input type="date" id="cedt_' + it.key + '" value="' + esc(it.date) + '" max="' + esc((EX && EX.today) || '') + '"></div>' +
       '<div class="field"><input type="text" id="ced_' + it.key + '" placeholder="지출 내역 (영문 권장)" ' +
         'value="' + esc(it.detail) + '" oninput="ceItemInput(\'' + it.key + '\')"></div>' +
       '<div class="addrow">' +
@@ -5042,6 +5042,13 @@ function ceTotal() {
   return sum;
 }
 
+/** 항목 날짜가 하나면 그 날짜, 여러 날이면 "시작 ~ 끝" (신청 머리의 지출일은 가장 늦은 항목 날짜입니다) */
+function exDateRange(e) {
+  var ds = (e.items || []).map(function (it) { return it.date; }).filter(Boolean).sort();
+  if (!ds.length) return e.spentAt || '';
+  return ds[0] === ds[ds.length - 1] ? ds[0] : ds[0] + ' ~ ' + ds[ds.length - 1];
+}
+
 function renderEntryShell() {
   if (!EX) return;
 
@@ -5063,9 +5070,10 @@ function renderEntryShell() {
     }).join('');
   el('ceBudget').value = keep;
 
-  if (!el('ceSpentAt').value) el('ceSpentAt').value = EX.today || '';
-  el('ceSpentAt').max = EX.today || '';
   if (!ceItems.length) ceAddItem();
+  var 날짜없음 = false;
+  ceItems.forEach(function (it) { if (!it.date) { it.date = EX.today || ''; 날짜없음 = true; } });
+  if (날짜없음) { ceSync(); ceRender(); }
 }
 
 function createExpenseEntry() {
@@ -5079,7 +5087,6 @@ function createExpenseEntry() {
       email: el('ceEmail').value.trim(),
       dept: el('ceDept').value,
       deptOther: el('ceDeptOther').value.trim(),
-      spentAt: el('ceSpentAt').value,
       payableTo: el('cePayableTo').value.trim(),
       reason: el('ceReason').value.trim(),
       memo: el('ceMemo').value.trim(),
@@ -5090,7 +5097,7 @@ function createExpenseEntry() {
       chequeDate: el('ceChequeDate').value,
       notify: el('ceNotify').checked,
       items: ceItems.map(function (it) {
-        return { detail: String(it.detail || '').trim(), beforeTax: it.beforeTax, tax: it.tax, receipts: [] };
+        return { date: it.date, detail: String(it.detail || '').trim(), beforeTax: it.beforeTax, tax: it.tax, receipts: [] };
       })
     }], function (res) {
       msg.textContent = res.no + ' 으로 기록했습니다. (' + exMoney(res.total) + ')';

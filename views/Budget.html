@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/budget/budget.css">
+</head>
+<body>
+<div class="bd" id="bd">
+  <div class="bd-wrap">
+    <div class="bd-top">
+      <button class="bd-b sm" id="btnBack" type="button" aria-label="뒤로">‹ 뒤로</button>
+      <h1 id="topTitle">행사 예산 · 정산<small id="topSub"></small></h1>
+      <span class="bd-chip" id="meChip" style="display:none;"></span>
+    </div>
+
+    <!-- 1) 행사 목록 -->
+    <section id="viewList">
+      <div class="bd-tools">
+        <select id="fltYear" aria-label="연도"></select>
+        <select id="fltStatus" aria-label="상태"><option value="">모든 상태</option></select>
+        <input type="text" id="fltText" placeholder="행사 이름 검색" style="max-width:220px;" aria-label="검색">
+        <span class="sp"></span>
+        <button class="bd-b pri" id="btnNewEvent" type="button" style="display:none;">＋ 새 행사</button>
+      </div>
+      <div class="bd-grid" id="evGrid"></div>
+      <p class="bd-msg" id="listMsg"></p>
+    </section>
+
+    <!-- 2) 행사 상세 -->
+    <section id="viewEvent" style="display:none;">
+      <div class="bd-card" id="evHead"></div>
+      <div class="bd-tiles" id="evTiles"></div>
+      <div class="bd-tabs" id="evTabs" role="tablist"></div>
+      <div id="tabBody"></div>
+    </section>
+  </div>
+</div>
+
+<!-- 모달 -->
+<div class="bd-modal" id="modal" role="dialog" aria-modal="true"><div class="bd-sheet" id="modalBody"></div></div>
+<div class="bd-toast" id="toast" role="status"></div>
+<input type="file" id="fileXlsx" accept=".xlsx,.xls" style="display:none;">
+
+<script src="/budget/xlsx-io.js"></script>
+<script src="/budget/budget.js"></script>
+</body>
+</html>

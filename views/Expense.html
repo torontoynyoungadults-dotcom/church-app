@@ -62,6 +62,16 @@
     margin: 0 !important;
   }
 
+  /* 교적에서 자동 입력 안내 · 잠금 */
+  .regnote { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px;
+    padding: 11px 13px; border-radius: var(--r-md); background: var(--sunken); color: var(--ink-2);
+    font-size: 13.5px; line-height: 1.6; }
+  .regnote b { color: var(--ink-1); }
+  .reglink { flex: none; font-family: inherit; font-size: 13px; font-weight: 800; color: var(--tone);
+    background: transparent; border: 1px solid var(--tone); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+  input[readonly].locked { background: var(--sunken); color: var(--ink-2); cursor: not-allowed; }
+  .itemdate { margin-bottom: 12px; }
+
   /* 예 / 아니오 */
   .qbig { font-size: 16px; font-weight: 750; line-height: 1.72; margin: 2px 0 16px; letter-spacing: -0.018em; }
   .yn { display: flex; gap: 9px; }
@@ -250,6 +260,11 @@
     <div class="panel">
       <span class="chip">신청자 정보</span>
 
+      <div class="regnote" id="regNote" style="display:none;">
+        <span>✔ <b id="regName"></b> 님의 <b>교적 정보</b>로 자동 입력했습니다.</span>
+        <button type="button" class="reglink" onclick="unlockApplicant()">직접 수정</button>
+      </div>
+
       <div class="f">
         <label>이메일 주소<em>*</em></label>
         <input type="email" id="email" inputmode="email" autocomplete="email" placeholder="name@example.com">
@@ -277,11 +292,6 @@
         <input type="text" id="deptOther" placeholder="예: 청년부 수련회 준비팀">
       </div>
 
-      <div class="f" style="margin-bottom:0;">
-        <label>지출일 <span class="opt">(영수증 날짜)</span><em>*</em></label>
-        <input type="date" id="spentAt">
-        <p class="fnote">영수증이 여러 장이고 날짜가 다르면, 가장 마지막 지출일을 적어주세요.</p>
-      </div>
     </div>
 
     <!-- ---- 지출 항목 ---- -->
@@ -290,6 +300,7 @@
       <p class="hint">
         영수증 한 건당 항목 하나씩 적어주세요. 영수증이 여러 장이면
         아래 <b>＋ 항목 추가</b>를 눌러 계속 추가하실 수 있습니다.<br>
+        <b>지출일(영수증 날짜)은 항목마다</b> 따로 적어주세요.<br>
         지출 내역은 가능하다면 영문으로 기입해 주시기 바랍니다.
       </p>
 
@@ -315,8 +326,8 @@
       <span class="chip">Cheque 수령인</span>
       <div class="f" style="margin-bottom:0;">
         <label>Payable to <span class="opt">(영문)</span><em>*</em></label>
-        <input type="text" id="payableTo" placeholder="Gil Dong Hong">
-        <p class="fnote">Cheque는 한 건에 한 장 발행되며, 위 총액으로 발행됩니다.</p>
+        <input type="text" id="payableTo" placeholder="Gil Dong Hong" autocomplete="off" autocapitalize="words">
+        <p class="fnote" id="payNote">Cheque는 한 건에 한 장 발행되며, 위 총액으로 발행됩니다.</p>
       </div>
     </div>
 
@@ -406,6 +417,7 @@ var TOKEN = DRAFT;      // 이 화면은 로그인이 없는 공개 신청서라
                         // "토큰이 있는 화면" 조건만 채우는 용도로 씁니다 (권한 검사가 아니라 접근 방식 표시입니다)
 var items = [];          // [{ key, detail, beforeTax, tax, files:[] }]
 var step = 1, approved = '', busy = 0, sending = false, pickTarget = '';
+var PTOKEN = '', APPLICANT = null, applicantManual = false;   // 로그인한 교인의 표 / 교적에서 읽은 신청자 정보 / 직접 수정 여부
 
 var MAXITEMS = 15, MAXFILES = 4;
 
@@ -445,12 +457,64 @@ callServer('getExpenseForm', [], function (cfg) {
   el('contact2').textContent = CFG.contact;
   el('thr1').textContent = CFG.reasonThreshold;
   el('thr2').textContent = CFG.reasonThreshold;
-  var d = el('spentAt');
-  d.max = CFG.today || '';
-  d.value = CFG.today || '';
+  // 항목마다 날짜 칸이 있으므로, 이미 그려진 항목의 기본값·최대값을 오늘로 맞춥니다
+  syncItems();
+  items.forEach(function (it) { if (!it.date) it.date = CFG.today || ''; });
+  renderItems();
 }, function () {
   el('notices').innerHTML = '<li>안내 사항을 불러오지 못했습니다. 새로고침해 주세요.</li>';
 });
+
+/* ---------- 교적에서 신청자 정보 자동 입력 ----------
+   포털에 로그인해 둔 교인이면 (같은 사이트의 브라우저 저장소에 표가 있음) 이름 · 이메일 · 연락처 · 영문이름을
+   교적에서 읽어 채웁니다. 표가 없거나 맞지 않으면 아무 일도 없이 예전처럼 직접 입력합니다.
+   Payable to 는 교적의 영문이름으로 채우되 언제든 고칠 수 있습니다. 부서/팀은 항상 직접 고릅니다. */
+
+function findPortalToken() {
+  try { var q = new URLSearchParams(location.search).get('t'); if (q) return q; } catch (e) {}
+  try { var s = sessionStorage.getItem('ynPortalToken'); if (s) return s; } catch (e) {}
+  try {
+    var k = JSON.parse(localStorage.getItem('ynPortalKeep') || 'null');
+    if (k && k.t && k.until > Date.now()) return k.t;
+  } catch (e) {}
+  return '';
+}
+
+function fillApplicant(a) {
+  APPLICANT = a;
+  el('name').value = a.name || '';
+  el('email').value = a.email || '';
+  el('phone').value = a.phone || '';
+  ['name', 'email', 'phone'].forEach(function (k) {
+    // 교적에 비어 있는 칸은 잠그지 않고 직접 적게 둡니다
+    var box = el(k);
+    if (box.value) { box.readOnly = true; box.classList.add('locked'); }
+  });
+  el('regName').textContent = a.name;
+  el('regNote').style.display = 'flex';
+  var pay = el('payableTo');
+  if (!pay.value) {
+    var v = a.engName || a.lastPayableTo || '';
+    pay.value = v;
+    el('payNote').textContent = a.engName
+      ? '교적의 영문 이름으로 채웠습니다. Cheque에 적힐 이름이니 다르면 자유롭게 고쳐주세요. (한 건에 한 장, 위 총액으로 발행)'
+      : (a.lastPayableTo ? '지난 신청에서 쓰신 이름으로 채웠습니다. 다르면 고쳐주세요. (한 건에 한 장, 위 총액으로 발행)' : el('payNote').textContent);
+  }
+}
+
+function unlockApplicant() {
+  applicantManual = true;
+  ['name', 'email', 'phone'].forEach(function (k) { el(k).readOnly = false; el(k).classList.remove('locked'); });
+  el('regNote').style.display = 'none';
+}
+
+(function autoFill() {
+  PTOKEN = findPortalToken();
+  if (!PTOKEN) return;
+  callServer('getExpenseApplicant', [PTOKEN], function (a) {
+    if (a && a.ok) fillApplicant(a); else PTOKEN = '';
+  }, function () { PTOKEN = ''; });
+})();
 
 /* ---------- 단계 이동 ---------- */
 
@@ -509,7 +573,7 @@ function addItem() {
     say('msg3', '항목은 ' + MAXITEMS + '개까지 추가하실 수 있습니다.', 'err');
     return;
   }
-  items.push({ key: makeId(), detail: '', beforeTax: '', tax: '', files: [] });
+  items.push({ key: makeId(), detail: '', beforeTax: '', tax: '', date: CFG.today || '', files: [] });
   renderItems();
   var boxes = el('items').querySelectorAll('.item');
   var last = boxes[boxes.length - 1];
@@ -535,7 +599,8 @@ function removeItem(key) {
 /** 화면 값을 모델에 담아둡니다 (다시 그려도 입력이 사라지지 않도록) */
 function syncItems() {
   items.forEach(function (it) {
-    var d = el('d_' + it.key), b = el('b_' + it.key), t = el('t_' + it.key);
+    var d = el('d_' + it.key), b = el('b_' + it.key), t = el('t_' + it.key), dt = el('dt_' + it.key);
+    if (dt) it.date = dt.value;
     if (d) it.detail = d.value;
     if (b) it.beforeTax = b.value;
     if (t) it.tax = t.value;
@@ -576,6 +641,9 @@ function renderItems() {
     var sub = (Number(it.beforeTax) || 0) + (Number(it.tax) || 0);
     return '<div class="item">' +
       itemHead(i, it.key) +
+      '<div class="f itemdate"><label>지출일 <span class="opt">(영수증 날짜)</span><em>*</em></label>' +
+        '<input type="date" id="dt_' + it.key + '" value="' + esc(it.date) + '" max="' + esc(CFG.today || '') + '" ' +
+          'onchange="findItem(\'' + it.key + '\').date=this.value"></div>' +
       '<div class="f">' +
         '<label>지출 내역<em>*</em><button type="button" class="trbtn" id="tb_' + it.key + '" ' +
           'onclick="transDetail(\'' + it.key + '\')">🌐 영어로 변환</button></label>' +
@@ -771,7 +839,8 @@ function doSubmit() {
       phone: need('phone', '연락처를 입력해주세요.'),
       dept: need('dept', '부서 / 팀을 선택해주세요.'),
       deptOther: String(el('deptOther').value || '').trim(),
-      spentAt: need('spentAt', '지출일(영수증 날짜)을 선택해주세요.'),
+      token: applicantManual ? '' : PTOKEN,          // 교적 값을 그대로 쓸 때만 서버가 다시 교적에서 읽어 확인합니다
+      applicantManual: applicantManual,
       payableTo: need('payableTo', 'Cheque 수령인(Payable to)을 입력해주세요.'),
       isMeal: el('isMeal').checked,
       attendees: String(el('attendees').value || '').trim(),
@@ -780,6 +849,7 @@ function doSubmit() {
       comment: String(el('comment').value || '').trim(),
       items: items.map(function (it) {
         return {
+          date: String(it.date || '').trim(),
           detail: String(it.detail || '').trim(),
           beforeTax: it.beforeTax,
           tax: it.tax,
@@ -796,6 +866,14 @@ function doSubmit() {
 
   for (var i = 0; i < items.length; i++) {
     var it = items[i], n = i + 1;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(it.date || ''))) {
+      say('msg3', '항목 ' + n + '의 지출일(영수증 날짜)을 선택해주세요.', 'err');
+      var dd = el('dt_' + it.key); if (dd) dd.focus(); return;
+    }
+    if (CFG.today && it.date > CFG.today) {
+      say('msg3', '항목 ' + n + '의 지출일이 오늘보다 뒤입니다. 날짜를 확인해주세요.', 'err');
+      var de = el('dt_' + it.key); if (de) de.focus(); return;
+    }
     if (!String(it.detail || '').trim()) {
       say('msg3', '항목 ' + n + '의 지출 내역을 입력해주세요.', 'err');
       var d = el('d_' + it.key); if (d) d.focus(); return;

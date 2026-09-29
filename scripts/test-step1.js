@@ -136,7 +136,7 @@ function testMap() {
   eq(new Set(db.WORKBOOKS.map((w) => w.code)).size, 11, '코드 DB01~DB11 이 서로 다름');
   eq(db.WORKBOOKS.map((w) => w.code), Array.from({ length: 11 }, (_, i) => 'DB' + String(i + 1).padStart(2, '0')), '코드 순서 DB01..DB11');
 
-  const src = ['logic/app.js', 'logic/permissions.js', 'logic/deeplink.js', 'logic/worship2.js'].map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
+  const src = ['logic/app.js', 'logic/permissions.js', 'logic/deeplink.js', 'logic/worship2.js', 'logic/training.js'].map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
   const consts = Array.from(src.matchAll(/^var\s+SHEET_[^\s=]+\s*=\s*'([^']+)'/gm), (m) => m[1]);
   ok(consts.length >= 55, 'SHEET_ 상수를 충분히 찾음 (' + consts.length + '개)');
   const unmapped = consts.filter((t) => !db.isMapped(t));
@@ -170,7 +170,7 @@ function testMap() {
 /* ================================================================ B. 함수 이름 */
 function testDup() {
   section('B. 함수 이름 겹침');
-  const files = ['app.js', 'permissions.js', 'deeplink.js', 'worship2.js'].map((f) => fs.readFileSync(path.join(ROOT, 'logic', f), 'utf8'));
+  const files = ['app.js', 'permissions.js', 'deeplink.js', 'worship2.js', 'training.js'].map((f) => fs.readFileSync(path.join(ROOT, 'logic', f), 'utf8'));
   const all = [].concat(...files.map((s) => Array.from(s.matchAll(/^function\s+([^\s(]+)\s*\(/gm), (m) => m[1])));
   eq(all.filter((n, i) => all.indexOf(n) !== i), [], '겹치는 함수 없음');
   const av = [].concat(...files.map((s) => Array.from(s.matchAll(/^var\s+([^\s=;,]+)/gm), (m) => m[1])));

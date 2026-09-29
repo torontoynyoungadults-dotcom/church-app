@@ -12,7 +12,8 @@
     "db:create": "node scripts/db-setup.js create",
     "db:migrate": "node scripts/db-setup.js migrate",
     "test:step1": "node scripts/test-step1.js",
-    "test:step2": "node scripts/test-step2-server.js && node scripts/test-step2-client.js && node scripts/test-step2-more.js"
+    "test:step2": "node scripts/test-step2-server.js && node scripts/test-step2-client.js && node scripts/test-step2-more.js",
+    "test:step3": "node scripts/test-step3.js && node scripts/browser/e2e-portal.js && node scripts/browser/e2e-budget.js"
   },
   "engines": {
     "node": ">=20"

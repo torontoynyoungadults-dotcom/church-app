@@ -82,8 +82,8 @@ var EX_번호 = 0, EX_제출 = 1, EX_상태 = 2, EX_이메일 = 3, EX_신청자 
     EX_예산 = 24, EX_경로 = 25;
 
 /** 영수증 한 장(또는 한 건)마다 한 줄 — 신청번호로 묶입니다 */
-var HEAD_지출항목 = ['신청번호', '순번', '지출내역', '세전금액', 'HST/GST', '합계', '영수증파일'];
-var XI_번호 = 0, XI_순번 = 1, XI_내역 = 2, XI_세전 = 3, XI_세금 = 4, XI_합계 = 5, XI_영수증 = 6;
+var HEAD_지출항목 = ['신청번호', '순번', '지출내역', '세전금액', 'HST/GST', '합계', '영수증파일', '지출일'];
+var XI_번호 = 0, XI_순번 = 1, XI_내역 = 2, XI_세전 = 3, XI_세금 = 4, XI_합계 = 5, XI_영수증 = 6, XI_지출일 = 7;
 
 var HEAD_예산 = ['구분', '이름', '연도', '예산액', '메모', '등록시각'];
 var BG_구분 = 0, BG_이름 = 1, BG_연도 = 2, BG_금액 = 3, BG_메모 = 4, BG_시각 = 5;
@@ -391,9 +391,16 @@ function 캐시쓰기_(key, val, ttl) {
   } catch (e) {}
 }
 
+/**
+ * 이 Node 서버(HOST 가 있음)에서는 시트를 이미 메모리에 통째로 들고 있으므로(lib/google.js),
+ * 구글 캐시 흉내(JSON 으로 바꿨다가 되돌리기)를 또 거치면 오히려 느립니다 — 건너뜁니다.
+ * (진짜 Apps Script 에서 돌릴 때는 예전처럼 CacheService 를 씁니다)
+ */
+var _메모리시트 = (typeof HOST !== 'undefined');
+
 function rows_(name) {
   if (_rowsCache[name]) return _rowsCache[name];
-  var hit = 캐시읽기_('r:' + name);
+  var hit = _메모리시트 ? null : 캐시읽기_('r:' + name);
   if (hit) return (_rowsCache[name] = hit);
   var sh = sheet_(name);
   var v = [];
@@ -402,9 +409,26 @@ function rows_(name) {
     if (last >= 2) v = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
   }
   _rowsCache[name] = v;
-  캐시쓰기_('r:' + name, v);
+  if (!_메모리시트) 캐시쓰기_('r:' + name, v);
   return v;
 }
+
+/**
+ * 곧 읽을 탭들을 한 번에 읽어 둡니다 (Node 서버 전용 — Apps Script 에서는 아무 일도 하지 않음).
+ * 탭을 하나씩 처음 열 때마다 구글에 왕복하는 대신, 필요한 탭을 모아서 2번의 왕복으로 끝냅니다.
+ */
+function 시트미리읽기_(names) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss && typeof ss.prefetch === 'function') ss.prefetch(names);
+  } catch (e) { /* 미리 읽기는 속도용일 뿐 — 실패해도 필요할 때 하나씩 읽습니다 */ }
+}
+
+/** 포털 첫 화면(getMyProfile · 로그인 응답)이 읽는 탭들 — scripts/profile-portal.js 로 실제 접근 목록을 뽑아 만들었습니다 */
+var 포털탭_ = ['설정', '교적', '사용자권한', '셀목록', '셀원명단', '셀대리작성자', '셀신청', '셀편성',
+  '사역팀', '사역팀원', '새가족', '새가족팀원', '선교팀원', '헌금번호신청',
+  '할일숨김', '포털공지', '마감일', '회의록', '회의할일', '지출신청', '지출항목', '지출영문', '신청서', '신청내역',
+  '제자훈련명단', '제자훈련출결', '제자훈련기수', '팀계정'];
 
 
 /** 시트를 수정한 뒤에는 반드시 호출해서 캐시를 버립니다 */
@@ -415,6 +439,7 @@ function 캐시비움_() {
   _포털역할캐시 = {};
   _권한캐시 = {};
   _교적캐시 = null;
+  _훈련현황캐시 = null;
   _출석통계캐시 = null;
   _설정캐시 = null;
   찬양명단캐시_ = null;      // 사역팀 명단에서 뽑아 둔 값이라 함께 비웁니다
@@ -1003,6 +1028,14 @@ function doGet(e) {
     return render_('Expense', '지출환급신청서', {}, 'expense');
   }
 
+  if (page === 'budget') {
+    // 관리자 열쇠(?key=) · 회계팀 열쇠 · 포털 로그인(?t=) 어느 쪽으로든 들어옵니다. 등급은 서버가 요청마다 다시 확인합니다.
+    var bk = (isAdmin_(p.key) || isAcct_(p.key)) ? String(p.key || '').trim() : '';
+    var bpre = { t: p.t || '', key: bk };
+    try { if (bk || bpre.t) bpre.init = budgetInit(bk || bpre.t); } catch (e) { bpre.err = e.message || ''; }
+    return render_('Budget', '행사 예산 · 정산', bpre, 'acct');
+  }
+
   if (page === 'portal') {
     return render_('Portal', '토론토영락교회 청년1부', 포털입구_(p), 'portal');
   }
@@ -1328,7 +1361,7 @@ function 교적맵_() {
     var name = String(r[D_이름] || '').trim();
     if (!name) return;
     var birthday = 날짜문자열_(r[D_생일]);
-    map[name] = {
+    map[name] = 훈련값붙이기_({
       name: name,
       phone: String(r[D_전화] || '').trim(),
       kakao: String(r[D_카카오] || '').trim(),
@@ -1338,8 +1371,7 @@ function 교적맵_() {
       baptized: String(r[D_세례] || '').trim(),
       ministry: String(r[D_사역] || '').trim(),
       gender: String(r[D_성별] || '').trim(),
-      discipleship: String(r[D_제자훈련] || '').trim(),
-      trainingRate: String(r[D_훈련출석] || '').trim(),
+      // discipleship · trainingRate 는 여기서 교적 칸을 읽지 않습니다 — 제자훈련 시트에서 찾아 붙입니다 (훈련값붙이기_, logic/training.js)
       engName: String(r[D_영문] || '').trim(),
       address: String(r[D_주소] || '').trim(),
       joinedAt: 날짜문자열_(r[D_등록일]),
@@ -1351,7 +1383,7 @@ function 교적맵_() {
       parents: String(r[D_부모] || '').trim(),
       photo: 사진주소_(String(r[D_사진] || '').trim(), 240),
       photoLarge: 사진주소_(String(r[D_사진] || '').trim(), 1400)
-    };
+    }, String(r[D_제자훈련] || '').trim(), String(r[D_훈련출석] || '').trim());     // 옛 교적 값은 "제자훈련 시트에 없는 분"의 예비용으로만
   });
   _교적캐시 = map;
   return map;
@@ -1496,7 +1528,7 @@ function 교적저장_(name, info) {
    */
   [[D_전화, 'phone', 0], [D_카카오, 'kakao', 0], [D_이메일, 'email', 0],
    [D_생일, 'birthday', 1], [D_세례, 'baptized', 0], [D_사역, 'ministry', 0],
-   [D_성별, 'gender', 0], [D_제자훈련, 'discipleship', 0],
+   [D_성별, 'gender', 0],          // 제자훈련은 교적에 쓰지 않습니다 — 제자훈련 시트가 유일한 원천 (logic/training.js)
    [D_영문, 'engName', 0], [D_주소, 'address', 0], [D_등록일, 'joinedAt', 1],
    [D_멤버십, 'memberSince', 1], [D_헌금번호, 'envelopeNo', 0], [D_역할, 'roleTags', 0],
    [D_셀상태, 'cellStatus', 0], [D_체류, 'residency', 0], [D_부모, 'parents', 0]
@@ -2255,34 +2287,19 @@ function 훈련출결맵_() {
   return map;
 }
 
-/** 교적의 제자훈련 / 제자훈련출석 칸을 최신 상태로 */
+/**
+ * (지난 방식) 교적의 제자훈련 / 제자훈련출석 칸을 고쳐 쓰던 함수.
+ * 이제 교적에는 쓰지 않습니다 — 프로필은 제자훈련 시트를 이름으로 찾아 보여줍니다 (logic/training.js).
+ * 부르는 곳(명단 추가 · 삭제 · 출석 기록)을 건드리지 않으려고 이름만 남기고, 하는 일은 계산 결과를 새로 읽게 하는 것뿐입니다.
+ */
 function 훈련교적반영_(name) {
-  name = String(name || '').trim();
-  if (!name) return;
-  var cfg = 훈련설정_(), dates = 훈련일정_(cfg), today = ymd_(new Date());
-  var 명단 = rows_(SHEET_제자훈련).map(function (r) { return String(r[훈련_이름]).trim(); });
-  var at = 교적행_(name);
-
-  if (명단.indexOf(name) === -1) {
-    // 명단에서 빠진 경우 — 수료 기록은 남기고 진행 중 표시만 지웁니다
-    if (String(at.sh.getRange(at.row, D_제자훈련 + 1).getValue()).trim() !== '수료') {
-      at.sh.getRange(at.row, D_제자훈련 + 1).setValue('');
-      at.sh.getRange(at.row, D_훈련출석 + 1).setValue('');
-    }
-    캐시비움_();
-    return;
-  }
-  var s = 훈련집계_(name, 훈련출결맵_(), dates, cfg, today);
-  at.sh.getRange(at.row, D_제자훈련 + 1).setValue(s.finished ? s.status : '진행중');
-  at.sh.getRange(at.row, D_훈련출석 + 1)
-    .setValue(s.rate + '% (' + s.present + '/' + cfg.weeks + ')');
-  캐시비움_();
+  _훈련현황캐시 = null;
 }
 
-/** 명단 전체를 다시 계산해 교적에 반영 */
+/** (화면의 [교적에 반영] 버튼) 이제 계산은 항상 시트에서 바로 하므로 새로 읽어 돌려주기만 합니다 */
 function syncDiscipleship(key) {
   requireAdmin_(key);
-  rows_(SHEET_제자훈련).forEach(function (r) { 훈련교적반영_(String(r[훈련_이름]).trim()); });
+  캐시비움_();
   return getDiscipleship(key);
 }
 
@@ -7302,7 +7319,15 @@ function 포털메뉴_(r, token) {
     out.push({ key: 'acct', title: '회계 관리', desc: '지출 신청 · 예산 · Cheque',
       url: base + '?page=admin&scope=acct&key=' + encodeURIComponent(회계키_()), note: '' });
   }
-  return 메뉴순서적용_(개인권한메뉴_(r, token, out, 'portal'), 'portal');
+  var 목록 = 개인권한메뉴_(r, token, out, 'portal');
+  // 행사 예산 · 정산 — 회계 권한(사람별 · 행사별)이 하나라도 있거나, 회계팀 · 커미티(조회)인 분께 (logic/eventbudget.js)
+  try {
+    if (r.name && 회계모듈있나_(r.name)) {
+      목록.push({ key: 'budget', title: '행사 예산 · 정산', desc: '예산 · 거래 · 정산 · 엑셀 · PDF',
+        url: base + '?page=budget&t=' + encodeURIComponent(token), note: '' });
+    }
+  } catch (e) {}
+  return 메뉴순서적용_(목록, 'portal');
 }
 
 /**
@@ -7977,11 +8002,21 @@ function 내정보_(me, r) {
     birthdayDisplay: me.birthdayDisplay, gender: me.gender, baptized: me.baptized,
     photo: me.photo, photoLarge: me.photoLarge,
     cell: cell, cells: r.cells, teams: teams, missions: missions,
-    envelopeRequest: 헌금신청상태_(me.name)
+    envelopeRequest: 헌금신청상태_(me.name),
+    // 제자훈련은 제자훈련 시트에서 이름으로 찾아온 값입니다 (교적에 복사해 두지 않습니다)
+    discipleship: me.discipleship || '', trainingRate: me.trainingRate || '',
+    training: 훈련상세_(me.name)
   };
 }
 
+/** 서버를 켠 직후 한 번 — 포털 탭을 미리 읽어 둡니다 (server.js) */
+function 웜업_() {
+  시트미리읽기_(포털탭_);
+  return 교적맵_() ? true : false;
+}
+
 function getMyProfile(token) {
+  시트미리읽기_(포털탭_);          // 포털이 읽는 탭을 한 번에 (없으면 25개 탭을 하나씩 — 서버를 켠 직후 10초 넘게 걸리던 부분)
   var me = requirePortal_(token);
   return 포털자료_(token);
 }
@@ -8378,10 +8413,18 @@ function 지출시트_() {
 
 function 지출항목시트_() {
   var sh = sheet_(SHEET_지출항목);
-  if (sh) return sh;
-  createSheet_(SpreadsheetApp.getActiveSpreadsheet(), SHEET_지출항목, HEAD_지출항목);
-  캐시비움_();
-  return sheet_(SHEET_지출항목);
+  if (!sh) {
+    createSheet_(SpreadsheetApp.getActiveSpreadsheet(), SHEET_지출항목, HEAD_지출항목);
+    캐시비움_();
+    return sheet_(SHEET_지출항목);
+  }
+  // 영수증(항목)마다 날짜를 적게 되면서 늘어난 칸 — 이미 쓰던 시트에는 맨 뒤에 붙입니다 (옛 줄은 비어 있어도 됩니다)
+  if (sh.getLastColumn() < XI_지출일 + 1) {
+    ensureColumn_(SpreadsheetApp.getActiveSpreadsheet(), SHEET_지출항목, XI_지출일 + 1, HEAD_지출항목[XI_지출일]);
+    캐시비움_();
+    sh = sheet_(SHEET_지출항목);
+  }
+  return sh;
 }
 
 function 지출이력시트_() {
@@ -8496,7 +8539,8 @@ function 지출항목인덱스_() {
       beforeTax: 돈_(r[XI_세전]),
       tax: 돈_(r[XI_세금]),
       total: 돈_(r[XI_합계]) || Math.round((돈_(r[XI_세전]) + 돈_(r[XI_세금])) * 100) / 100,
-      receipts: 영수증보기_(영수증파싱_(r[XI_영수증]))
+      receipts: 영수증보기_(영수증파싱_(r[XI_영수증])),
+      date: 날짜문자열_(r[XI_지출일])          // 옛 줄은 비어 있음 → 지출한건_ 에서 신청 머리의 지출일로 채웁니다
     });
   });
   Object.keys(idx).forEach(function (k) {
@@ -8518,9 +8562,15 @@ function 지출한건_(row, itemIdx) {
       seq: 1, detail: String(row[EX_내역] || '').trim(),
       beforeTax: 세전, tax: 세금,
       total: Math.round((세전 + 세금) * 100) / 100,
-      receipts: 영수증보기_(files)
+      receipts: 영수증보기_(files),
+      date: 날짜문자열_(row[EX_지출일])
     }];
   }
+  // 날짜 칸이 없던 시절의 항목은 신청 머리의 지출일을 그대로 보여줍니다 (원본 시트는 건드리지 않습니다)
+  var 머리날짜 = 날짜문자열_(row[EX_지출일]);
+  items = items.map(function (it) {
+    return it.date ? it : Object.assign({}, it, { date: 머리날짜 });
+  });
 
   var en = null;
   try { en = 지출영문맵_()[no] || null; } catch (e) { en = null; }
@@ -8701,6 +8751,9 @@ function 지출항목정리_(data, needReceipt) {
         return { id: String(f.id), name: String(f.name || ''), mime: String(f.mime || '') };
       });
 
+    // 영수증(항목)마다 지출일 — 옛 신청서 화면이나 회계팀 입력처럼 맨 위 지출일만 보내는 쪽은 그 날짜를 모든 항목에 씁니다
+    var date = String(it.date || data.spentAt || '').trim();
+
     // 아무것도 안 적힌 빈 칸은 그냥 넘어갑니다
     if (!detail && !세전 && !세금 && !files.length) return;
 
@@ -8711,10 +8764,14 @@ function 지출항목정리_(data, needReceipt) {
     if (needReceipt && !files.length) {
       throw new Error(라벨 + '영수증을 첨부해주세요. 영수증이 없는 경우 영락 지출 영수증 템플릿을 작성해 첨부해주시면 됩니다.');
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date + 'T00:00:00').getTime())) {
+      throw new Error(라벨 + '지출일(영수증 날짜)을 선택해주세요.');
+    }
+    if (date > ymd_(new Date())) throw new Error(라벨 + '지출일이 오늘보다 뒤입니다. 날짜를 확인해주세요.');
 
     items.push({
       seq: items.length + 1, detail: detail, beforeTax: 세전, tax: 세금,
-      total: Math.round((세전 + 세금) * 100) / 100, files: files
+      total: Math.round((세전 + 세금) * 100) / 100, files: files, date: date
     });
   });
 
@@ -8747,11 +8804,10 @@ function 지출쓰기_(data, opts) {
     dept = '그 외 — ' + etc;
   }
 
-  var spentAt = String(data.spentAt || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(spentAt)) throw new Error('지출일(영수증 날짜)을 선택해주세요.');
-  if (spentAt > ymd_(new Date())) throw new Error('지출일이 오늘보다 뒤입니다. 날짜를 확인해주세요.');
-
   var items = 지출항목정리_(data, !!opts.needReceipt);
+  // 신청 머리의 지출일은 더 이상 입력받지 않습니다 — 항목 날짜 중 가장 늦은 날로 자동 계산해
+  // 예산 연도 집계 · 목록 정렬 · 메일 같은 기존 기능이 그대로 쓰게 합니다
+  var spentAt = items.reduce(function (m, it) { return it.date > m ? it.date : m; }, '');
   var 세전 = 0, 세금 = 0, files = [];
   items.forEach(function (it) {
     세전 += it.beforeTax; 세금 += it.tax;
@@ -8833,11 +8889,13 @@ function 지출쓰기_(data, opts) {
   var ish = 지출항목시트_();
   items.forEach(function (it) {
     ish.appendRow([no, it.seq, it.detail, it.beforeTax, it.tax, it.total,
-      it.files.length ? JSON.stringify(it.files) : '']);
+      it.files.length ? JSON.stringify(it.files) : '', it.date]);
   });
   if (items.length) {
-    ish.getRange(ish.getLastRow() - items.length + 1, XI_세전 + 1, items.length, 3)
-       .setNumberFormat('#,##0.00');
+    var 첫줄 = ish.getLastRow() - items.length + 1;
+    ish.getRange(첫줄, XI_세전 + 1, items.length, 3).setNumberFormat('#,##0.00');
+    ish.getRange(첫줄, XI_지출일 + 1, items.length, 1).setNumberFormat('@')      // 날짜가 시트에서 숫자로 바뀌지 않게 글자로 고정
+      .setValues(items.map(function (it) { return [it.date]; }));
   }
 
   지출이력_(no, row[EX_상태], opts.handler || name,
@@ -8848,13 +8906,44 @@ function 지출쓰기_(data, opts) {
   idx[no] = items.map(function (it) {
     return {
       seq: it.seq, detail: it.detail, beforeTax: it.beforeTax, tax: it.tax,
-      total: it.total, receipts: 영수증보기_(it.files)
+      total: it.total, receipts: 영수증보기_(it.files), date: it.date
     };
   });
   // 영문 번역을 옆 시트에 함께 남깁니다 (AI 가 꺼져 있으면 그냥 넘어갑니다)
   try { 지출번역_(no, 내역요약, reason); } catch (e) {}
 
   return 지출한건_(row, idx);
+}
+
+/**
+ * 신청서 화면이 로그인한 교인의 정보를 미리 채우기 위해 부르는 함수 — 교적(단일 원천)에서 읽습니다.
+ * 토큰이 없거나 맞지 않으면 빈 값을 돌려주고, 신청서는 예전처럼 직접 입력으로 동작합니다.
+ * 부서/팀은 교적에 없는 정보라서 여기서 채우지 않습니다 (신청서에서 직접 고릅니다).
+ */
+function getExpenseApplicant(token) {
+  var me = null;
+  try { me = token ? 포털본인_(token) : null; } catch (e) { me = null; }
+  if (!me) return { ok: false };
+  return {
+    ok: true,
+    name: me.name || '',
+    email: me.email || '',
+    phone: me.phone || '',
+    engName: me.engName || '',
+    lastPayableTo: 지출마지막수령인_(me)
+  };
+}
+
+/** 교적에 영문이름이 비어 있는 분을 위해 — 이 분이 예전에 적었던 Payable To (가장 최근 것) */
+function 지출마지막수령인_(me) {
+  var best = '', bestAt = 0;
+  rows_(SHEET_지출).forEach(function (r) {
+    if (String(r[EX_신청자] || '').trim() !== me.name) return;
+    var p = String(r[EX_수령인] || '').trim();
+    var t = r[EX_제출] instanceof Date ? r[EX_제출].getTime() : 0;
+    if (p && t >= bestAt) { best = p; bestAt = t; }
+  });
+  return best;
 }
 
 /* ---- 공개 신청서에서 들어오는 제출 ---- */
@@ -8868,6 +8957,19 @@ function submitExpense(data) {
     if (String(data.approved || '') !== 'Yes') {
       throw new Error('목사님과 회계팀의 승인을 먼저 받으신 뒤 신청해주세요.');
     }
+
+    // 로그인한 교인이 "교적 그대로" 신청하는 경우, 이름·이메일·연락처는 브라우저가 보낸 값이 아니라 교적 값을 씁니다
+    // (화면에서 [직접 수정] 을 눌러 다른 사람 명의로 낸 경우에만 입력값을 존중합니다)
+    if (data.token && !data.applicantManual) {
+      var me = null;
+      try { me = 포털본인_(String(data.token)); } catch (e) { me = null; }
+      if (me) {
+        if (me.name) data.name = me.name;
+        if (me.email) data.email = me.email;
+        if (me.phone) data.phone = me.phone;
+      }
+    }
+    delete data.token;
 
     var 건 = 지출쓰기_(data, { needReceipt: true, status: 'In Review', source: '신청서' });
     try { 지출접수메일_(건); } catch (e) {}
@@ -9179,7 +9281,7 @@ var 항목내보내기헤더 = ['신청번호', '순번', '지출일', '신청�
 
 function 항목내보내기행_(e) {
   return e.items.map(function (it) {
-    return [e.no, it.seq, e.spentAt, e.name, e.dept, e.budget,
+    return [e.no, it.seq, it.date || e.spentAt, e.name, e.dept, e.budget,
       it.detail, it.beforeTax, it.tax, it.total,
       it.receipts.map(function (f) { return f.name; }).join(' / '), e.status];
   });
@@ -9284,13 +9386,21 @@ function 지출요약카드_(e) {
   return card_(
     kv_('신청번호', esc_(e.no)) +
     kv_('신청자', esc_(e.name) + (e.dept ? ' &nbsp;·&nbsp; ' + esc_(e.dept) : '')) +
-    kv_('지출일', esc_(e.spentAt)) +
+    kv_('지출일', esc_(지출일표시_(e))) +
     kv_('세전 금액', 돈표시_(e.beforeTax)) +
     kv_('HST / GST', 돈표시_(e.tax)) +
     kv_('총액', '<b>' + 돈표시_(e.total) + '</b>') +
     kv_('Payable to', esc_(e.payableTo)) +
     (e.headcount ? kv_('식사 인원', esc_(e.headcount) + '명') : '')
   );
+}
+
+/** 항목 날짜가 하나면 그 날짜, 여러 날이면 "2026-09-01 ~ 2026-09-14" */
+function 지출일표시_(e) {
+  var ds = (e.items || []).map(function (it) { return it.date; }).filter(function (d) { return d; }).sort();
+  if (!ds.length) return e.spentAt || '';
+  var lo = ds[0], hi = ds[ds.length - 1];
+  return lo === hi ? lo : lo + ' ~ ' + hi;
 }
 
 function 지출항목표_(e) {
@@ -9303,6 +9413,7 @@ function 지출항목표_(e) {
       return '<tr>' +
         '<td style="padding:9px 0;border-top:1px solid #E4E1DB;font-size:13px;color:#2B2B2B;">' +
           '<b>' + it.seq + '.</b> ' + esc_(it.detail) +
+          (it.date ? '<div style="font-size:11px;color:#7A756D;margin-top:3px;">' + esc_(it.date) + '</div>' : '') +
           (it.receipts.length ? '<div style="font-size:11px;color:#7A756D;margin-top:3px;">' +
             it.receipts.map(function (f) { return esc_(f.name); }).join(' · ') + '</div>' : '') +
         '</td>' +
@@ -9349,14 +9460,14 @@ function 지출접수메일_(e) {
     cc: 회계 || '',
     subject: '[지출신청 ' + e.no + '] ' + e.name + ' · ' + 돈표시_(e.total) + ' 접수 확인',
     name: '토론토영락교회 청년1부 회계팀',
-    htmlBody: mailShell_('지출 환급 신청<br>접수 확인', e.no + ' &nbsp;·&nbsp; ' + esc_(e.spentAt), body),
+    htmlBody: mailShell_('지출 환급 신청<br>접수 확인', e.no + ' &nbsp;·&nbsp; ' + esc_(지출일표시_(e)), body),
     body: 지출접수텍스트_(e)
   });
 }
 
 function 지출접수텍스트_(e) {
   return e.name + '님, 지출 환급 신청이 접수되었습니다.\n\n' +
-    '신청번호: ' + e.no + '\n부서/팀: ' + e.dept + '\n지출일: ' + e.spentAt + '\n' +
+    '신청번호: ' + e.no + '\n부서/팀: ' + e.dept + '\n지출일: ' + 지출일표시_(e) + '\n' +
     '세전 금액: ' + 돈표시_(e.beforeTax) + '\nHST/GST: ' + 돈표시_(e.tax) + '\n' +
     '총액: ' + 돈표시_(e.total) + '\nPayable to: ' + e.payableTo + '\n' +
     (e.headcount ? '식사 인원: ' + e.headcount + '명\n' : '') +
@@ -9383,7 +9494,7 @@ function 지출상태메일_(e, message) {
         '<div style="font-size:12.5px;color:#7A756D;margin-top:8px;">' + esc_(hit.label) + '</div>' +
       '</div>' +
       kv_('총액', '<b>' + 돈표시_(e.total) + '</b>') +
-      kv_('지출일', esc_(e.spentAt)) +
+      kv_('지출일', esc_(지출일표시_(e))) +
       (e.cheque ? kv_('Cheque 번호', '<b>' + esc_(e.cheque) + '</b>' +
         (e.chequeDate ? ' <span style="color:#7A756D;font-size:12px;">' + esc_(e.chequeDate) + '</span>' : '')) : '')
     ) +

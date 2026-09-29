@@ -128,7 +128,7 @@ function 개인권한_(name) {
   name = String(name || '').trim();
   if (_권한캐시[name]) return _권한캐시[name];
   var today = ymd_(new Date());
-  var p = { n: 0, deny: {}, allow: {}, committees: [], committeeAll: false, rows: [] };
+  var p = { n: 0, deny: {}, allow: {}, committees: [], committeeAll: false, rows: [], acct: [] };
   rows_(SHEET_사용자권한).forEach(function (r) {
     if (String(r[UP_이름] || '').trim() !== name) return;
     var until = 날짜문자열_(r[UP_만료]);
@@ -136,6 +136,8 @@ function 개인권한_(name) {
     var kind = String(r[UP_구분] || '').trim(), target = String(r[UP_대상] || '').trim(),
         effect = String(r[UP_효과] || '').trim(), scope = String(r[UP_범위] || '').trim();
     if (!name || !kind || !target || (effect !== '허용' && effect !== '차단')) return;
+    // 회계 모듈(행사 예산) 권한 — logic/eventbudget.js 가 읽습니다. 메뉴 판정에는 영향이 없으므로 n 에 세지 않습니다.
+    if (kind === '회계') { p.acct.push({ target: target, effect: effect, scope: scope, until: until }); return; }
     p.n++;
     p.rows.push({ kind: kind, target: target, effect: effect, scope: scope, until: until, memo: String(r[UP_메모] || '').trim() });
     if (kind === '메뉴') {

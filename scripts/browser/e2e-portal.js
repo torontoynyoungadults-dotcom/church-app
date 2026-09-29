@@ -1,0 +1,38 @@
+/** 포털 "저장해 둔 화면 먼저 보여주기" 시험 — 진짜 server.js + 가짜 구글 + 진짜 크롬 */
+process.env.PORT = '4190';
+const L = require('./e2e-lib'); const { check, sleep } = L;
+require('./e2e-full-server.js');
+const BASE = 'http://127.0.0.1:4190';
+const run = (fn) => global.__runtime.run((api) => fn(api)).result;
+(async () => {
+  await sleep(1200);
+  const tok = run((api) => api.포털토큰_('정일반', '4165551008', ''));
+  const br = await L.launch(); const ctx = await br.newContext({ viewport: { width: 420, height: 900 } }); const page = await ctx.newPage(); const errs = [];
+  page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
+  let calls = 0, delay = 0;
+  await page.route('**/api/getMyProfile', async (route) => { calls++; if (delay) await sleep(delay); route.continue(); });
+  await page.addInitScript((t) => { try { if (!sessionStorage.getItem('ynPortalToken')) sessionStorage.setItem('ynPortalToken', t); } catch (e) {} }, tok);
+  console.log('· 첫 방문 (저장된 화면 없음)');
+  await page.goto(BASE + '/?page=portal');
+  check('포털이 열림', await L.waitTrue(page, () => document.getElementById('main').style.display === 'block', null, 8000));
+  check('서버에 1번 물어봄', calls === 1, calls);
+  check('화면 자료가 sessionStorage 에 저장됨', await page.evaluate(() => { const c = JSON.parse(sessionStorage.getItem('ynProfileCache') || 'null'); return !!(c && c.t && c.res && c.res.me); }));
+  console.log('· 새로고침 (서버가 1.5초 늦게 답해도 바로 보여야 함)');
+  delay = 1500; calls = 0;
+  const t0 = Date.now(); await page.reload();
+  const fast = await L.waitTrue(page, () => document.getElementById('main').style.display === 'block' && !!document.querySelector('#main *'), null, 1000);
+  check('서버 답 전에 저장된 화면이 바로 그려짐', fast && Date.now() - t0 < 1400, Date.now() - t0);
+  check('뒤에서 서버에 새로 물어봄', await L.waitTrue(page, () => true, null, 100) && (await sleep(1800), calls === 1), calls);
+  console.log('· 로그아웃하면 저장본 삭제');
+  delay = 0;
+  await page.evaluate(() => doLogout());
+  check('저장된 화면이 지워짐', await page.evaluate(() => sessionStorage.getItem('ynProfileCache') === null && sessionStorage.getItem('ynPortalToken') === null));
+  console.log('· 만료된 표 — 저장본이 있어도 서버가 거부하면 로그인 화면');
+  await page.evaluate((t) => { sessionStorage.setItem('ynPortalToken', 'BAD'); sessionStorage.setItem('ynProfileCache', JSON.stringify({ v: 1, t: 'BAD', at: Date.now(), res: { token: 'BAD', me: { name: '가짜' }, menus: [] } })); }, tok);
+  await page.addInitScript(() => {});
+  await page.goto(BASE + '/?page=portal');
+  check('서버가 거부하면 로그인 화면으로', await L.waitTrue(page, () => document.getElementById('lock').style.display !== 'none' && sessionStorage.getItem('ynProfileCache') === null, null, 6000));
+  check('페이지 오류 없음', errs.length === 0, errs);
+  await br.close();
+  const okAll = L.summary(); process.exit(okAll ? 0 : 1);
+})().catch((e) => { console.error(e); process.exit(1); });

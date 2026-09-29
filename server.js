@@ -16,6 +16,9 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const runtime = require('./lib/runtime');
+const bridge = require('./lib/bridge');
+const bstats = () => bridge.stats || { calls: 0, ms: 0 };   // 진단용 — 없어도 요청은 정상 처리
+const SLOW_MS = Number(process.env.SLOW_MS) || 1500;          // 이보다 오래 걸린 요청을 로그에 남깁니다
 const pages = require('./lib/pages');
 const scheduler = require('./lib/scheduler');
 const tasks = require('./lib/tasks');
@@ -56,7 +59,7 @@ app.post('/api/:fn', (req, res) => {
   const fn = req.params.fn;
   const args = Array.isArray(req.body && req.body.args) ? req.body.args : [];
   if (!runtime.isCallable(fn)) return res.json({ ok: false, error: '알 수 없는 요청입니다: ' + fn });
-  const t0 = Date.now();
+  const t0 = Date.now(), g0 = { calls: bstats().calls, ms: bstats().ms };
   try {
     const { result } = runtime.run((api) => api[fn].apply(null, args));
     res.json({ ok: true, result });
@@ -65,7 +68,10 @@ app.post('/api/:fn', (req, res) => {
     res.json({ ok: false, error: (e && e.message) || String(e) });
   } finally {
     const ms = Date.now() - t0;
-    if (ms > 3000) console.log('[느림]', fn, ms + 'ms');
+    if (ms > SLOW_MS) {
+      const calls = bstats().calls - g0.calls, wait = bstats().ms - g0.ms;
+      console.log('[느림]', fn, ms + 'ms', '(구글 왕복 ' + calls + '번 · 기다린 시간 ' + wait + 'ms · 계산 ' + (ms - wait) + 'ms)');
+    }
   }
 });
 
@@ -106,7 +112,7 @@ app.all('/cron/:job', (req, res) => {
 });
 
 /** 찬양 녹음 재생 — 드라이브 파일을 그대로 흘려보냅니다 (앞뒤로 옮기기가 되도록 Range 도 넘깁니다) */
-const bridge = require('./lib/bridge');
+// (bridge 는 위에서 불러왔습니다)
 const { Readable } = require('stream');
 const allowOk = new Map();
 /** 드라이브 파일을 그대로 흘려보냅니다 (앞뒤로 옮기기가 되도록 Range 도 넘깁니다) — check 로 허용된 파일만 */
@@ -204,6 +210,14 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log('서버 실행 중: 포트 ' + PORT + ' · 주소 ' + runtime.baseUrl() + ' · 시간대 ' + process.env.TZ);
+  // 서버를 켠 직후 첫 사용자가 시트 읽는 시간을 떠안지 않도록, 포털이 읽는 탭을 미리 읽어 둡니다
+  if (process.env.DISABLE_WARMUP !== '1') {
+    setTimeout(() => {
+      const t0 = Date.now();
+      try { runtime.run((api) => api.웜업_()); console.log('[웜업] 포털 탭 미리 읽기 ' + (Date.now() - t0) + 'ms'); }
+      catch (e) { console.log('[웜업 실패 — 첫 요청이 조금 느릴 수 있습니다]', e.message); }
+    }, 300);
+  }
   if (process.env.DISABLE_SCHEDULER !== '1') {
     scheduler.start((fn) => runtime.run((api) => api[fn]()));
   }

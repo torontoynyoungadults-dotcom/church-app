@@ -756,7 +756,7 @@ function renderDirectory() {
         '<div class="efield"><label>생년월일</label><input type="date" id="eb' + i + '" value="' + esc(m.birthday) + '"></div>' +
         '<div class="efield"><label>성별</label>' + selectHtml('eg' + i, GENDERS, m.gender) + '</div>' +
         '<div class="efield"><label>세례여부</label>' + selectHtml('ez' + i, BAPTISM, m.baptized) + '</div>' +
-        '<div class="efield"><label>제자훈련</label>' + selectHtml('ed' + i, DISCIPLESHIP, m.discipleship) + '</div>' +
+        '<div class="efield"><label>제자훈련 <span class="sub">(제자훈련 화면에서 관리)</span></label><div class="v">' + esc(m.discipleship || '—') + '</div></div>' +
         '<div style="display:flex;gap:6px;margin-top:8px;">' +
           '<button type="button" class="btn" style="flex:1;" onclick="toggleEdit(' + i + ')">취소</button>' +
           '<button type="button" class="btn orange" style="flex:1;" onclick="doSaveMemberInfo(' + i + ')">저장</button>' +
@@ -813,8 +813,7 @@ function doSaveMemberInfo(i) {
     email: el('ee' + i).value.trim(),
     birthday: el('eb' + i).value.trim(),
     gender: el('eg' + i).value,
-    baptized: el('ez' + i).value,
-    discipleship: el('ed' + i).value
+    baptized: el('ez' + i).value
   };
 
   callServer('saveMemberInfo', [TOKEN, cell.name, m.name, info], function (updated) {

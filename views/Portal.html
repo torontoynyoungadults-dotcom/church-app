@@ -120,6 +120,7 @@
   .mcardlink.leader    { --mc: #C4431A; --mc-soft: rgba(196,67,26,.12); }
   .mcardlink.team      { --mc: #2E9A4B; --mc-soft: rgba(46,154,75,.13); }
   .mcardlink.expense   { --mc: #A8751F; --mc-soft: rgba(168,117,31,.15); }
+  .mcardlink.budget    { --mc: #A8751F; --mc-soft: rgba(168,117,31,.15); }
   .mcardlink.newfamily { --mc: #2A8C94; --mc-soft: rgba(42,140,148,.14); }
   .mcardlink.mission   { --mc: #2E7D6B; --mc-soft: rgba(46,125,107,.14); }
   .mcardlink.worship   { --mc: #6C4FD3; --mc-soft: rgba(108,79,211,.14); }
@@ -166,6 +167,7 @@
   .tile.leader    { --mc: #C4431A; --mc-soft: rgba(196,67,26,.12); }
   .tile.team      { --mc: #2E9A4B; --mc-soft: rgba(46,154,75,.13); }
   .tile.expense   { --mc: #A8751F; --mc-soft: rgba(168,117,31,.15); }
+  .tile.budget    { --mc: #A8751F; --mc-soft: rgba(168,117,31,.15); }
   .tile.newfamily { --mc: #2A8C94; --mc-soft: rgba(42,140,148,.14); }
   .tile.mission   { --mc: #2E7D6B; --mc-soft: rgba(46,125,107,.14); }
   .tile.worship   { --mc: #6C4FD3; --mc-soft: rgba(108,79,211,.14); }
@@ -282,6 +284,7 @@
   #dash .tile.leader       { --mc: #F0855C; --mc-soft: rgba(240,133,92,.16); }
   #dash .tile.team         { --mc: #5CC77A; --mc-soft: rgba(92,199,122,.16); }
   #dash .tile.expense      { --mc: #E0B25A; --mc-soft: rgba(224,178,90,.16); }
+  #dash .tile.budget       { --mc: #E0B25A; --mc-soft: rgba(224,178,90,.16); }
   #dash .tile.newfamily    { --mc: #4FC1C9; --mc-soft: rgba(79,193,201,.16); }
   #dash .tile.mission      { --mc: #5FC4A8; --mc-soft: rgba(95,196,168,.16); }
   #dash .tile.worship      { --mc: #B49BFF; --mc-soft: rgba(180,155,255,.17); }
@@ -1367,6 +1370,7 @@ var MENU_ICON = {
   newfamily: '<path d="M12 21V11"/><path d="M12 11c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5z"/><path d="M12 14c0-3-2.3-5-5.5-5-.2 3.1 2.2 5 5.5 5z"/>',
   mission: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.6 3.6 5.5 3.6 8.5s-1.2 5.9-3.6 8.5c-2.4-2.6-3.6-5.5-3.6-8.5s1.2-5.9 3.6-8.5z"/>',
   worship: '<path d="M9.5 18V6.2l9-1.8V16"/><circle cx="7" cy="18" r="2.5"/><circle cx="16" cy="16" r="2.5"/><path d="M9.5 9.6l9-1.8"/>',
+  budget: '<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M3 20h18"/><path d="M20 8l-3-3"/>',
   acct: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 14.5h4"/><path d="M16.5 14.5h.8"/>',
   forms: '<rect x="4.5" y="3" width="15" height="18" rx="2.4"/><path d="M8.5 8.5h7M8.5 12.5h7M8.5 16.5h4"/>',
   admin: '<path d="M4 20V9.5l8-5.5 8 5.5V20z"/><path d="M9.5 20v-6h5v6"/>',
@@ -1432,7 +1436,28 @@ function keptToken() {
 function forgetToken() {
   try { localStorage.removeItem('ynPortalKeep'); } catch (e) {}
   try { sessionStorage.removeItem('ynPortalToken'); } catch (e) {}
+  dropProfileCache();
 }
+
+/* ---------- 내 정보 임시 저장 (브라우저 sessionStorage) ----------
+   같은 탭에서 다시 열거나 새로고침할 때 서버 답을 기다리지 않고 바로 그리고,
+   뒤에서 서버에 새로 물어 달라진 것만 다시 그립니다. 탭을 닫으면 사라지고,
+   로그아웃 · 표 교체 · 15분 경과 시에도 버립니다. 저장 실패(용량 · 사생활 모드)는 조용히 무시합니다. */
+var PROFILE_CACHE_KEY = 'ynProfileCache', PROFILE_CACHE_MAX_AGE = 15 * 60 * 1000, PROFILE_CACHE_V = 1;
+function saveProfileCache(res) {
+  try {
+    if (!res || !res.token || VIEW) return;
+    sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ v: PROFILE_CACHE_V, t: res.token, at: Date.now(), res: res }));
+  } catch (e) { try { sessionStorage.removeItem(PROFILE_CACHE_KEY); } catch (e2) {} }
+}
+function loadProfileCache(token) {
+  try {
+    var c = JSON.parse(sessionStorage.getItem(PROFILE_CACHE_KEY) || 'null');
+    if (c && c.v === PROFILE_CACHE_V && c.t === token && c.res && Date.now() - c.at < PROFILE_CACHE_MAX_AGE) return c.res;
+  } catch (e) {}
+  return null;
+}
+function dropProfileCache() { try { sessionStorage.removeItem(PROFILE_CACHE_KEY); } catch (e) {} }
 
 /* 들어가는 길
    1) 구글에서 막 돌아온 경우 — 서버가 확인을 마치고 첫 화면 자료까지 실어 보냅니다 (바로 열림)
@@ -1481,6 +1506,25 @@ function boot() {
     return;
   }
   if (TOKEN) {
+    var cached = loadProfileCache(TOKEN);
+    if (cached) {
+      // 1) 저장해 둔 화면을 바로 그리고  2) 뒤에서 서버에 새로 물어 달라졌을 때만 다시 그립니다
+      try { onIn(cached, true); } catch (e) {          // 배포로 화면 구조가 바뀌어 옛 저장본이 안 맞으면 버리고 정상 경로로
+        dropProfileCache(); el('main').style.display = 'none';
+        callServer('getMyProfile', [TOKEN], onIn, function () { TOKEN = ''; forgetToken(); showLock(); });
+        return;
+      }
+      callServer('getMyProfile', [TOKEN], function (fresh) {
+        var changed = false;
+        try { changed = JSON.stringify(fresh) !== JSON.stringify(cached); } catch (e) { changed = true; }
+        saveProfileCache(fresh);
+        if (changed && !editing && !VIEW) onIn(fresh, true);
+      }, function (e) {
+        // 서버가 "로그인 만료" 라고 답한 경우에만 로그아웃 — 잠깐 끊긴 네트워크는 저장된 화면을 그대로 둡니다
+        if (e && /로그인|만료|토큰|다시/.test(e.message || '') ) { TOKEN = ''; forgetToken(); showLock(); }
+      });
+      return;
+    }
     callServer('getMyProfile', [TOKEN], onIn, function () {
         TOKEN = '';
         forgetToken();
@@ -2388,9 +2432,10 @@ function doLogout() {
 
 var SELF = null, VIEW = '', VIEW_NOLINK = false;          // 내 자료 · 지금 보고 있는 다른 사람 (커미티)
 
-function onIn(res) {
+function onIn(res, fromCache) {
   clearTimeout(_bootT);
   TOKEN = res.token;
+  if (!fromCache) saveProfileCache(res);
   SELF = res; VIEW = '';
   keepToken(TOKEN);
   el('entering').style.display = 'none';
@@ -2929,6 +2974,17 @@ function belongTags(list) {
   }).join('') + '</div>';
 }
 
+/** 제자훈련 — 제자훈련 시트에서 이름으로 찾아온 값 (기수별 진행 상태 · 출석률) */
+function trainingHtml() {
+  var t = ME.training;
+  if (!t || !t.status) return ME.discipleship ? esc(ME.discipleship) + (ME.trainingRate ? ' · ' + esc(ME.trainingRate) : '') : '';
+  var lines = (t.cohorts || []).map(function (c) {
+    return '<div>' + esc(c.name) + ' — <b>' + esc(c.status) + '</b> · ' + esc(c.rate + '% (' + c.present + '/' + c.weeks + ')') + '</div>';
+  });
+  if (t.legacy && t.legacy.status) lines.push('<div>이전 기록 — <b>' + esc(t.legacy.status) + '</b>' + (t.legacy.rate ? ' · ' + esc(t.legacy.rate) : '') + '</div>');
+  return lines.length ? lines.join('') : esc(t.status);
+}
+
 function renderProfile() {
   if (editing) return;
 
@@ -2968,6 +3024,7 @@ function renderProfile() {
     row('소속 셀', cells, true) +
     row('사역팀', teams, true) +
     row('선교팀', belongTags(ME.missions), true) +
+    row('제자훈련', trainingHtml(), true) +
     '<div style="margin-top:16px;"><button class="btn accent full" onclick="openEdit()">내 정보 수정</button></div>' +
     '<p class="fnote" style="margin-top:10px;">' +
       '🔒 표시된 칸은 커미티만 바꿀 수 있습니다. 바뀐 내용이 있으면 커미티에 말씀해 주세요.</p>';
