@@ -1,0 +1,209 @@
+/* =========================================================
+   교적 관리 — 검색 · 결과 카드 (Dark Glassmorphism)  · Step 5
+   범위: #sec_dir 안에서만 적용됩니다 (다른 화면은 그대로).
+   이 파일이 없어도 화면은 예전 모양으로 정상 동작합니다.
+   ========================================================= */
+#sec_dir {
+  --dg-ink: #F5F3EF;
+  --dg-sub: #B9B2A8;
+  --dg-mute: #8C857B;
+  --dg-line: rgba(255, 255, 255, .13);
+  --dg-line-hi: rgba(255, 255, 255, .26);
+  --dg-glass-a: rgba(255, 255, 255, .095);
+  --dg-glass-b: rgba(255, 255, 255, .035);
+  --dg-accent: #F07A4E;
+  --dg-accent-rgb: 240, 122, 78;
+  --dg-good: #5CC77A;
+  --dg-mid: #E0B25A;
+  --dg-low: #FF7A6B;
+}
+
+/* ---------- 위쪽 요약 타일 (패널과 같은 유리 톤) ---------- */
+#sec_dir .stat {
+  background: linear-gradient(145deg, var(--dg-glass-a), var(--dg-glass-b)) !important;
+  border: 1px solid var(--dg-line) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(150%); backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .09) !important;
+}
+#sec_dir .stat .v { color: var(--dg-accent) !important; }
+#sec_dir .stat .k { color: var(--dg-sub) !important; }
+
+/* ---------- 검색 패널 (바탕은 반투명 어둠 · 블러는 카드가 맡음) ---------- */
+#sec_dir .panel {
+  background: linear-gradient(160deg, rgba(28, 27, 25, .74), rgba(14, 14, 13, .62)) !important;
+  border: 1px solid var(--dg-line) !important;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .07) !important;
+  color: var(--dg-ink);
+}
+#sec_dir .panel .sub { color: var(--dg-sub) !important; }
+
+#sec_dir #dirQuery {
+  background-color: rgba(255, 255, 255, .07) !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23B9B2A8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: 13px center !important;
+  padding: 13px 14px 13px 42px !important;
+  color: var(--dg-ink);
+  border: 1px solid var(--dg-line) !important;
+  border-radius: 14px !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .35) !important;
+  font-size: 16px;                       /* 아이폰에서 확대되지 않도록 16px */
+}
+#sec_dir #dirQuery::placeholder { color: var(--dg-mute); }
+#sec_dir #dirQuery:focus {
+  border-color: var(--dg-accent) !important;
+  box-shadow: 0 0 0 3px rgba(var(--dg-accent-rgb), .22), inset 0 1px 2px rgba(0, 0, 0, .35) !important;
+}
+
+#sec_dir .panel .seg { background: rgba(255, 255, 255, .06); border: 1px solid var(--dg-line); }
+#sec_dir .panel .seg button { color: var(--dg-sub); }
+#sec_dir .panel .seg button.on {
+  background: linear-gradient(135deg, #F07A4E, #D2511F); color: #fff;
+  box-shadow: 0 4px 14px rgba(var(--dg-accent-rgb), .38);
+}
+#sec_dir .panel select {
+  background-color: rgba(255, 255, 255, .07) !important;
+  color: var(--dg-ink);
+  border: 1px solid var(--dg-line) !important;
+  box-shadow: none !important;
+}
+#sec_dir .panel select option, #sec_dir .panel select optgroup { background: #1C1B19; color: #F5F3EF; }
+#sec_dir .ncbar { background: rgba(255, 255, 255, .05); border-color: var(--dg-line); }
+#sec_dir .ncbar .nct { color: var(--dg-sub); }
+#sec_dir .panel .btn:not(.orange) {
+  background: rgba(255, 255, 255, .08); color: var(--dg-ink);
+  border: 1px solid var(--dg-line) !important; box-shadow: none;
+}
+#sec_dir .panel .btn:not(.orange):hover { background: rgba(255, 255, 255, .14); }
+
+/* ---------- 결과 목록 ---------- */
+#dirList { display: block; }
+#dirList .skel.row {                     /* 불러오는 중 — 글라스 반짝임 */
+  height: 76px; border-radius: 16px; margin-bottom: 10px; border: 1px solid var(--dg-line) !important;
+  background: linear-gradient(100deg, rgba(255,255,255,.05) 20%, rgba(255,255,255,.13) 50%, rgba(255,255,255,.05) 80%) 0 0 / 200% 100%;
+  animation: dg-shimmer 1.3s linear infinite;
+}
+@keyframes dg-shimmer { to { background-position: -200% 0; } }
+
+.dg-card {
+  position: relative;
+  margin: 0 0 10px;
+  border-radius: 16px;
+  border: 1px solid var(--dg-line);
+  background: linear-gradient(145deg, var(--dg-glass-a), var(--dg-glass-b));
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .09);
+  color: var(--dg-ink);
+  /* 화면 밖 카드는 계산 · 그리기를 건너뜀 → 수백 명이어도 스크롤이 가벼움 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 82px;
+  transition: border-color .18s, box-shadow .18s, transform .18s;
+}
+.dg-card:hover { border-color: var(--dg-line-hi); }
+.dg-card:has(> .dg-head.open) {
+  border-color: rgba(var(--dg-accent-rgb), .55);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .42), 0 0 0 1px rgba(var(--dg-accent-rgb), .18), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .dg-card { background: linear-gradient(145deg, rgba(48, 46, 43, .96), rgba(30, 29, 27, .96)); }
+}
+
+.dg-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 14px; cursor: pointer; border-radius: 16px;
+  -webkit-user-select: none; user-select: none;
+  outline: none;
+}
+.dg-head:focus-visible { box-shadow: 0 0 0 2px var(--dg-accent) inset; }
+
+.dg-av { flex: none; width: 46px; height: 46px; border-radius: 50%; padding: 2px;
+  background: linear-gradient(135deg, rgba(var(--dg-accent-rgb), .9), rgba(255, 255, 255, .18));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
+.dg-img, .dg-ph { display: block; width: 100%; height: 100%; border-radius: 50%; }
+.dg-img { object-fit: cover; background: #222; cursor: zoom-in; }
+.dg-ph { display: flex; align-items: center; justify-content: center;
+  background: #262422; color: var(--dg-accent); font-weight: 800; font-size: 17px; }
+
+.dg-main { flex: 1; min-width: 0; }
+.dg-name { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+#dirList .dg-n { font-size: 16.5px; font-weight: 800; letter-spacing: -.018em; color: var(--dg-ink) !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#dirList .dg-en { font-size: 12.5px; font-weight: 600; color: var(--dg-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#dirList mark { background: rgba(var(--dg-accent-rgb), .30); color: #fff; border-radius: 4px; padding: 0 1px; }
+
+.dg-meta { display: flex; flex-wrap: wrap; gap: 5px 6px; margin-top: 6px; align-items: center; }
+.dg-chip, .dg-tag {
+  display: inline-block; font-size: 11.5px; font-weight: 750; line-height: 1.5;
+  padding: 1px 9px; border-radius: 99px; border: 1px solid transparent; white-space: nowrap;
+}
+.dg-chip.cell { background: rgba(var(--dg-accent-rgb), .16); border-color: rgba(var(--dg-accent-rgb), .30); color: #FFB596; }
+.dg-chip.team { background: rgba(92, 199, 122, .15); border-color: rgba(92, 199, 122, .30); color: #8BE3A5; }
+.dg-chip.mis  { background: rgba(79, 193, 201, .15); border-color: rgba(79, 193, 201, .30); color: #8FDCE2; }
+.dg-chip.none { background: rgba(255, 255, 255, .06); border-color: var(--dg-line); color: var(--dg-mute); }
+.dg-chip.wait { background: rgba(224, 178, 90, .16); border-color: rgba(224, 178, 90, .34); color: #F0CB86; }
+.dg-tag.miss  { background: rgba(255, 255, 255, .08); border-color: var(--dg-line); color: var(--dg-sub); }
+
+.dg-side { flex: none; display: flex; align-items: center; }
+.dg-rate { font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 99px; white-space: nowrap;
+  font-variant-numeric: tabular-nums; border: 1px solid transparent; }
+.dg-rate.hi  { background: rgba(92, 199, 122, .16); border-color: rgba(92, 199, 122, .38); color: var(--dg-good); }
+.dg-rate.mid { background: rgba(224, 178, 90, .16); border-color: rgba(224, 178, 90, .38); color: var(--dg-mid); }
+.dg-rate.low { background: rgba(255, 122, 107, .16); border-color: rgba(255, 122, 107, .38); color: var(--dg-low); }
+
+.dg-caret { flex: none; width: 9px; height: 9px; margin: 0 3px 0 2px;
+  border-right: 2px solid var(--dg-mute); border-bottom: 2px solid var(--dg-mute);
+  transform: rotate(-45deg); transition: transform .2s, border-color .2s; }
+.dg-head.open .dg-caret { transform: rotate(45deg); border-color: var(--dg-accent); }
+
+/* ---------- 펼친 교적 정보 (기존 personDetail 마크업을 어둡게) ---------- */
+#dirList .dg-card .detail { display: none; padding: 0 12px 12px; }
+#dirList .dg-card .dg-head.open + .detail { display: block; animation: dg-in .2s ease-out; }
+@keyframes dg-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+#dirList .detail .mcard {
+  background: rgba(0, 0, 0, .24) !important; border: 1px solid var(--dg-line) !important;
+  border-radius: 13px !important; box-shadow: none !important; color: var(--dg-ink); padding: 14px;
+}
+#dirList .detail .field .fk, #dirList .detail .mcard .field .fk { color: var(--dg-mute) !important; }
+#dirList .detail .field .fv, #dirList .detail .mcard .field .fv { color: var(--dg-ink) !important; }
+#dirList .detail .sect { color: var(--dg-sub) !important; }
+#dirList .detail .sub, #dirList .detail .empty-info, #dirList .detail .allgood { color: var(--dg-sub) !important; }
+#dirList .detail .drow { background: rgba(255, 255, 255, .06); border-left-color: var(--dg-good); }
+#dirList .detail .drow .n { color: var(--dg-ink); }
+#dirList .detail .drow .r, #dirList .detail .drow.ok .r { color: var(--dg-sub); }
+#dirList .detail .photobox img { box-shadow: 0 4px 14px rgba(0, 0, 0, .5); }
+#dirList .detail .photoempty { background: rgba(255, 255, 255, .06); border-color: var(--dg-line); color: var(--dg-mute); }
+#dirList .detail .csbox .csk { color: var(--dg-sub); }
+#dirList .detail .cspick button { background: rgba(255, 255, 255, .07); border-color: var(--dg-line); color: var(--dg-sub); }
+#dirList .detail .cspick button.on { background: var(--dg-accent); border-color: var(--dg-accent); color: #fff; }
+#dirList .detail .btn:not(.orange) { background: rgba(255, 255, 255, .09); color: var(--dg-ink); border: 1px solid var(--dg-line) !important; box-shadow: none; }
+#dirList .detail .editbox { border-top-color: var(--dg-line); }
+#dirList .detail .editbox .efield label, #dirList .detail .efield label { color: var(--dg-sub); }
+#dirList .detail input, #dirList .detail select, #dirList .detail textarea {
+  background-color: rgba(255, 255, 255, .07) !important; color: var(--dg-ink);
+  border: 1px solid var(--dg-line) !important; box-shadow: none !important; color-scheme: dark;
+}
+#dirList .detail .rolepick label { background: rgba(255, 255, 255, .06); border-color: var(--dg-line); color: var(--dg-ink); }
+#dirList .detail .rolepick label.on { border-color: var(--dg-accent); background: rgba(var(--dg-accent-rgb), .16); }
+#dirList .detail .rolepick label i { color: var(--dg-sub); }
+
+/* ---------- 더 보기 / 빈 결과 ---------- */
+.dg-more { padding: 6px 0 2px; }
+.dg-more .btn { width: 100%; }
+#dirList .dg-empty { color: var(--dg-sub) !important; padding: 30px 0 24px; }
+
+/* ---------- 작은 화면 · 접근성 ---------- */
+@media (max-width: 420px) {
+  .dg-head { padding: 12px; gap: 10px; }
+  .dg-av { width: 42px; height: 42px; }
+  #dirList .dg-n { font-size: 15.5px; }
+  #dirList .detail .mcard .grid { grid-template-columns: 1fr 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dg-card, .dg-caret { transition: none; }
+  #dirList .dg-card .dg-head.open + .detail, #dirList .skel.row { animation: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .dg-card { -webkit-backdrop-filter: none; backdrop-filter: none; background: #2A2826; }
+}
