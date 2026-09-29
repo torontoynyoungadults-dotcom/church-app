@@ -154,6 +154,7 @@
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
           '<label class="pv-chk">큐 언어 <select data-o="lang"><option value="en">English</option><option value="ko">한국어</option></select></label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="first" checked> 첫 박 강세 (1박을 더 높고 크게)</label>' +
           '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-help" data-role="lat"></div></div>' +
         '<div class="pv-sec"><h4>팀과 함께</h4>' +
@@ -175,7 +176,7 @@
         toggleB.textContent = st.running ? '■ 멈춤' : '▶ 시작'; toggleB.classList.toggle('on', st.running);
         var sigv = st.num + '/' + st.den, ss = q('[data-o="sig"]'); if (ss.value !== sigv) ss.value = sigv;
         if (dotsEl.children.length !== st.num) drawDots(st.num);
-        q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
+        q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
         q('[data-o="lang"]').value = c.lang; q('[data-o="sound"]').value = c.sound;
         q('[data-role="lat"]').textContent = st.speech ? '음성 지연 보정: 약 ' + Math.round(c.lat) + 'ms (말하는 데 걸리는 시간을 기기가 스스로 재서 박자에 맞춥니다)' : '';
         q('[data-o="send"]').checked = P.sendCueOn(); q('[data-o="recv"]').checked = P.recvCue();
@@ -206,12 +207,28 @@
         else if (a === 'tap') { var t = m.tap(); if (t) say('탭 템포 ≈ ' + Math.round(t) + ' BPM'); else say('계속 눌러 박자를 알려주세요.'); }
         sync();
       });
-      bpmIn.addEventListener('change', function () { var v = Math.round(+bpmIn.value); if (!(v >= 30 && v <= 300)) { say('BPM 은 30 ~ 300 사이로 입력해주세요.', true); sync(); return; } say(''); m.setBpm(v); });
+      bpmIn.addEventListener('change', function () { var v = Math.round(+bpmIn.value); if (!(v >= 30 && v <= 300)) { say('BPM 은 30 ~ 300 사이로 입력해주세요.', true); sync(); return; } say(''); m.setBpm(v); rememberBpm(); });
+      /* 곡 자동 BPM — 악보 쪽을 넘겨 다음 곡이 되면 리더가 곡 정보에 넣어 둔 BPM 을 자동으로 적용합니다.
+         곡 정보에 BPM 이 없거나 현장에서 바꾸고 싶으면 그대로 고치면 됩니다 (−/＋ · 탭 · 직접 입력). 고친 값은 그 곡에만 기억되어 다시 돌아와도 유지됩니다. */
+      var bpmOver = {}, curSongKey = '';
+      function rememberBpm() { if (curSongKey) bpmOver[curSongKey] = Math.round(m.state().bpm); }
+      host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-a="b-"],[data-a="b+"],[data-a="tap"]')) setTimeout(rememberBpm, 0); });
+      function applySongBpm(x) {
+        if (!x) { curSongKey = ''; return; }
+        curSongKey = String(x.title || '');
+        var own = bpmOver[curSongKey], base = Math.round(+x.bpm);
+        var v = own || (base >= 30 && base <= 300 ? base : 0);
+        if (!v) { say('이 곡에는 BPM 이 없습니다. 직접 입력하거나 탭 템포를 쓰세요.'); return; }
+        if (Math.round(m.state().bpm) !== v) m.setBpm(v);
+        say(own ? '이 곡에서 고친 BPM ' + v + ' 를 적용했습니다.' : '곡 정보의 BPM ' + v + ' 를 자동 적용했습니다. (바꾸려면 직접 고치세요)');
+      }
+      P.on('song', applySongBpm);
+      try { applySongBpm(P.song()); } catch (e) {}                          // 탭을 처음 열 때 이미 정해진 곡에도 적용
       host.addEventListener('change', function (e) {
         var t = e.target, o = t.dataset && t.dataset.o; if (!o) return;
         if (o === 'sig') { var p = t.value.split('/'); m.setSig(+p[0], +p[1]); drawDots(+p[0]); }
         else if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'mode') m.setMode(t.value);
-        else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value);
+        else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'first') m.setFirstAccent(t.checked);
         else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked);
         sync();
       });

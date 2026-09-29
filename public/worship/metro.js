@@ -161,11 +161,12 @@
     var q = [];                       // 화면에 보여줄 박 (소리가 나는 때에 맞춰 깜빡임)
     var pending = [];                 // 예약해 둔 큐 {plan, cue, timeout}
     var S = {
-      click: store('click'), voice: store('voice'), mode: store('mode'), lead: store('lead'), lang: store('lang'), lat: store('lat'), sound: store('sound')
+      click: store('click'), voice: store('voice'), mode: store('mode'), lead: store('lead'), lang: store('lang'), lat: store('lat'), sound: store('sound'), first: store('first')
     };
     var cfg = {
       click: S.click == null ? 0.8 : S.click, voice: S.voice == null ? 1 : S.voice, mode: S.mode || 'lead', lead: S.lead || 2,
-      lang: S.lang || 'en', lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood'
+      lang: S.lang || 'en', lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
+      first: S.first !== false                                   // 첫 박 강세 (기본 켬) — 끄면 첫 박도 다른 박과 같은 높이 · 세기
     };
     var voices = [], speechOk = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
     var notify = function (kind, data) { if (opt.onEvent) { try { opt.onEvent(kind, data); } catch (e) { if (typeof console !== 'undefined') console.error(e); } } };
@@ -196,6 +197,7 @@
     var SOUNDS = { wood: [1500, 1150, 880, 'square'], beep: [1320, 990, 780, 'sine'], click: [2200, 1700, 1300, 'triangle'] };
     function click(time, accent, countIn) {
       var s = SOUNDS[cfg.sound] || SOUNDS.wood;
+      if (cfg.first === false && accent === 2) accent = 0;
       var o = ctx.createOscillator(), g = ctx.createGain();
       o.type = s[3]; o.frequency.setValueAtTime(countIn ? 1000 : (accent === 2 ? s[0] : accent === 1 ? s[1] : s[2]), time);
       var peak = Math.max(0.0002, cfg.click) * (accent === 2 ? 0.9 : accent === 1 ? 0.75 : 0.6);
@@ -366,7 +368,7 @@
       setClickVolume: function (v) { set('click', clamp(v, 0, 1)); }, setVoiceVolume: function (v) { set('voice', clamp(v, 0, 1)); },
       setMode: function (m) { set('mode', ['downbeat', 'lead', 'now'].indexOf(m) === -1 ? 'lead' : m); },
       setLead: function (n) { set('lead', Math.round(clamp(n, 1, 8))); }, setLang: function (l) { set('lang', l === 'ko' ? 'ko' : 'en'); },
-      setLatency: function (ms) { latEma = clamp(ms, 0, 900); set('lat', Math.round(latEma)); }, setSound: function (s) { set('sound', s); },
+      setLatency: function (ms) { latEma = clamp(ms, 0, 900); set('lat', Math.round(latEma)); }, setSound: function (s) { set('sound', s); }, setFirstAccent: function (on) { set('first', !!on); },
       tap: function () { var b = tapper.tap(Date.now()); if (b) { sched.setBpm(b); emitState(); } return b; },
       state: state, sched: sched, ctx: function () { return ctx; }, help: HELP,
       destroy: function () {

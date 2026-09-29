@@ -75,9 +75,9 @@
     el.innerHTML =
       '<header class="pv-top">' +
         '<button class="pv-b" data-a="close" title="닫기 (Esc)">✕</button>' +
-        '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><span class="pv-songinfo"></span></div>' +
+        '<div class="pv-title"><select class="pv-sel pv-sheetsel" aria-label="악보 선택"></select><span class="pv-songinfo"></span><button type="button" class="pv-ytbtn" style="display:none" title="이 곡의 유튜브 참고 영상 (앱 안에서 재생)" aria-label="유튜브 참고 영상 재생">▶ YouTube</button></div>' +
         '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)">‹</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)">›</button></div>' +
-        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)">−</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)">＋</button></div>' +
+        '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)">−</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)">＋</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">📖 두 쪽</button></div>' +
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면">📱 태블릿</button><button data-layout="computer" title="컴퓨터 화면">💻 컴퓨터</button></div>' +
         '<div class="pv-grp pv-chips"><span class="pv-chip pv-conn" title="실시간 연결">…</span><button class="pv-chip pv-lead" data-a="tab:together" title="리더 · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="리더 화면 따라가기 켜기/끄기"></button></div>' +
         '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기">☰</button>' +
@@ -85,6 +85,7 @@
       '<div class="pv-main">' +
         '<div class="pv-tools" role="toolbar" aria-label="필기 도구"></div>' +
         '<div class="pv-stage"><div class="pv-pagebox"><canvas class="pv-pdf"></canvas><canvas class="pv-anno"></canvas></div>' +
+          '<div class="pv-pagebox pv-pagebox2" style="display:none" title="오른쪽 쪽 (보기 전용) — 눌러서 왼쪽으로 가져오면 필기할 수 있습니다"><canvas class="pv-pdf2"></canvas></div>' +
           '<div class="pv-loading">악보를 불러오는 중…</div><div class="pv-toast" role="status" aria-live="polite"></div><div class="pv-sympop"></div></div>' +
         '<aside class="pv-side"><nav class="pv-tabs" role="tablist"></nav><div class="pv-panes"></div></aside>' +
         '<button type="button" class="pv-toolsbtn" aria-pressed="true" aria-label="필기 도구 숨기기" title="필기 도구 숨기기 / 보이기"><span class="ic">▴</span><span class="nm">도구</span></button>' +
@@ -178,7 +179,36 @@
     }
     function fitScale(info) {
       var aw = Math.max(200, stage.clientWidth - (S.layout === 'computer' ? 24 : 8)), ah = Math.max(200, stage.clientHeight - 8);
+      if (spreadOn()) aw = Math.max(150, (aw - 12) / 2);                 // 두 쪽 : 각 쪽이 가로 절반
       var fw = aw / info.w, fh = ah / info.h; return S.fit === 'page' ? Math.min(fw, fh) : fw;
+    }
+    /* ------------------------------------------------------------ 두 쪽 나란히 (컴퓨터 화면)
+       왼쪽 = 지금 쪽 (필기 · 실시간 동기화는 이 쪽에만 — 기존 그대로). 오른쪽 = 다음 쪽 (보기 전용, 눌러서 왼쪽으로 가져오면 필기 가능). */
+    var box2 = $('.pv-pagebox2'), pdf2 = $('.pv-pdf2'), spreadBtn = $('.pv-spreadbtn');
+    function spreadOn() { return !!S.spread && S.layout === 'computer' && stage.clientWidth >= 860; }
+    function syncSpreadUi() {
+      var on = spreadOn(), can = S.layout === 'computer';
+      el.classList.toggle('pv-spread', on); spreadBtn.style.display = can ? '' : 'none';
+      spreadBtn.classList.toggle('on', on); spreadBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (!on) box2.style.display = 'none';
+    }
+    function renderRight(id, pg, d, base, dpr) {
+      syncSpreadUi();
+      if (!spreadOn() || pg >= d.n) { box2.style.display = 'none'; return; }
+      pageInfo(d, pg + 1).then(function (info) {
+        if (id !== S.rid || !spreadOn()) return;
+        var w = Math.max(50, Math.floor(info.w * base)), hh = Math.max(50, Math.floor(info.h * base));
+        box2.style.display = ''; box2.style.width = w + 'px'; box2.style.height = hh + 'px';
+        pdf2.style.width = w + 'px'; pdf2.style.height = hh + 'px'; pdf2.width = Math.round(w * dpr); pdf2.height = Math.round(hh * dpr);
+        var c = pdf2.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, pdf2.width, pdf2.height);
+        try { info.draw(pdf2, base * dpr); } catch (e) { box2.style.display = 'none'; }
+      }, function () { box2.style.display = 'none'; });
+    }
+    box2.onclick = function () { if (S.page < S.pages) goPage(S.page + 1, true); toast('필기하려면 이 쪽이 왼쪽에 옵니다. 다음 쪽은 오른쪽에 보입니다.'); };
+    S.spread = ls('spread') === '1';
+    function toggleSpread() {
+      if (S.layout !== 'computer' || stage.clientWidth < 860) { toast('두 쪽 보기는 넓은 컴퓨터 화면에서만 됩니다.', true); return; }
+      S.spread = !S.spread; ls('spread', S.spread ? '1' : '0'); S.zoom = 1; renderPage();
     }
     function renderPage() {
       if (!S.doc || S.dead) return Promise.resolve();
@@ -194,6 +224,7 @@
         var c = pdfCv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, pdfCv.width, pdfCv.height);
         an.resize(cssW, cssH); an.setPage(pg);
         var t = info.draw(pdfCv, base * dpr); S.task = t;
+        renderRight(id, pg, d, base, dpr);
         return t.promise.then(function () { if (id === S.rid) { S.task = null; loading.style.display = 'none'; } }, function (e) {
           if (e && e.name === 'RenderingCancelledException') return; loading.style.display = 'none'; toast('이 쪽을 그리지 못했습니다.', true);
         });
@@ -223,11 +254,11 @@
       if (fromUser) sendNav();
     }
     function nextPage(user) {
-      if (S.page < S.pages) goPage(S.page + 1, user);
+      if (S.page < S.pages) goPage(S.page + (spreadOn() && S.page + 1 < S.pages ? 2 : 1), user);
       else if (S.sheetIdx < sheets.length - 1) loadSheet(S.sheetIdx + 1, 1, user);
     }
     function prevPage(user) {
-      if (S.page > 1) goPage(S.page - 1, user);
+      if (S.page > 1) goPage(S.page - (spreadOn() && S.page > 2 ? 2 : 1), user);
       else if (S.sheetIdx > 0) { var pi = S.sheetIdx - 1; loadSheet(pi, 9999, user); }
     }
     function setZoom(z, user) { S.zoom = clamp(z, 0.4, 4); renderPage(); if (user) sendNav(); }
@@ -237,9 +268,24 @@
       S.songIdx = i >= 0 && i < songs.length ? i : -1;
       var s = songs[S.songIdx], t = $('.pv-songinfo');
       t.textContent = s ? [s.title, s.key ? 'Key ' + s.key : '', s.bpm ? s.bpm + ' BPM' : ''].filter(Boolean).join(' · ') : '';
+      setYt(s);
       P.emit('song', s || null, S.songIdx);
       if (!silent) sendNav();
     }
+    /* 유튜브 참고 영상 — 리더가 곡 정보에 넣어 둔 링크를 앱 안의 작은 창으로 재생 (악보 화면을 떠나지 않음, 필기 · 실시간 동기화와 무관) */
+    function ytIdOf(url) { var m = /(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{6,})/.exec(String(url || '')); return m ? m[1] : ''; }
+    var ytBtn = $('.pv-ytbtn'), ytBox = null;
+    function closeYt() { if (ytBox) { ytBox.remove(); ytBox = null; } }
+    function setYt(s) { var id = s ? ytIdOf(s.link) : ''; ytBtn.style.display = id ? '' : 'none'; ytBtn.setAttribute('data-id', id); if (!id) closeYt(); }
+    ytBtn.onclick = function () {
+      var id = ytBtn.getAttribute('data-id'); if (!id) return;
+      if (ytBox) { closeYt(); return; }
+      ytBox = doc.createElement('div'); ytBox.className = 'pv-yt'; ytBox.setAttribute('role', 'dialog'); ytBox.setAttribute('aria-label', '유튜브 참고 영상');
+      ytBox.innerHTML = '<div class="pv-yth"><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">✕</button></div>' +
+        '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1&autoplay=1" title="유튜브 참고 영상" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+      ytBox.querySelector('button').onclick = closeYt;
+      el.appendChild(ytBox);
+    };
 
     /* ------------------------------------------------------------ 패널과 주고받는 통로 */
     var handlers = {};
@@ -599,6 +645,7 @@
       var a = b.dataset.a;
       if (a === 'close') api.close(); else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
       else if (a === 'zin') setZoom(S.zoom * 1.2, true); else if (a === 'zout') setZoom(S.zoom / 1.2, true);
+      else if (a === 'spread') toggleSpread();
       else if (a === 'zfit') { S.zoom = 1; S.fit = S.fit === 'page' ? 'width' : 'page'; renderPage(); sendNav(); toast(S.fit === 'page' ? '한 쪽이 다 보이게 맞춤' : '가로 폭에 맞춤'); }
       else if (a === 'panel') toggleSide(); else if (a === 'follow') setFollow(!S.follow); else if (a && a.indexOf('tab:') === 0) showTab(a.slice(4));
     });

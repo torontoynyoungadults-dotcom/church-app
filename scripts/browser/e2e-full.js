@@ -46,6 +46,41 @@ const run = (fn) => global.__runtime.run((api) => fn(api)).result;
     check('다시 펴면 도구 막대가 보임', await page.evaluate(() => getComputedStyle(document.querySelector('.pv-tools')).display !== 'none' && localStorage.getItem('yn.pv.tools') === '1')); }
   check('체크박스가 주황 커스텀 모양', await page.evaluate(() => { const c = document.createElement('input'); c.type = 'checkbox'; c.checked = true; document.body.appendChild(c); const cs = getComputedStyle(c); const ok = cs.appearance === 'none' && cs.backgroundColor === 'rgb(255, 138, 42)'; c.remove(); return ok; }));
   check('슬라이더 채움(--fill)이 값에 맞게 갱신', await page.evaluate(() => { const r = document.createElement('input'); r.type = 'range'; r.min = 0; r.max = 1; r.step = .05; r.value = .25; document.querySelector('.pv').appendChild(r); r.dispatchEvent(new Event('input', { bubbles: true })); const f = r.style.getPropertyValue('--fill'); r.remove(); return f === '25%'; }));
+  { await page.evaluate(() => { const P = window.YNPractice.current().P; const sg = P.song(); if (sg) sg.link = 'https://youtu.be/dQw4w9WgXcQ'; P.setSong(P.songIdx()); });
+    check('유튜브 링크가 있으면 ▶ YouTube 버튼이 보임', await page.evaluate(() => getComputedStyle(document.querySelector('.pv-ytbtn')).display !== 'none'));
+    await page.click('.pv-ytbtn');
+    check('앱 안 작은 창에 임베드 재생기가 뜸', await page.evaluate(() => { const f = document.querySelector('.pv-yt iframe'); return !!f && /youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(f.src); }));
+    await page.click('.pv-yth button');
+    check('닫으면 사라지고 악보 화면은 그대로', await page.evaluate(() => !document.querySelector('.pv-yt') && !!document.querySelector('.pv-pdf'))); }
+  { await page.click('.pv-tabbtn[data-tab="metro"]'); await sleep(400);
+    const bp = () => page.evaluate(() => document.querySelector('[data-role="bpm"]').value);
+    check('곡 정보의 BPM(120)이 메트로놈에 자동 적용', (await bp()) === '120', await bp());
+    await page.fill('[data-role="bpm"]', '96'); await page.dispatchEvent('[data-role="bpm"]', 'change'); await sleep(200);
+    check('현장에서 직접 고친 BPM 이 적용됨', (await bp()) === '96');
+    await page.evaluate(() => { const P = window.YNPractice.current().P; P.setSong(-1); P.setSong(0); }); await sleep(300);
+    check('같은 곡으로 돌아와도 고친 BPM(96) 유지', (await bp()) === '96', await bp()); }
+  { await page.evaluate(() => { const P = window.YNPractice.current().P; P.goto && P.goto(3); });
+    await page.click('.pv-b[data-a="next"]').catch(() => {}); await sleep(200);
+    const sel = () => page.evaluate(() => document.querySelector('.pv-sheetsel').value);
+    let s0 = await sel();
+    for (let i = 0; i < 4 && s0 === '0'; i++) { await page.click('[data-a="next"]'); await sleep(500); s0 = await sel(); }
+    check('마지막 쪽에서 넘기면 다음 악보(결단 찬양 포함)로 이어짐', s0 === '1', s0);
+    await page.click('[data-a="prev"]'); await sleep(600);
+    check('되돌리면 앞 악보의 마지막 쪽으로 이어짐', (await sel()) === '0' && (await page.evaluate(() => /^3 \/ 3$/.test(document.querySelector('.pv-pg').textContent)))); }
+  { for (let i = 0; i < 4 && !(await page.evaluate(() => /^1 \//.test(document.querySelector('.pv-pg').textContent))); i++) { await page.click('[data-a="prev"]'); await sleep(500); }
+    const lay = await page.evaluate(() => document.querySelector('.pv').classList.contains('pv-computer'));
+    if (lay) {
+      await page.click('.pv-spreadbtn'); await sleep(900);
+      check('두 쪽 보기: 오른쪽 쪽이 나란히 보임', await page.evaluate(() => { const b = document.querySelector('.pv-pagebox2'); const a = document.querySelector('.pv-pagebox'); return getComputedStyle(b).display !== 'none' && b.getBoundingClientRect().left >= a.getBoundingClientRect().right - 1; }));
+      check('  오른쪽 쪽에 글자가 그려짐', await page.evaluate(() => { const c = document.querySelector('.pv-pdf2'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 128) n++; return n > 200; }));
+      check('  왼쪽 필기 층은 그대로 1장', await page.evaluate(() => document.querySelectorAll('.pv-anno').length === 1));
+      const pg0 = await page.evaluate(() => document.querySelector('.pv-pg').textContent);
+      await page.click('[data-a="next"]'); await sleep(500);
+      check('  다음으로 넘기면 두 쪽씩 이동', pg0.startsWith('1') && (await page.evaluate(() => document.querySelector('.pv-pg').textContent)).startsWith('3'), await page.evaluate(() => document.querySelector('.pv-pg').textContent));
+      await page.click('.pv-spreadbtn'); await sleep(500);
+      check('  끄면 한 쪽 보기로 복귀', await page.evaluate(() => getComputedStyle(document.querySelector('.pv-pagebox2')).display === 'none'));
+      await page.click('[data-a="prev"]'); await sleep(400);
+    } }
   check('PDF 글자가 보임', (await L.pdfInk(page)) > 500);
   check('악보 이름으로 곡 자동 인식(Key · BPM)', await page.evaluate(() => /Amazing Grace · Key G · 120 BPM/.test(document.querySelector('.pv-songinfo').textContent)), await page.evaluate(() => document.querySelector('.pv-songinfo').textContent));
   check('진짜 서버와 실시간 연결', await L.waitTrue(page, () => /실시간/.test(document.querySelector('.pv-conn').textContent), null, 6000));

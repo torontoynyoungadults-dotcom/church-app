@@ -1944,7 +1944,7 @@ function openPractice(fid) {
   if (!window.YNPractice) { alert('연습 모드를 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
   var files = (W.sheets || []).concat(W.finalSheets || []);
   var songs = (W.songs || []).concat(W.finals || []).map(function (s) {
-    return { title: s.title, key: s.key, bpm: s.bpm, form: s.form, team: s.team };
+    return { title: s.title, key: s.key, bpm: s.bpm, form: s.form, team: s.team, link: s.link || '' };
   });
   var api = YNPractice.open({
     token: TOKEN, room: DATE, sheets: files.map(function (f) { return { id: f.id, name: f.name }; }), songs: songs,
