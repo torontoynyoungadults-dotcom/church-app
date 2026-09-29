@@ -36,15 +36,59 @@
       var s = P.song(), bpm = s && +s.bpm >= 30 && +s.bpm <= 300 ? +s.bpm : undefined;
       M = root.YNMetro.create({
         bpm: bpm,
-        onBeat: function (e) { flash(e); quick.beat(e); if (mUi) mUi.beat(e); },
+        onBeat: function (e) { flash(e); quick.beat(e); minis.forEach(function (x) { x.beat(e); }); if (mUi) mUi.beat(e); },
         onEvent: function (kind, d) {
           if (kind === 'error' && remoteWait) { remoteBlocked = true; P.toast('팀 메트로놈 소리가 막혀 있습니다. 화면을 한 번 누르면 바로 시작합니다.', true); }
-          if (kind === 'state') quick.sync();
+          if (kind === 'state') { quick.sync(); minis.forEach(function (x) { x.sync(); }); }
           if (mUi) mUi.event(kind, d); else if (kind === 'error') P.toast(d && d.message || '소리를 낼 수 없습니다.', true);
         }
       });
       M.setLang(P.lang());
       return M;
+    }
+
+    /* ---------- 미니 메트로놈 (송폼 탭 맨 위에 고정) ----------
+       송폼 · 음성 큐를 다루는 동안에도 메트로놈(시작/멈춤 · BPM · 박)이 같은 화면에 함께 보이도록 합니다.
+       조작은 메트로놈 탭과 같은 경로(P.metroKey → act)를 쓰므로 클릭 컨트롤 잠금 · 동기화 · 팀 전달이 그대로 적용됩니다. */
+    var minis = [];
+    function miniMetro(host) {
+      var el = doc.createElement('div'); el.className = 'pv-mini'; el.setAttribute('role', 'group'); el.setAttribute('aria-label', '메트로놈 (송폼과 함께 보기)');
+      el.innerHTML = '<button type="button" class="pv-mini-go" data-m="toggle" aria-pressed="false">▶</button>' +
+        '<div class="pv-mini-bpm"><button type="button" class="pv-btn2 sq" data-m="b-" aria-label="BPM 내리기">−</button>' +
+        '<input class="pv-mini-in" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="3" autocomplete="off" aria-label="BPM">' +
+        '<button type="button" class="pv-btn2 sq" data-m="b+" aria-label="BPM 올리기">+</button><small>BPM</small></div>' +
+        '<div class="pv-mini-dots" aria-hidden="true"></div><div class="pv-mini-note"></div>';
+      host.insertBefore(el, host.firstChild);
+      var go = el.querySelector('.pv-mini-go'), inp = el.querySelector('.pv-mini-in'), dots = el.querySelector('.pv-mini-dots'), note = el.querySelector('.pv-mini-note'), lastNum = 0;
+      function sync() {
+        var st = M ? M.state() : null, sg = P.song(), b = st ? Math.round(st.bpm) : (sg && +sg.bpm >= 30 && +sg.bpm <= 300 ? Math.round(+sg.bpm) : 0), run = !!(st && st.running), mode = ctl(), lock = mode === 'locked';
+        go.textContent = run ? '■' : '▶'; go.classList.toggle('on', run); go.setAttribute('aria-pressed', run ? 'true' : 'false');
+        if (doc.activeElement !== inp) inp.value = b || '';
+        var num = st ? st.num : 4;
+        if (num !== lastNum) { lastNum = num; dots.innerHTML = new Array(num + 1).join('<i></i>'); }
+        Array.prototype.forEach.call(el.querySelectorAll('button,input'), function (x) { x.disabled = lock; });
+        el.classList.toggle('locked', lock);
+        var rt = P.rt();
+        note.textContent = mode === 'send' ? '🎚 내가 클릭 컨트롤 — 팀에 전달됩니다' : lock ? '🎚 ' + (rt && rt.clicker || '') + ' 님이 클릭 컨트롤 — 자동으로 따라감' : (rt && rt.online && !P.followMetro()) ? '메트로놈 따라가기 꺼짐 — 내 것만 움직임' : '';
+      }
+      function beat(e) {
+        var ds = dots.children; for (var i = 0; i < ds.length; i++) ds[i].classList.remove('on');
+        var d = ds[e && e.beat]; if (d) d.classList.add('on');
+      }
+      el.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('button[data-m]') : null; if (!b) return;
+        var k = b.dataset.m, r = k === 'toggle' ? P.metroKey('toggle') : P.metroKey('bpm', k === 'b+' ? 1 : -1);
+        if (r === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true);
+        sync();
+      });
+      inp.addEventListener('change', function () {
+        var v = Math.round(+inp.value);
+        if (!(v >= 30 && v <= 300)) { P.toast('BPM 은 30 ~ 300 사이로 입력해주세요.', true); sync(); return; }
+        var m = metro(); if (!m) return; var r = act('bpm', v); if (r && r.locked) { sync(); return; } sync();
+      });
+      var api = { el: el, sync: sync, beat: beat, destroy: function () { var i = minis.indexOf(api); if (i >= 0) minis.splice(i, 1); if (el.parentNode) el.parentNode.removeChild(el); } };
+      minis.push(api); sync();
+      return api;
     }
 
     /* ---------- 악보 화면 위 메트로놈 빠른 버튼 ----------
@@ -99,12 +143,12 @@
     var remoteSeq = -1, lastAnchor = 0, remoteWait = false, remoteBlocked = false, sendT = 0, primed = false;
     function ctl() {
       var rt = P.rt();
-      if (!rt || !rt.online || P.manual()) return 'local';
+      if (!rt || !rt.online || !P.followMetro()) return 'local';
       if (rt.isClicker) return 'send';
       if (rt.clicker) return 'locked';
       return 'local';
     }
-    function lockedMsg() { var rt = P.rt(); return (rt && rt.clicker ? rt.clicker : '다른 사람') + ' 님이 클릭 컨트롤입니다. 직접 쓰려면 "동기화 끄기"를 켜세요.'; }
+    function lockedMsg() { var rt = P.rt(); return (rt && rt.clicker ? rt.clicker : '다른 사람') + ' 님이 클릭 컨트롤입니다. 직접 쓰려면 "메트로놈 따라가기"를 끄세요.'; }
     /** 지금 내 메트로놈 상태를 서버로 (내가 클릭 컨트롤일 때) */
     function sendState(o) {
       var rt = P.rt(), m = metro(); if (!rt || !m || ctl() !== 'send') return;
@@ -115,7 +159,7 @@
     function sendSoon(o) { clearTimeout(sendT); sendT = setTimeout(function () { sendState(o); }, 220); }
     /** 클릭 컨트롤에게서 받은 상태를 내 메트로놈에 적용 — 서버 시각(startAt)을 내 오디오 시계로 바꿔 같은 박에 시작 */
     function remoteMetro(st) {
-      var rt = P.rt(); if (!st || !rt || P.manual()) return;
+      var rt = P.rt(); if (!st || !rt || !P.followMetro()) return;
       if (st.seq != null && st.seq < remoteSeq) return;
       var m = metro(); if (!m) return;
       remoteSeq = st.seq == null ? remoteSeq : st.seq;
@@ -136,7 +180,7 @@
     function prime() {
       var rt = P.rt(); if (!rt || !rt.online) return;
       if (!primed) { var m = metro(); if (m && m.prime) { m.prime(); primed = true; } }
-      if (remoteBlocked && !P.manual() && rt.metro && rt.metro.playing) { remoteBlocked = false; remoteMetro(Object.assign({}, rt.metro, { seq: null })); }
+      if (remoteBlocked && P.followMetro() && rt.metro && rt.metro.playing) { remoteBlocked = false; remoteMetro(Object.assign({}, rt.metro, { seq: null })); }
     }
     doc.addEventListener('pointerdown', prime, true);
     /**
@@ -175,9 +219,9 @@
     });
     P.on('metro', function (st) { remoteMetro(st); });
     /* 동기화를 다시 켜면 지금 팀 메트로놈 상태로 바로 맞춥니다 */
-    P.on('manual', function (on) {
+    P.on('followm', function (on) {
       var rt = P.rt();
-      if (!on && rt && rt.online && rt.metro && ctl() !== 'send') { remoteSeq = -1; lastAnchor = 0; remoteMetro(rt.metro); }
+      if (on && rt && rt.online && rt.metro && ctl() !== 'send') { remoteSeq = -1; lastAnchor = 0; remoteMetro(rt.metro); }
       if (mUi) mUi.sync();
     });
     P.on('song', function (s) {
@@ -186,7 +230,7 @@
       M.setBpm(b); if (mode === 'send') sendSoon({}); if (mUi) mUi.sync();
     });
     P.on('close', function () { quick.unmount(); clearTimeout(sendT); doc.removeEventListener('pointerdown', prime, true); try { M && M.destroy(); } catch (e) {} M = null; if (flashEl && flashEl.parentNode) flashEl.parentNode.removeChild(flashEl); flashEl = null; });
-    ['clicker', 'conn', 'leader'].forEach(function (n) { P.on(n, function () { if (mUi) mUi.sync(); }); });
+    ['clicker', 'conn', 'leader', 'followm', 'manual', 'song'].forEach(function (n) { P.on(n, function () { if (mUi) mUi.sync(); minis.forEach(function (x) { x.sync(); }); }); });
     /* 단축키용 — 메트로놈 탭을 한 번도 안 열었어도 ↑↓ (BPM) · Space (시작/멈춤) 이 동작합니다. 쓸 수 없으면 null */
     P.metroKey = function (act2, d) {
       var m = metro(); if (!m) return null;
@@ -298,6 +342,14 @@
         b.disabled = true; eMsg.textContent = '저장 중…'; eMsg.className = 'pv-msg2';
         P.saveSongInfo(i, patch, function (ok) { b.disabled = false; eMsg.textContent = ok ? '저장했습니다.' : '저장하지 못했습니다.'; eMsg.className = 'pv-msg2' + (ok ? '' : ' bad'); if (ok) fillInfo(true); });
       });
+      /* 메트로놈 + 콜아웃 큐를 송폼과 함께 (메트로놈 탭으로 옮겨 다니지 않아도 됨) */
+      var miniM = miniMetro(host);
+      var fcue = doc.createElement('div'); fcue.className = 'pv-sec pv-fcues';
+      fcue.innerHTML = '<h4>콜아웃 큐 <small>눌러서 알려주기</small></h4><div class="pv-cues">' + root.YNMetro.CUES.filter(function (c) { return c.g === 'rep'; }).map(function (c) { return '<button type="button" class="pv-cue" data-cue="' + c.id + '"></button>'; }).join('') + '</div>';
+      var songSec = host.querySelector('.pv-sec'); songSec.parentNode.insertBefore(fcue, songSec.nextSibling);
+      function fcueLabels() { Array.prototype.forEach.call(fcue.querySelectorAll('[data-cue]'), function (b) { var c = root.YNMetro.CUE_BY[b.dataset.cue]; b.textContent = P.lang() === 'ko' ? c.ko : c.en; b.title = c.en + ' / ' + c.ko; }); }
+      fcue.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-cue]') : null; if (!b) return; var r = doCue(b.dataset.cue); if (r && r.ok) { b.classList.add('flash'); setTimeout(function () { b.classList.remove('flash'); }, 350); } });
+      fcueLabels(); P.on('close', function () { miniM.destroy(); });
       var sel = host.querySelector('[data-role="song"]'), meta = host.querySelector('[data-role="meta"]'), player = null, cur = -1;
       function fill() {
         sel.innerHTML = '<option value="-1">곡 선택…</option>' + P.songs.map(function (s, i) { return '<option value="' + i + '">' + h((i + 1) + '. ' + s.title) + '</option>'; }).join('');
@@ -316,7 +368,7 @@
       player = root.YNForm.mountPlayer(host.querySelector('[data-role="player"]'), { value: (P.song() || {}).form || '', lang: P.lang(), onPick: pick });
       sel.onchange = function () { P.setSong(+sel.value); };
       host.querySelector('[data-o="lang"]').value = P.lang();
-      host.querySelector('[data-o="lang"]').onchange = function (e) { P.setLang(e.target.value); if (M) M.setLang(e.target.value); player.setLang(e.target.value); };
+      host.querySelector('[data-o="lang"]').onchange = function (e) { P.setLang(e.target.value); if (M) M.setLang(e.target.value); player.setLang(e.target.value); fcueLabels(); };
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-a]') : null; if (!b) return;
         var list = player.list(); if (!list.length) { P.toast('이 곡에는 송폼이 없습니다.', true); return; }
@@ -324,7 +376,7 @@
         else { cur = Math.max(0, cur - 1); player.setCurrent(cur); }
       });
       P.on('song', song); P.on('songedit', function () { song(); }); P.on('songs', function () { song(); }); P.on('layer', infoWhere); song();
-      return { onShow: function () { fill(); infoWhere(); } };
+      return { onShow: function () { fill(); infoWhere(); fcueLabels(); miniM.sync(); } };
     } });
 
     /* ------------------------------------------------------------ 메트로놈 + 음성 큐 */
@@ -395,8 +447,8 @@
         ['[data-a="b-"]', '[data-a="b+"]', '[data-a="tap"]', '[data-role="bpm"]', '[data-o="sig"]', '[data-o="count"]', '[data-role="toggle"]'].forEach(function (sel) { var el = q(sel); if (el) el.disabled = lock; });
         Array.prototype.forEach.call(dotsEl.children, function (d) { d.disabled = lock; });
         if (mode === 'send') note.innerHTML = '🎚 <b>내가 클릭 컨트롤</b> — 여기서 누르는 시작 · 멈춤 · BPM · 박자 · 강세가 팀 모두의 메트로놈에 전달됩니다.';
-        else if (lock) note.innerHTML = '🎚 <b>' + h(rt.clicker) + '</b> 님이 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. <button class="pv-btn2" data-a="manualon">동기화 끄고 직접 쓰기</button>';
-        else if (P.manual() && rt && rt.online) note.innerHTML = '⛔ <b>동기화 꺼짐</b> — 이 메트로놈은 혼자 움직입니다. <button class="pv-btn2" data-a="manualoff">동기화 다시 켜기</button>';
+        else if (lock) note.innerHTML = '🎚 <b>' + h(rt.clicker) + '</b> 님이 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. <button class="pv-btn2" data-a="fmoff">메트로놈 따라가기 끄고 직접 쓰기</button>';
+        else if (!P.followMetro() && rt && rt.online) note.innerHTML = '⛔ <b>메트로놈 따라가기 꺼짐</b> — 이 메트로놈은 혼자 움직입니다. <button class="pv-btn2" data-a="fmon">메트로놈 따라가기 켜기</button>';
         else note.textContent = '';
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
         q('[data-o="lang"]').value = c.lang; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.gender || 'male';
@@ -425,8 +477,8 @@
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
         if (b.dataset.beat != null && b.dataset.beat !== '') { var rb = act('mark', +b.dataset.beat); if (rb && rb.ok === false && !rb.locked) say(rb.error || '', true); else saveMetroSoon(); return; }
-        if (b.dataset.a === 'manualon') { P.setManual(true); return; }
-        if (b.dataset.a === 'manualoff') { P.setManual(false); return; }
+        if (b.dataset.a === 'fmoff') { P.setFollowMetro(false); return; }
+        if (b.dataset.a === 'fmon') { P.setFollowMetro(true); return; }
         if (b.dataset.cue) { var r = doCue(b.dataset.cue); if (r && r.ok) { b.classList.add('flash'); setTimeout(function () { b.classList.remove('flash'); }, 350); } return; }
         var a = b.dataset.a; if (!a) return;
         if (a === 'toggle') { var r2 = act('toggle'); if (r2 && r2.ok === false && !r2.locked) say(r2.error, true); else say(''); }
@@ -518,23 +570,28 @@
     tabs.push({ id: 'together', icon: '👥', label: '함께', build: function (host) {
       function paint() {
         var rt = P.rt(), st = rt ? rt.state : 'unavailable', on = st === 'online', lead = on ? rt.leader : null, mine = on && rt.isLeader;
-        var clk = on ? rt.clicker : null, cmine = on && rt.isClicker, manual = P.manual();
+        var clk = on ? rt.clicker : null, cmine = on && rt.isClicker, manual = P.manual(), fp = P.follow(), fm = P.followMetro();
         var html = '<div class="pv-sec"><h4>연결</h4><div class="pv-conninfo ' + st + '">' +
           ({ online: '● 실시간 연결됨 — ' + rt.peers.length + '명 접속 중', connecting: '○ 연결하는 중…', offline: '○ 연결이 끊겼습니다. 자동으로 다시 연결합니다.', unavailable: '○ 실시간 기능을 쓸 수 없어 혼자 보기로 동작합니다.', denied: '✕ 이 예배에 접속할 권한이 없습니다.', idle: '○ 준비 중' }[st] || st) + '</div>' +
           (rt && rt.error && !on ? '<div class="pv-help">' + h(rt.error) + '</div>' : '') + '</div>';
         if (on) {
-          html += '<div class="pv-sec pv-syncsec ' + (manual ? 'off' : 'on') + '"><h4>동기화</h4><label class="pv-switch"><input type="checkbox" data-a="manual"' + (manual ? ' checked' : '') + '><span></span><b>동기화 끄기 (수동)</b></label>' +
+          html += '<div class="pv-sec pv-syncsec ' + (manual ? 'off' : 'on') + '"><h4>동기화</h4><label class="pv-switch"><input type="checkbox" data-a="manual"' + (manual ? ' checked' : '') + '><span></span><b>동기화 모두 끄기 (수동)</b></label>' +
             '<p class="pv-help">' + (manual ? '지금은 <b>꺼져 있습니다.</b> 내 악보 화면과 메트로놈은 팀과 상관없이 따로 움직이고, 남이 넘기는 쪽 · 바꾸는 BPM · 시작/멈춤 · 큐를 모두 무시합니다. 내가 하는 조작도 팀에 보내지 않습니다. 다시 켜면 팀의 현재 화면 · 박자로 바로 맞춥니다.' : '켜 두면(기본) 페이지 컨트롤이 넘기는 쪽과 클릭 컨트롤이 정하는 BPM · 박자 · 시작/멈춤을 따라갑니다. 내 화면 · 박자만 따로 쓰고 싶을 때 "동기화 끄기"를 켜세요.') + '</p></div>';
           html += '<div class="pv-sec"><h4>접속한 사람</h4><ul class="pv-peers">' + rt.peers.map(function (p) {
             return '<li class="' + (p.lead || p.click ? 'lead' : '') + '">' + (p.lead ? '📄 ' : '') + (p.click ? '🎚 ' : '') + h(p.name) +
-              (p.lead ? ' <small>(페이지 컨트롤)</small>' : '') + (p.click ? ' <small>(클릭 컨트롤)</small>' : '') + (p.canLead && !p.lead && !p.click ? ' <small>(컨트롤 가능)</small>' : '') + '</li>'; }).join('') + '</ul></div>';
+              (p.lead ? ' <small>(페이지 컨트롤)</small>' : '') + (p.click ? ' <small>(클릭 컨트롤)</small>' : '') + (p.canLead && !p.lead && !p.click ? ' <small>(컨트롤 가능)</small>' : '') + (p.follow && p.follow.page === false ? ' <small class="pv-pf">· 페이지 따로</small>' : '') + (p.follow && p.follow.metro === false ? ' <small class="pv-pf">· 메트로놈 따로</small>' : '') + '</li>'; }).join('') + '</ul></div>';
           html += '<div class="pv-sec"><h4>📄 페이지 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤입니다. 내가 넘기는 악보 · 쪽 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 페이지 컨트롤입니다.' : '아직 페이지 컨트롤이 없습니다.') + '</p><div class="pv-row">' +
             (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">페이지 컨트롤 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">페이지 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">📄 내가 페이지 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div></div>';
           html += '<div class="pv-sec"><h4>🎚 클릭 컨트롤</h4><p class="pv-help">' + (cmine ? '지금 내가 클릭 컨트롤입니다. 내가 누르는 시작 · 멈춤 · BPM · 박자 · 강세를 모두의 메트로놈이 따라옵니다. (소리는 각자 기기에서 냅니다)' : clk ? h(clk) + ' 님이 클릭 컨트롤입니다. 그분이 누르는 시작 · 멈춤 · BPM · 박자를 이 기기의 메트로놈이 따라갑니다.' : '아직 클릭 컨트롤이 없습니다. 없으면 메트로놈은 각자 자유롭게 씁니다.') + '</p><div class="pv-row">' +
             (P.canLead() ? (cmine ? '<button class="pv-btn2" data-a="crelease">클릭 컨트롤 내려놓기</button>' : clk ? '<button class="pv-btn2 warn" data-a="cforce">클릭 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="cclaim">🎚 내가 클릭 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div>' +
             '<p class="pv-help">페이지 컨트롤과 클릭 컨트롤은 서로 독립입니다 — 한 사람이 둘 다 맡아도 되고, 나눠 맡아도 됩니다.</p></div>';
-          if (lead && !mine && !manual) html += '<div class="pv-sec"><h4>따라가기</h4><label class="pv-switch"><input type="checkbox" data-a="follow"' + (P.follow() ? ' checked' : '') + '><span></span><b>페이지 컨트롤 화면 따라가기</b></label>' +
-            '<p class="pv-help">끄면 페이지 컨트롤이 넘겨도 내 화면만 그대로입니다 (메트로놈은 계속 따라옵니다). 다시 켜면 그 사람이 있는 곳으로 바로 돌아갑니다.</p>' + (!P.follow() ? '<div class="pv-row"><button class="pv-btn2" data-a="now">컨트롤 화면으로 한 번만 가기</button></div>' : '') + '</div>';
+          html += '<div class="pv-sec pv-follows"><h4>따라가기 (각각 따로 켜고 끕니다)</h4>' +
+            '<label class="pv-switch"><input type="checkbox" data-a="follow"' + (fp ? ' checked' : '') + '><span></span><b>페이지 컨트롤 따라가기</b></label>' +
+            '<p class="pv-help">' + (mine ? '내가 페이지 컨트롤입니다. 켜 두면 내가 넘기는 쪽이 팀에 전달되고, 끄면 팀에 보내지 않고 나 혼자 봅니다.' : fp ? (lead ? h(lead) + ' 님이 넘기는 쪽 · 악보 · 확대를 그대로 따라갑니다.' : '페이지 컨트롤이 생기면 그 화면을 따라갑니다.') : '끄면 페이지 컨트롤이 넘겨도 내 화면은 그대로입니다. 켜면 그 사람이 있는 곳으로 바로 돌아갑니다.') + '</p>' +
+            (!fp && lead && !mine ? '<div class="pv-row"><button class="pv-btn2" data-a="now">컨트롤 화면으로 한 번만 가기</button></div>' : '') +
+            '<label class="pv-switch"><input type="checkbox" data-a="followm"' + (fm ? ' checked' : '') + '><span></span><b>메트로놈 컨트롤 따라가기</b></label>' +
+            '<p class="pv-help">' + (cmine ? '내가 클릭 컨트롤입니다. 켜 두면 내가 누르는 시작 · 멈춤 · BPM · 박자가 팀에 전달되고, 끄면 내 메트로놈만 따로 움직입니다.' : fm ? (clk ? h(clk) + ' 님이 정하는 BPM · 박자 · 시작/멈춤을 이 기기의 메트로놈이 따라갑니다.' : '클릭 컨트롤이 생기면 그 메트로놈을 따라갑니다.') : '끄면 클릭 컨트롤이 바꿔도 내 메트로놈은 그대로이고, BPM · 박자 · 시작/멈춤을 내가 직접 조절합니다. 켜면 팀 메트로놈에 바로 맞춥니다.') + '</p>' +
+            '<p class="pv-help pv-fstate">지금: ' + (fp && fm ? '<b>둘 다 켜짐</b> — 화면과 메트로놈 모두 팀과 같이' : fp ? '<b>페이지만 따라감</b> — 메트로놈은 내 것' : fm ? '<b>메트로놈만 따라감</b> — 악보는 내가 넘김' : '<b>둘 다 꺼짐</b> — 화면 · 메트로놈 모두 내 것') + ' · 이 설정은 기기와 내 계정에 저장됩니다.</p></div>';
           html += '<div class="pv-sec"><h4>큐(음성 안내)</h4><label class="pv-chk"><input type="checkbox" data-a="send"' + (P.sendCueOn() ? ' checked' : '') + '> 컨트롤일 때 큐를 팀에 보내기</label><label class="pv-chk"><input type="checkbox" data-a="recv"' + (P.recvCue() ? ' checked' : '') + '> 컨트롤의 큐 받기</label></div>';
         }
         host.innerHTML = html;
@@ -548,14 +605,14 @@
       });
       host.addEventListener('change', function (e) {
         var t = e.target, a = t.dataset && t.dataset.a;
-        if (a === 'follow') P.setFollow(t.checked); else if (a === 'send') P.sendCueOn(t.checked); else if (a === 'recv') P.recvCue(t.checked); else if (a === 'manual') P.setManual(t.checked);
+        if (a === 'follow') P.setFollow(t.checked); else if (a === 'followm') P.setFollowMetro(t.checked); else if (a === 'send') P.sendCueOn(t.checked); else if (a === 'recv') P.recvCue(t.checked); else if (a === 'manual') P.setManual(t.checked);
       });
-      ['conn', 'peers', 'leader', 'clicker', 'follow', 'manual', 'state', 'joined'].forEach(function (n) { P.on(n, function () { if (host.offsetParent !== null) paint(); }); });
+      ['conn', 'peers', 'leader', 'clicker', 'follow', 'followm', 'manual', 'state', 'joined'].forEach(function (n) { P.on(n, function () { if (host.offsetParent !== null) paint(); }); });
       paint();
       return { onShow: paint };
     } });
 
-    P.on('song', function () { quick.sync(); }); ['clicker', 'conn', 'leader', 'manual'].forEach(function (n) { P.on(n, function () { quick.sync(); }); });
+    P.on('song', function () { quick.sync(); }); ['clicker', 'conn', 'leader', 'manual', 'followm'].forEach(function (n) { P.on(n, function () { quick.sync(); }); });
     setTimeout(function () { quick.mount(); }, 0);          // 화면 뼈대가 다 만들어진 다음에 붙입니다
     return tabs;
   }

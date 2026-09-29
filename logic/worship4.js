@@ -40,6 +40,8 @@ function 연습설정열쇠_(kind, key) {
   key = String(key == null ? '' : key).replace(/[\u0000-\u001f]/g, '').trim();
   if (kind === 'map') {
     if (!/^[A-Za-z0-9_-]{10,}$/.test(key)) throw new Error('악보 파일을 확인해주세요.');
+  } else if (kind === 'follow') {
+    if (key !== 'sync') throw new Error('설정 이름을 확인해주세요.');
   } else if (!key || key.length > 80) {
     throw new Error('곡 이름을 확인해주세요.');
   }
@@ -74,6 +76,9 @@ function 연습설정값정리_(kind, value) {
     if (value.bpm != null && String(value.bpm) !== '') { o.bpm = 연습정수_(value.bpm, 30, 300, 72); any = true; }
     return any ? o : null;
   }
+  if (kind === 'follow') {                                 // 내 따라가기 스위치 { page, metro } — 나만 (팀 공유 안 함)
+    return { page: value.page !== false && value.page !== 0 && value.page !== '0', metro: value.metro !== false && value.metro !== 0 && value.metro !== '0' };
+  }
   if (kind === 'song') {                                   // 나에게만 바꿔 둔 곡 정보
     var s = {}, has = false;
     if (value.bpm != null) { s.bpm = String(value.bpm).replace(/[^0-9]/g, '').slice(0, 3); has = true; }
@@ -101,7 +106,7 @@ function 연습설정읽기_(room, owner) {
 /** 설정 하나를 넣거나 (value 있음) 지웁니다 (value 없음) — 같은 방 · 층 · 종류 · 열쇠의 줄만 바꿉니다 */
 function 연습설정저장_(room, owner, kind, key, value, by) {
   room = 연습설정방_(room); owner = String(owner || '*');
-  if (['map', 'metro', 'song'].indexOf(kind) < 0) throw new Error('설정 종류를 확인해주세요.');
+  if (['map', 'metro', 'song', 'follow'].indexOf(kind) < 0) throw new Error('설정 종류를 확인해주세요.');
   key = 연습설정열쇠_(kind, key);
   var clean = 연습설정값정리_(kind, value);
   var json = clean == null ? '' : JSON.stringify(clean);
@@ -163,6 +168,7 @@ function worshipCfgSave(token, room, layer, kind, key, value, cid) {
   if (layer === 'team') {
     if (!w.canEdit) throw new Error('팀 전체에 공유되는 설정은 팀장 · 인도자만 바꿀 수 있습니다. ("나만 보기" 를 켜면 내 설정으로 저장됩니다)');
     if (kind === 'song') throw new Error('곡 정보는 "곡 정보 저장" 으로 바꿔주세요.');
+    if (kind === 'follow') throw new Error('따라가기 설정은 나만 저장할 수 있습니다.');
   }
   var clean = 연습설정저장_(room, layer === 'team' ? '*' : me, kind, key, value, me);
   key = 연습설정열쇠_(kind, key);

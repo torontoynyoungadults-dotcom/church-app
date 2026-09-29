@@ -27,10 +27,11 @@
     { id: 'end', en: 'Ending', ko: '엔딩', g: 'sec' },
     { id: 'voice', en: 'Voice', ko: '보이스', g: 'dyn' }, { id: 'break', en: 'Break', ko: '브레이크', g: 'dyn' }, { id: 'die', en: 'Die down', ko: '작게', g: 'dyn' },
     { id: 'ferm', en: 'Fermata', ko: '늘임표', g: 'dyn' }, { id: 'solo', en: 'Solo', ko: '솔로', g: 'dyn' },
-    { id: 'repc', en: 'Repeat Chorus', ko: '후렴 반복', g: 'rep' }, { id: 'halfc', en: 'Half Chorus', ko: '후렴 반절', g: 'rep' },
+    { id: 'repc', en: 'Repeat Chorus', ko: '코러스 반복', g: 'rep' }, { id: 'halfc', en: 'Half Chorus', ko: '코러스 반', g: 'rep' },
     { id: 'tag', en: 'Tag the last line', ko: '끝 소절 반복', g: 'rep' }, { id: 'lastl', en: 'Last line again', ko: '마지막 줄 한 번 더', g: 'rep' },
-    { id: 'once', en: 'One more time', ko: '한 번 더', g: 'rep' }, { id: 'onebar', en: 'One more bar', ko: '한 마디 더', g: 'rep' },
-    { id: 'sess', en: 'Session in', ko: '세션 인', g: 'in' }, { id: 'alto', en: 'Alto in', ko: '알토 인', g: 'in' }, { id: 'tenor', en: 'Tenor in', ko: '테너 인', g: 'in' }
+    { id: 'once', en: 'One more time', ko: '한 번 더', g: 'rep' }, { id: 'onebar', en: 'One more bar', ko: '한마디 더', g: 'rep' },
+    { id: 'sess', en: 'Session in', ko: '세션 인', g: 'in' }, { id: 'alto', en: 'Alto in', ko: '알토 인', g: 'in' }, { id: 'tenor', en: 'Tenor in', ko: '테너 인', g: 'in' },
+    { id: 'keyup', en: 'Key Up', ko: '키 업', g: 'rep' }, { id: 'prayer', en: 'Prayer', ko: '기도', g: 'rep' }      // Step 2.11 — 배열 끝에 추가 (기존 큐의 소리 번호는 그대로)
   ];
   var CUE_BY = {};
   CUES.forEach(function (c) { CUE_BY[c.id] = c; });
@@ -52,20 +53,33 @@
    * gender 'male'(기본): 남성 이름의 음성 → 없으면 (여성 이름이 아닌 것 → 그래도 없으면) 아무거나. 기기 안 음성 우선.
    * gender 'female': 여성 음성 우선. 'any': 성별 상관없음.
    */
+  /* 기계음처럼 들리는 옛 음성 · 효과음 음성 — 다른 선택지가 있으면 고르지 않습니다 */
+  var ROBOT_RE = /\b(fred|albert|junior|ralph|kathy|bad news|good news|bahh|bells|boing|bubbles|cellos|deranged|hysterical|organ|superstar|trinoids|whisper|wobble|zarvox|jester|espeak|compact)\b/i;
+  /** 자연스러움 점수 — 신경망(Natural · Neural · Online) · 고음질(Premium · Enhanced · Siri) 음성이 높고, 기기 안 음성 · 기본 음성이 조금 유리 */
+  function voiceScore(v) {
+    var n = String((v && v.name) || ''), sc = 0;
+    if (/natural|neural|online/i.test(n)) sc += 14;
+    if (/premium|enhanced|siri|studio|wavenet/i.test(n)) sc += 8;
+    if (ROBOT_RE.test(n)) sc -= 20;
+    if (v && v.localService) sc += 3;
+    if (v && v.default) sc += 1;
+    if (/^en[-_]?(us|gb)/i.test(String((v && v.lang) || ''))) sc += 1;
+    return sc;
+  }
   function pickVoiceFrom(voices, lang, gender) {
     var want = lang === 'ko' ? 'ko' : 'en';
     var list = (voices || []).filter(function (v) { return String(v.lang || '').toLowerCase().replace('_', '-').indexOf(want) === 0; });
-    var local = function (a) { return a.filter(function (v) { return v.localService; })[0] || a[0] || null; };
+    var best = function (a) { var top = null, ts = -1e9; a.forEach(function (v) { var sc = voiceScore(v); if (sc > ts) { top = v; ts = sc; } }); return top; };   // 점수가 같으면 목록에서 먼저 나온 것
     if (gender === 'male') {
-      var m = list.filter(isMaleVoice); if (m.length) return local(m);
-      var u = list.filter(function (v) { return !isFemaleVoice(v); }); if (u.length) return local(u);
+      var m = list.filter(isMaleVoice); if (m.length) return best(m);
+      var u = list.filter(function (v) { return !isFemaleVoice(v); }); if (u.length) return best(u);
     } else if (gender === 'female') {
-      var f = list.filter(isFemaleVoice); if (f.length) return local(f);
+      var f = list.filter(isFemaleVoice); if (f.length) return best(f);
     }
-    return local(list);
+    return best(list);
   }
   /** 남성 음성을 못 찾았을 때 낮은 목소리로 들리게 하는 음높이 (0.1 ~ 2, 기본 1) */
-  var MALE_FALLBACK_PITCH = 0.7;
+  var MALE_FALLBACK_PITCH = 0.82;      // 너무 낮추면 오히려 기계음처럼 들려서 살짝만
 
   /* ============================================================
      Sched — 시간만 다루는 순수한 부분 (소리 없음 · 브라우저 없음)
@@ -390,7 +404,7 @@
         u.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
         var v = pickVoice(lang); if (v) u.voice = v;
         u.pitch = cfg.gender === 'male' && !(v && isMaleVoice(v)) ? MALE_FALLBACK_PITCH : 1;        // 남성 음성이 없으면 낮은 음높이로 대신
-        u.rate = 1.05; u.volume = calibrate ? 0 : Math.min(1, Math.max(0, cfg.voice));
+        u.rate = 0.97;                                   // 조금 여유 있게 — 빠른 합성음처럼 들리지 않게 u.volume = calibrate ? 0 : Math.min(1, Math.max(0, cfg.voice));
         var t0 = performance.now();
         u.onstart = function () {
           var m = performance.now() - t0;
@@ -587,5 +601,5 @@
     };
   }
 
-  return { CUES: CUES, CUE_BY: CUE_BY, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS, pickVoiceFrom: pickVoiceFrom, isMaleVoice: isMaleVoice, MALE_FALLBACK_PITCH: MALE_FALLBACK_PITCH, Media: Media };
+  return { CUES: CUES, CUE_BY: CUE_BY, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS, pickVoiceFrom: pickVoiceFrom, voiceScore: voiceScore, isMaleVoice: isMaleVoice, MALE_FALLBACK_PITCH: MALE_FALLBACK_PITCH, Media: Media };
 }));

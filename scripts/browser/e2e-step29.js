@@ -202,7 +202,7 @@ const INIT = `(() => {
   check('모두 남성 음성(Daniel)으로 · 음높이는 그대로', said.every((s) => s.voice === 'Daniel' && s.pitch === 1), said.map((s) => [s.voice, s.pitch]));
   await pa.selectOption('[data-o="lang"]', 'ko'); await sleep(200); await pa.evaluate(() => { window.__said.length = 0; }); await clk(pa, '[data-cue="repc"]'); await sleep(250);
   const ko = await pa.evaluate(() => window.__said.filter((s) => s.text.trim()));
-  check('한국어 큐: 후렴 반복 · 한국어 남성 음성(InJoon)', ko.length === 1 && ko[0].text === '후렴 반복' && /InJoon/.test(ko[0].voice), ko);
+  check('한국어 큐: 코러스 반복 · 한국어 남성 음성(InJoon)', ko.length === 1 && ko[0].text === '코러스 반복' && /InJoon/.test(ko[0].voice), ko);
   await pa.selectOption('[data-o="gender"]', 'female'); await sleep(200); await pa.evaluate(() => { window.__said.length = 0; }); await clk(pa, '[data-cue="repc"]'); await sleep(250);
   const fe = await pa.evaluate(() => window.__said.filter((s) => s.text.trim()));
   check('여성으로 바꾸면 여성 음성(Yuna)', fe.length === 1 && fe[0].voice === 'Yuna', fe);

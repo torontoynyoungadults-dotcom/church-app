@@ -61,9 +61,9 @@
 
     var S = {
       layout: detectLayout(), hand: ls('hand') === 'left' ? 'left' : 'right', fit: null, zoom: 1, sheetIdx: 0, page: 1, pages: 1, songIdx: -1,
-      doc: null, rid: 0, task: null, tab: '', layer: 'team', scope: 'song', follow: true, pendingNav: null, applying: false, navT: 0, dead: false,
+      doc: null, rid: 0, task: null, tab: '', layer: 'team', scope: 'song', follow: ls('fpage') !== '0', followM: ls('fmetro') !== '0', prefTouched: false, prefT: 0, pendingNav: null, applying: false, navT: 0, dead: false,
       scopeOf: {}, unsent: {}, localMine: {}, delMine: {}, mineLoaded: {}, teamFrom: {}, annoId: 0, mineDirty: {}, mineT: 0, minePend: 0, savedAt: 0, msgT: 0, lang: ls('lang') === 'ko' ? 'ko' : 'en',
-      recvCue: ls('recvcue') !== '0', sendCue: ls('sendcue') !== '0', manual: ls('manual') === '1', loadId: 0, cache: {}, cacheOrder: []
+      recvCue: ls('recvcue') !== '0', sendCue: ls('sendcue') !== '0', loadId: 0, cache: {}, cacheOrder: []
     };
     S.fit = S.layout === 'tablet' ? 'page' : 'width';
     var startIdx = 0; sheets.forEach(function (s, i) { if (s.id === opts.start) startIdx = i; }); S.sheetIdx = startIdx;
@@ -79,7 +79,7 @@
         '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)">‹</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)">›</button></div>' +
         '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)">−</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)">＋</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">✂ 여백</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">📖 두 쪽</button></div>' +
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면">📱 태블릿</button><button data-layout="computer" title="컴퓨터 화면">💻 컴퓨터</button></div>' +
-        '<div class="pv-grp pv-chips"><span class="pv-chip pv-conn" title="실시간 연결">…</span><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
+        '<div class="pv-grp pv-chips"><span class="pv-chip pv-conn" title="실시간 연결">…</span><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button><button class="pv-chip pv-followm" data-a="followm" title="메트로놈 따라가기 켜기/끄기" style="display:none"></button></div>' +
         '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기">☰</button>' +
         '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="도구 메뉴 열기" title="도구 메뉴 열기 / 닫기"><span class="ic">🛠</span><span class="nm">메뉴</span></button>' +
       '</header>' +
@@ -455,6 +455,10 @@
        · "나만 보기" 를 켜거나 팀장 · 인도자가 아니면 → 내 설정(mine)으로만 저장, 전달하지 않음
        · 팀 설정(team)은 팀장 · 인도자만 바꿀 수 있고, 저장되는 즉시 웹소켓으로 팀 화면에 반영됩니다
        · 내 설정이 팀 설정보다 우선합니다 (내가 "나만 보기" 로 바꿔 둔 것은 팀 값이 바뀌어도 그대로) */
+    /* 따라가기는 두 스위치가 독립 — S.follow(페이지) · S.followM(메트로놈). "동기화 끄기(수동)" = 둘 다 끈 상태의 별칭.
+       예전에 저장된 수동(manual=1)은 두 스위치를 모두 끈 것으로 옮겨 줍니다. */
+    if (ls('fpage') === null && ls('fmetro') === null && ls('manual') === '1') { S.follow = false; S.followM = false; ls('fpage', '0'); ls('fmetro', '0'); }
+    Object.defineProperty(S, 'manual', { get: function () { return !S.follow && !S.followM; }, enumerable: true });
     S.cid = 'c' + Math.random().toString(36).slice(2, 10);
     S.cfg = { team: {}, mine: {} }; S.cfgLoaded = false;
     function ck(kind, key) { return kind + '|' + key; }
@@ -505,6 +509,7 @@
           if (titles === nt) { songs.forEach(function (x, i) { Object.assign(x, r.songs[i]); }); applySongCfg(); }
           else replaceSongs(r.songs);
         }
+        applyPrefs(S.cfg.mine[ck('follow', 'sync')]);
         Object.keys(S.maps).forEach(function (id) { applyMapCfg(id, false); });
         if (S.doc) { syncSongForPage(); renderSongSel(); if (S.songIdx >= 0) setSong(S.songIdx, true); }
         P.emit('cfg', { kind: 'all', key: '', remote: false });
@@ -676,7 +681,7 @@
       /** 동기화 끄기 (수동) — 켜 두면 남이 넘기는 쪽 · 바꾸는 BPM · 시작/멈춤 · 큐를 모두 무시하고, 내 것도 보내지 않습니다 */
       manual: function () { return S.manual; }, setManual: function (b) { setManual(b); },
       claimClick: function (force) { return claimClick(force); }, releaseClick: function () { return releaseClick(); },
-      follow: function () { return S.follow; }, setFollow: function (b) { setFollow(b); }, followNow: function () { followNow(); },
+      follow: function () { return S.follow; }, setFollow: function (b) { setFollow(b); }, followMetro: function () { return S.followM; }, setFollowMetro: function (b) { setFollowM(b); }, followNow: function () { followNow(); },
       claim: function (force) { return claim(force); }, release: function () { return release(); },
       exportPng: function () { return exportPng(); }, exportPdf: function (print) { return exportPdf(print); },
       callServer: opts.callServer, saveNow: function () { flushMine(true); if (rt && rt.online) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: 'song' }).catch(function () {}); if (rt && rt.online && S.room) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: S.room }).catch(function () {}); },
@@ -805,17 +810,17 @@
 
     /* ------------------------------------------------------------ 실시간 · 리더-팔로워 */
     function sendNav() {
-      if (S.applying || !rt || !rt.isLeader || S.manual) return;       // 동기화를 끈 동안에는 내 화면을 보내지 않음
+      if (S.applying || !rt || !rt.isLeader || !S.follow) return;      // 페이지 동기화를 끈 동안에는 내 화면을 보내지 않음
       clearTimeout(S.navT);
       S.navT = setTimeout(function () {
-        if (!rt || !rt.isLeader || S.manual) return;
+        if (!rt || !rt.isLeader || !S.follow) return;
         rt.call('nav', { file: fileId(), page: S.page, song: S.songIdx, zoom: S.zoom, sy: scrollFrac() }).catch(function (e) { if (e.code !== 'perm') toast('페이지 컨트롤 화면을 보내지 못했습니다: ' + e.message, true); });
       }, 120);
     }
     function applyNav(nav, force) {
       if (!nav || S.dead) return;
       if (rt && rt.isLeader) return;                                  // 리더 자신은 따라갈 대상이 없음
-      if ((!S.follow || S.manual) && !force) { S.pendingNav = nav; renderChips(); return; }
+      if (!S.follow && !force) { S.pendingNav = nav; renderChips(); return; }
       S.pendingNav = null; S.applying = true;
       var done = function () { S.applying = false; renderChips(); };
       try {
@@ -829,22 +834,50 @@
         else { var same = nav.page === S.page; if (!same) goPage(nav.page, false); Promise.resolve(after()).then(function () { scrollTo(); done(); }, done); }
       } catch (e) { done(); }
     }
-    function setManual(b) {
-      b = !!b; if (S.manual === b) return;
-      S.manual = b; ls('manual', b ? '1' : '0');
-      if (!b) {                                                           // 다시 켜면 지금 상태로 바로 맞춥니다
-        if (S.follow && rt && !rt.isLeader) { var n = S.pendingNav || rt.nav; if (n) applyNav(n, true); }
-        else if (rt && rt.isLeader) sendNav();
-      }
-      renderChips(); P.emit('manual', b);
-      toast(b ? '동기화를 껐습니다. 내 화면 · 메트로놈은 따로 움직이고, 내 조작도 팀에 보내지 않습니다.' : '동기화를 켰습니다. 팀과 같은 화면 · 박자로 맞춥니다.');
+    /* ---- 따라가기 (페이지 · 메트로놈 독립) — 이 기기에 저장 + 서버(내 설정)에 저장 + 접속자 목록에 표시 ---- */
+    function pushPrefs() {
+      S.prefTouched = true; clearTimeout(S.prefT);
+      S.prefT = setTimeout(function () {
+        var v = { page: S.follow, metro: S.followM };
+        if (rt && rt.online) rt.call('prefs', v).catch(function () {});
+        cfgSend('mine', 'follow', 'sync', v);                          // 계정에 저장 → 다른 기기 · 다음 접속에서도 같은 상태
+      }, 400);
     }
-    function setFollow(b) {
-      S.follow = !!b;
+    function applyPrefs(v) {                                            // 서버에 저장된 내 상태를 불러올 때 (알림 없이)
+      if (!v || S.prefTouched) return;
+      var pg = v.page !== false, mt = v.metro !== false;
+      if (pg === S.follow && mt === S.followM) return;
+      var wasM = S.followM; S.follow = pg; S.followM = mt; ls('fpage', pg ? '1' : '0'); ls('fmetro', mt ? '1' : '0');
+      if (pg && rt && rt.nav && !rt.isLeader) applyNav(S.pendingNav || rt.nav, true);
+      renderChips(); P.emit('follow', S.follow); if (wasM !== mt) P.emit('followm', mt);
+    }
+    function setFollow(b, quiet) {
+      b = !!b; if (S.follow === b && !quiet) return;
+      var wasManual = S.manual;
+      S.follow = b; ls('fpage', b ? '1' : '0');
       if (S.follow && S.pendingNav) applyNav(S.pendingNav, true);
       else if (S.follow && rt && rt.nav && !rt.isLeader) applyNav(rt.nav, true);
-      renderChips(); P.emit('follow', S.follow);
-      toast(S.follow ? '페이지 컨트롤 화면을 따라갑니다.' : '따라가기를 껐습니다. 내 화면은 그대로 유지됩니다.');
+      else if (S.follow && rt && rt.isLeader) sendNav();
+      renderChips(); P.emit('follow', S.follow); if (wasManual !== S.manual) P.emit('manual', S.manual);
+      if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isLeader ? '내 페이지 넘김을 팀에 보냅니다.' : '페이지 컨트롤 화면을 따라갑니다.') : (rt && rt.isLeader ? '페이지 동기화를 껐습니다. 내 페이지 넘김은 팀에 보내지 않습니다.' : '페이지 따라가기를 껐습니다. 내 화면은 그대로 유지됩니다.')); }
+    }
+    function setFollowM(b, quiet) {
+      b = !!b; if (S.followM === b && !quiet) return;
+      var wasManual = S.manual;
+      S.followM = b; ls('fmetro', b ? '1' : '0');
+      renderChips(); P.emit('followm', b); if (wasManual !== S.manual) P.emit('manual', S.manual);
+      if (!quiet) { pushPrefs(); toast(b ? (rt && rt.isClicker ? '내 메트로놈 조작을 팀에 보냅니다.' : '클릭 컨트롤의 메트로놈을 따라갑니다.') : (rt && rt.isClicker ? '메트로놈 동기화를 껐습니다. 내 조작은 팀에 보내지 않습니다.' : '메트로놈 따라가기를 껐습니다. 내 메트로놈은 내가 직접 조절합니다.')); }
+    }
+    /** 예전 "동기화 끄기 (수동)" = 두 스위치를 함께 끄기/켜기 */
+    function setManual(b) {
+      b = !!b; if (S.manual === b) return;
+      var m0 = S.followM; S.follow = !b; S.followM = !b; ls('fpage', b ? '0' : '1'); ls('fmetro', b ? '0' : '1');
+      if (!b) {                                                           // 다시 켜면 지금 상태로 바로 맞춥니다
+        if (rt && !rt.isLeader) { var n = S.pendingNav || rt.nav; if (n) applyNav(n, true); }
+        else if (rt && rt.isLeader) sendNav();
+      }
+      renderChips(); P.emit('follow', S.follow); if (m0 !== S.followM) P.emit('followm', S.followM); P.emit('manual', b); pushPrefs();
+      toast(b ? '동기화를 껐습니다. 내 화면 · 메트로놈은 따로 움직이고, 내 조작도 팀에 보내지 않습니다.' : '동기화를 켰습니다. 팀과 같은 화면 · 박자로 맞춥니다.');
     }
     function followNow() { var n = S.pendingNav || (rt && rt.nav); if (n) applyNav(n, true); else toast('페이지 컨트롤이 아직 화면을 넘기지 않았습니다.'); }
     function claim(force) {
@@ -863,7 +896,7 @@
     function releaseClick() { return rt ? rt.releaseClick().then(function () { toast('클릭 컨트롤을 내려놓았습니다.'); renderChips(); P.emit('clicker'); }, function (e) { toast(e.message, true); }) : Promise.resolve(); }
 
     function renderChips() {
-      var conn = $('.pv-conn'), lead = $('.pv-lead'), fol = $('.pv-follow'), clk = $('.pv-click');
+      var conn = $('.pv-conn'), lead = $('.pv-lead'), fol = $('.pv-follow'), clk = $('.pv-click'), folm = $('.pv-followm');
       var st = rt ? rt.state : 'unavailable';
       var label = { idle: '연결 전', connecting: '연결 중…', online: '실시간 연결됨', offline: '연결 끊김 — 다시 연결 중', unavailable: '혼자 보기 (실시간 없음)', denied: '연결 거부됨' }[st] || st;
       conn.textContent = { online: '● 실시간', connecting: '○ 연결 중', offline: '○ 끊김', unavailable: '○ 혼자', denied: '✕ 거부', idle: '○' }[st] || '○';
@@ -887,15 +920,21 @@
         fol.textContent = S.follow ? '따라가는 중' : (behind ? '따라가기 꺼짐 · 컨트롤 ' + S.pendingNav.page + '쪽' : '따라가기 꺼짐');
         fol.setAttribute('aria-pressed', S.follow ? 'true' : 'false');
       } else fol.style.display = 'none';
+      if (folm) {                                                         // 메트로놈 따라가기 칩 (페이지 칩과 독립)
+        if (st === 'online' && !S.manual && rt.clicker && !rt.isClicker) {
+          folm.style.display = ''; folm.className = 'pv-chip pv-followm ' + (S.followM ? 'on' : 'off'); folm.textContent = S.followM ? '🎚 메트로놈 따라감' : '🎚 메트로놈 따라가기 꺼짐';
+          folm.title = '클릭 컨트롤의 메트로놈 따라가기 켜기/끄기'; folm.setAttribute('aria-pressed', S.followM ? 'true' : 'false');
+        } else folm.style.display = 'none';
+      }
       P.emit('conn', st);
     }
     function connect() {
-      S.follow = true;                                                  // 따라가기는 접속할 때마다 켜진 채로 시작 (끄는 것은 그 순간만)
       if (opts.realtime === false || !root.YNRT || !S.room) { renderChips(); return; }
       rt = root.YNRT.create({ token: opts.token, room: S.room, io: opts.io });
       ['state', 'peers', 'leader', 'clicker', 'outbox'].forEach(function (n) { rt.on(n, function () { renderChips(); P.emit(n); }); });
       rt.on('joined', function (r) {
         renderChips(); P.emit('joined', r);
+        rt.call('prefs', { page: S.follow, metro: S.followM }).catch(function () {});      // 접속자 목록에 내 따라가기 상태 표시
         if (r.you) an.setPerms(r.you.name, r.you.canEdit);
         if (S.doc) loadTeam(++S.annoId, fileId());
         if (r.nav && !rt.isLeader) applyNav(r.nav, false);
@@ -1132,7 +1171,7 @@
       else if (a === 'spread') toggleSpread();
       else if (a === 'crop') { S.crop = !S.crop; ls('crop', S.crop ? '1' : '0'); S.zoom = 1; syncCropUi(); renderPage(); sendNav(); toast(S.crop ? '여백을 줄여 악보를 크게 보여 줍니다' : '종이 전체를 보여 줍니다'); }
       else if (a === 'zfit') { S.fitUser = true; S.zoom = 1; S.fit = S.fit === 'page' ? 'width' : 'page'; renderPage(); sendNav(); toast(S.fit === 'page' ? '한 쪽이 다 보이게 맞춤' : '가로 폭에 맞춤'); }
-      else if (a === 'panel') toggleSide(); else if (a === 'follow') { if (S.manual) setManual(false); else setFollow(!S.follow); } else if (a && a.indexOf('tab:') === 0) showTab(a.slice(4));
+      else if (a === 'panel') toggleSide(); else if (a === 'follow') { if (S.manual) setManual(false); else setFollow(!S.follow); } else if (a === 'followm') setFollowM(!S.followM); else if (a && a.indexOf('tab:') === 0) showTab(a.slice(4));
     });
     stage.addEventListener('click', function (e) {
       if (S.layout !== 'tablet' || S.tool !== 'none' || !box.contains(e.target) || S.zoom > 1.05 || e.target.closest('.pv-toast')) return;

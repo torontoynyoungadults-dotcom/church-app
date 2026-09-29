@@ -4,7 +4,7 @@ const realtime = require('../../lib/realtime');
 const { mkpdf, SAMPLE, MULTI } = require('./mkpdf');
 const ROOT = path.join(__dirname, '..', '..');
 const USERS = { tokA: { name: 'Alice', canEdit: true, canLead: true, committee: false, admin: false }, tokB: { name: 'Bob', canEdit: false, canLead: false }, tokC: { name: 'Carol', canEdit: true, canLead: true } };
-const store = { team: {}, mine: {}, saves: [], calls: [], callLog: [] };
+const store = { team: {}, mine: {}, saves: [], calls: [], callLog: [], follow: {} };
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.json': 'application/json' };
 const pdf = mkpdf(SAMPLE), pdfMulti = mkpdf(MULTI);
 function harness() {
@@ -39,6 +39,9 @@ const server = http.createServer((req, res) => {
         if (!me) throw new Error('권한이 없습니다.');
         if (fn === 'worshipAnnoLoad') { const k = args[1] + '|' + args[2]; return res.end(JSON.stringify({ result: { team: store.team[k] || [], mine: store.mine[k + '|' + me] || [], me, canEdit: !!USERS[args[0]].canEdit } })); }
         if (fn === 'worshipAnnoSaveMine') { store.mine[args[1] + '|' + args[2] + '|' + me] = args[3]; return res.end(JSON.stringify({ result: { ok: true } })); }
+        /* Step 2.11 — 내 따라가기 상태(follow)만 저장 · 불러오기 흉내 (나머지 설정은 예전처럼 "unknown") */
+        if (fn === 'worshipCfgSave' && args[3] === 'follow') { const k = args[1] + '|' + me; if (args[5] == null) delete store.follow[k]; else store.follow[k] = { page: args[5].page !== false, metro: args[5].metro !== false }; return res.end(JSON.stringify({ result: { ok: true, layer: 'mine', value: store.follow[k] || null } })); }
+        if (fn === 'worshipCfgLoad' && store.follow[args[1] + '|' + me]) return res.end(JSON.stringify({ result: { team: [], mine: [{ kind: 'follow', key: 'sync', value: store.follow[args[1] + '|' + me] }], songs: [], me, canEdit: !!USERS[args[0]].canEdit } }));
         throw new Error('unknown ' + fn);
       } catch (e) { res.end(JSON.stringify({ error: e.message })); }
     }); return;

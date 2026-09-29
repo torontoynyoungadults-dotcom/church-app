@@ -39,7 +39,7 @@ section('A. 글꼴 — 화면과 서버가 같은 목록');
 section('B. 음성 큐 — 반복 · 콜아웃 · 남성 음성');
 {
   const rep = M.CUES.filter((c) => c.g === 'rep');
-  eq(rep.map((c) => c.en), ['Repeat Chorus', 'Half Chorus', 'Tag the last line', 'Last line again', 'One more time', 'One more bar'], '요청한 6개 콜아웃(영어)');
+  eq(rep.map((c) => c.en), ['Repeat Chorus', 'Half Chorus', 'Tag the last line', 'Last line again', 'One more time', 'One more bar', 'Key Up', 'Prayer'], '요청한 콜아웃 8개(영어) — Step 2.11 에서 Key Up · Prayer 추가');
   ok(rep.every((c) => c.ko), '한국어 이름도 있음');
   eq(new Set(M.CUES.map((c) => c.id)).size, M.CUES.length, '큐 id 중복 없음');
   const V = (name, lang, local) => ({ name, lang, localService: !!local });
@@ -65,7 +65,7 @@ section('B. 음성 큐 — 반복 · 콜아웃 · 남성 음성');
   eq(spoken.length, 1, 'speechSynthesis.speak 호출'); eq(spoken[0] && spoken[0].voice && spoken[0].voice.name, 'Daniel', '남성 음성(Daniel)으로 말함'); eq(spoken[0].pitch, 1, '남성 음성이면 음높이 그대로');
   for (const id of ['halfc', 'tag', 'lastl', 'once', 'onebar']) { r = m.cue(id); ok(r.ok, id + ' 큐'); }
   eq(spoken.map((u) => u.text).slice(1), ['Half Chorus', 'Tag the last line', 'Last line again', 'One more time', 'One more bar'], '나머지 5개도 그 문장 그대로');
-  m.setLang('ko'); m.cue('repc'); eq(spoken[spoken.length - 1].text, '후렴 반복', '한국어 큐'); eq(spoken[spoken.length - 1].voice.name.indexOf('InJoon') >= 0, true, '한국어도 남성 음성');
+  m.setLang('ko'); m.cue('repc'); eq(spoken[spoken.length - 1].text, '코러스 반복', '한국어 큐'); eq(spoken[spoken.length - 1].voice.name.indexOf('InJoon') >= 0, true, '한국어도 남성 음성');
   m.destroy();
   cur = voices.filter((v) => /Samantha|Yuna/.test(v.name));
   m = M.create({}); spoken.length = 0; m.cue('once');
