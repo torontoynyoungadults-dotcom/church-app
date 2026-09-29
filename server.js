@@ -22,12 +22,17 @@ const SLOW_MS = Number(process.env.SLOW_MS) || 1500;          // 이보다 오�
 const pages = require('./lib/pages');
 const scheduler = require('./lib/scheduler');
 const tasks = require('./lib/tasks');
+const notesBuffer = require('./lib/notes-buffer');   // Step 4 — 설교 노트 쓰기 버퍼
+const notesAi = require('./lib/notes-ai');           // Step 4 — 서버를 멈추지 않는 AI 정제
 
 runtime.setScheduleSource(scheduler.names);
 // 발송 요일 · 시각은 설정 시트에서 읽어옵니다 (관리 화면에서 바꿉니다)
 scheduler.setScheduleReader(() => {
   try { return runtime.run((api) => api.알림일정_()).result; } catch (e) { return null; }
 });
+
+// 설교 노트는 메모리 버퍼에 먼저 담았다가 몇 초에 한 번 시트에 한꺼번에 씁니다 (시트 쓰기가 서버를 멈추기 때문)
+notesBuffer.start((recs) => runtime.run((api) => api.sermonNotesFlush_(recs)).result, { log: (...a) => console.log(...a) });
 
 const app = express();
 app.set('trust proxy', true);
@@ -71,6 +76,24 @@ function liveAfter(fn, args, result) {
   } catch (e) { console.error('[실시간 알림 실패]', fn, e && e.message); }
   return result;
 }
+
+/**
+ * 설교 노트 AI 정제 (Step 4) — 제미나이 답을 기다리는 동안 서버 전체가 멈추지 않게 비동기로 부릅니다.
+ * (다른 AI 기능은 다리를 거쳐 기다리는 동안 모든 요청이 멈춥니다 — 예배 중 여럿이 누르면 저장까지 밀립니다)
+ * 로그인 · 사용 한도 · 프롬프트는 logic/notes.js 가 준비하고, 여기서는 AI 호출만 비동기로 합니다.
+ */
+app.post('/api/sermonNoteRefine', async (req, res) => {
+  const args = Array.isArray(req.body && req.body.args) ? req.body.args : [];
+  try {
+    const prep = runtime.run((api) => api.sermonNoteRefinePrep_(args[0], args[1], args[2], args[3])).result;
+    const ai = await notesAi.gemini(prep);
+    const result = runtime.run((api) => api.sermonNoteRefineDone_(prep, ai.text)).result;
+    res.json({ ok: true, result });
+  } catch (e) {
+    if (!(e && e.message && /[가-힣]/.test(e.message))) console.error('[sermonNoteRefine]', e);
+    res.json({ ok: false, error: (e && e.message) || String(e) });
+  }
+});
 
 /** 화면 → 서버 함수 */
 app.post('/api/:fn', (req, res) => {
@@ -219,6 +242,7 @@ function shutdown(sig) {
   if (closing) return;
   closing = true;
   try { const n = rt.flushAll(); if (n) console.log('[종료] 필기 ' + n + '곳 저장'); } catch (e) { console.error('[종료 저장 실패]', e.message); }
+  try { const n = notesBuffer.flushNow({ force: true }); if (n) console.log('[종료] 설교 노트 ' + n + '개 저장'); } catch (e) { console.error('[종료 노트 저장 실패]', e.message); }
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 8000).unref();
   void sig;

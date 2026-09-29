@@ -88,6 +88,7 @@ function 딥링크확인_(token, type, id, x) {
   if (type === 'album') {
     var al = 앨범하나_(id);
     if (!al) return ro('notfound', '앨범을 찾지 못했습니다. 지워졌을 수 있습니다.');
+    if (!admin && !앨범볼수있나3_(name, al)) return ro('forbidden', '이 앨범은 공개된 팀 · 셀만 볼 수 있습니다.');   // Step 7 — 제목도 알려주지 않음
     return { ok: true, title: al.title };
   }
 

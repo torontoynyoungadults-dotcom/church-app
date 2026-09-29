@@ -6,6 +6,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,700;0,800;1,700&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Cormorant+Garamond:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
 <script src="/vendor/qrcode.js"></script>
+<!-- 설교 필기 (Step 4) — 보는 화면 오른쪽 아래의 "설교 필기" 단추 -->
+<link rel="stylesheet" href="/notes/notes.css?v=1">
+<script src="/notes/notes-core.js?v=1"></script>
+<script src="/notes/editor.js?v=1"></script>
+<script src="/notes/dock.js?v=1"></script>
 <style>
   :root {
     --bg: #0B0B0B; --card: #F1F1EF; --ink: #1C1C1C; --ink-2: #4A4744; --ink-3: #8C8883;
@@ -626,6 +631,8 @@ function paintViewer(data) {
   el('root').innerHTML = h;
   if (b) document.title = bulletinTitle(b.date, b.occasion) + ' · 청년1부 주보';
   watchNav();
+  // 설교 필기 창 — 주보를 다시 그려도 창(body 아래)과 쓰던 글은 그대로입니다
+  try { if (window.NotesDock) NotesDock.update(b); } catch (e) { if (window.console) console.error('[설교 필기]', e); }
 }
 
 function loadDate(d) {

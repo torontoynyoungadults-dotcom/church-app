@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/notes/notes.css?v=1">
+<style>
+  html, body { margin: 0; height: 100%; background: #0B0B0B; overscroll-behavior: none; }
+  body { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif; }
+  .yn-skel { height: 104px; margin: 0 0 10px; border-radius: 16px; background: linear-gradient(100deg, rgba(255,255,255,.06) 30%, rgba(255,255,255,.14) 50%, rgba(255,255,255,.06) 70%); background-size: 300% 100%; animation: ynsh 1.3s linear infinite; }
+  @keyframes ynsh { from { background-position: 100% 0; } to { background-position: 0 0; } }
+  .yn-lock { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; background: #0B0B0B url('/bulletin/bg.jpg') center / cover; }
+  .yn-lock::before { content: ''; position: absolute; inset: 0; background: rgba(8,8,8,.7); }
+  .yn-lock > div { position: relative; max-width: 380px; padding: 28px 24px; border-radius: 22px; background: var(--yn-glass); border: 1px solid var(--yn-line-2); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+  .yn-lock img { height: 38px; margin-bottom: 14px; }
+  .yn-lock h2 { margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #fff; }
+  .yn-lock p { margin: 0 0 18px; font-size: 15px; line-height: 1.75; color: var(--yn-ink-2); }
+  .yn-lock a { display: inline-block; text-decoration: none; }
+  .yn-page .yn-toast { position: absolute; bottom: 28px; z-index: 30; }
+  .yn-cnt { padding: 0 18px 4px; font-size: 12.5px; color: var(--yn-ink-3); }
+</style>
+</head>
+<body class="yn">
+<div id="root"></div>
+
+<script src="/notes/notes-core.js?v=1"></script>
+<script src="/notes/editor.js?v=1"></script>
+<script>
+(function () {
+  'use strict';
+  var P = window.__PREFILL__ || {};
+  var C = NotesCore, E = NotesEditor;
+  var HOME = P._home || '/?page=portal';
+  var root = document.getElementById('root');
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function ls() { try { return window.localStorage; } catch (e) { return null; } }
+  function keptToken() {
+    try { var s = sessionStorage.getItem('ynPortalToken'); if (s) return s; } catch (e) {}
+    try { var k = JSON.parse(localStorage.getItem('ynPortalKeep') || 'null'); if (k && k.t && k.until > Date.now()) return k.t; } catch (e) {}
+    return '';
+  }
+  function tokenTag(t) { var h = 5381, i; for (i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return 't' + (h >>> 0).toString(36); }
+  var wide = function () { return window.matchMedia && window.matchMedia('(min-width: 900px)').matches; };
+
+  var TOKEN = P.t || keptToken();
+  var TAG = TOKEN ? tokenTag(TOKEN) : '';
+  var store = C.createDraftStore(ls());
+  var INIT = null, LIST = [], METAS = {}, QUERY = '';
+  var ED = null, CURID = '', VIEW = 'list', pageEl, toastEl, toastT = 0;
+
+  E.trackViewport();
+
+  function lock(msg) {
+    root.innerHTML = '<div class="yn-lock"><div><img src="/logo.png" alt="Youngnak"><h2>내 설교 노트</h2><p>' + esc(msg) + '</p>' +
+      '<a class="yn-btn pri" style="line-height:46px" href="' + esc(HOME) + '">포털로 가기</a></div></div>';
+  }
+  if (!TOKEN) { lock('내 설교 노트는 포털에서 구글 계정으로 로그인한 뒤 들어올 수 있습니다.'); return; }
+
+  /* ---------- 뼈대 ---------- */
+  var ICON_BACK = '<svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg>';
+  var ICON_MORE = '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg>';
+  function shell() {
+    root.innerHTML =
+      '<div class="yn yn-page" id="page" data-view="list">' +
+      '<header class="yn-top"><button type="button" class="yn-icon" id="back" aria-label="뒤로">' + ICON_BACK + '</button>' +
+      '<h1 id="ttl">내 설교 노트</h1>' +
+      '<button type="button" class="yn-icon yn-editonly" id="more" aria-label="더보기" aria-haspopup="true">' + ICON_MORE + '</button></header>' +
+      '<main class="yn-main">' +
+      '<section class="yn-listcol yn-listcol-x" aria-label="노트 목록">' +
+      '<div class="yn-search"><input id="q" type="search" placeholder="제목 · 본문 · 설교자 · 내용 검색" autocomplete="off" aria-label="노트 검색"></div>' +
+      '<div class="yn-cards" id="cards"><div class="yn-skel"></div><div class="yn-skel"></div><div class="yn-skel"></div></div>' +
+      '<button type="button" class="yn-fab" id="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>새 노트</button>' +
+      '</section>' +
+      '<section class="yn-editcol" aria-label="노트 쓰기">' +
+      '<div class="yn-noedit">왼쪽에서 노트를 고르거나 “새 노트”를 눌러주세요.</div>' +
+      '<div class="yn-editcard" id="edHost"></div>' +
+      '</section></main></div>';
+    pageEl = document.getElementById('page');
+    document.getElementById('back').addEventListener('click', onBack);
+    document.getElementById('fab').addEventListener('click', function () { newNote({}); });
+    document.getElementById('more').addEventListener('click', toggleMenu);
+    document.getElementById('cards').addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.yn-card'); if (b) openNote(b.getAttribute('data-id'));
+    });
+    var qi = document.getElementById('q'), qt = 0;
+    qi.addEventListener('input', function () { clearTimeout(qt); qt = setTimeout(function () { QUERY = qi.value.trim().toLowerCase(); paintList(); }, 120); });
+    document.addEventListener('pointerdown', function (e) { var m = document.getElementById('menu'); if (m && !m.contains(e.target) && e.target.id !== 'more' && !e.target.closest('#more')) m.remove(); }, true);
+  }
+
+  function setView(v) {
+    VIEW = v; pageEl.setAttribute('data-view', v);
+    document.getElementById('ttl').textContent = v === 'edit' && !wide() ? '노트' : '내 설교 노트';
+  }
+  function urlFor(id) {
+    var u = '?page=notes' + (id ? '&id=' + encodeURIComponent(id) : '') + (P.t ? '&t=' + encodeURIComponent(P.t) : '');
+    try { history.replaceState(null, '', u); } catch (e) {}
+  }
+  function onBack() {
+    if (VIEW === 'edit' && !wide()) { closeEditor(); return; }
+    if (ED) ED.flush(function () { location.href = HOME; }); else location.href = HOME;
+  }
+
+  /* ---------- 알림 · 확인 창 ---------- */
+  function toast(msg, label, fn, ms) {
+    if (toastEl) { toastEl.remove(); toastEl = null; }
+    clearTimeout(toastT);
+    var t = document.createElement('div'); t.className = 'yn-toast'; t.setAttribute('role', 'status');
+    t.innerHTML = '<span>' + esc(msg) + '</span>' + (label ? '<button type="button">' + esc(label) + '</button>' : '');
+    if (label) t.querySelector('button').addEventListener('click', function () { t.remove(); toastEl = null; fn && fn(); });
+    pageEl.appendChild(t); toastEl = t;
+    toastT = setTimeout(function () { if (toastEl === t) { t.remove(); toastEl = null; } }, ms || (label ? 9000 : 3200));
+  }
+  function ask(title, msg, okLabel, fn) {
+    var s = document.createElement('div'); s.className = 'yn-scrim'; s.style.zIndex = 40; s.style.position = 'absolute';
+    s.innerHTML = '<div class="yn-sheet" role="alertdialog" aria-modal="true"><h3>' + esc(title) + '</h3><p class="sub">' + esc(msg) + '</p>' +
+      '<div class="yn-acts"><button class="yn-btn" data-k="no">취소</button><button class="yn-btn danger" data-k="ok">' + esc(okLabel) + '</button></div></div>';
+    pageEl.appendChild(s);
+    s.addEventListener('click', function (e) { var b = e.target.closest('button[data-k]'); if (!b && e.target !== s) return; s.remove(); if (b && b.getAttribute('data-k') === 'ok') fn(); });
+    s.querySelector('button[data-k=no]').focus();
+  }
+
+  /* ---------- 목록 ---------- */
+  function summaryOf(snap, base) {
+    var t = String(snap.body || snap.reflection || '').replace(/\s+/g, ' ').trim();
+    return { id: snap.id, date: snap.date, title: snap.title, ref: snap.ref, preacher: snap.preacher, snippet: t.slice(0, 100),
+      devDate: (base && base.devDate) || '', updatedAt: (base && base.updatedAt) || '', local: !!(base && base.local) };
+  }
+  function cardHtml(n) {
+    var badges = (n.devDate ? '<span class="yn-badge dev">🌿 묵상 연결</span>' : '') + (n.local ? '<span class="yn-badge sync">이 기기에만 · 전송 대기</span>' : '');
+    return '<button type="button" class="yn-card' + (n.id === CURID ? ' sel' : '') + '" data-id="' + esc(n.id) + '">' +
+      '<div class="d">' + esc(C.fmtDate(n.date)) + badges + '</div>' +
+      '<div class="t">' + esc(n.title || '(제목 없음)') + '</div>' +
+      ((n.ref || n.preacher) ? '<div class="r">' + esc([n.ref, n.preacher].filter(Boolean).join(' · ')) + '</div>' : '') +
+      (n.snippet ? '<div class="s">' + esc(n.snippet) + '</div>' : '') + '</button>';
+  }
+  function matches(n) {
+    if (!QUERY) return true;
+    return (n.title + ' ' + n.ref + ' ' + n.preacher + ' ' + n.snippet + ' ' + n.date).toLowerCase().indexOf(QUERY) >= 0;
+  }
+  function paintList() {
+    var box = document.getElementById('cards'); if (!box) return;
+    var rows = LIST.filter(matches);
+    var h = '';
+    if (!LIST.length) {
+      h = '<div class="yn-empty"><b>아직 노트가 없어요</b>주일 설교를 들으며 “새 노트”로 적어보세요.<br>주보를 보면서 바로 필기할 수도 있어요.</div>';
+    } else if (!rows.length) {
+      h = '<div class="yn-empty"><b>찾는 노트가 없어요</b>다른 말로 검색해보세요.</div>';
+    } else {
+      h = rows.map(cardHtml).join('');
+      if (INIT && INIT.total > INIT.notes.length && !QUERY) h += '<div class="yn-cnt">최근 ' + INIT.notes.length + '개만 보여드려요 (전체 ' + INIT.total + '개)</div>';
+    }
+    box.innerHTML = h;
+  }
+  /** 저장될 때마다 그 카드 하나만 갱신하고 맨 위로 (목록 전체를 다시 그리지 않습니다) */
+  function touchCard(sum) {
+    var i = -1, k; for (k = 0; k < LIST.length; k++) if (LIST[k].id === sum.id) { i = k; break; }
+    if (i >= 0) LIST.splice(i, 1);
+    LIST.unshift(sum);
+    var box = document.getElementById('cards'); if (!box) return;
+    if (!matches(sum) && !(sum.id === CURID)) { paintList(); return; }
+    var old = box.querySelector('[data-id="' + sum.id + '"]');
+    var tmp = document.createElement('div'); tmp.innerHTML = cardHtml(sum);
+    var card = tmp.firstChild;
+    if (old) old.remove(); else if (box.querySelector('.yn-empty')) box.innerHTML = '';
+    box.insertBefore(card, box.firstChild);
+  }
+  function markSel() {
+    var box = document.getElementById('cards'); if (!box) return;
+    Array.prototype.forEach.call(box.querySelectorAll('.yn-card.sel'), function (b) { b.classList.remove('sel'); });
+    var c = CURID && box.querySelector('[data-id="' + CURID + '"]'); if (c) c.classList.add('sel');
+  }
+
+  /* ---------- 주보 정보 ---------- */
+  function cacheMetas(m) { var s = ls(); if (s) C.writeMetaCache(s, m); }
+  function getMeta(date, cb) {
+    if (METAS[date]) return cb(METAS[date]);
+    callServer('sermonMeta', [date], function (r) {
+      if (r && r.found && r.meta && r.meta.date === date) { METAS[date] = r.meta; var o = {}; o[date] = r.meta; cacheMetas(o); cb(r.meta); } else cb(null);
+    }, function () { cb(null); });
+  }
+
+  /* ---------- 에디터 열기 · 닫기 ---------- */
+  function mount(r, o) {
+    o = o || {};
+    var host = document.getElementById('edHost');
+    if (ED) { ED.destroy(); ED = null; }
+    host.innerHTML = '';
+    CURID = r.id || (r.note && r.note.id) || '';
+    setView('edit'); markSel();
+    ED = E.create({
+      root: host, token: TOKEN, tag: TAG, store: store, mode: 'page',
+      note: r.note, base: r.base || 0, push: !!r.push, conflict: r.conflict, offline: r.offline,
+      aiOn: INIT.aiOn, limits: INIT.limits, getMeta: getMeta, devotion: INIT.devotion,
+      autofill: o.autofill, linkOnFirstSave: o.dev, autofocus: !!o.focus, tab: o.tab,
+      onSaved: function (res, snap, note) {
+        CURID = snap.id;
+        touchCard(summaryOf(snap, { devDate: note.devDate, updatedAt: res.updatedAt }));
+        markSel();
+      },
+      onLink: function (d) { var n = LIST.filter(function (x) { return x.id === CURID; })[0]; if (n) { n.devDate = d; touchCard(n); markSel(); } },
+      onIdChange: function (id) { CURID = id; urlFor(id); },
+      onRemote: function (n) { touchCard(summaryOf(n, { devDate: n.devDate, updatedAt: n.updatedAt })); markSel(); },
+      onCopy: function (id) { refreshList(); }
+    });
+    urlFor(CURID);
+  }
+  function openNote(id) {
+    if (!id) return;
+    if (ED && ED.id() === id) { setView('edit'); return; }
+    var host = document.getElementById('edHost');
+    if (ED) { ED.destroy(); ED = null; }
+    CURID = id; setView('edit'); markSel();
+    host.innerHTML = '<div class="yn-empty">불러오는 중…</div>';
+    E.load({ token: TOKEN, id: id, store: store }, function (err, r) {
+      if (CURID !== id) return;                         // 그 사이 다른 노트를 눌렀음
+      if (err || !r.note) {
+        host.innerHTML = '<div class="yn-empty"><b>노트를 열지 못했어요</b>' + esc((err && err.message) || '삭제되었거나 찾을 수 없는 노트입니다.') +
+          '<div class="yn-acts" style="margin-top:16px"><button class="yn-btn" id="retry">다시 시도</button><button class="yn-btn pri" id="tolist">목록으로</button></div></div>';
+        document.getElementById('retry').onclick = function () { CURID = ''; openNote(id); };
+        document.getElementById('tolist').onclick = function () { closeEditor(); };
+        return;
+      }
+      mount(r);
+    });
+  }
+  function newNote(o) {
+    if (ED) { ED.destroy(); ED = null; }
+    var date = o.date || C.currentSunday();
+    var meta = METAS[date] || null;                      // 그 주일의 게시된 주보 (없으면 빈 칸 — 다른 주 설교를 잘못 넣지 않습니다)
+    var note = { id: C.newId(), date: date, title: '', ref: '', preacher: '', body: '', reflection: '', source: 'note', version: 0 };
+    mount({ id: note.id, note: note, base: 0 }, { autofill: meta, dev: o.dev, focus: true });
+    if (!meta) {                                         // 캐시에 없으면 서버에서 한 번 더 찾아 봅니다 (게시된 주보만)
+      getMeta(date, function (m) { if (m && ED && ED.id() === note.id) ED.autofillMeta(m); });
+    }
+  }
+  function closeEditor() {
+    if (ED) { ED.destroy(); ED = null; }
+    CURID = ''; document.getElementById('edHost').innerHTML = ''; setView('list'); urlFor(''); markSel();
+  }
+
+  /* ---------- ⋯ 메뉴: 복사 · 삭제 ---------- */
+  function toggleMenu() {
+    var m = document.getElementById('menu'); if (m) { m.remove(); return; }
+    if (!ED) return;
+    m = document.createElement('div'); m.className = 'yn-menu'; m.id = 'menu';
+    m.innerHTML = '<button type="button" data-m="copy">📋 글 복사하기</button><button type="button" data-m="del" class="danger">🗑 이 노트 지우기</button>';
+    pageEl.appendChild(m); m.style.top = '58px'; m.style.zIndex = 20;
+    m.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-m]'); if (!b) return; m.remove();
+      if (b.getAttribute('data-m') === 'copy') copyNote(); else deleteNote();
+    });
+  }
+  function copyNote() {
+    if (!ED) return;
+    var n = ED.full();
+    var txt = (n.title || '(제목 없음)') + '\n' + [C.fmtDate(n.date), n.ref, n.preacher].filter(Boolean).join(' · ') + '\n' +
+      (n.body ? '\n[필기]\n' + n.body + '\n' : '') + (n.reflection ? '\n[묵상 · 적용]\n' + n.reflection + '\n' : '');
+    var done = function () { toast('복사했습니다'); };
+    var fallback = function () {
+      var ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { toast('복사하지 못했습니다'); } ta.remove();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
+  }
+  function deleteNote() {
+    if (!ED) return;
+    var id = ED.id(), n = ED.full();
+    ask('이 노트를 지울까요?', '“' + (n.title || '제목 없음') + '” 노트가 목록에서 사라집니다. 지운 직후에는 되돌릴 수 있어요.', '지우기', function () {
+      var finish = function (serverDeleted) {
+        var ed = ED; ED = null; try { ed.destroy(); } catch (e) {}
+        store.remove(id);
+        LIST = LIST.filter(function (x) { return x.id !== id; });
+        closeEditor(); paintList();
+        if (serverDeleted) toast('노트를 지웠습니다', '되돌리기', function () {
+          callServer('sermonNoteDelete', [TOKEN, id, true], function () { refreshList(); toast('되살렸습니다'); }, function (e) { toast(e.message || '되살리지 못했습니다'); });
+        }); else toast('노트를 지웠습니다');
+      };
+      ED.flush(function () { doDelete(); });
+      function doDelete() {
+        callServer('sermonNoteDelete', [TOKEN, id, false], function () { finish(true); },
+          function (e) { if (/찾을 수 없/.test(e.message || '')) finish(false); else toast(e.message || '지우지 못했습니다'); });
+      }
+    });
+  }
+  function refreshList() {
+    callServer('sermonNotesInit', [TOKEN], function (r) { INIT = r; LIST = r.notes.slice(); mergeDrafts(); paintList(); markSel(); }, function () {});
+  }
+
+  /* ---------- 시작 ---------- */
+  function mergeDrafts() {
+    var have = {}; LIST.forEach(function (n) { have[n.id] = 1; });
+    store.dirtyOf(TAG).forEach(function (d) {
+      if (have[d.id] || !d.note || !(String(d.note.body || d.note.reflection || d.note.title || '').trim())) return;
+      LIST.unshift(summaryOf(Object.assign({ id: d.id }, d.note), { local: true }));
+    });
+  }
+  function boot() {
+    shell();
+    // 캐시된 주보 정보가 있으면 서버 답을 기다리지 않고 바로 씁니다
+    var s = ls(); if (s) METAS = C.readMetaCache(s);
+    store.prune();
+    callServer('sermonNotesInit', [TOKEN], function (r) {
+      INIT = r; LIST = r.notes.slice();
+      Object.keys(r.metas || {}).forEach(function (d) { METAS[d] = r.metas[d]; });
+      if (r.meta) METAS[r.meta.date] = r.meta;
+      cacheMetas(r.metas || {});
+      mergeDrafts(); paintList();
+      if (P.id) openNote(P.id);
+      else if (P.isNew) newNote({ dev: P.dev, date: P.date });
+      else setView('list');
+    }, function (e) {
+      var m = (e && e.message) || '불러오지 못했습니다.';
+      if (/로그인|만료|권한/.test(m)) return lock(m + ' 포털에서 다시 로그인해주세요.');
+      document.getElementById('cards').innerHTML = '<div class="yn-empty"><b>노트를 불러오지 못했어요</b>' + esc(m) +
+        '<div class="yn-acts" style="margin-top:16px"><button class="yn-btn pri" id="again">다시 시도</button></div></div>';
+      document.getElementById('again').onclick = boot;
+    });
+  }
+  window.addEventListener('resize', function () { if (pageEl) setView(VIEW); });
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -55,6 +55,23 @@
   .vrec button span { flex: 1; min-width: 0; font-size: 13.5px; color: #DCD7D0;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* 내 설교 노트 (Step 4) — 오늘의 묵상에 연결된 노트 */
+  .dn-item { margin-top: 10px; padding: 13px 14px; border-radius: 13px; background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.16); }
+  .dn-item .dd { font-size: 12.5px; font-weight: 800; letter-spacing: .04em; color: #FFC9AB; }
+  .dn-item .dt { margin: 4px 0 2px; font-size: 17px; font-weight: 800; color: #FFFFFF; line-height: 1.4; }
+  .dn-item .dr { font-size: 13.5px; color: #E4E0DA; }
+  .dn-item .dp { margin: 8px 0 0; font-size: 15px; line-height: 1.8; color: #F4F1EC; white-space: pre-wrap; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+  .dn-item .dp.open { -webkit-line-clamp: unset; display: block; }
+  .dn-item .dp.ref { padding-left: 10px; border-left: 3px solid rgba(var(--tone-rgb),.8); }
+  .dn-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+  .dn-acts .btn { flex: 1 1 auto; min-height: 44px; text-align: center; text-decoration: none; }
+  .dn-pick { display: grid; gap: 7px; margin-top: 10px; }
+  .dn-pick button { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; cursor: pointer; padding: 11px 13px; border-radius: 11px; font-family: inherit;
+    background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.15); min-height: 48px; }
+  .dn-pick button b { flex: none; font-size: 13px; font-weight: 800; color: #FFC9AB; }
+  .dn-pick button span { flex: 1; min-width: 0; font-size: 14.5px; color: #FFFFFF; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dn-empty { margin: 10px 0 0; font-size: 14.5px; line-height: 1.75; color: #E4E0DA; }
+
   .spin { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.3);
     border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -2px; }
   @keyframes sp { to { transform: rotate(360deg); } }
@@ -297,6 +314,8 @@ function draw() {
     h += '</div>';
   }
 
+  h += '<div id="dnBox"></div>';
+
   h += '<div class="panel">' +
     '<span class="chip">성경 구절로 묵상하기</span>' +
     '<p class="hint">구절을 적고 누르시면, 한국 정통 장로교(개혁주의) 관점에서 ' +
@@ -330,6 +349,56 @@ function draw() {
 
   el('root').innerHTML = h;
   if (CUR) paintRes(CUR, true);
+  loadNotes();
+}
+
+/* ---------- 내 설교 노트 (Step 4) ---------- */
+var DN = null, DN_PICK = false;
+function notesUrl(q) { return '?page=notes&t=' + encodeURIComponent(TOKEN) + (q || ''); }
+function fmtD(d) { return String(d || '').replace(/-/g, '.'); }
+function loadNotes() {
+  var verse = D && D.todayFixed ? D.todayFixed.verse : (D && D.today) || '';
+  callServer('devotionNotes', [TOKEN, '', verse], function (r) { DN = r; paintNotes(); },
+    function () { var b = el('dnBox'); if (b) b.innerHTML = ''; });            // 노트를 못 불러와도 묵상 화면은 그대로
+}
+function paintNotes() {
+  var box = el('dnBox'); if (!box || !DN) return;
+  var h = '<div class="panel"><span class="chip">📝 내 설교 노트</span>' +
+    '<p class="hint">오늘의 묵상(' + esc(DN.verse || fmtD(DN.date)) + ')과 내 설교 노트를 연결해 두면 이곳에서 바로 다시 볼 수 있어요.</p>';
+  if (!DN.linked.length) {
+    h += '<p class="dn-empty">아직 이 묵상에 연결한 노트가 없어요.' +
+      (DN.meta && DN.meta.title ? '<br>이번 주 설교: <b>' + esc(DN.meta.title) + '</b>' + (DN.meta.ref ? ' · ' + esc(DN.meta.ref) : '') : '') + '</p>';
+  }
+  DN.linked.forEach(function (n) {
+    h += '<div class="dn-item"><div class="dd">' + esc(fmtD(n.date)) + ' 설교</div>' +
+      '<div class="dt">' + esc(n.title || '(제목 없음)') + '</div>' +
+      ((n.ref || n.preacher) ? '<div class="dr">' + esc([n.ref, n.preacher].filter(Boolean).join(' · ')) + '</div>' : '') +
+      (n.reflectionPreview ? '<p class="dp ref">' + esc(n.reflectionPreview) + '</p>' : '') +
+      (n.bodyPreview ? '<p class="dp" id="dp' + esc(n.id) + '">' + esc(n.bodyPreview) + '</p>' : '') +
+      '<div class="dn-acts"><a class="btn accent" href="' + esc(notesUrl('&id=' + encodeURIComponent(n.id))) + '">노트 열기</a>' +
+      '<button type="button" class="btn" onclick="dnUnlink(\'' + jsq(n.id) + '\')">연결 해제</button></div></div>';
+  });
+  h += '<div class="dn-acts"><a class="btn accent" href="' + esc(notesUrl('&new=1&dev=' + encodeURIComponent(DN.date))) + '">＋ 이 묵상에 설교 노트 쓰기</a>' +
+    (DN.recent.length ? '<button type="button" class="btn" onclick="dnTogglePick()">' + (DN_PICK ? '닫기' : '기존 노트 연결') + '</button>' : '') + '</div>';
+  if (DN_PICK && DN.recent.length) {
+    h += '<div class="dn-pick">';
+    DN.recent.forEach(function (n) {
+      h += '<button type="button" onclick="dnLink(\'' + jsq(n.id) + '\')"><b>' + esc(fmtD(n.date).slice(5)) + '</b><span>' + esc(n.title || n.snippet || '(제목 없음)') + '</span></button>';
+    });
+    h += '</div>';
+  }
+  h += '<p class="msg" id="dnMsg"></p></div>';
+  box.innerHTML = h;
+}
+function dnTogglePick() { DN_PICK = !DN_PICK; paintNotes(); }
+function dnLink(id) {
+  say('dnMsg', '연결하는 중…');
+  callServer('sermonNoteLink', [TOKEN, id, DN.date, DN.verse], function () { DN_PICK = false; loadNotes(); },
+    function (e) { say('dnMsg', esc(e.message || e), 'err'); });
+}
+function dnUnlink(id) {
+  callServer('sermonNoteLink', [TOKEN, id, '', ''], function () { loadNotes(); },
+    function (e) { say('dnMsg', esc(e.message || e), 'err'); });
 }
 
 function pick(v) { el('vIn').value = v; makeIt(); }

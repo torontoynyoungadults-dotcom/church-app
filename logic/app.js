@@ -1065,6 +1065,11 @@ function doGet(e) {
     return render_('Devotion', '오늘의 성경 묵상', { t: p.t || '' }, 'portal');
   }
 
+  if (page === 'notes') {
+    // 내 설교 노트 (Step 4) — 로그인 표(t)는 포털에서 받아 옵니다. 새 노트로 바로 열려면 new=1, 묵상에 연결하려면 dev=날짜
+    return render_('Notes', '내 설교 노트', { t: p.t || '', id: p.id || '', isNew: p['new'] ? 1 : 0, dev: p.dev || '', date: p.date || '' }, 'portal');
+  }
+
   if (page === 'sermons') {
     return render_('Sermons', '지난 설교 · 요약', { t: p.t || '', id: p.id || '' }, 'portal');
   }
@@ -7299,7 +7304,7 @@ function 포털메뉴_(r, token) {
       url: base + '?page=mission&t=' + encodeURIComponent(token),
       note: 선교담당팀_(r.name || '').join(', ') });
   }
-  if (has('팀장') || 커미티) {
+  if (has('팀장') || 커미티 || 공유받은사람3_(r.name || '')) {   // Step 7: 결과를 공유받은 분에게도 (보기만)
     out.push({ key: 'forms', title: '신청서 관리', desc: '수련회 · 티셔츠 · 인원조사 만들기',
       url: base + '?page=forms&t=' + encodeURIComponent(token), note: '' });
   }
@@ -11317,6 +11322,7 @@ function 문항종류() {
     { key: 'checks', name: '복수선택 (여러 개)', icon: '☑', opts: true },
     { key: 'text', name: '주관식 (한 줄)', icon: '✎', opts: false },
     { key: 'long', name: '주관식 (여러 줄)', icon: '≡', opts: false },
+    { key: 'rating', name: '별점 · 만족도', icon: '★', opts: false },   // Step 6 (logic/forms2.js)
     { key: 'number', name: '숫자 입력', icon: '#', opts: false },
     { key: 'date', name: '날짜 고르기', icon: '📅', opts: false },
     { key: 'file', name: '파일 첨부', icon: '📎', opts: false },
@@ -11367,7 +11373,9 @@ function 신청서풀기_(r) {
     mail: !!body.mail,
     autoClose: body.autoClose !== false,
     resultsShare: body.resultsShare === 'owner' ? 'owner' : 'team',
-    inviteOnly: !!body.inviteOnly
+    inviteOnly: !!body.inviteOnly,
+    descHtml: String(body.descHtml || ''),    // Step 6 — 굵게 · 주황 강조가 든 안내글 (없으면 '' → 예전처럼 desc 글만)
+    shares: Array.isArray(body.shares) ? body.shares : []   // Step 7 — 결과를 공유받은 팀 · 셀 · 개인 (logic/forms3.js)
   };
 }
 
@@ -11436,6 +11444,7 @@ function 신청서결과볼수있나_(who, f) {
   if (!f) return false;
   if (who.committee) return true;
   if (f.owner === who.name) return true;
+  if (공유대상인가3_(who.name, f)) return true;              // Step 7 — 공유받은 팀 · 셀 · 개인은 결과를 볼 수 있습니다
   if (f.resultsShare === 'owner') return false;
   return !!(f.team && who.teams.indexOf(f.team) !== -1);
 }
@@ -11467,7 +11476,8 @@ function 답행들_(formId) {
       name: String(r[FA_이름] || '').trim(), email: String(r[FA_이메일] || '').trim(),
       phone: String(r[FA_연락] || '').trim(), gender: String(r[FA_성별] || '').trim(),
       cell: String(r[FA_셀] || '').trim(),
-      at: String(r[FA_제출] || ''), edited: String(r[FA_수정] || ''), answers: a
+      at: String(r[FA_제출] || ''), edited: String(r[FA_수정] || ''), answers: a,
+      status: 상태정리3_(r[FA_상태3])                     // Step 7 — 접수 · 미결제 · 결제완료 · 취소 (칸이 없으면 '접수')
     };
   });
 }
@@ -11500,7 +11510,7 @@ function myForms(token) {
       id: f.id, title: f.title, desc: f.desc, open: 신청받는중_(f),
       why: 신청마감사유_(f), closeAt: f.closeAt, editable: f.editable,
       submitted: mine ? { at: mine.at, edited: mine.edited } : null,
-      count: f.showCount ? 답행들_(f.id).length : null
+      count: f.showCount ? 유효답행들3_(f.id).length : null
     });
   });
   return { list: out };
@@ -11515,13 +11525,13 @@ function formOpen(token, id) {
   if (f.target === '교인' && who.kind !== 'member') throw new Error('교적에 등록된 분만 신청할 수 있습니다.');
   if (f.target === '새가족' && who.kind !== 'newcomer') throw new Error('새가족만 신청할 수 있는 신청서입니다.');
   var mine = 내답_(f.id, who.name, who.email);
-  var full = f.limit > 0 && 답행들_(f.id).length >= f.limit && !mine;
+  var full = f.limit > 0 && 유효답행들3_(f.id).length >= f.limit && !mine;      // Step 7: 취소된 신청은 정원에 세지 않음
   return {
-    form: { id: f.id, title: f.title, desc: f.desc, questions: f.questions, closeAt: f.closeAt, editable: f.editable },
+    form: { id: f.id, title: f.title, desc: f.desc, descHtml: f.descHtml, questions: f.questions, closeAt: f.closeAt, editable: f.editable },
     open: 신청받는중_(f) && !full,
     why: full ? ('신청 인원(' + f.limit + '명)이 다 찼습니다.') : 신청마감사유_(f),
     me: { name: who.name, email: who.email, phone: who.phone, cell: who.cell, gender: who.gender },
-    mine: mine ? { at: mine.at, edited: mine.edited, answers: mine.answers } : null
+    mine: mine ? { at: mine.at, edited: mine.edited, answers: mine.answers, status: mine.status } : null   // Step 7: 내 신청 상태
   };
 }
 
@@ -11530,9 +11540,11 @@ function 답정리_(q, v) {
   var t = q.type;
   if (t === 'section') return null;
   var need = !!q.req;
+  if (t === 'rating') return 별점답정리2_(q, v);                 // Step 6
 
   if (t === 'checks') {
-    var arr = (v && v.length ? v : []).map(function (x) { return String(x).slice(0, 200); }).slice(0, 40);
+    var arr = (Array.isArray(v) ? v : (v ? [v] : [])).map(function (x) { return String(x).slice(0, 200); }).slice(0, 40);   // Step 6: 유형을 바꾼 뒤 문자열이 와도 견딤
+    arr = 기타값정리2_(q, arr);                                  // Step 6: "기타: …" 다듬기 (q.other 가 꺼져 있으면 그대로)
     if (need && !arr.length) throw new Error('"' + q.label + '" 을(를) 골라주세요.');
     if (q.max && arr.length > q.max) throw new Error('"' + q.label + '" 은 ' + q.max + '개까지 고를 수 있습니다.');
     return arr;
@@ -11567,6 +11579,7 @@ function 답정리_(q, v) {
   // choice · text · long
   var str = String(v == null ? '' : v).trim().slice(0, t === 'long' ? 4000 : 500);
   if (need && !str) throw new Error('"' + q.label + '" 을(를) 입력해주세요.');
+  if (t === 'choice' && q.other && str) str = 기타값정리2_(q, [str])[0];   // Step 6
   return str;
 }
 
@@ -11581,11 +11594,12 @@ function submitForm(token, id, answers) {
   answers = answers || {};
   var mine = 내답_(f.id, who.name, who.email);
   if (mine && !f.editable) throw new Error('이미 신청하셨습니다. 고치시려면 담당자에게 말씀해주세요.');
-  if (!mine && f.limit > 0 && 답행들_(f.id).length >= f.limit) throw new Error('신청 인원(' + f.limit + '명)이 다 찼습니다.');
+  if (!mine && f.limit > 0 && 유효답행들3_(f.id).length >= f.limit) throw new Error('신청 인원(' + f.limit + '명)이 다 찼습니다.');   // Step 7: 취소 제외
 
   var clean = {};
   (f.questions || []).forEach(function (q) {
     if (q.type === 'section') return;
+    if (!문항보임3_(q, clean)) return;              // Step 7: 조건 때문에 숨겨진 문항은 검사도 저장도 하지 않음 (필수여도)
     var v = 답정리_(q, answers[q.id]);
     if (v !== null) clean[q.id] = v;
   });
@@ -11609,7 +11623,7 @@ function submitForm(token, id, answers) {
   캐시비움_();
 
   // 담당자에게 알림
-  var 지금수 = 답행들_(f.id).length;
+  var 지금수 = 유효답행들3_(f.id).length;
   if (f.notify) {
     var to = [];
     if (f.owner && f.owner !== '커미티') to.push(f.owner);
@@ -11631,6 +11645,9 @@ function submitForm(token, id, answers) {
       } catch (e) {}
     }
   }
+
+  // Step 7: 공유받은 팀 · 셀 · 개인 중 알림을 켜 둔 분께도 (신청서의 '알림 받기' 와 따로)
+  try { 공유알림보내기3_(f, who, mine, 지금수, typeof to === 'undefined' ? [] : to); } catch (e) {}
 
   // 정원이 다 차면 스스로 마감합니다
   var closed = false;
@@ -11699,21 +11716,26 @@ function 신청서폴더_(f) {
 /* ---- 화면이 부르는 함수 (만드는 쪽 — 커미티 · 팀장) ---- */
 
 function formAdminInit(token) {
-  var who = 신청서관리자_(token);
-  var list = 신청서들_().filter(function (f) { return 신청서만질수있나_(who, f); })
+  var who = 열람자3_(token);                                      // Step 7: 공유로 결과만 보는 분도 들어올 수 있음 (who.viewer)
+  var list = 신청서들_().filter(function (f) { return 신청서만질수있나_(who, f) || 공유대상인가3_(who.name, f); })
     .map(function (f) {
-      var rows = 답행들_(f.id);
-      return { id: f.id, title: f.title, status: f.status, team: f.team, owner: f.owner,
+      var rows = 유효답행들3_(f.id);
+      return { viewOnly: !신청서만질수있나_(who, f), id: f.id, title: f.title, status: f.status, team: f.team, owner: f.owner,
         at: f.at, openAt: f.openAt, closeAt: f.closeAt, target: f.target, limit: f.limit,
         count: rows.length, live: 신청받는중_(f), why: 신청마감사유_(f), qn: (f.questions || []).length,
-        full: !!(f.limit && rows.length >= f.limit) };
+        full: !!(f.limit && rows.length >= f.limit),
+        canResults: 신청서결과볼수있나_(who, f) };
     })
     .sort(function (a, b) { return (b.at || '').localeCompare(a.at || ''); });
   return {
     list: list, me: who.name, committee: who.committee, teams: who.teams,
     types: 문항종류(), statuses: 신청서상태,
-    targets: 알림대상목록_(),
-    myTemplates: 내본보기들_()
+    targets: who.viewer ? [] : 알림대상목록_(),
+    myTemplates: who.viewer ? [] : 내본보기들_(),
+    viewer: !!who.viewer,                                        // Step 7
+    people: who.viewer ? [] : 공유후보사람3_(who),                // Step 7: 공유 · 알림 대상으로 고를 개인 (이름만)
+    cells: who.viewer ? [] : getCells().map(function (c) { return c.name; }),
+    answerStatuses: 신청상태3_
   };
 }
 
@@ -11780,7 +11802,7 @@ function formSave(token, data) {
     var opts = (q.opts || []).slice(0, 40).map(function (o) { return String(o).trim().slice(0, 120); })
       .filter(function (o) { return o; });
     if ((type === 'choice' || type === 'checks') && !opts.length) opts = ['예', '아니오'];
-    return {
+    var outQ = 문항정리2_(q, {                                 // Step 6: 별점 · 기타 이름 · 서식 안내를 덧붙임 (logic/forms2.js)
       id: qid, type: type,
       label: String(q.label || '').trim().slice(0, 150) || ('문항 ' + (i + 1)),
       help: String(q.help || '').trim().slice(0, 500),
@@ -11788,11 +11810,16 @@ function formSave(token, data) {
       min: q.min === '' || q.min == null ? '' : Number(q.min),
       max: q.max === '' || q.max == null ? '' : Number(q.max),
       unit: String(q.unit || '').trim().slice(0, 12)
-    };
+    });
+    if (q.showIf) outQ.showIf = q.showIf;                      // Step 7: 표시 조건은 아래 문항조건정리3_ 가 걸러서 남김
+    return outQ;
   });
+  qs = 문항조건정리3_(qs);                                       // Step 7: 표시 조건(showIf) 정리 — 앞 문항만 · 잘못된 규칙은 버림
 
+  var 서식 = 서식정리2_(data.descHtml, data.desc);               // Step 6: html 이 없으면 예전처럼 글만 (desc 는 서식을 뺀 글로 저장)
   var body = {
-    desc: String(data.desc || '').trim().slice(0, 3000),
+    desc: 서식.text,
+    descHtml: 서식.html,
     questions: qs,
     openAt: /^\d{4}-\d{2}-\d{2}$/.test(String(data.openAt || '')) ? data.openAt : '',
     closeAt: /^\d{4}-\d{2}-\d{2}$/.test(String(data.closeAt || '')) ? data.closeAt : '',
@@ -11804,7 +11831,8 @@ function formSave(token, data) {
     mail: !!data.mail,
     autoClose: data.autoClose !== false,
     resultsShare: String(data.resultsShare) === 'owner' ? 'owner' : 'team',
-    inviteOnly: !!data.inviteOnly
+    inviteOnly: !!data.inviteOnly,
+    shares: old ? (old.shares || []) : []                        // Step 7: 공유 범위는 formShareSave 로만 바꿉니다 (고치기 화면에서 저장해도 그대로)
   };
   var status = 신청서상태.indexOf(String(data.status)) !== -1 ? String(data.status) : (old ? old.status : '준비중');
   var team = String(data.team || '').trim().slice(0, 40);
@@ -11861,45 +11889,20 @@ function formDelete(token, id) {
 
 /** 신청 결과 — 표와 간단한 집계 */
 function formResults(token, id) {
-  var who = 신청서관리자_(token);
+  var who = 열람자3_(token);                                      // Step 7
   var f = 신청서찾기_(id);
   if (!f) throw new Error('없는 신청서입니다.');
   if (!신청서결과볼수있나_(who, f)) throw new Error('이 신청서 결과는 만든 사람과 커미티만 볼 수 있습니다.');
   var rows = 답행들_(f.id).sort(function (a, b) { return (a.at || '').localeCompare(b.at || ''); });
 
-  // 객관식 · 복수선택은 몇 명이 골랐는지 세어 줍니다
-  var stats = [];
-  (f.questions || []).forEach(function (q) {
-    if (q.type !== 'choice' && q.type !== 'checks') return;
-    var cnt = {}, none = 0;
-    (q.opts || []).forEach(function (o) { cnt[o] = 0; });
-    rows.forEach(function (a) {
-      var v = a.answers[q.id];
-      if (q.type === 'checks') {
-        if (!v || !v.length) { none++; return; }
-        v.forEach(function (x) { cnt[x] = (cnt[x] || 0) + 1; });
-      } else {
-        if (!v) { none++; return; }
-        cnt[v] = (cnt[v] || 0) + 1;
-      }
-    });
-    stats.push({ id: q.id, label: q.label, type: q.type, none: none,
-      items: Object.keys(cnt).map(function (k) { return { name: k, n: cnt[k] }; }) });
-  });
-
-  // 숫자 문항은 합계도 (티셔츠 몇 장, 인원 몇 명 등)
-  (f.questions || []).forEach(function (q) {
-    if (q.type !== 'number') return;
-    var sum = 0, n = 0;
-    rows.forEach(function (a) {
-      var v = Number(a.answers[q.id]);
-      if (isFinite(v) && a.answers[q.id] !== '') { sum += v; n++; }
-    });
-    stats.push({ id: q.id, label: q.label, type: 'number', sum: sum, n: n, unit: q.unit || '' });
-  });
+  // Step 6: 객관식 · 복수선택 · 숫자 · 별점 집계는 logic/forms2.js 의 결과집계2_ 가 합니다.
+  //         (옛 답 모양은 같은 결과, 기타(직접 입력)는 한 줄로 묶고, 유형을 바꾼 뒤의 다른 모양의 답에도 멈추지 않음)
+  var stats = 결과집계2_(f, rows.filter(function (a) { return a.status !== '취소'; }));   // Step 7: 취소된 신청은 집계에서 뺍니다 (표에는 남음)
 
   return { form: { id: f.id, title: f.title, questions: f.questions, status: f.status, limit: f.limit },
-    rows: rows, stats: stats, count: rows.length };
+    rows: rows, stats: stats, count: rows.length,
+    counts: 상태집계3_(rows), active: rows.filter(function (a) { return a.status !== '취소'; }).length,   // Step 7
+    canEdit: 신청서만질수있나_(who, f), answerStatuses: 신청상태3_ };
 }
 
 /** 신청자 한 명 지우기 (잘못 들어온 신청) */
@@ -11917,21 +11920,17 @@ function formDropAnswer(token, id, name) {
 
 /** 결과를 엑셀로 */
 function formExport(token, id) {
-  var who = 신청서관리자_(token);
+  var who = 열람자3_(token);                                      // Step 7
   var f = 신청서찾기_(id);
   if (!f || !신청서결과볼수있나_(who, f)) throw new Error('권한이 없습니다.');
   var rows = 답행들_(f.id).sort(function (a, b) { return (a.at || '').localeCompare(b.at || ''); });
   var qs = (f.questions || []).filter(function (q) { return q.type !== 'section'; });
 
-  var H = ['이름', '연락처', '이메일', '성별', '셀', '제출시각'].concat(qs.map(function (q) { return q.label; }));
+  var H = ['이름', '연락처', '이메일', '성별', '셀', '제출시각'].concat(qs.map(function (q) { return q.label; })).concat(['상태']);   // Step 7: 맨 끝에 상태
   var data = rows.map(function (a) {
     return [a.name, a.phone, a.email, a.gender, a.cell, a.at].concat(qs.map(function (q) {
-      var v = a.answers[q.id];
-      if (q.type === 'checks') return (v || []).join(', ');
-      if (q.type === 'agree') return v ? '동의' : '';
-      if (q.type === 'file') return (v || []).map(function (x) { return x.name; }).join(', ');
-      return v == null ? '' : String(v);
-    }));
+      return 답표시2_(q, a.answers[q.id]);                       // Step 6: 유형을 바꾼 뒤의 다른 모양의 답도 견딤 (옛 결과는 똑같이)
+    })).concat([a.status]);
   });
 
   var fname = (f.title || '신청서').replace(/[\\\/:*?"<>|]/g, '_').slice(0, 40) + '_' + ymd_(new Date());
@@ -12155,7 +12154,7 @@ function 내할일_(token) {
   /* --- 1) 공지 --- */
   공지들_().forEach(function (n) {
     if (n.target && n.target !== '전체' && who.kind === 'member') {
-      if (r.roles.indexOf(n.target) === -1 && r.teams.indexOf(n.target) === -1 && r.cells.indexOf(n.target) === -1) return;
+      if (!공지대상맞나3_(n.target, who, r)) return;      // Step 7: 예전 한 줄 대상 + "팀:음악|사람:홍길동" 처럼 여러 대상
     }
     var it = 할일하나_({ id: 'notice-' + n.id, kind: 'notice', icon: '📢',
       title: n.title, sub: n.body || (n.by ? n.by + ' 올림' : ''), url: n.url, tone: 'notice' });
@@ -12517,7 +12516,7 @@ function 알림대상목록_() {
   try {
     신청서들_().forEach(function (f) {
       if (f.status === '보관') return;
-      var n = 답행들_(f.id).length;
+      var n = 유효답행들3_(f.id).length;               // Step 7: 취소 제외
       if (!n) return;
       out.push({ key: '신청:' + f.id, name: f.title + ' 신청자', n: n, group: '신청서' });
     });
@@ -12561,8 +12560,9 @@ function 대상사람_(key) {
     return o3;
   }
   if (key.indexOf('신청:') === 0) {
-    return 답행들_(key.slice(3)).map(function (a) { return a.name; });
+    return 유효답행들3_(key.slice(3)).map(function (a) { return a.name; });   // Step 7: 취소 제외
   }
+  if (key.indexOf('사람:') === 0) return [key.slice(3).trim()];                  // Step 7: 개인 한 명
   if (key === '제자훈련') {
     return rows_(SHEET_제자훈련).map(function (r) { return String(r[0] || '').trim(); })
       .filter(function (x) { return x; });
@@ -12841,7 +12841,7 @@ function saveFormTemplate(token, formId, name, desc) {
   name = String(name || f.title || '').trim().slice(0, 60);
   if (!name) throw new Error('본보기 이름을 적어주세요.');
 
-  var body = { title: f.title, desc: f.desc, target: f.target, questions: f.questions,
+  var body = { title: f.title, desc: f.desc, descHtml: f.descHtml, target: f.target, questions: f.questions,
     editable: f.editable, showCount: f.showCount, notify: f.notify, mail: f.mail,
     limit: f.limit, autoClose: f.autoClose };
   var json = JSON.stringify(body);
@@ -12882,7 +12882,7 @@ function announceForm(token, id, target, opts) {
   if (!f) throw new Error('없는 신청서입니다.');
   if (!신청서만질수있나_(who, f)) throw new Error('권한이 없습니다.');
   opts = opts || {};
-  var names = 대상사람_(target || (f.target === '새가족' ? '전체' : '전체'));
+  var names = 대상사람들3_(Array.isArray(target) ? target : (target || (f.target === '새가족' ? '전체' : '전체')));   // Step 7: 여러 그룹 · 개인도 됩니다 (글 하나면 예전과 같음)
   var url = 앱주소_() + '?page=portal' + (f.inviteOnly ? '&form=' + encodeURIComponent(f.id) : '');
   var body = (f.desc ? f.desc.split('\n')[0].slice(0, 120) : '') +
     (f.closeAt ? (f.desc ? '\n' : '') + f.closeAt + ' 까지 신청해주세요.' : '');
@@ -12906,7 +12906,7 @@ function announceForm(token, id, target, opts) {
   }
   if (opts.portal) {
     공지시트_().appendRow(['N' + Date.now().toString(36), f.title + ' 신청을 받습니다', body,
-      String(target || '전체'), url, 커미티이름_(token), ymd_(new Date()), f.closeAt || '']);
+      Array.isArray(target) ? (target.join('|') || '전체') : String(target || '전체'), url, 커미티이름_(token), ymd_(new Date()), f.closeAt || '']);
     캐시비움_();
     out.portal = true;
   }
@@ -15115,8 +15115,8 @@ function checkYoutube(key) {
 
 var SHEET_앨범 = '포토앨범';
 var SHEET_앨범사진 = '포토앨범사진';
-var HEAD_앨범 = ['ID', '제목', '카테고리', '대상', '설명', '대표사진', '만든이', '만든날짜', '외부링크'];
-var AB_ID = 0, AB_제목 = 1, AB_카테고리 = 2, AB_대상 = 3, AB_설명 = 4, AB_대표 = 5, AB_만든이 = 6, AB_만든날짜 = 7, AB_외부링크 = 8;
+var HEAD_앨범 = ['ID', '제목', '카테고리', '대상', '설명', '대표사진', '만든이', '만든날짜', '외부링크', '공개범위'];
+var AB_ID = 0, AB_제목 = 1, AB_카테고리 = 2, AB_대상 = 3, AB_설명 = 4, AB_대표 = 5, AB_만든이 = 6, AB_만든날짜 = 7, AB_외부링크 = 8, AB_공개 = 9;   // Step 7: 공개범위 (칸이 없던 시트에는 저절로 더해짐)
 
 /** 구글포토 · 네이버 마이박스 같은 외부 앨범 링크 — [{label, url}, ...] 을 JSON 문자열로 저장/해석합니다 */
 function 앨범외부링크파싱_(v) {
@@ -15193,7 +15193,8 @@ function 앨범하나_(id) {
         category: 앨범카테고리정리_(r[AB_카테고리]), target: String(r[AB_대상] || '').trim(),
         desc: String(r[AB_설명] || '').trim(), cover: String(r[AB_대표] || '').trim(),
         by: String(r[AB_만든이] || '').trim(), at: String(r[AB_만든날짜] || '').trim(),
-        links: 앨범외부링크파싱_(r[AB_외부링크])
+        links: 앨범외부링크파싱_(r[AB_외부링크]),
+        visibility: 앨범공개파싱3_(r[AB_공개])          // Step 7
       };
     }
   });
@@ -15222,7 +15223,8 @@ function 앨범요약_(row, token) {
     id: String(row[AB_ID]).trim(), title: String(row[AB_제목] || '').trim(),
     category: 앨범카테고리정리_(row[AB_카테고리]), target: String(row[AB_대상] || '').trim(),
     desc: String(row[AB_설명] || '').trim(), by: String(row[AB_만든이] || '').trim(),
-    at: String(row[AB_만든날짜] || '').trim()
+    at: String(row[AB_만든날짜] || '').trim(),
+    visibility: 앨범공개파싱3_(row[AB_공개])           // Step 7
   };
   var photos = 앨범사진목록_(m.id);
   var cover = String(row[AB_대표] || '').trim();
@@ -15241,13 +15243,18 @@ function albumInit(token) {
   앨범시트준비_();
   var r = 포털역할_(me.name);
   var 커미티 = r.roles.indexOf('커미티') !== -1;
-  var list = rows_(SHEET_앨범).map(function (row) { return 앨범요약_(row, token); })
+  var list = rows_(SHEET_앨범).filter(function (row) {
+      return 앨범볼수있나3_(me.name, { visibility: 앨범공개파싱3_(row[AB_공개]), category: 앨범카테고리정리_(row[AB_카테고리]),
+        target: String(row[AB_대상] || '').trim(), by: String(row[AB_만든이] || '').trim() });   // Step 7: 공개 범위 밖의 앨범은 목록에서 뺍니다
+    }).map(function (row) { return 앨범요약_(row, token); })
     .sort(function (a, b) { return a.at < b.at ? 1 : (a.at > b.at ? -1 : 0); });
   return {
     me: me.name,
     committee: 커미티,
     myCells: 커미티 ? getCells().map(function (c) { return c.name; }) : r.cells,
     myTeams: 커미티 ? 사역팀목록_().map(function (t) { return t.name; }) : r.teams,
+    allTeams: 사역팀목록_().map(function (t) { return t.name; }),      // Step 7: 공개 범위로 고를 수 있는 팀 · 셀 (이름만)
+    allCells: getCells().map(function (c) { return c.name; }),
     list: list
   };
 }
@@ -15257,11 +15264,12 @@ function albumOpen(token, id) {
   var me = requirePortal_(token);
   var a = 앨범하나_(id);
   if (!a) throw new Error('앨범을 찾지 못했습니다. 이미 지워졌을 수 있습니다.');
+  if (!앨범볼수있나3_(me.name, a)) throw new Error('이 앨범은 공개된 팀 · 셀만 볼 수 있습니다.');   // Step 7
   return {
     me: me.name,
     canEdit: 앨범권한_(token, a.category, a.target),
     album: { id: a.id, title: a.title, category: a.category, target: a.target,
-      desc: a.desc, by: a.by, at: a.at, cover: a.cover, links: a.links },
+      desc: a.desc, by: a.by, at: a.at, cover: a.cover, links: a.links, visibility: a.visibility },
     photos: 앨범사진목록_(a.id)
   };
 }
@@ -15278,10 +15286,11 @@ function albumCreate(token, d) {
   if (!title) throw new Error('앨범 제목을 적어주세요.');
   var desc = String(d.desc || '').trim().slice(0, 300);
   var links = 앨범외부링크검증_(d.links);
+  var vis = 앨범공개정리3_(d.visibility);                                   // Step 7
 
   var id = 'AB' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
   var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-  앨범시트_(SHEET_앨범).appendRow([id, title, category, target, desc, '', me.name, now, JSON.stringify(links)]);
+  앨범시트_(SHEET_앨범).appendRow([id, title, category, target, desc, '', me.name, now, JSON.stringify(links), vis.mode === 'restricted' ? JSON.stringify(vis) : '']);
   캐시비움_();
   return { ok: true, id: id };
 }
@@ -15299,6 +15308,7 @@ function albumEdit(token, id, d) {
     if (title) sh.getRange(i + 1, AB_제목 + 1).setValue(title);
     if (d.desc != null) sh.getRange(i + 1, AB_설명 + 1).setValue(String(d.desc).trim().slice(0, 300));
     if (d.links != null) sh.getRange(i + 1, AB_외부링크 + 1).setValue(JSON.stringify(앨범외부링크검증_(d.links)));
+    if (d.visibility != null) { var vv = 앨범공개정리3_(d.visibility); sh.getRange(i + 1, AB_공개 + 1).setValue(vv.mode === 'restricted' ? JSON.stringify(vv) : ''); }   // Step 7
     캐시비움_();
     return { ok: true };
   }

@@ -1,0 +1,244 @@
+/* =====================================================================
+   forms.css — 신청서 공용 부품 스타일 (Step 6)  ·  Dark Glassmorphism + 주황 포인트
+   ---------------------------------------------------------------------
+   문제였던 것: 고르는 칸이 rgba(255,255,255,.075) 바탕 + rgba(255,255,255,.15) 테두리라
+                고르지 않은 칸의 경계가 거의 안 보였습니다 (대비 1.1 : 1 안팎).
+   해결:        · 고르지 않은 칸 = 진한 유리 카드 + 2px 테두리 #6E665B  (밝은 패널 위에서 4.5 : 1 이상)
+                · 안쪽 동그라미 · 네모 = 2px #E0DAD0 테두리 (어두운 카드 위 10 : 1 이상)
+                · 고른 칸 = 주황 #FF6B00 로 채워지고 ✓ · ● 가 겹쳐서, 색만으로 구별하지 않습니다
+   진짜 <input> 을 그대로 쓰므로 키보드 (Tab · 방향키 · 스페이스) 와 스크린리더가 그대로 동작합니다.
+   ===================================================================== */
+:root {
+  --fx-orange: #FF6B00;
+  --fx-orange-soft: rgba(255, 107, 0, .18);
+  --fx-card: rgba(24, 21, 18, .92);
+  --fx-card-hi: rgba(40, 34, 28, .94);
+  --fx-line: #6E665B;
+  --fx-mark: #E0DAD0;
+  --fx-ink: #F7F3EC;
+  --fx-sub: #C9C1B5;
+  --fx-bad: #FF8A6B;
+}
+
+/* ---------------------------------------------------------------- 문항 머리 */
+.fx-head { margin-bottom: 9px; }
+.fx-q { font-size: 15.5px; font-weight: 750; color: var(--ink-1, #1A1917); letter-spacing: -0.01em; line-height: 1.5; }
+.fx-q .req { color: #D2511F; }
+.fx-help { font-size: 13.5px; color: var(--ink-3, #5B554C); margin: 3px 0 0; line-height: 1.65; }
+.fx-err { margin: 8px 0 0; font-size: 13.5px; font-weight: 700; color: #B03A12; }
+.fx-err[hidden] { display: none; }
+.bad .fx-opt:not(.on), .bad .fx-r { border-color: #C2410C; }
+
+/* ---------------------------------------------------------------- 고르기 · 여러 개 고르기 */
+.fx-list { display: flex; flex-direction: column; gap: 8px; }
+.fx-opt {
+  position: relative; display: flex !important; align-items: center; gap: 12px;
+  min-height: 48px; padding: 11px 14px; margin: 0 !important;
+  background: var(--fx-card); color: var(--fx-ink);
+  border: 2px solid var(--fx-line); border-radius: 13px;
+  -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .16);
+  cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: border-color .14s ease, background-color .14s ease, box-shadow .14s ease, transform .08s ease;
+}
+.fx-opt:hover { background: var(--fx-card-hi); border-color: #8C8376; }
+.fx-opt:active { transform: translateY(.5px); }
+.fx-opt.on {
+  border-color: var(--fx-orange);
+  background: linear-gradient(0deg, var(--fx-orange-soft), var(--fx-orange-soft)), var(--fx-card);
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, .28), 0 4px 14px rgba(0, 0, 0, .18);
+}
+/* 진짜 입력칸은 눈에만 안 보이게 — 접근성 트리와 키보드에는 그대로 남습니다 */
+.fx-opt > input {
+  position: absolute !important; opacity: 0 !important; width: 1px !important; height: 1px !important;
+  margin: 0 !important; padding: 0 !important; border: 0 !important; left: 14px; top: 50%;
+  pointer-events: none;
+}
+.fx-mark {
+  flex: none; position: relative; width: 24px; height: 24px; box-sizing: border-box;
+  border: 2px solid var(--fx-mark); background: rgba(255, 255, 255, .06);
+  transition: border-color .14s ease, background-color .14s ease;
+}
+.fx-group:not(.multi) .fx-mark { border-radius: 50%; }
+.fx-group.multi .fx-mark { border-radius: 7px; }
+.fx-opt > input:checked ~ .fx-mark { background: var(--fx-orange); border-color: var(--fx-orange); }
+.fx-group:not(.multi) .fx-opt > input:checked ~ .fx-mark::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+  border-radius: 50%; background: #fff;
+}
+.fx-group.multi .fx-opt > input:checked ~ .fx-mark::after {
+  content: ""; position: absolute; left: 6px; top: 1.5px; width: 6px; height: 12px;
+  border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+.fx-opt > input:focus-visible ~ .fx-mark { outline: 3px solid #FFB27A; outline-offset: 3px; }
+.fx-opt > input:disabled ~ .fx-txt, .fx-opt > input:disabled ~ .fx-mark { opacity: .55; }
+.fx-txt { flex: 1; min-width: 0; font-size: 15.5px; font-weight: 650; line-height: 1.45; color: var(--fx-ink); word-break: keep-all; overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------- 기타 (직접 입력) */
+.fx-other { display: none; margin-top: 8px; }
+.fx-other.open { display: block; animation: fxIn .16s ease-out; }
+.fx-otext { width: 100%; box-sizing: border-box; }
+@keyframes fxIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+/* ---------------------------------------------------------------- 별점 · 만족도 */
+.fx-rrow { display: flex; flex-wrap: wrap; gap: 8px; }
+.fx-r {
+  position: relative; display: flex !important; align-items: center; justify-content: center;
+  flex: 0 0 auto; min-width: 48px; height: 48px; margin: 0 !important; padding: 0 6px;
+  background: var(--fx-card); border: 2px solid var(--fx-line); border-radius: 13px;
+  -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .16); cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: border-color .14s ease, background-color .14s ease, transform .08s ease;
+}
+.fx-r:hover { background: var(--fx-card-hi); border-color: #8C8376; }
+.fx-r > input {
+  position: absolute !important; opacity: 0 !important; width: 1px !important; height: 1px !important;
+  margin: 0 !important; padding: 0 !important; border: 0 !important; pointer-events: none;
+}
+.fx-rg { font-size: 22px; line-height: 1; color: #B4AB9C; font-weight: 800; }
+.v-number .fx-rg { font-size: 17px; color: var(--fx-ink); }
+.v-face .fx-rg { font-size: 26px; filter: grayscale(.85) brightness(.9); }
+.v-star .fx-rg { font-size: 26px; }
+.fx-r.on { border-color: var(--fx-orange); background: linear-gradient(0deg, var(--fx-orange-soft), var(--fx-orange-soft)), var(--fx-card); }
+.fx-r.on .fx-rg { color: var(--fx-orange); }
+.v-number .fx-r.on { background: var(--fx-orange); }
+.v-number .fx-r.on .fx-rg { color: #fff; }
+.v-face .fx-r.on .fx-rg { filter: none; }
+.fx-r > input:focus-visible ~ .fx-rg { outline: 3px solid #FFB27A; outline-offset: 6px; border-radius: 4px; }
+.fx-rends { display: flex; justify-content: space-between; gap: 12px; margin-top: 7px; font-size: 12.5px; font-weight: 700; color: var(--ink-3, #5B554C); }
+
+/* ---------------------------------------------------------------- 안내글 (서식 있는 글) */
+.fx-rich { font-size: 15.5px; line-height: 1.85; color: var(--ink-2, #33302B); overflow-wrap: anywhere; }
+.fx-rich b { font-weight: 800; color: var(--ink-1, #1A1917); }
+mark.hl, .fx-rich mark, .fx-ed mark {
+  background: #FFD9BC; color: #6B2600; padding: 0 3px; margin: 0 -1px; border-radius: 4px;
+  box-shadow: inset 0 -2px 0 var(--fx-orange); -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+
+/* ---------------------------------------------------------------- 글쓰기 도구 (관리자) */
+.fx-rte { border: 1px solid #968D80; border-radius: 12px; background: #fff; overflow: hidden; }
+.fx-rte:focus-within { border-color: #D2511F; box-shadow: 0 0 0 3px rgba(210, 81, 31, .25); }
+.fx-tb {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 7px 8px;
+  background: var(--fx-card); border-bottom: 1px solid #3A342D;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.fx-tbtn {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 6px 12px;
+  font: 700 13.5px/1 inherit; font-family: inherit; color: var(--fx-ink);
+  background: rgba(255, 255, 255, .08); border: 2px solid #8C8376; border-radius: 10px; cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.fx-tbtn:hover { background: rgba(255, 255, 255, .16); }
+.fx-tbtn b { font-size: 16px; font-weight: 900; }
+.fx-tbtn .sw { display: inline-block; width: 16px; height: 16px; border-radius: 5px; background: var(--fx-orange); border: 2px solid #FFD9BC; }
+.fx-tbtn.on { background: var(--fx-orange); border-color: var(--fx-orange); color: #fff; }
+.fx-tbtn.on .sw { border-color: #fff; }
+.fx-tbtn:focus-visible { outline: 3px solid #FFB27A; outline-offset: 2px; }
+.fx-ed {
+  min-height: 116px; max-height: 360px; overflow-y: auto; padding: 11px 13px;
+  font-size: 15.5px; line-height: 1.8; color: #1A1917; background: #fff; outline: none; white-space: normal; overflow-wrap: anywhere;
+  -webkit-user-select: text; user-select: text;
+}
+.fx-ed:empty::before { content: attr(data-ph); color: #6B645A; pointer-events: none; }
+.fx-ed b { font-weight: 800; }
+.fx-cnt { padding: 4px 12px 7px; font-size: 12px; font-weight: 700; color: #6B645A; text-align: right; background: #fff; }
+.fx-cnt.over { color: #B03A12; }
+
+/* ---------------------------------------------------------------- 관리자 문항 편집: 유형 바꾸기 · 기타 · 별점 설정 */
+.fx-types { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 4px; }
+.fx-types button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 7px 12px;
+  font: 700 13.5px/1.2 inherit; font-family: inherit; cursor: pointer;
+  color: var(--fx-ink); background: var(--fx-card); border: 2px solid var(--fx-line); border-radius: 11px;
+  transition: border-color .12s ease, background-color .12s ease;
+}
+.fx-types button:hover { border-color: #8C8376; background: var(--fx-card-hi); }
+.fx-types button.on { border-color: var(--fx-orange); background: var(--fx-orange); color: #fff; }
+.fx-types button:focus-visible { outline: 3px solid #FFB27A; outline-offset: 2px; }
+.fx-types .i { font-size: 15px; }
+.fx-sub { margin: 8px 0 0; padding: 10px 12px; border: 1px dashed #968D80; border-radius: 12px; background: transparent; }
+.fx-sub .fl { margin-top: 0; }
+.fx-seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.fx-seg button {
+  min-height: 36px; padding: 6px 12px; font: 700 13.5px/1 inherit; font-family: inherit; cursor: pointer;
+  color: var(--fx-ink); background: var(--fx-card); border: 2px solid var(--fx-line); border-radius: 10px;
+}
+.fx-seg button.on { border-color: var(--fx-orange); background: var(--fx-orange); color: #fff; }
+.fx-seg button:focus-visible { outline: 3px solid #FFB27A; outline-offset: 2px; }
+.fx-note { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-3, #5B554C); }
+.fx-warn { margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: #FFF1E6; color: #7A2E00; border: 1px solid #F0B48A; font-size: 13px; line-height: 1.6; font-weight: 650; }
+.fx-preview { margin-top: 10px; padding: 12px; border: 1px solid #C9C2B6; border-radius: 12px; background: #F4F1EC; color: #1A1917; }   /* 신청자 화면의 밝은 패널과 같은 바탕 — 어두운 관리 화면에서도 "보이는 그대로" */
+.fx-preview > .fx-cap { font-size: 11.5px; font-weight: 800; letter-spacing: .04em; color: #5B554C; margin-bottom: 8px; }
+.fx-preview .fx-q { color: #1A1917; }
+.fx-preview .fx-help, .fx-preview .fx-rends { color: #5B554C; }
+.fx-preview .fx-err { color: #B03A12; }
+.fx-preview input.fx-otext { background: #FFFFFF !important; color: #1A1917 !important; -webkit-text-fill-color: #1A1917; border: 1px solid #968D80 !important; border-radius: 10px; padding: 10px 12px; }
+.fx-preview input.fx-otext::placeholder { color: #6B645A; -webkit-text-fill-color: #6B645A; opacity: 1; }
+
+/* ---------------------------------------------------------------- 결과 화면 */
+.fx-bar { height: 10px; border-radius: 6px; background: #E4DFD6; overflow: hidden; }
+.fx-bar > i { display: block; height: 100%; background: var(--fx-orange); border-radius: 6px; }
+.fx-others { margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: #FFF6EE; border: 1px solid #F0B48A; font-size: 13.5px; line-height: 1.7; color: #4A2200; }
+.fx-others b { color: #7A2E00; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-opt, .fx-r, .fx-mark, .fx-tbtn, .fx-types button { transition: none; }
+  .fx-other.open { animation: none; }
+}
+@media (forced-colors: active) {
+  .fx-opt, .fx-r { border-color: CanvasText; }
+  .fx-opt.on, .fx-r.on { border-color: Highlight; }
+}
+
+/* 안내 문구 상자(.fmsec)의 "b { display:block }" 규칙이 굵은 글씨를 줄바꿈해 버리지 않게 */
+.fmsec .fx-rich b, .fx-rich b { display: inline; font-size: inherit; }
+
+/* ================================================================ Step 7 — 조건부 표시 · 상태 태그 · 공유 · 앨범 공개 범위 */
+.fx-cond { margin-top: 10px; }
+.fx-cond .fx-rule { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 8px; padding: 8px; border: 1px solid var(--fx-line); border-radius: 11px; background: rgba(255, 255, 255, .04); }
+.fx-cond .fx-rule select, .fx-cond .fx-rule input { flex: 1 1 130px; min-width: 0; margin: 0; }
+.fx-cond .fx-rule .qbtn { flex: none; }
+.fx-cond .fx-mode { margin: 0 0 8px; }
+.fx-cond .fx-cond-sum { margin: 0 0 8px; font-size: 13px; line-height: 1.6; color: var(--fx-sub); }
+.fx-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; font-size: 11.5px; font-weight: 800; border-radius: 6px; color: #FFD9BF; background: rgba(255, 107, 0, .22); border: 1px solid rgba(255, 107, 0, .55); white-space: nowrap; vertical-align: 1px; }
+.fmqw { margin: 0; }
+.fmqw[hidden] { display: none !important; }
+
+/* 신청 상태 태그 */
+.stt { display: inline-block; font-size: 12px; font-weight: 800; padding: 2px 9px; border-radius: 999px; white-space: nowrap; border: 1px solid transparent; }
+.stt.접수 { background: rgba(255, 255, 255, .14); color: #FFFFFF; border-color: rgba(255, 255, 255, .28); }
+.stt.미결제 { background: rgba(255, 107, 0, .24); color: #FFD9BF; border-color: rgba(255, 107, 0, .7); }
+.stt.결제완료 { background: #1D6B4B; color: #FFFFFF; border-color: #2E9068; }
+.stt.취소 { background: rgba(255, 90, 90, .2); color: #FFC4C4; border-color: rgba(255, 120, 120, .6); }
+.fx-stchips { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 10px; }
+.fx-stchips button { display: inline-flex; gap: 6px; align-items: center; min-height: 38px; padding: 6px 12px; font: 750 13.5px/1 inherit; font-family: inherit; cursor: pointer; color: var(--fx-ink); background: var(--fx-card); border: 2px solid var(--fx-line); border-radius: 999px; }
+.fx-stchips button b { font-size: 14.5px; }
+.fx-stchips button.on { border-color: var(--fx-orange); background: var(--fx-orange); color: #fff; }
+.fx-stchips button:focus-visible { outline: 3px solid #FFB27A; outline-offset: 2px; }
+.fx-bulk { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; padding: 9px 10px; border: 1px solid var(--fx-line); border-radius: 12px; background: rgba(255, 255, 255, .05); }
+.fx-bulk select { flex: 0 1 150px; margin: 0; min-height: 38px; }
+.fx-bulk label { display: inline-flex; gap: 6px; align-items: center; font-size: 13.5px; font-weight: 650; color: var(--fx-ink); }
+.fx-bulk label input { width: auto; margin: 0; }
+table.res tr.cx td { opacity: .55; text-decoration: line-through; text-decoration-color: rgba(255, 150, 150, .7); }
+table.res tr.cx td.ck, table.res tr.cx td.dr, table.res tr.cx td.stc { opacity: 1; text-decoration: none; }
+table.res td.stc select { min-height: 34px; padding: 4px 8px; margin: 0; width: auto; }
+table.res td.ck, table.res th.ck { width: 34px; padding-right: 0; }
+table.res td.ck input, table.res th.ck input { width: 18px; height: 18px; margin: 0; accent-color: #FF6B00; }
+
+/* 공유 · 알림 대상 */
+.fx-share { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--fx-line); border-radius: 12px; background: rgba(255, 255, 255, .04); }
+.fx-share .nm { flex: 1 1 140px; min-width: 0; font-weight: 750; color: var(--fx-ink); word-break: keep-all; overflow-wrap: anywhere; }
+.fx-share label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; font-weight: 650; color: var(--fx-sub); }
+.fx-share label input { width: auto; margin: 0; }
+.fx-addrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fx-addrow select { flex: 0 1 110px; margin: 0; }
+.fx-addrow input { flex: 1 1 150px; min-width: 0; margin: 0; }
+.fx-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.fx-chip { display: inline-flex; gap: 6px; align-items: center; padding: 5px 6px 5px 11px; font-size: 13.5px; font-weight: 750; color: #FFFFFF; background: rgba(255, 107, 0, .22); border: 1px solid rgba(255, 107, 0, .65); border-radius: 999px; }
+.fx-chip button { border: none; background: none; color: #FFD9BF; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; font-family: inherit; }
+.fx-lock { display: inline-block; margin-left: 6px; padding: 1px 7px; font-size: 11.5px; font-weight: 800; border-radius: 6px; color: #FFE3CF; background: rgba(255, 107, 0, .24); border: 1px solid rgba(255, 107, 0, .6); white-space: nowrap; }
+.fx-seltag { display: flex; flex-wrap: wrap; gap: 6px; }
+.fx-seltag label { display: inline-flex; gap: 7px; align-items: center; min-height: 40px; padding: 6px 12px; font-size: 14px; font-weight: 700; color: var(--fx-ink); background: var(--fx-card); border: 2px solid var(--fx-line); border-radius: 11px; cursor: pointer; }
+.fx-seltag label input { width: 18px; height: 18px; margin: 0; accent-color: #FF6B00; }
+.fx-seltag label.on { border-color: var(--fx-orange); background: linear-gradient(0deg, var(--fx-orange-soft), var(--fx-orange-soft)), var(--fx-card); }

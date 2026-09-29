@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<link rel="stylesheet" href="/forms/forms.css?v=7">
 <style>
   :root { --accent: #D2511F; --tone-rgb: 210,81,31; }
   body .shell { max-width: 960px !important; margin: 0 auto; padding-bottom: 20px; }
@@ -291,6 +292,7 @@ body .fcard:hover,
   <footer></footer>
 </div>
 <!--#include Theme-->
+<script src="/forms/forms-core.js?v=7"></script>
 <script>
 var P = window.__PREFILL__ || {};
 var TOKEN = P.key || P.t || '';
@@ -299,6 +301,12 @@ var F = null;           // 지금 고치고 있는 신청서
 var R = null;           // 지금 보고 있는 결과
 var VIEW = 'list';
 var OPENQ = -1;
+var DESC_ED = null;     // Step 6: 안내 글 서식 편집기 (굵게 · 주황 강조)
+var SEC_ED = null;      // Step 6: 열려 있는 "안내 문구" 문항의 서식 편집기
+var PREV_VAL = '';      // Step 6: 미리보기에서 지금 골라 본 값 (다시 그려도 유지)
+var PREV_T = 0;
+var STF = 'all';        // Step 7: 결과 화면의 상태 걸러보기 (all | 접수 | 미결제 | 결제완료 | 취소)
+var AN = [];            // Step 7: 알릴 대상 여러 곳 (key 목록)
 
 function el(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -332,8 +340,9 @@ function drawList() {
   var live = D.list.filter(function (f) { return f.status === '받는중'; });
   var rest = D.list.filter(function (f) { return f.status !== '받는중'; });
   var card = function (f) {
-    return '<div class="fcard" onclick="openForm(\'' + jsq(f.id) + '\')">' +
-      '<div class="fb"><div class="ft">' + esc(f.title) + '</div>' +
+    /* Step 7: 공유로 "결과만" 볼 수 있는 신청서는 고치기 화면 대신 바로 결과로 갑니다 */
+    return '<div class="fcard" onclick="' + (f.viewOnly ? 'showResults' : 'openForm') + '(\'' + jsq(f.id) + '\')">' +
+      '<div class="fb"><div class="ft">' + esc(f.title) + (f.viewOnly ? '<span class="fx-badge">결과 보기</span>' : '') + '</div>' +
       '<div class="fm"><span class="st ' + esc(f.status) + '">' + esc(f.status) + '</span> &nbsp;' +
       esc(f.team || f.owner) + ' &middot; 문항 ' + f.qn + '개' +
       (f.closeAt ? ' &middot; ~' + esc(f.closeAt) : '') +
@@ -344,17 +353,19 @@ function drawList() {
       '<div class="fn"><b>' + f.count + '</b><span>신청</span></div></div>';
   };
   el('root').innerHTML =
+    (D.viewer ? '<div class="panel"><span class="chip">공유받은 신청서</span>' +
+      '<p class="hint" style="margin-bottom:0;">신청 결과를 보고 엑셀로 받을 수 있습니다. 고치기 · 지우기는 만든 팀에서 합니다.</p></div>' :
     '<div class="panel"><span class="chip">신청서 만들기</span>' +
       '<p class="hint">본보기를 고르면 문항이 채워진 채로 열립니다. 문항은 얼마든지 고치실 수 있습니다.</p>' +
       '<div class="tpl" id="tplBox"><i class="skel line" style="width:60%;"></i></div>' +
-    '</div>' +
+    '</div>') +
     (live.length ? '<div class="panel flush"><div style="padding:16px 15px 4px;"><span class="chip">신청 받는 중</span></div>' +
       live.map(card).join('') + '</div>' : '') +
     (rest.length ? '<div class="panel flush"><div style="padding:16px 15px 4px;"><span class="chip">' +
       (live.length ? '그 밖의 신청서' : '내 신청서') + '</span></div>' + rest.map(card).join('') + '</div>' : '') +
     (!D.list.length ? '<div class="panel"><p class="empty">아직 만든 신청서가 없습니다. 위에서 본보기를 골라 시작해보세요.</p></div>' : '') +
     '<div style="text-align:center;padding:6px 12px 10px;"><a class="btn ghost" href="?page=portal">포털로 돌아가기</a></div>';
-  drawTemplates();
+  if (!D.viewer) drawTemplates();
 }
 
 function drawTemplates() {
@@ -395,9 +406,23 @@ function newFromTemplate(i) {
 }
 
 function normQ(q, i) {
-  return { id: q.id || ('q' + (i + 1) + Math.random().toString(36).slice(2, 5)), type: q.type || 'text',
+  var o = { id: q.id || ('q' + (i + 1) + Math.random().toString(36).slice(2, 5)), type: q.type || 'text',
     label: q.label || '', help: q.help || '', req: !!q.req, opts: q.opts || [], other: !!q.other,
-    min: q.min == null ? '' : q.min, max: q.max == null ? '' : q.max, unit: q.unit || '' };
+    min: q.min == null ? '' : q.min, max: q.max == null ? '' : q.max, unit: q.unit || '',
+    otherLabel: q.otherLabel || '', helpHtml: q.helpHtml || '' };
+  /* Step 6 — 별점 설정은 있는 문항에만 붙입니다. 서버는 이 값이 "있을 때만" 별점 설정을 저장하므로,
+     모든 문항에 빈 값을 붙이면 예전 문항까지 별점 칸이 생겨버립니다. */
+  if (q.scale != null || q.variant || q.lowLabel || q.highLabel || o.type === 'rating') {
+    o.scale = q.scale == null || q.scale === '' ? 5 : q.scale;
+    o.variant = q.variant || 'star';
+    o.lowLabel = q.lowLabel || '';
+    o.highLabel = q.highLabel || '';
+  }
+  /* Step 7 — 표시 조건은 있는 문항에만 붙입니다 (서버는 규칙이 있을 때만 저장) */
+  if (q.showIf && q.showIf.rules && q.showIf.rules.length) {
+    o.showIf = { mode: q.showIf.mode === 'any' ? 'any' : 'all', rules: q.showIf.rules.map(function (r) { return { q: r.q, op: r.op, v: r.v == null ? '' : r.v }; }) };
+  }
+  return o;
 }
 
 function openForm(id) {
@@ -433,9 +458,12 @@ function drawEdit() {
     '<div class="panel">' +
       '<div class="f"><label class="fl">제목 <span class="req">*</span></label>' +
         '<input type="text" id="fTitle" maxlength="80" placeholder="예: 2026 여름 수련회 신청" value="' + esc(F.title || '') + '"></div>' +
-      '<div class="f"><label class="fl">안내 글</label>' +
-        '<textarea id="fDesc" rows="4" maxlength="3000" placeholder="신청서 맨 위에 보일 안내입니다. 날짜 · 장소 · 회비 등을 적어주세요.">' + esc(F.desc || '') + '</textarea>' +
-        '<button type="button" class="btn mini aipolish" onclick="aiPolish(\'fDesc\',this,\'fDescMsg\')">&#10024; AI 편집</button>' +
+      '<div class="f"><label class="fl" id="fDescLbl">안내 글</label>' +
+        /* Step 6: 굵게 · 주황 강조를 넣을 수 있는 편집기. 밑의 숨은 칸(#fDesc)에는 "서식 뺀 글"이 늘 따라 들어가서
+           ✨ AI 편집 버튼(공용 모듈)과 예전 코드가 그대로 동작합니다. */
+        '<div id="fDescEd"></div>' +
+        '<textarea id="fDesc" hidden style="display:none;" tabindex="-1" aria-hidden="true">' + esc(F.desc || '') + '</textarea>' +
+        '<button type="button" class="btn mini aipolish" onclick="aiPolish(\'fDesc\',this,\'fDescMsg\',descGrow)">&#10024; AI 편집</button>' +
         '<p class="msg" id="fDescMsg"></p></div>' +
       '<div class="frow" style="display:flex;gap:8px;">' +
         '<div class="f" style="flex:1;"><label class="fl">담당</label>' + teamSel + '</div>' +
@@ -503,10 +531,25 @@ function drawEdit() {
       '<p class="msg" id="saveMsg"></p>' +
     '</div>' +
     (F.id ?
+    '<div class="panel"><span class="chip">함께 볼 사람 · 알림 받을 사람</span>' +
+      '<p class="hint">팀 · 셀 · 한 사람씩 골라 이 신청서의 <b>신청 결과</b>를 볼 수 있게 열어줍니다 (보기와 엑셀 받기만 됩니다). ' +
+      '"새 신청 알림" 을 켜 두면 신청이 들어올 때마다 그분들께 알림이 갑니다.</p>' +
+      '<div id="shList"></div>' +
+      '<div class="fx-addrow"><select id="shKind" onchange="drawShareNames()" aria-label="종류">' +
+        '<option value="팀">사역팀</option><option value="셀">셀</option><option value="사람">한 사람</option></select>' +
+        '<input type="text" id="shName" list="shNames" placeholder="이름을 고르거나 적어주세요" autocomplete="off" aria-label="이름">' +
+        '<datalist id="shNames"></datalist>' +
+        '<button type="button" class="btn mini" onclick="addShare()">+ 더하기</button></div>' +
+      '<button class="btn full" style="margin-top:10px;" onclick="saveShares()">공유 저장</button>' +
+      '<p class="msg" id="shMsg"></p>' +
+    '</div>' +
     '<div class="panel"><span class="chip">신청 받는다고 알리기</span>' +
-      '<p class="hint">만들어 두고 따로 알릴 수 있습니다. 포털 · 휴대폰 알림 · 이메일 중에 고르세요.</p>' +
+      '<p class="hint">만들어 두고 따로 알릴 수 있습니다. 포털 · 휴대폰 알림 · 이메일 중에 고르세요. 여러 곳을 한꺼번에 고를 수 있습니다.</p>' +
       '<div class="f"><label class="fl">누구에게</label>' +
-        '<select id="anTarget">' + targetOptions() + '</select></div>' +
+        '<div class="fx-chips" id="anChips"></div>' +
+        '<div class="fx-addrow"><select id="anTarget" style="flex:1 1 180px;">' + targetOptions() + '</select>' +
+        '<button type="button" class="btn mini" onclick="addAnTarget()">+ 더하기</button></div>' +
+        '<p class="hint" style="margin:6px 0 0;">아무것도 더하지 않으면 위에서 고른 한 곳에게 보냅니다.</p></div>' +
       '<label class="lkchg" style="margin:0 0 8px;"><input type="checkbox" id="anPush" checked>' +
         '<span>휴대폰 알림</span></label>' +
       '<label class="lkchg" style="margin:0 0 8px;"><input type="checkbox" id="anPortal" checked>' +
@@ -523,9 +566,28 @@ function drawEdit() {
       '<button class="btn full" onclick="saveAsTemplate()">본보기로 저장</button>' +
       '<p class="msg" id="tplMsg"></p>' +
     '</div>' : '');
+  mountDescEditor();
+  AN = [];
+  drawAnChips();
+  if (F.id) { drawShares(); drawShareNames(); }
+  var ql = el('qList');
+  ql.addEventListener('input', schedulePreview);
+  ql.addEventListener('change', schedulePreview);
   drawQuestions();
   drawAddButtons();
 }
+
+/** 안내 글 편집기 (굵게 · 주황 강조) — 바뀔 때마다 서식 뺀 글을 숨은 칸에 옮깁니다 */
+function mountDescEditor() {
+  DESC_ED = FormsCore.RichEditor(el('fDescEd'), {
+    html: F.descHtml || '', text: F.desc || '', maxText: 3000, minHeight: '116px',
+    placeholder: '신청서 맨 위에 보일 안내입니다. 날짜 · 장소 · 회비 등을 적어주세요.',
+    onChange: function (html, text) { el('fDesc').value = text; F.descHtml = html; F.desc = text; }
+  });
+  DESC_ED.el.setAttribute('aria-labelledby', 'fDescLbl');
+}
+/** ✨ AI 편집이 끝나면 (글만 새로 옴) 편집기에도 반영 — 서식은 AI 결과에는 없으므로 비워집니다 */
+function descGrow(t) { if (DESC_ED) DESC_ED.setText(t.value); }
 
 function leaveEdit() {
   if (!confirm('저장하지 않은 내용은 사라집니다. 목록으로 갈까요?')) return;
@@ -555,6 +617,7 @@ function addQ(type) {
   pullForm();
   var q = normQ({ type: type, label: '', req: false }, F.questions.length);
   if (type === 'choice' || type === 'checks') q.opts = ['', ''];
+  if (type === 'rating') { q.scale = 5; q.variant = 'star'; q.lowLabel = ''; q.highLabel = ''; }
   F.questions.push(q);
   OPENQ = F.questions.length - 1;
   drawQuestions();
@@ -565,8 +628,8 @@ function addQ(type) {
 function pullForm() {
   if (!el('fTitle')) return;
   F.title = el('fTitle').value;
-  F.desc = el('fDesc').value;
-  F.team = el('fTeam') ? el('fTeam').value : '';
+  if (DESC_ED) { F.desc = DESC_ED.getText(); F.descHtml = DESC_ED.getHtml(); } else F.desc = el('fDesc').value;
+  F.team =el('fTeam') ? el('fTeam').value : '';
   F.target = el('fTarget').value;
   F.openAt = el('fOpen').value;
   F.closeAt = el('fClose').value;
@@ -590,41 +653,235 @@ function pullQuestions() {
     var mn = el('qmin' + i); if (mn) q.min = mn.value;
     var mx = el('qmax' + i); if (mx) q.max = mx.value;
     var un = el('qu' + i); if (un) q.unit = un.value;
+    /* Step 6: 기타 · 별점 설정 (열려 있는 문항에만 칸이 있음 — 없으면 건드리지 않음) */
+    var ot = el('qother' + i); if (ot) q.other = ot.checked;
+    var ol = el('qotl' + i); if (ol) q.otherLabel = ol.value;
+    var sc = el('qsc' + i); if (sc) q.scale = Number(sc.value) || 5;
+    var lw = el('qlow' + i); if (lw) q.lowLabel = lw.value;
+    var hg = el('qhigh' + i); if (hg) q.highLabel = hg.value;
+    /* Step 7: 표시 조건의 값 (고르는 칸 · 적는 칸) */
+    if (q.showIf) q.showIf.rules.forEach(function (r, k) { var cv = el('qcv' + i + '_' + k); if (cv) r.v = cv.value; });
     if (q.opts && q.opts.length) {
       q.opts = q.opts.map(function (o, j) { var b = el('qo' + i + '_' + j); return b ? b.value : o; });
     }
   });
 }
 
+/** 문항 하나의 "유형 바꾸기" 줄 — 눌러도 적어 둔 질문 · 선택지 · 설정은 그대로 남습니다 */
+function typeSwitcher(i, q) {
+  return '<div class="f"><label class="fl">문항 유형 <span style="font-weight:600;color:var(--ink-3);">(바꿔도 적은 내용은 그대로 남습니다)</span></label>' +
+    '<div class="fx-types" role="group" aria-label="문항 유형">' +
+    (D.types || []).map(function (t) {
+      var on = t.key === q.type;
+      return '<button type="button" class="' + (on ? 'on' : '') + '" aria-pressed="' + on + '" ' +
+        'onclick="setQType(' + i + ',\'' + jsq(t.key) + '\')"><span class="i">' + t.icon + '</span>' + esc(t.name) + '</button>';
+    }).join('') + '</div>' +
+    (F.id && F.count ? '<p class="fx-warn">이미 ' + F.count + '명이 신청했습니다. 유형을 바꿔도 받은 답은 지워지지 않지만, ' +
+      '결과 화면은 새 유형을 기준으로 모아 보입니다.</p>' : '') +
+    '</div>';
+}
+
+function ratingSettings(i, q) {
+  var scale = Number(q.scale) || 5, variant = q.variant || 'star';
+  var faceOk = scale === 5;
+  if (variant === 'face' && !faceOk) variant = 'number';
+  var sel = '<select id="qsc' + i + '" onchange="setRating(' + i + ',\'scale\',this.value)">';
+  for (var n = 3; n <= 10; n++) sel += '<option value="' + n + '"' + (n === scale ? ' selected' : '') + '>' + n + '단계</option>';
+  sel += '</select>';
+  return '<div class="fx-sub"><label class="fl">별점 · 만족도 설정</label>' +
+    '<div class="qrow"><div class="f"><label class="fl" for="qsc' + i + '">단계 수</label>' + sel + '</div>' +
+    '<div class="f"><label class="fl">모양</label><div class="fx-seg" role="group" aria-label="모양">' +
+      [['star', '★ 별'], ['number', '1 2 3 숫자'], ['face', '🙂 표정']].map(function (v) {
+        var dis = v[0] === 'face' && !faceOk;
+        return '<button type="button" class="' + (variant === v[0] ? 'on' : '') + '" aria-pressed="' + (variant === v[0]) + '"' +
+          (dis ? ' disabled title="표정은 5단계일 때만 쓸 수 있습니다" style="opacity:.5;cursor:not-allowed;"' : '') +
+          ' onclick="setRating(' + i + ',\'variant\',\'' + v[0] + '\')">' + v[1] + '</button>';
+      }).join('') + '</div></div></div>' +
+    '<div class="qrow"><div class="f"><label class="fl" for="qlow' + i + '">가장 낮은 쪽 이름</label>' +
+      '<input type="text" id="qlow' + i + '" maxlength="20" placeholder="예: 매우 불만족" value="' + esc(q.lowLabel) + '"></div>' +
+    '<div class="f"><label class="fl" for="qhigh' + i + '">가장 높은 쪽 이름</label>' +
+      '<input type="text" id="qhigh' + i + '" maxlength="20" placeholder="예: 매우 만족" value="' + esc(q.highLabel) + '"></div></div>' +
+    '<button type="button" class="btn mini" onclick="ratingPreset(' + i + ')">만족도 5단계 (표정) 로 맞추기</button>' +
+    '</div>';
+}
+
+function otherSettings(i, q) {
+  return '<label class="lkchg" style="display:flex;gap:9px;align-items:flex-start;margin:6px 0 0;">' +
+      '<input type="checkbox" id="qother' + i + '"' + (q.other ? ' checked' : '') + ' onchange="toggleOther(' + i + ',this.checked)">' +
+      '<span>"기타 (직접 입력)" 칸 넣기<em>고르면 글을 적는 칸이 나타납니다. 답은 "기타: 내용" 으로 저장됩니다.</em></span></label>' +
+    (q.other ? '<div class="f" style="margin-top:8px;"><label class="fl" for="qotl' + i + '">기타 칸에 붙일 이름 (비우면 "기타 (직접 입력)")</label>' +
+      '<input type="text" id="qotl' + i + '" maxlength="30" placeholder="기타 (직접 입력)" value="' + esc(q.otherLabel) + '"></div>' : '');
+}
+
+
+/* ===================== Step 7 — 표시 조건 (이 문항은 앞 문항의 답에 따라서만 보임) ===================== */
+
+var COND_LBL = { eq: '같을 때', ne: '다를 때', has: '골랐을 때', nothas: '고르지 않았을 때', filled: '답이 있을 때', empty: '답이 없을 때', gte: '이상일 때', lte: '이하일 때' };
+
+/** 앞 문항(안내 글 제외) 중 조건으로 쓸 수 있는 것들의 번호 */
+function condSources(i) {
+  var out = [];
+  for (var j = 0; j < i; j++) if (F.questions[j].type !== 'section') out.push(j);
+  return out;
+}
+function condOps(type) {
+  if (type === 'choice') return ['eq', 'ne', 'filled', 'empty'];
+  if (type === 'checks') return ['has', 'nothas', 'filled', 'empty'];
+  if (type === 'rating' || type === 'number') return ['gte', 'lte', 'eq', 'filled', 'empty'];
+  if (type === 'agree' || type === 'file') return ['filled', 'empty'];
+  return ['eq', 'ne', 'filled', 'empty'];
+}
+function condSrcById(id, i) {
+  for (var j = 0; j < i; j++) if (F.questions[j].id === id && F.questions[j].type !== 'section') return F.questions[j];
+  return null;
+}
+function condLabelOf(q, j) { return (j + 1) + '. ' + (String(q.label || '').trim() || '제목 없는 문항'); }
+
+function condValueCtl(i, k, r, src) {
+  if (r.op === 'filled' || r.op === 'empty') return '';
+  var id = 'qcv' + i + '_' + k, v = r.v == null ? '' : String(r.v);
+  if (src.type === 'choice' || src.type === 'checks') {
+    var opts = (src.opts || []).map(function (o) { return String(o).trim(); }).filter(function (o) { return o; });
+    var h = '<select id="' + id + '" aria-label="비교할 값"><option value="">(고르세요)</option>' +
+      opts.map(function (o) { return '<option value="' + esc(o) + '"' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('');
+    if (src.other) h += '<option value="__other__"' + (v === '__other__' ? ' selected' : '') + '>' + esc(src.otherLabel || '기타 (직접 입력)') + ' — 무엇이든</option>';
+    if (v && v !== '__other__' && opts.indexOf(v) === -1) h += '<option value="' + esc(v) + '" selected>' + esc(v) + ' (지워진 선택지)</option>';
+    return h + '</select>';
+  }
+  if (src.type === 'rating') {
+    var n = FormsCore.ratingConfig(src).scale, h2 = '<select id="' + id + '" aria-label="점수"><option value="">(점수)</option>';
+    for (var x = 1; x <= n; x++) h2 += '<option value="' + x + '"' + (String(x) === v ? ' selected' : '') + '>' + x + '점</option>';
+    return h2 + '</select>';
+  }
+  if (src.type === 'number') return '<input type="number" id="' + id + '" aria-label="숫자" value="' + esc(v) + '">';
+  return '<input type="text" id="' + id + '" maxlength="120" aria-label="비교할 글" placeholder="적힌 글" value="' + esc(v) + '">';
+}
+
+function condSettings(i, q) {
+  var srcs = condSources(i);
+  if (!srcs.length) {
+    return '<div class="fx-sub fx-cond"><label class="fl">보이는 조건</label>' +
+      '<p class="fx-note" style="margin:0;">앞에 답을 받는 문항이 있으면, 그 답에 따라 이 문항을 보이거나 숨길 수 있습니다.</p></div>';
+  }
+  var c = q.showIf, rules = c ? c.rules : [];
+  var h = '<div class="fx-sub fx-cond"><label class="fl">보이는 조건 <span style="font-weight:600;color:var(--ink-3);">(선택 — 비워 두면 늘 보입니다)</span></label>';
+  if (!rules.length) {
+    h += '<p class="fx-note" style="margin:0 0 8px;">예: "참석 여부" 에서 "불참" 을 고른 분에게만 "불참 사유" 를 보이게 합니다. 숨겨진 문항은 꼭 답해야 하는 문항이어도 묻지 않습니다.</p>' +
+      '<button type="button" class="btn mini" onclick="addCond(' + i + ')">+ 조건 걸기</button></div>';
+    return h;
+  }
+  if (rules.length > 1) {
+    h += '<div class="fx-mode"><select id="qcm' + i + '" onchange="setCondMode(' + i + ',this.value)" aria-label="조건을 합치는 방법">' +
+      '<option value="all"' + (c.mode !== 'any' ? ' selected' : '') + '>아래 조건이 모두 맞을 때 보임</option>' +
+      '<option value="any"' + (c.mode === 'any' ? ' selected' : '') + '>아래 조건 중 하나라도 맞으면 보임</option></select></div>';
+  }
+  rules.forEach(function (r, k) {
+    var src = condSrcById(r.q, i);
+    if (!src) { src = F.questions[srcs[srcs.length - 1]]; }
+    h += '<div class="fx-rule">' +
+      '<select id="qcs' + i + '_' + k + '" onchange="setCondSrc(' + i + ',' + k + ',this.value)" aria-label="어느 문항의 답">' +
+        srcs.map(function (j) { var sq = F.questions[j]; return '<option value="' + esc(sq.id) + '"' + (sq.id === src.id ? ' selected' : '') + '>' + esc(condLabelOf(sq, j)) + '</option>'; }).join('') + '</select>' +
+      '<select id="qco' + i + '_' + k + '" onchange="setCondOp(' + i + ',' + k + ',this.value)" aria-label="조건">' +
+        condOps(src.type).map(function (o) { return '<option value="' + o + '"' + (o === r.op ? ' selected' : '') + '>' + COND_LBL[o] + '</option>'; }).join('') + '</select>' +
+      condValueCtl(i, k, r, src) +
+      '<button type="button" class="qbtn" onclick="delCond(' + i + ',' + k + ')" title="이 조건 지우기" aria-label="이 조건 지우기">&times;</button></div>';
+  });
+  if (rules.length < 5) h += '<button type="button" class="btn mini" onclick="addCond(' + i + ')">+ 조건 더하기</button> ';
+  h += '<button type="button" class="btn mini" onclick="clearCond(' + i + ')">조건 모두 없애기</button></div>';
+  return h;
+}
+
+function addCond(i) {
+  pullQuestions();
+  var srcs = condSources(i); if (!srcs.length) return;
+  var q = F.questions[i], src = F.questions[srcs[srcs.length - 1]];     // 바로 앞 문항이 기본
+  if (!q.showIf) q.showIf = { mode: 'all', rules: [] };
+  if (q.showIf.rules.length >= 5) return;
+  q.showIf.rules.push({ q: src.id, op: condOps(src.type)[0], v: '' });
+  drawQuestions();
+}
+function delCond(i, k) {
+  pullQuestions();
+  var q = F.questions[i]; if (!q.showIf) return;
+  q.showIf.rules.splice(k, 1);
+  if (!q.showIf.rules.length) delete q.showIf;
+  drawQuestions();
+}
+function clearCond(i) { pullQuestions(); delete F.questions[i].showIf; drawQuestions(); }
+function setCondMode(i, m) { pullQuestions(); F.questions[i].showIf.mode = m === 'any' ? 'any' : 'all'; }
+function setCondSrc(i, k, id) {
+  pullQuestions();
+  var r = F.questions[i].showIf.rules[k], src = condSrcById(id, i); if (!src) return;
+  r.q = id;
+  if (condOps(src.type).indexOf(r.op) === -1) r.op = condOps(src.type)[0];
+  r.v = '';
+  drawQuestions();
+}
+function setCondOp(i, k, op) {
+  pullQuestions();
+  var r = F.questions[i].showIf.rules[k];
+  r.op = op;
+  if (op === 'filled' || op === 'empty') r.v = '';
+  drawQuestions();
+}
+
+/** 문항을 옮기거나 지우거나 유형을 바꾼 뒤: 앞에 없는 문항을 가리키는 조건은 풀고, 안 맞게 된 연산자는 처음 것으로 — 풀린 조건 수를 돌려줍니다 */
+function fixConds() {
+  var dropped = 0, seen = {};
+  F.questions.forEach(function (q, i) {
+    if (q.showIf) {
+      q.showIf.rules = q.showIf.rules.filter(function (r) {
+        var src = seen[r.q];
+        if (!src) { dropped++; return false; }
+        if (condOps(src.type).indexOf(r.op) === -1) { r.op = condOps(src.type)[0]; r.v = ''; }
+        return true;
+      });
+      if (!q.showIf.rules.length) delete q.showIf;
+    }
+    if (q.type !== 'section') seen[q.id] = q;
+  });
+  return dropped;
+}
+
 function drawQuestions() {
   var box = el('qList');
+  SEC_ED = null;
   if (!F.questions.length) {
     box.innerHTML = '<p class="empty" style="margin:6px 0 2px;">아래에서 문항을 더해주세요.</p>';
     return;
   }
-  box.innerHTML = F.questions.map(function (q, i) {
+  /* 문항이 많아도 한 번에 꽂도록 문자열로 모은 뒤 innerHTML 을 한 번만 바꿉니다 (열려 있는 문항 하나만 자세히 그림) */
+  var parts = new Array(F.questions.length);
+  F.questions.forEach(function (q, i) {
     var t = typeOf(q.type);
     var open = (i === OPENQ);
     var body = '';
     if (open) {
+      var sec = q.type === 'section';
+      var canPrev = q.type === 'choice' || q.type === 'checks' || q.type === 'rating';
       body = '<div class="qbody">' +
-        '<div class="f"><label class="fl">질문 <span class="req">*</span></label>' +
+        typeSwitcher(i, q) +
+        '<div class="f"><label class="fl" for="ql' + i + '">질문 <span class="req">*</span></label>' +
           '<input type="text" id="ql' + i + '" maxlength="150" placeholder="' +
-          (q.type === 'section' ? '보여줄 안내 제목' : '예: 참가 여부') + '" value="' + esc(q.label) + '">' +
+          (sec ? '보여줄 안내 제목' : '예: 참가 여부') + '" value="' + esc(q.label) + '">' +
           '<button type="button" class="btn mini aipolish" onclick="pullQuestions();aiPolish(\'ql' + i + '\',this,\'qlMsg' + i + '\')">&#10024; AI 편집</button>' +
           '<p class="msg" id="qlMsg' + i + '"></p></div>' +
-        '<div class="f"><label class="fl">도움말 (작게 보입니다)</label>' +
-          '<input type="text" id="qh' + i + '" maxlength="500" value="' + esc(q.help) + '">' +
-          '<button type="button" class="btn mini aipolish" onclick="pullQuestions();aiPolish(\'qh' + i + '\',this,\'qhMsg' + i + '\')">&#10024; AI 편집</button>' +
-          '<p class="msg" id="qhMsg' + i + '"></p></div>' +
+        (sec
+          ? '<div class="f"><label class="fl" id="qhLbl' + i + '">안내 문구 (굵게 · 주황 강조를 쓸 수 있습니다)</label><div id="qhEd' + i + '"></div></div>'
+          : '<div class="f"><label class="fl" for="qh' + i + '">도움말 (작게 보입니다)</label>' +
+            '<input type="text" id="qh' + i + '" maxlength="500" value="' + esc(q.help) + '">' +
+            '<button type="button" class="btn mini aipolish" onclick="pullQuestions();aiPolish(\'qh' + i + '\',this,\'qhMsg' + i + '\')">&#10024; AI 편집</button>' +
+            '<p class="msg" id="qhMsg' + i + '"></p></div>') +
         (t.opts ? '<div class="f"><label class="fl">고를 것</label><div class="opts">' +
             q.opts.map(function (o, j) {
               return '<div class="optrow"><input type="text" id="qo' + i + '_' + j + '" maxlength="120" ' +
-                'placeholder="선택지 ' + (j + 1) + '" value="' + esc(o) + '">' +
+                'placeholder="선택지 ' + (j + 1) + '" aria-label="선택지 ' + (j + 1) + '" value="' + esc(o) + '">' +
                 '<button class="qbtn" title="AI 편집" onclick="pullQuestions();aiPolish(\'qo' + i + '_' + j + '\',this,null)">&#10024;</button>' +
                 '<button class="qbtn" onclick="delOpt(' + i + ',' + j + ')" title="지우기">&times;</button></div>';
             }).join('') +
-          '</div><button class="btn mini" style="margin-top:7px;" onclick="addOpt(' + i + ')">+ 선택지</button></div>' : '') +
+          '</div><button class="btn mini" style="margin-top:7px;" onclick="addOpt(' + i + ')">+ 선택지</button>' +
+          otherSettings(i, q) + '</div>' : '') +
+        (q.type === 'rating' ? ratingSettings(i, q) : '') +
         (q.type === 'number' || q.type === 'checks' ?
           '<div class="qrow">' +
             '<div class="f"><label class="fl">' + (q.type === 'checks' ? '최소 개수' : '가장 작은 값') + '</label>' +
@@ -634,34 +891,123 @@ function drawQuestions() {
             (q.type === 'number' ? '<div class="f"><label class="fl">단위</label>' +
               '<input type="text" id="qu' + i + '" maxlength="12" placeholder="장 · 명 · 개" value="' + esc(q.unit) + '"></div>' : '') +
           '</div>' : '') +
-        (q.type === 'section' ? '' :
+        (sec ? '' :
           '<label class="lkchg" style="display:flex;gap:9px;align-items:center;margin:2px 0 0;">' +
             '<input type="checkbox" id="qr' + i + '"' + (q.req ? ' checked' : '') + '>' +
             '<span>꼭 답해야 하는 문항</span></label>') +
+        condSettings(i, q) +
+        (canPrev ? '<div class="fx-preview"><div class="fx-cap">신청자에게 보이는 모습 (눌러 보셔도 저장되지 않습니다)</div>' +
+          '<div id="qprevq' + i + '"></div></div>' : '') +
         '</div>';
     }
-    return '<div class="q' + (open ? ' sel' : '') + '">' +
+    parts[i] = '<div class="q' + (open ? ' sel' : '') + '">' +
       '<div class="qhead" onclick="toggleQ(' + i + ')">' +
         '<span class="qi">' + t.icon + '</span>' +
         '<span class="qn">' + (q.label ? esc(q.label) : '<span style="color:var(--ink-4);">제목 없는 문항</span>') +
           (q.req ? ' <span class="req">*</span>' : '') + '</span>' +
-        '<span class="qt">' + esc(t.name) + '</span>' +
+        '<span class="qt">' + esc(t.name) + (q.showIf ? '<span class="fx-badge" title="다른 문항의 답에 따라 보입니다">조건부</span>' : '') + '</span>' +
         '<button class="qbtn" onclick="event.stopPropagation();moveQ(' + i + ',-1)" title="위로">&uarr;</button>' +
         '<button class="qbtn" onclick="event.stopPropagation();moveQ(' + i + ',1)" title="아래로">&darr;</button>' +
         '<button class="qbtn" onclick="event.stopPropagation();delQ(' + i + ')" title="지우기">&times;</button>' +
       '</div>' + body + '</div>';
-  }).join('');
+  });
+  box.innerHTML = parts.join('');
+  mountQuestionEditors();
 }
 
-function toggleQ(i) { pullQuestions(); OPENQ = (OPENQ === i) ? -1 : i; drawQuestions(); }
-function delQ(i) { pullQuestions(); if (!confirm('이 문항을 지울까요?')) return; F.questions.splice(i, 1); OPENQ = -1; drawQuestions(); }
+/** 열려 있는 문항의 서식 편집기 (안내 문구) 와 미리보기를 꽂습니다 */
+function mountQuestionEditors() {
+  SEC_ED = null;
+  var q = F.questions[OPENQ];
+  if (!q) return;
+  if (q.type === 'section' && el('qhEd' + OPENQ)) {
+    SEC_ED = FormsCore.RichEditor(el('qhEd' + OPENQ), {
+      html: q.helpHtml || '', text: q.help || '', maxText: 500, minHeight: '84px',
+      placeholder: '신청자에게 보여줄 안내 문구를 적어주세요.',
+      onChange: function (html, text) { q.help = text; q.helpHtml = html; }
+    });
+    SEC_ED.el.setAttribute('aria-labelledby', 'qhLbl' + OPENQ);
+  }
+  refreshPreview();
+}
+
+/** 미리보기: 신청자 화면과 같은 부품(FormsCore.mountQuestion)으로 그립니다 */
+function refreshPreview() {
+  var i = OPENQ, q = F.questions[i], host = el('qprevq' + i);
+  if (!q || !host) return;
+  var pq = {};
+  for (var k in q) if (Object.prototype.hasOwnProperty.call(q, k)) pq[k] = q[k];
+  pq.label = q.label || '(질문을 적어주세요)';
+  pq.opts = (q.opts || []).filter(function (o) { return String(o).trim() !== ''; });
+  FormsCore.mountQuestion(host, pq, { value: PREV_VAL, onChange: function (v) { PREV_VAL = v; } });
+}
+function schedulePreview(e) {
+  if (e && e.target && e.target.closest && e.target.closest('.fx-preview')) return;   // 미리보기 안에서 누른 것은 다시 그리지 않음
+  if (e && e.target && e.target.closest && e.target.closest('.fx-rte')) return;        // 글 쓰는 중에는 그대로
+  clearTimeout(PREV_T);
+  PREV_T = setTimeout(function () {
+    if (VIEW !== 'edit' || OPENQ < 0 || !F.questions[OPENQ] || !el('qprevq' + OPENQ)) return;
+    pullQuestions();
+    refreshPreview();
+  }, 120);
+}
+
+/** 유형 바꾸기 — 문항을 지우고 새로 만들지 않고 type 만 바꿉니다 (opts · min · max · unit · 별점 · 기타 설정은 모두 남김) */
+function setQType(i, key) {
+  pullQuestions();
+  var q = F.questions[i];
+  if (!q || q.type === key) return;
+  var tp = typeOf(key);
+  q.type = key;
+  if (tp.opts && !(q.opts || []).some(function (o) { return String(o).trim(); })) {
+    q.opts = (q.opts && q.opts.length >= 2) ? q.opts : ['', ''];
+  }
+  if (key === 'rating') {
+    if (!q.scale) q.scale = 5;
+    if (!q.variant) q.variant = 'star';
+    if (q.variant === 'face' && Number(q.scale) !== 5) q.variant = 'number';
+    q.lowLabel = q.lowLabel || ''; q.highLabel = q.highLabel || '';
+  }
+  PREV_VAL = '';
+  OPENQ = i;
+  fixConds();                                    // Step 7: 유형이 바뀌면 이 문항을 조건으로 쓰던 규칙의 연산자를 맞춥니다
+  drawQuestions();
+}
+function toggleOther(i, on) { pullQuestions(); F.questions[i].other = !!on; PREV_VAL = ''; drawQuestions(); }
+function setRating(i, k, v) {
+  pullQuestions();
+  var q = F.questions[i];
+  if (k === 'scale') q.scale = Number(v) || 5; else q.variant = v;
+  if (q.variant === 'face' && Number(q.scale) !== 5) q.variant = 'number';
+  PREV_VAL = '';
+  drawQuestions();
+}
+function ratingPreset(i) {
+  pullQuestions();
+  var q = F.questions[i];
+  q.scale = 5; q.variant = 'face'; q.lowLabel = '매우 불만족'; q.highLabel = '매우 만족';
+  PREV_VAL = '';
+  drawQuestions();
+}
+
+function toggleQ(i) { pullQuestions(); OPENQ = (OPENQ === i) ? -1 : i; PREV_VAL = ''; drawQuestions(); }
+function delQ(i) {
+  pullQuestions();
+  if (!confirm('이 문항을 지울까요?')) return;
+  F.questions.splice(i, 1); OPENQ = -1;
+  var n = fixConds();
+  drawQuestions();
+  if (n) alert('지운 문항을 조건으로 쓰던 ' + n + '개의 표시 조건이 함께 풀렸습니다.');
+}
 function moveQ(i, d) {
   pullQuestions();
   var j = i + d;
   if (j < 0 || j >= F.questions.length) return;
   var t = F.questions[i]; F.questions[i] = F.questions[j]; F.questions[j] = t;
   if (OPENQ === i) OPENQ = j; else if (OPENQ === j) OPENQ = i;
+  var n = fixConds();                            // Step 7: 조건은 "앞 문항" 만 볼 수 있습니다
   drawQuestions();
+  if (n) alert('순서가 바뀌어 ' + n + '개의 표시 조건이 풀렸습니다. (조건은 앞에 있는 문항의 답만 볼 수 있습니다)');
 }
 function addOpt(i) { pullQuestions(); F.questions[i].opts.push(''); drawQuestions(); }
 function delOpt(i, j) { pullQuestions(); F.questions[i].opts.splice(j, 1); drawQuestions(); }
@@ -672,7 +1018,10 @@ function saveForm() {
   var bad = '';
   F.questions.forEach(function (q, i) {
     if (!String(q.label || '').trim()) bad = bad || ((i + 1) + '번 문항의 질문을 적어주세요.');
-    if ((q.type === 'choice' || q.type === 'checks') &&
+    if (q.showIf) q.showIf.rules.forEach(function (r) {        // Step 7: 값이 빈 조건은 서버가 버리므로 미리 알려줍니다
+      if (r.op !== 'filled' && r.op !== 'empty' && String(r.v == null ? '' : r.v).trim() === '') bad = bad || ((i + 1) + '번 문항의 표시 조건에서 비교할 값을 골라주세요.');
+    });
+    if ((q.type === 'choice' || q.type === 'checks') && !q.other &&      // Step 6: "기타" 칸만 있는 문항도 허용
         !(q.opts || []).filter(function (o) { return String(o).trim(); }).length) {
       bad = bad || ('"' + (q.label || (i + 1) + '번 문항') + '" 의 선택지를 적어주세요.');
     }
@@ -695,13 +1044,83 @@ function targetOptions() {
   var opt = function (t) { return '<option value="' + esc(t.key) + '">' + esc(t.name) + ' (' + t.n + '명)</option>'; };
   return plain.map(opt).join('') + Object.keys(groups).map(function (g) {
     return '<optgroup label="' + esc(g) + '">' + groups[g].map(opt).join('') + '</optgroup>';
-  }).join('');
+  }).join('') +
+  ((D.people || []).length ? '<optgroup label="한 사람씩">' + D.people.map(function (n) {
+    return '<option value="' + esc('사람:' + n) + '">' + esc(n) + '</option>';
+  }).join('') + '</optgroup>' : '');
 }
 
+function shareKey(kind, name) { return kind + ':' + name; }
+function drawShares() {
+  var b = el('shList'); if (!b) return;
+  var sh = F.shares || [];
+  b.innerHTML = sh.length ? sh.map(function (s, i) {
+    var kind = s.key.split(':')[0];
+    return '<div class="fx-share"><span class="nm">' + esc(kind === '사람' ? '👤' : kind === '셀' ? '👥' : '🎵') + ' ' + esc(s.key.slice(kind.length + 1)) +
+      ' <span style="color:var(--fx-sub);font-weight:600;">(' + esc(kind === '사람' ? '한 사람' : kind === '셀' ? '셀' : '사역팀') + ')</span></span>' +
+      '<label><input type="checkbox"' + (s.notify ? ' checked' : '') + ' onchange="F.shares[' + i + '].notify=this.checked"> 새 신청 알림</label>' +
+      '<button type="button" class="qbtn" onclick="delShare(' + i + ')" title="빼기" aria-label="빼기">&times;</button></div>';
+  }).join('') : '<p class="empty" style="margin:0 0 8px;">아직 공유한 곳이 없습니다.</p>';
+}
+function shareCandidates(kind) {
+  if (kind === '사람') return D.people || [];
+  var pre = kind + ':';
+  return (D.targets || []).filter(function (t) { return t.key.indexOf(pre) === 0; }).map(function (t) { return t.name; });
+}
+function drawShareNames() {
+  var dl = el('shNames'); if (!dl) return;
+  dl.innerHTML = shareCandidates(el('shKind').value).map(function (n) { return '<option value="' + esc(n) + '"></option>'; }).join('');
+  el('shName').value = '';
+}
+function addShare() {
+  var kind = el('shKind').value, name = el('shName').value.trim();
+  if (!name) { say('shMsg', '이름을 골라주세요.', 'err'); return; }
+  if (shareCandidates(kind).indexOf(name) === -1) { say('shMsg', '목록에 없는 이름입니다. 목록에서 골라주세요.', 'err'); return; }
+  F.shares = F.shares || [];
+  var key = shareKey(kind, name);
+  if (F.shares.some(function (s) { return s.key === key; })) { say('shMsg', '이미 더했습니다.', 'err'); return; }
+  if (F.shares.length >= 30) { say('shMsg', '공유는 30곳까지 할 수 있습니다.', 'err'); return; }
+  F.shares.push({ key: key, notify: false });
+  say('shMsg', '');
+  el('shName').value = '';
+  drawShares();
+}
+function delShare(i) { F.shares.splice(i, 1); drawShares(); }
+function saveShares() {
+  say('shMsg', '저장하는 중…');
+  callServer('formShareSave', [TOKEN, F.id, F.shares || []], function (r) {
+    F.shares = r.shares || [];
+    drawShares();
+    say('shMsg', '공유 범위를 저장했습니다.', 'ok');
+  }, function (e) { say('shMsg', e.message || '저장하지 못했습니다.', 'err'); });
+}
+
+/* ===================== Step 7 — 알릴 대상 여러 곳 · 공유 ===================== */
+
+function targetName(key) {
+  var nm = key;
+  (D.targets || []).forEach(function (t) { if (t.key === key) nm = t.name; });
+  if (key.indexOf('사람:') === 0) nm = key.slice(3);
+  return nm;
+}
+function drawAnChips() {
+  var b = el('anChips'); if (!b) return;
+  b.innerHTML = AN.map(function (k, i) {
+    return '<span class="fx-chip">' + esc(targetName(k)) + '<button type="button" onclick="delAnTarget(' + i + ')" aria-label="빼기">&times;</button></span>';
+  }).join('');
+}
+function addAnTarget() {
+  var v = el('anTarget').value;
+  if (v && AN.indexOf(v) === -1) AN.push(v);
+  drawAnChips();
+}
+function delAnTarget(i) { AN.splice(i, 1); drawAnChips(); }
+
 function announceNow() {
-  if (!confirm('지금 알릴까요?')) return;
+  var to = AN.length ? AN.slice() : [el('anTarget').value];     // 아무것도 안 더했으면 예전처럼 고른 한 곳
+  if (!confirm('지금 알릴까요? (' + to.map(targetName).join(', ') + ')')) return;
   say('anMsg', '보내는 중…');
-  callServer('announceForm', [TOKEN, F.id, el('anTarget').value, {
+  callServer('announceForm', [TOKEN, F.id, to, {
       push: el('anPush').checked, portal: el('anPortal').checked, mail: el('anMail').checked
     }], function (r) {
       var parts = [];
@@ -730,6 +1149,7 @@ function removeForm() {
 /* ===================== 결과 ===================== */
 
 function showResults(id) {
+  STF = 'all';
   window.scrollTo(0, 0);
   el('root').innerHTML = '<div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div>';
   callServer('formResults', [TOKEN, id], drawResults, function (e) {
@@ -737,9 +1157,15 @@ function showResults(id) {
   });
 }
 
+var ST_ALL = ['접수', '미결제', '결제완료', '취소'];
+
 function drawResults(r) {
   R = r; VIEW = 'res';
   var f = r.form;
+  var canEdit = r.canEdit !== false;                                  // Step 7: 공유로 보는 분은 보기만
+  var sts = r.answerStatuses || ST_ALL;
+  if (STF !== 'all' && sts.indexOf(STF) === -1) STF = 'all';
+  var shown = r.rows.filter(function (a) { return STF === 'all' || (a.status || '접수') === STF; });
   var qs = (f.questions || []).filter(function (q) { return q.type !== 'section'; });
   var link = location.origin + location.pathname + '?page=portal';
 
@@ -751,7 +1177,15 @@ function drawResults(r) {
     }
     var max = 1;
     s.items.forEach(function (x) { if (x.n > max) max = x.n; });
-    return '<div class="fbars"><div class="bl">' + esc(s.label) + '</div>' +
+    /* Step 6: 별점 · 만족도 — 평균 + 점수별 인원 / "기타" 로 적은 내용 목록 */
+    var ratingHead = s.type === 'rating'
+      ? '<div style="font-size:22px;font-weight:800;">' + (s.n ? s.avg : '-') + ' <span style="font-size:13.5px;font-weight:600;color:var(--ink-3);">/ ' + s.scale + ' (' + s.n + '명 평균)</span></div>'
+      : '';
+    var othersBox = (s.others && s.others.length)
+      ? '<div class="fx-others"><b>"기타" 로 적은 내용 (' + s.others.length + ')</b><br>' +
+        s.others.map(function (o) { return esc(o.name) + ' — ' + esc(o.text); }).join('<br>') + '</div>'
+      : '';
+    return '<div class="fbars"><div class="bl">' + esc(s.label) + '</div>' + ratingHead +
       s.items.map(function (x) {
         return '<div class="fbar"><span class="bn">' + esc(x.name) + '</span>' +
           '<span class="bg"><i style="width:' + Math.round(x.n / max * 100) + '%;"></i></span>' +
@@ -759,50 +1193,109 @@ function drawResults(r) {
       }).join('') +
       (s.none ? '<div class="fbar"><span class="bn" style="color:var(--ink-4);">답 없음</span>' +
         '<span class="bg"></span><span class="bv">' + s.none + '</span></div>' : '') +
-      '</div>';
+      othersBox + '</div>';
   }).join('');
 
   var head = ['이름', '연락처', '셀', '제출'].concat(qs.map(function (q) { return q.label; }));
-  var body = r.rows.map(function (a) {
+  var body = shown.map(function (a) {
     var cells = [esc(a.name), esc(a.phone), esc(a.cell), esc((a.at || '').slice(5))]
       .concat(qs.map(function (q) {
         var v = a.answers[q.id];
-        if (q.type === 'checks') return esc((v || []).join(', '));
         if (q.type === 'agree') return v ? '✔' : '';
-        if (q.type === 'file') return (v || []).map(function (x) {
-          return '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name) + '</a>';
+        /* 파일 답이 든 칸이면 (유형을 바꾸기 전에 받은 답 포함) 링크로 */
+        if (Array.isArray(v) && v.length && v[0] && typeof v[0] === 'object') return v.map(function (x) {
+          return x.id
+            ? '<a href="https://drive.google.com/file/d/' + esc(x.id) + '/view" target="_blank" rel="noopener">' + esc(x.name || x.id) + '</a>'
+            : esc(x.name || '');
         }).join('<br>');
+        if (Array.isArray(v)) return esc(v.join(', '));                  // 여러 개 고르기 (또는 그 전 유형에서 받은 답)
+        if (q.type === 'rating' && v !== '' && v != null) return esc(v) + ' / ' + esc(FormsCore.ratingConfig(q).scale);
         return esc(v == null ? '' : String(v));
       }));
-    return '<tr>' + cells.map(function (c, i) {
-      return '<td' + (i >= 4 ? ' class="wrap"' : '') + '>' + c + '</td>';
-    }).join('') + '<td><button class="drop" title="이 신청 지우기" onclick="dropAnswer(\'' + jsq(a.name) + '\')">&times;</button></td></tr>';
+    var st = a.status || '접수';
+    var stCell = canEdit
+      ? '<select data-name="' + esc(a.name) + '" onchange="setOneStatus(this)" aria-label="' + esc(a.name) + ' 상태">' +
+          sts.map(function (x) { return '<option value="' + esc(x) + '"' + (x === st ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>'
+      : '<span class="stt ' + esc(st) + '">' + esc(st) + '</span>';
+    return '<tr' + (st === '취소' ? ' class="cx"' : '') + '>' +
+      (canEdit ? '<td class="ck"><input type="checkbox" class="rck" data-name="' + esc(a.name) + '" aria-label="' + esc(a.name) + ' 고르기"></td>' : '') +
+      cells.slice(0, 4).map(function (c) { return '<td>' + c + '</td>'; }).join('') +
+      '<td class="stc">' + stCell + '</td>' +                     // 상태는 이름 옆에 (가로로 밀지 않아도 보이게)
+      cells.slice(4).map(function (c) { return '<td class="wrap">' + c + '</td>'; }).join('') +
+      (canEdit ? '<td class="dr"><button class="drop" title="이 신청 지우기" onclick="dropAnswer(\'' + jsq(a.name) + '\')">&times;</button></td>' : '') + '</tr>';
   }).join('');
+
+  var cnt = r.counts || {};
+  var chips = '<div class="fx-stchips" role="group" aria-label="상태로 걸러 보기">' +
+    '<button type="button" class="' + (STF === 'all' ? 'on' : '') + '" aria-pressed="' + (STF === 'all') + '" onclick="setStFilter(\'all\')">전체 <b>' + r.count + '</b></button>' +
+    sts.map(function (x) {
+      return '<button type="button" class="' + (STF === x ? 'on' : '') + '" aria-pressed="' + (STF === x) + '" onclick="setStFilter(\'' + x + '\')">' + esc(x) + ' <b>' + (cnt[x] || 0) + '</b></button>';
+    }).join('') + '</div>';
+  var bulk = canEdit && r.count
+    ? '<div class="fx-bulk"><select id="bkSt" aria-label="바꿀 상태">' + sts.map(function (x) { return '<option value="' + esc(x) + '">' + esc(x) + '</option>'; }).join('') + '</select>' +
+      '<button type="button" class="btn mini" onclick="applyBulk()">고른 분에게 적용</button>' +
+      '<label><input type="checkbox" id="bkNotify"> 바꾸면 신청자에게 알림</label></div>'
+    : '';
 
   el('root').innerHTML =
     '<div class="bar2" style="margin:0 12px 12px;">' +
-      '<button class="backb" onclick="openForm(\'' + jsq(f.id) + '\')">&lsaquo; 신청서</button>' +
+      (canEdit ? '<button class="backb" onclick="openForm(\'' + jsq(f.id) + '\')">&lsaquo; 신청서</button>'
+               : '<button class="backb" onclick="drawList()">&lsaquo; 목록</button>') +
       '<span class="sp"></span>' +
       '<button class="btn mini" onclick="exportResults()">엑셀로 받기</button>' +
     '</div>' +
     '<div class="panel"><span class="chip">' + esc(f.title) + '</span>' +
       '<div class="rstat">' +
-        '<div class="b"><b>' + r.count + '</b>신청</div>' +
-        (f.limit ? '<div class="b"><b>' + Math.max(0, f.limit - r.count) + '</b>남은 자리</div>' : '') +
+        '<div class="b"><b>' + (r.active != null ? r.active : r.count) + '</b>신청' + ((cnt['취소'] || 0) ? ' <span style="font-size:11.5px;">(취소 ' + cnt['취소'] + ' 제외)</span>' : '') + '</div>' +
+        (f.limit ? '<div class="b"><b>' + Math.max(0, f.limit - (r.active != null ? r.active : r.count)) + '</b>남은 자리</div>' : '') +
         '<div class="b"><b>' + esc(f.status) + '</b>상태</div>' +
       '</div>' +
       '<p class="hint" style="margin-bottom:0;">신청하는 분은 포털 첫 화면에서 이 신청서를 보게 됩니다. ' +
       '<span class="lnk">' + esc(link) + '</span></p>' +
     '</div>' +
     (bars ? '<div class="panel"><span class="chip">한눈에 보기</span>' + bars + '</div>' : '') +
-    '<div class="panel"><span class="chip">신청한 분들</span>' +
-      (r.rows.length
-        ? '<div class="tscroll"><table class="res"><thead><tr>' +
-            head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '<th></th></tr></thead>' +
+    '<div class="panel"><span class="chip">신청한 분들</span>' + chips + bulk +
+      (shown.length
+        ? '<div class="tscroll"><table class="res" id="resTbl"><thead><tr>' +
+            (canEdit ? '<th class="ck"><input type="checkbox" id="rckAll" onchange="toggleAllRows(this.checked)" aria-label="모두 고르기"></th>' : '') +
+            head.slice(0, 4).concat(['상태'], head.slice(4)).map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + (canEdit ? '<th></th>' : '') + '</tr></thead>' +
             '<tbody>' + body + '</tbody></table></div>'
-        : '<p class="empty">아직 신청한 분이 없습니다.</p>') +
+        : '<p class="empty">' + (r.rows.length ? '이 상태인 분이 없습니다.' : '아직 신청한 분이 없습니다.') + '</p>') +
       '<p class="msg" id="resMsg"></p>' +
     '</div>';
+}
+
+/* ===================== Step 7 — 신청 상태 태그 ===================== */
+
+function setStFilter(k) { STF = k; drawResults(R); }
+function toggleAllRows(on) {
+  var b = document.querySelectorAll('#resTbl .rck');
+  for (var i = 0; i < b.length; i++) b[i].checked = !!on;
+}
+function reloadResultsKeepScroll(msg) {
+  var y = window.pageYOffset || 0;
+  callServer('formResults', [TOKEN, R.form.id], function (r) {
+    drawResults(r);
+    window.scrollTo(0, y);
+    if (msg) say('resMsg', msg, 'ok');
+  }, function (e) { say('resMsg', e.message || '다시 불러오지 못했습니다.', 'err'); });
+}
+function applyStatus(names, status) {
+  var nt = el('bkNotify');
+  say('resMsg', '바꾸는 중…');
+  callServer('formSetAnswerStatus', [TOKEN, R.form.id, names, status, !!(nt && nt.checked)], function (res) {
+    var m = res.changed ? (res.changed + '명을 "' + status + '" 로 바꿨습니다.' + (res.pushed ? ' (알림 ' + res.pushed + '대)' : '')) : '이미 그 상태입니다.';
+    reloadResultsKeepScroll(m);
+  }, function (e) { say('resMsg', e.message || '바꾸지 못했습니다.', 'err'); reloadResultsKeepScroll(''); });
+}
+function setOneStatus(sel) { applyStatus([sel.getAttribute('data-name')], sel.value); }
+function applyBulk() {
+  var names = [], b = document.querySelectorAll('#resTbl .rck:checked');
+  for (var i = 0; i < b.length; i++) names.push(b[i].getAttribute('data-name'));
+  if (!names.length) { say('resMsg', '먼저 표에서 신청한 분을 골라주세요.', 'err'); return; }
+  var st = el('bkSt').value;
+  if (st === '취소' && !confirm(names.length + '명의 신청을 "취소" 로 바꿀까요? (정원 · 집계에서 빠집니다)')) return;
+  applyStatus(names, st);
 }
 
 function dropAnswer(name) {

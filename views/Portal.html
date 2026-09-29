@@ -610,7 +610,7 @@
   .fmq { display: block; font-size: 15.5px; font-weight: 750; color: var(--ink-1); margin-bottom: 7px; letter-spacing: -0.01em; }
   .fmhelp { font-size: 13.5px; color: var(--ink-3); margin: -3px 0 8px; line-height: 1.65; }
   .fmf { margin-bottom: 20px; }
-  .fmf:last-child { margin-bottom: 0; }
+  .fmqw:last-child > .fmf, .fmqw:last-child > .fmsec { margin-bottom: 0; }   /* Step 7: 문항마다 fmqw 상자로 감쌉니다 */
   .fmsec { margin: 4px 0 18px; padding: 12px 14px; background: var(--sunken); border-radius: 12px; }
   .fmsec b { display: block; font-size: 15.5px; }
   .fmsec .fmhelp { margin: 4px 0 0; }
@@ -1035,7 +1035,46 @@ body .mcardlink,
   body input:disabled, body select:disabled, body textarea:disabled {
     color: #CFC9C1 !important; opacity: 1 !important;
   }
+
+  /* ---------- 밝은 패널(Theme 의 .panel) 안의 입력칸 — "내 정보 수정" · 신청서 · 셀 신청 ----------
+     위의 "어두운 유리" 규칙은 어두운 바탕(로그인 · 메인) 전용인데, 내 정보 수정 화면의 패널은
+     밝은 베이지(--canvas)라서 흰 글씨가 흰 칸에 묻혀 입력한 글자가 보이지 않았습니다 (대비 1.1:1).
+     밝은 패널이 있는 화면(#profileView · #caWrap · #fmWrap)에서는 "흰 칸 + 진한 글씨"로 명시합니다
+     (글씨 대비 약 17:1, 안내 글씨 약 5.6:1). 로그인(#lock)은 건드리지 않아 예전 그대로 어두운 유리입니다. */
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=button]):not([type=submit]),
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) select,
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) textarea {
+    background-color: #FFFFFF !important;
+    color: #1A1917 !important;
+    -webkit-text-fill-color: #1A1917;             /* iOS 사파리는 color 만으로는 흰색으로 남는 경우가 있습니다 */
+    caret-color: #D2511F;
+    border: 1px solid #968D80 !important;
+    opacity: 1 !important;
+  }
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) input::placeholder,
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) textarea::placeholder {
+    color: #6B645A !important; -webkit-text-fill-color: #6B645A; opacity: 1 !important;
+  }
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) input:focus,
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) select:focus,
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) textarea:focus {
+    background-color: #FFFFFF !important;
+    border-color: #D2511F !important;
+    box-shadow: 0 0 0 3px rgba(210,81,31,.25) !important;
+  }
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) input:disabled,
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) select:disabled,
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) textarea:disabled {
+    background-color: #EAE7E1 !important; color: #55504A !important; -webkit-text-fill-color: #55504A;
+  }
+  /* 브라우저 자동완성(저장된 이메일 · 전화번호)이 칸 색을 바꿔도 글씨는 진하게 */
+  :is(#profileView, #caWrap, #fmWrap) .panel:not(.dark) input:-webkit-autofill {
+    -webkit-text-fill-color: #1A1917 !important;
+    box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+    caret-color: #D2511F;
+  }
 </style>
+<link rel="stylesheet" href="/forms/forms.css?v=7">
 </head>
 <body>
 <div class="shell">
@@ -1215,6 +1254,9 @@ body .mcardlink,
       <button type="button" class="mebtn" id="meBtn" onclick="showProfile(true)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.8 3.1-6.3 7-6.3s7 2.5 7 6.3"/></svg>
         내 정보 관리 <span>&rsaquo;</span></button>
+      <a class="mebtn" id="notesBtn" href="?page=notes" style="margin-top:8px;text-decoration:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h8.5L19 7v13.5H7z"/><path d="M15 3.5V7.5h4"/><path d="M10 12h6M10 15.5h6"/></svg>
+        내 설교 노트 <span>&rsaquo;</span></a>
       <div class="qsearch" style="display:none;">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         <input type="text" id="qsInput" placeholder="이름 · 전화번호 · 팀 · 셀로 찾기" autocomplete="off" oninput="qsInputChanged()" onfocus="qsInputChanged()">
@@ -1312,6 +1354,7 @@ body .mcardlink,
   </footer>
 </div>
 
+<script src="/forms/forms-core.js?v=7"></script>
 <script>
 var PREFILL = (window.__PREFILL__ || {});
 /* 알림에서 들어온 바로가기(?go=종류&id=번호) — 로그인이 끝난 뒤(구글에 다녀와도) 그 항목으로 바로 갑니다.
@@ -1975,6 +2018,7 @@ function hideTodoItem(ev, id) {
 /* ---------- 신청서 ---------- */
 
 var FORMS = [], FM = null, FM_FROM = 'main', FM_ANS = {}, FM_BUSY = 0;
+var FM_MOUNT = {};   // Step 6: 고르기 · 여러 개 고르기 · 별점 문항의 화면 부품 (FormsCore.mountQuestion)
 
 function renderForms(res, boxId) {
   var box = el(boxId || 'formsBox');
@@ -2037,7 +2081,7 @@ function paintForm() {
   FM_ANS = {};
   (f.questions || []).forEach(function (q) {
     var v = mine && mine.answers ? mine.answers[q.id] : undefined;
-    if (q.type === 'checks') FM_ANS[q.id] = (v && v.length) ? v.slice() : [];
+    if (q.type === 'checks' || q.type === 'choice' || q.type === 'rating') FM_ANS[q.id] = FormsCore.coerceAnswer(q, v);   // Step 6: 예전 답 · 유형을 바꾼 뒤의 답도 견딤
     else if (q.type === 'file') FM_ANS[q.id] = (v && v.length) ? v.slice() : [];
     else if (q.type === 'agree') FM_ANS[q.id] = !!v;
     else FM_ANS[q.id] = v == null ? '' : v;
@@ -2049,7 +2093,7 @@ function paintForm() {
     '<div class="capage">' +
       '<div class="cabar"><button class="pvback" onclick="closeFormPage()">&lsaquo; 돌아가기</button>' +
         '<span>' + esc(f.title) + '</span></div>' +
-      (f.desc ? '<div class="panel"><div class="fmdesc">' + esc(f.desc) + '</div></div>' : '') +
+      ((f.desc || f.descHtml) ? '<div class="panel"><div class="fmdesc fx-rich">' + FormsCore.descToHtml(f.desc, f.descHtml) + '</div></div>' : '') +
       '<div class="panel">' +
         '<span class="chip">신청하는 분</span>' +
         '<div class="fmme">' + esc(me.name) +
@@ -2058,7 +2102,8 @@ function paintForm() {
         '<p class="hint" style="margin:6px 0 0;">교적에 있는 정보로 자동으로 들어갑니다. 바꾸시려면 내 정보 관리에서 고쳐주세요.</p>' +
       '</div>' +
       (mine ? '<div class="panel"><p class="msg ok" style="margin:0;">' + esc(mine.at) + ' 에 신청하셨습니다.' +
-        (f.editable && FM.open ? ' 아래에서 고치고 다시 저장할 수 있습니다.' : '') + '</p></div>' : '') +
+        (f.editable && FM.open ? ' 아래에서 고치고 다시 저장할 수 있습니다.' : '') + '</p>' +
+        (mine.status ? '<p style="margin:8px 0 0;font-size:14px;">신청 상태 <span class="stt ' + esc(mine.status) + '">' + esc(mine.status) + '</span></p>' : '') + '</div>' : '') +
       (FM.open ? '' : '<div class="panel"><p class="msg err" style="margin:0;">' + esc(FM.why || '지금은 신청할 수 없습니다.') + '</p></div>') +
       '<div class="panel' + (FM.open ? '' : ' lockedform') + '">' + (body || '<p class="empty">문항이 없습니다.</p>') + '</div>' +
       (FM.open ?
@@ -2068,34 +2113,85 @@ function paintForm() {
           '<p class="msg" id="fmMsg"></p>' +
         '</div>' : '') +
     '</div>';
+  fmMountCore();
+  fmBindVisibility();
+  fmApplyVisibility();                                 // Step 7: 이미 낸 답 기준으로 처음 모습 맞추기
 }
 
+/** Step 6 — 고르기 · 여러 개 고르기 · 별점은 공용 부품(FormsCore)으로 그립니다. 진짜 라디오 · 체크 상자라서
+ *  키보드와 스크린리더가 되고, "기타 (직접 입력)" 칸도 여기서 열립니다. 자리만 잡아 둔 곳에 한 번에 꽂습니다. */
+function fmIsCore(q) { return q.type === 'choice' || q.type === 'checks' || q.type === 'rating'; }
+function fmMountCore() {
+  FM_MOUNT = {};
+  var hosts = document.querySelectorAll('#fmWrap .fx-mount'), byId = {};
+  for (var i = 0; i < hosts.length; i++) byId[hosts[i].getAttribute('data-q')] = hosts[i];
+  (FM.form.questions || []).forEach(function (q) {
+    if (!fmIsCore(q) || !byId[q.id]) return;
+    FM_MOUNT[q.id] = FormsCore.mountQuestion(byId[q.id], q, {
+      value: FM_ANS[q.id], disabled: !FM.open,
+      onChange: function (v) { FM_ANS[q.id] = v; fmApplyVisibility(); }
+    });
+  });
+}
+/** 보내기 전에 화면에서 먼저 확인 (서버가 최종 확인은 그대로 합니다) — 처음 걸린 문항으로 스크롤 */
+function fmCheckCore() {
+  var qs = FM.form.questions || [], vis = fmVisible();
+  for (var i = 0; i < qs.length; i++) {
+    var m = FM_MOUNT[qs[i].id];
+    if (!m || vis[qs[i].id] === false) continue;        // Step 7: 숨겨진 문항은 확인하지 않음
+    var msg = m.validate();
+    if (msg) {
+      var h = document.querySelector('#fmWrap .fx-mount[data-q="' + String(qs[i].id).replace(/["\\]/g, '') + '"]');
+      if (h && h.scrollIntoView) h.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return msg;
+    }
+  }
+  return '';
+}
+
+/** Step 7 — 문항마다 상자(.fmqw)로 감싸 두고, 조건에 따라 통째로 보이거나 숨깁니다 */
 function fmQuestion(q, i) {
+  return '<div class="fmqw" data-qid="' + esc(q.id) + '">' + fmQuestion0(q, i) + '</div>';
+}
+function fmVisible() {
+  return (FM && FM.form) ? FormsCore.visibility(FM.form.questions || [], FM_ANS) : {};
+}
+function fmApplyVisibility() {
+  if (!FM || !FM.form) return;
+  var vis = fmVisible(), boxes = document.querySelectorAll('#fmWrap .fmqw');
+  for (var i = 0; i < boxes.length; i++) {
+    var show = vis[boxes[i].getAttribute('data-qid')] !== false;
+    if (boxes[i].hidden === show) boxes[i].hidden = !show;
+  }
+}
+/** 보이는 문항의 답만 (숨겨진 문항의 답은 서버로도 보내지 않습니다) */
+function fmVisibleAnswers() {
+  var vis = fmVisible(), out = {};
+  (FM.form.questions || []).forEach(function (q) { if (vis[q.id] !== false && q.type !== 'section') out[q.id] = FM_ANS[q.id]; });
+  return out;
+}
+var FM_VIS_BOUND = false;
+function fmBindVisibility() {
+  if (FM_VIS_BOUND) return;
+  var w = el('fmWrap'); if (!w) return;
+  FM_VIS_BOUND = true;
+  w.addEventListener('input', fmApplyVisibility);      // 글 · 숫자 · 날짜 (인라인 핸들러가 FM_ANS 를 먼저 바꿔 둠)
+  w.addEventListener('change', fmApplyVisibility);     // 동의 · 파일
+}
+
+function fmQuestion0(q, i) {
   var id = 'fq_' + q.id;
   var req = q.req ? ' <span class="req">*</span>' : '';
   var help = q.help ? '<p class="fmhelp">' + esc(q.help) + '</p>' : '';
   var v = FM_ANS[q.id];
 
   if (q.type === 'section') {
-    return '<div class="fmsec"><b>' + esc(q.label) + '</b>' + help + '</div>';
+    var shelp = q.helpHtml ? '<p class="fmhelp fx-rich">' + FormsCore.safeHtml(q.helpHtml) + '</p>' : help;   // Step 6: 굵게 · 주황 강조
+    return '<div class="fmsec"><b>' + esc(q.label) + '</b>' + shelp + '</div>';
   }
+  if (fmIsCore(q)) return '<div class="f fmf fx-mount" data-q="' + esc(q.id) + '"></div>';   // Step 6
   var head = '<label class="fmq">' + esc(q.label) + req + '</label>' + help;
 
-  if (q.type === 'choice') {
-    return '<div class="f fmf">' + head + '<div class="fmopts">' +
-      (q.opts || []).map(function (o, j) {
-        return '<button type="button" class="' + (v === o ? 'on' : '') + '" ' +
-          'onclick="fmPick(\'' + jsq(q.id) + '\',\'' + jsq(o) + '\')">' + esc(o) + '</button>';
-      }).join('') + '</div></div>';
-  }
-  if (q.type === 'checks') {
-    return '<div class="f fmf">' + head + '<div class="fmopts multi">' +
-      (q.opts || []).map(function (o) {
-        var on = (v || []).indexOf(o) !== -1;
-        return '<button type="button" class="' + (on ? 'on' : '') + '" ' +
-          'onclick="fmCheck(\'' + jsq(q.id) + '\',\'' + jsq(o) + '\')">' + esc(o) + '</button>';
-      }).join('') + '</div></div>';
-  }
   if (q.type === 'agree') {
     return '<div class="f fmf"><label class="lkchg fmagree">' +
       '<input type="checkbox" id="' + id + '"' + (v ? ' checked' : '') + ' onchange="FM_ANS[\'' + jsq(q.id) + '\']=this.checked">' +
@@ -2159,42 +2255,14 @@ function fmUpload(qid, input) {
   rd.readAsDataURL(file);
 }
 
-function fmPick(qid, val) {
-  FM_ANS[qid] = (FM_ANS[qid] === val) ? '' : val;
-  paintFormOpts();
-}
-function fmCheck(qid, val) {
-  var a = FM_ANS[qid] = FM_ANS[qid] || [];
-  var i = a.indexOf(val);
-  if (i === -1) a.push(val); else a.splice(i, 1);
-  paintFormOpts();
-}
-/** 고른 것만 다시 칠합니다 (입력한 글이 날아가지 않게) */
-function paintFormOpts() {
-  (FM.form.questions || []).forEach(function (q) {
-    if (q.type !== 'choice' && q.type !== 'checks') return;
-    var box = document.querySelectorAll('.fmopts');
-    // 각 버튼을 이름으로 다시 칠합니다
-  });
-  var all = document.querySelectorAll('#fmWrap .fmopts button');
-  for (var i = 0; i < all.length; i++) {
-    var b = all[i], on = b.getAttribute('onclick') || '';
-    var m = /fm(Pick|Check)\('([^']*)','([\s\S]*)'\)/.exec(on);
-    if (!m) continue;
-    var qid = m[2].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
-    var val = m[3].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
-    var v = FM_ANS[qid];
-    var sel = (m[1] === 'Pick') ? (v === val) : ((v || []).indexOf(val) !== -1);
-    b.className = sel ? 'on' : '';
-  }
-}
-
 function submitFormNow() {
   if (FM_BUSY > 0) { say('fmMsg', '파일을 올리는 중입니다. 잠시만 기다려주세요.', 'err'); return; }
+  var pre = fmCheckCore();                                  // Step 6: 고르기 · 별점 · "기타" 내용을 먼저 확인
+  if (pre) { say('fmMsg', pre, 'err'); return; }
   var btn = el('fmSubmit');
   btn.disabled = true;
   say('fmMsg', '보내는 중…');
-  callServer('submitForm', [fmToken(), FM.form.id, FM_ANS], function (r) {
+  callServer('submitForm', [fmToken(), FM.form.id, fmVisibleAnswers()], function (r) {
     btn.disabled = false;
     el('fmWrap').innerHTML =
       '<div class="capage"><div class="panel"><div class="nfok">' +
@@ -2468,6 +2536,7 @@ function paint(res) {
   CAL_LEAD = !!res.leader || CAL_COM;
   // 오늘의 묵상은 로그인 토큰을 넘겨줘야 그 화면에서 다시 로그인을 묻지 않습니다
   var dv = el('btnDevotion'); if (dv) dv.href = '?page=devotion&t=' + encodeURIComponent(TOKEN);
+  var nb = el('notesBtn'); if (nb) nb.href = '?page=notes&t=' + encodeURIComponent(TOKEN);
   SERMON = res.sermon || null;
   renderSermonCard();
   renderAs();
@@ -2482,6 +2551,7 @@ function paint(res) {
   if (!VIEW) followDeepLink();
   if (!VIEW) renderProfile();
   el('meBtn').style.display = VIEW ? 'none' : '';
+  if (el('notesBtn')) el('notesBtn').style.display = VIEW ? 'none' : '';      // 내 설교 노트는 내 계정 것이라 다른 분 화면에서는 숨김
   var qs = document.querySelector('.qsearch');
   if (qs) qs.style.display = (VIEW || !CAL_COM) ? 'none' : '';
   renderAdmin();
