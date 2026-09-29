@@ -28,7 +28,7 @@ function newEnv(mutate, env) {
   ['DB_FOLDER_ID', 'DB_IDS', 'SPREADSHEET_ID', 'DB_LEGACY_FALLBACK'].forEach((k) => delete process.env[k]);
   Object.assign(process.env, { PUBLIC_URL: 'https://app.test', SPREADSHEET_ID: legacy.id, DISABLE_SCHEDULER: '1' }, env || {});
   Object.keys(require.cache).forEach((k) => { if (k.indexOf(LIB) === 0) delete require.cache[k]; });
-  const stub = { sheets: (m, p) => fake.sheets(m, p), drive: (m, p) => fake.drive(m, p), calendar: (m, p) => fake.calendar(m, p), call: (op, a) => fake.call(op, a) };
+  const stub = { sheets: (m, p) => fake.sheets(m, p), drive: (m, p, x) => fake.drive(m, p, x), calendar: (m, p) => fake.calendar(m, p), call: (op, a) => fake.call(op, a) };
   require.cache[BRIDGE] = { id: BRIDGE, filename: BRIDGE, loaded: true, exports: stub };
   const runtime = require('../lib/runtime');
   return { fake, legacy, runtime, run: (fn) => runtime.run((api) => fn(api)).result, tabs };

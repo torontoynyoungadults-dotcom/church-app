@@ -32,7 +32,9 @@
   var CUE_BY = {};
   CUES.forEach(function (c) { CUE_BY[c.id] = c; });
 
-  var LIMITS = { minBpm: 30, maxBpm: 300 };
+  var LIMITS = { minBpm: 30, maxBpm: 300, minPitch: -12, maxPitch: 12, maxGain: 5 };
+  /** 박마다 ">" 강세 표시 — 기본은 마디 첫 박만 (사용자가 원 모양 박을 눌러 바꿉니다) */
+  function defaultMarks(num, first) { var a = []; for (var i = 0; i < num; i++) a.push(i === 0 && first !== false ? 1 : 0); return a; }
   function clamp(v, lo, hi) { v = Number(v); return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo; }
 
   /* ============================================================
@@ -45,6 +47,7 @@
     this.bpm = clamp(opt.bpm || 72, LIMITS.minBpm, LIMITS.maxBpm);
     this.num = Math.round(clamp(opt.num || 4, 1, 16));
     this.den = opt.den === 8 ? 8 : 4;
+    this.marks = defaultMarks(this.num, opt.first);
     this.running = false;
     this.nextTime = 0;
     this.beat = 0;                                   // 다음에 예약할 박 (0 = 마디 첫 박)
@@ -60,11 +63,45 @@
     this.nextTime = this.now() + (delay == null ? 0.06 : delay);
   };
   Sched.prototype.stop = function () { this.running = false; };
-  /** 강세 — 2: 마디 첫 박 · 1: 겹박자(6/8 등)의 3박 묶음 첫 박 · 0: 나머지 */
+  /**
+   * 강세 — 2: ">" 표시한 박 (기본은 마디 첫 박 · 더 높고 크게) · 1: 겹박자(6/8 등)의 3박 묶음 첫 박 · 0: 나머지
+   * 어느 박에 ">" 를 붙일지는 marks 배열이 정합니다 (setMark / toggleMark).
+   */
   Sched.prototype.accent = function (beat) {
-    if (beat === 0) return 2;
-    if (this.den === 8 && this.num % 3 === 0 && beat % 3 === 0) return 1;
+    if (this.marks[beat]) return 2;
+    if (beat !== 0 && this.den === 8 && this.num % 3 === 0 && beat % 3 === 0) return 1;
     return 0;
+  };
+  Sched.prototype.setMark = function (i, on) {
+    i = Math.round(Number(i));
+    if (!(i >= 0 && i < this.num)) return false;
+    this.marks[i] = on ? 1 : 0; return true;
+  };
+  Sched.prototype.toggleMark = function (i) {
+    i = Math.round(Number(i));
+    if (!(i >= 0 && i < this.num)) return null;
+    this.marks[i] = this.marks[i] ? 0 : 1; return !!this.marks[i];
+  };
+  /** 통째로 바꾸기 (다른 기기에서 받은 강세) — 박 수에 맞게 자르거나 채웁니다 */
+  Sched.prototype.setMarks = function (arr) {
+    if (!Array.isArray(arr)) return false;
+    var a = [];
+    for (var i = 0; i < this.num; i++) a.push(arr[i] ? 1 : 0);
+    this.marks = a; return true;
+  };
+  /**
+   * 정해진 시각(앵커 = 어떤 마디의 첫 박이 울려야 하는 오디오 시계 시각)에 맞춰 시작합니다.
+   * 앵커가 아직 오지 않았으면 그 시각에 첫 박부터, 이미 지났으면 박 위치(위상)를 그대로 유지한 채 다음 박부터 이어 갑니다.
+   * 여러 기기가 같은 앵커(서버 시각 기준)를 쓰면 각자 오디오를 내면서도 박이 겹칩니다.
+   */
+  Sched.prototype.startAt = function (anchor, countInBars) {
+    var itv = this.interval(), now = this.now(), k = 0;
+    this.running = true;
+    this.countInBars = Math.max(0, Math.round(countInBars || 0));
+    if (anchor < now + 0.02) k = Math.ceil((now + 0.02 - anchor) / itv);
+    this.count = k; this.beat = k % this.num; this.bar = Math.floor(k / this.num);
+    this.nextTime = anchor + k * itv;
+    return { skipped: k, nextTime: this.nextTime };
   };
   /**
    * 앞으로 lookahead 안에 올 박을 모두 예약 목록으로 돌려줍니다.
@@ -86,7 +123,10 @@
   };
   Sched.prototype.setBpm = function (b) { this.bpm = clamp(b, LIMITS.minBpm, LIMITS.maxBpm); };
   Sched.prototype.setSig = function (num, den) {
+    var same = Math.round(clamp(num, 1, 16)) === this.num && (den === 8 ? 8 : 4) === this.den;
+    var first = this.marks[0] ? true : false;
     this.num = Math.round(clamp(num, 1, 16)); this.den = den === 8 ? 8 : 4;
+    if (!same) this.marks = defaultMarks(this.num, first);          // 박자를 바꾸면 강세는 기본(첫 박)으로
     if (this.beat >= this.num) { this.beat = 0; this.bar++; }
   };
 
@@ -161,13 +201,16 @@
     var q = [];                       // 화면에 보여줄 박 (소리가 나는 때에 맞춰 깜빡임)
     var pending = [];                 // 예약해 둔 큐 {plan, cue, timeout}
     var S = {
-      click: store('click'), voice: store('voice'), mode: store('mode'), lead: store('lead'), lang: store('lang'), lat: store('lat'), sound: store('sound'), first: store('first')
+      click: store('gain'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), mode: store('mode'), lead: store('lead'), lang: store('lang'), lat: store('lat'), sound: store('sound'), first: store('first')
     };
     var cfg = {
-      click: S.click == null ? 0.8 : S.click, voice: S.voice == null ? 1 : S.voice, mode: S.mode || 'lead', lead: S.lead || 2,
+      click: S.click == null ? 0.4 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : S.voice, mode: S.mode || 'lead', lead: S.lead || 2,
       lang: S.lang || 'en', lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
-      first: S.first !== false                                   // 첫 박 강세 (기본 켬) — 끄면 첫 박도 다른 박과 같은 높이 · 세기
+      first: S.first !== false,                                  // 첫 박 강세 (기본 켬) — 끄면 첫 박도 다른 박과 같은 높이 · 세기
+      pitch: S.pitch == null ? 0 : clamp(S.pitch, LIMITS.minPitch, LIMITS.maxPitch),   // 딸깍 음높이 (반음 단위, -12 ~ +12)
+      flash: S.flash === true                                    // 첫 박에 화면 전체 깜빡임
     };
+    sched.setMark(0, cfg.first);
     var voices = [], speechOk = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
     var notify = function (kind, data) { if (opt.onEvent) { try { opt.onEvent(kind, data); } catch (e) { if (typeof console !== 'undefined') console.error(e); } } };
 
@@ -186,25 +229,42 @@
       return list.filter(function (v) { return v.localService; })[0] || list[0] || null;
     }
 
+    /**
+     * 딸깍 소리는 전용 볼륨(master)과 리미터를 거쳐 나갑니다.
+     * 볼륨 막대(0~1)가 기본 크기의 0 ~ 5 배 (LIMITS.maxGain) 이고, 리미터가 소리가 찢어지는 것을 막습니다.
+     */
+    var master = null, limiter = null;
+    function gainOf() { return clamp(cfg.click, 0, 1) * LIMITS.maxGain; }
     function ensureCtx() {
       if (ctx) return ctx;
       if (!AC) throw new Error(HELP.noAudio);
       try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { ctx = new AC(); }
+      try {
+        master = ctx.createGain(); master.gain.value = gainOf();
+        if (ctx.createDynamicsCompressor) {
+          limiter = ctx.createDynamicsCompressor();
+          limiter.threshold.value = -4; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.001; limiter.release.value = 0.06;
+          master.connect(limiter); limiter.connect(ctx.destination);
+        } else master.connect(ctx.destination);
+      } catch (e) { master = null; limiter = null; }
       return ctx;
     }
+    function applyGain() {
+      if (master && ctx) { try { master.gain.setTargetAtTime(gainOf(), ctx.currentTime, 0.01); } catch (e) { master.gain.value = gainOf(); } }
+    }
+    function pitchMul() { return Math.pow(2, clamp(cfg.pitch, LIMITS.minPitch, LIMITS.maxPitch) / 12); }
 
     /* ---------- 소리 ---------- */
     var SOUNDS = { wood: [1500, 1150, 880, 'square'], beep: [1320, 990, 780, 'sine'], click: [2200, 1700, 1300, 'triangle'] };
     function click(time, accent, countIn) {
       var s = SOUNDS[cfg.sound] || SOUNDS.wood;
-      if (cfg.first === false && accent === 2) accent = 0;
       var o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = s[3]; o.frequency.setValueAtTime(countIn ? 1000 : (accent === 2 ? s[0] : accent === 1 ? s[1] : s[2]), time);
-      var peak = Math.max(0.0002, cfg.click) * (accent === 2 ? 0.9 : accent === 1 ? 0.75 : 0.6);
+      o.type = s[3]; o.frequency.setValueAtTime((countIn ? 1000 : (accent === 2 ? s[0] : accent === 1 ? s[1] : s[2])) * pitchMul(), time);
+      var peak = accent === 2 ? 0.9 : accent === 1 ? 0.75 : 0.6;               // 강세 박이 더 크게 (전체 크기는 master 볼륨)
       g.gain.setValueAtTime(0.0001, time);
       g.gain.linearRampToValueAtTime(peak, time + 0.002);
       g.gain.exponentialRampToValueAtTime(0.0001, time + 0.055);
-      o.connect(g); g.connect(ctx.destination);
+      o.connect(g); g.connect(master || ctx.destination);
       o.start(time); o.stop(time + 0.07);
     }
     /** 음성을 쓸 수 없을 때의 대체 — 종류마다 다른 "삐" 패턴 (오디오 시계에 예약하므로 박에 정확히 맞습니다) */
@@ -283,7 +343,8 @@
     }
 
     function state() {
-      return { running: sched.running, bpm: sched.bpm, num: sched.num, den: sched.den, cfg: cfg, speech: speechOk, audio: !!AC,
+      cfg.first = !!sched.marks[0];
+      return { running: sched.running, bpm: sched.bpm, num: sched.num, den: sched.den, marks: sched.marks.slice(), gain: gainOf(), pitch: cfg.pitch, flash: cfg.flash, cfg: cfg, speech: speechOk, audio: !!AC,
         pending: pending.map(function (p) { return { label: p.text, landAt: p.plan.landAt, speakAt: p.plan.speakAt }; }) };
     }
     function emitState() { notify('state', state()); }
@@ -300,6 +361,32 @@
         if (!raf) raf = requestAnimationFrame(frame);
         emitState();
       };
+      var r = c.resume ? c.resume() : null;
+      if (r && r.then) r.then(go, function () { notify('error', { message: HELP.blocked }); }); else go();
+      if (!speechOk) notify('info', { message: HELP.noSpeech });
+      return { ok: true };
+    }
+    /**
+     * 정해진 시각에 맞춰 시작 (여러 기기 동기용).
+     *   inMs : 앵커(마디 첫 박)까지 남은 시간(ms). 음수면 이미 지난 앵커 — 박 위치를 유지한 채 다음 박부터 이어 갑니다.
+     * 소리는 이 기기의 오디오 시계에서 이 기기가 직접 냅니다 (소리를 주고받지 않습니다).
+     */
+    function startIn(inMs, countInBars) {
+      var c;
+      try { c = ensureCtx(); } catch (e) { notify('error', { message: e.message }); return { ok: false, error: e.message }; }
+      inMs = Number(inMs); if (!isFinite(inMs)) inMs = 0;
+      var go = function () {
+        if (destroyed) return;
+        if (c.state !== 'running') { notify('error', { message: HELP.blocked }); return; }
+        warmup();
+        // resume 가 끝난 시점에서 다시 계산하면 그 사이 지난 시간이 반영됩니다 — 기준은 호출 시각
+        var anchor = c.currentTime + (inMs - (Date.now() - t0)) / 1000;
+        sched.startAt(anchor, countInBars || 0);
+        pump(); startTimer();
+        if (!raf) raf = requestAnimationFrame(frame);
+        emitState();
+      };
+      var t0 = Date.now();
       var r = c.resume ? c.resume() : null;
       if (r && r.then) r.then(go, function () { notify('error', { message: HELP.blocked }); }); else go();
       if (!speechOk) notify('info', { message: HELP.noSpeech });
@@ -360,15 +447,23 @@
     }
     function cancelCues() { pending.forEach(function (p) { clearTimeout(p.timeout); }); pending = []; if (speechOk) { try { window.speechSynthesis.cancel(); } catch (e) { /* 무시 */ } } emitState(); }
 
-    function set(k, v) { cfg[k] = v; store(k === 'sound' ? 'sound' : k, v); emitState(); }
+    function set(k, v) { cfg[k] = v; store(k === 'click' ? 'gain' : k, v); emitState(); }
     return {
       start: start, stop: stop, toggle: function (n) { return sched.running ? (stop(), { ok: true }) : start(n); },
       cue: cue, cancelCues: cancelCues,
-      setBpm: function (b) { sched.setBpm(b); emitState(); }, setSig: function (n, d) { sched.setSig(n, d); emitState(); },
-      setClickVolume: function (v) { set('click', clamp(v, 0, 1)); }, setVoiceVolume: function (v) { set('voice', clamp(v, 0, 1)); },
+      setBpm: function (b) { sched.setBpm(b); emitState(); }, setSig: function (n, d) { sched.setSig(n, d); cfg.first = !!sched.marks[0]; emitState(); },
+      setClickVolume: function (v) { set('click', clamp(v, 0, 1)); applyGain(); },
+      setPitch: function (st) { set('pitch', Math.round(clamp(st, LIMITS.minPitch, LIMITS.maxPitch) * 2) / 2); },
+      setFlash: function (on) { set('flash', !!on); },
+      /** 박 ">" 강세 — 원을 눌러 켜고 끕니다 (높은 음 · 더 크게) */
+      toggleMark: function (i) { var r = sched.toggleMark(i); if (r === null) return null; cfg.first = !!sched.marks[0]; store('first', cfg.first); emitState(); return r; },
+      setMarks: function (arr) { var r = sched.setMarks(arr); if (r) { cfg.first = !!sched.marks[0]; store('first', cfg.first); emitState(); } return r; },
+      startIn: startIn,
+      /** 사용자가 화면을 누른 순간에 소리 장치를 미리 깨워 둡니다 (아이폰 · 크롬은 눌러야 소리가 나옵니다) — 원격 시작에 필요 */
+      prime: function () { try { var c = ensureCtx(); if (c.resume) c.resume(); return true; } catch (e) { return false; } }, setVoiceVolume: function (v) { set('voice', clamp(v, 0, 1)); },
       setMode: function (m) { set('mode', ['downbeat', 'lead', 'now'].indexOf(m) === -1 ? 'lead' : m); },
       setLead: function (n) { set('lead', Math.round(clamp(n, 1, 8))); }, setLang: function (l) { set('lang', l === 'ko' ? 'ko' : 'en'); },
-      setLatency: function (ms) { latEma = clamp(ms, 0, 900); set('lat', Math.round(latEma)); }, setSound: function (s) { set('sound', s); }, setFirstAccent: function (on) { set('first', !!on); },
+      setLatency: function (ms) { latEma = clamp(ms, 0, 900); set('lat', Math.round(latEma)); }, setSound: function (s) { set('sound', s); }, setFirstAccent: function (on) { sched.setMark(0, !!on); set('first', !!on); },
       tap: function () { var b = tapper.tap(Date.now()); if (b) { sched.setBpm(b); emitState(); } return b; },
       state: state, sched: sched, ctx: function () { return ctx; }, help: HELP,
       destroy: function () {
@@ -380,5 +475,5 @@
     };
   }
 
-  return { CUES: CUES, CUE_BY: CUE_BY, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS };
+  return { CUES: CUES, CUE_BY: CUE_BY, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS };
 }));

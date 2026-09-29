@@ -87,7 +87,7 @@ const run = (fn) => global.__runtime.run((api) => fn(api)).result;
   await page.screenshot({ path: '/tmp/shot-computer.png' });
   console.log('· 필기 → 진짜 시트 저장');
   await page.click('.pv-tabbtn[data-tab="together"]'); await page.click('button[data-a="claim"]');
-  check('관리자가 리더가 됨', await L.waitTrue(page, () => /내가 리더/.test(document.querySelector('.pv-lead').textContent)));
+  check('관리자가 페이지 컨트롤이 됨', await L.waitTrue(page, () => /내가 페이지 컨트롤/.test(document.querySelector('.pv-lead').textContent)));
   await L.ensureTool(page, 'pen');
   await L.drag(page, [[.2, .3], [.5, .34], [.8, .3]]);
   await page.click('.pv-tabbtn[data-tab="anno"]'); await page.click('button[data-a="save"]');

@@ -1,4 +1,4 @@
-/** 음정 피아노롤 · 가사 추출 · 내보내기(PNG/PDF) · 태블릿/컴퓨터 화면 — 진짜 브라우저 시험 */
+/** 음정 피아노롤 · 내보내기(PNG/PDF) · 태블릿/컴퓨터 화면 — 진짜 브라우저 시험 */
 const L = require('./e2e-lib'); const { check, sleep } = L; const fs = require('fs');
 const S = require('./e2e-server');
 const INIT = `(() => { window.__osc = []; window.__ctxs = []; const AC0 = window.AudioContext; window.AudioContext = function (...a) { const c = new AC0(...a); window.__ctxs.push(c); return c; }; window.AudioContext.prototype = AC0.prototype; const AC = window.AudioContext; const co = AC.prototype.createOscillator;
@@ -39,22 +39,8 @@ const INIT = `(() => { window.__osc = []; window.__ctxs = []; const AC0 = window
   check('오류 표시 없음', !(await page.evaluate(() => document.querySelector('.pk-info').classList.contains('bad'))));
   await page.locator('.pk-root').screenshot({ path: '/tmp/shot-pitch.png' });
 
-  console.log('· 가사 추출');
-  await page.click('.pv-tabbtn[data-tab="lyrics"]');
-  await page.click('.ly-btn:has-text("이 쪽에서 추출")');
-  check('가사가 나옴', await L.waitTrue(page, () => /Amazing grace how sweet the sound/.test(document.querySelector('.ly-out').value), null, 5000), await page.evaluate(() => document.querySelector('.ly-out').value));
-  const txt = await page.evaluate(() => document.querySelector('.ly-out').value);
-  check('[Verse 1] · [Chorus] 표시', /\[Verse 1\]/.test(txt) && /\[Chorus\]/.test(txt), txt);
-  check('코드 줄은 빠짐', !/D\/F#/.test(txt) && !/Em7/.test(txt), txt);
-  await page.evaluate(() => { const c = document.querySelectorAll('.ly-chk input')[0]; c.click(); });
-  await page.click('.ly-btn:has-text("이 쪽에서 추출")'); await sleep(700);
-  const txt2 = await page.evaluate(() => document.querySelector('.ly-out').value);
-  check('"코드 포함"을 켜면 코드 줄이 들어감', /D\/F#/.test(txt2) && /Em7/.test(txt2), txt2);
-  await page.click('.ly-btn:has-text("전체 쪽")'); await sleep(1200);
-  const txt3 = await page.evaluate(() => document.querySelector('.ly-out').value);
-  check('전체 쪽 추출에 2·3쪽 가사도 포함', /Twas grace/.test(txt3) && /Praise the Lord/.test(txt3), txt3);
-  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 4000 }).catch(() => null), page.click('.ly-btn:has-text(".txt")')]);
-  check('.txt 저장 (다운로드)', !!dl && /\.txt$/.test(dl.suggestedFilename()), dl && dl.suggestedFilename());
+  console.log('· 가사 도구는 허브 화면으로 이동 (Step 2.8)');
+  check('연습 화면에는 "가사" 탭이 없음', await page.evaluate(() => !document.querySelector('.pv-tabbtn[data-tab="lyrics"]') && !/가사/.test(document.querySelector('.pv-tabs').textContent)));
 
   console.log('· 내보내기 (필기 포함)');
   await page.click('.pv-tabbtn[data-tab="anno"]');

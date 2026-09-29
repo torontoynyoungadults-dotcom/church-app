@@ -1032,6 +1032,7 @@ body .pe .fc,
 <script defer src="/worship/metro.js"></script>
 <script defer src="/worship/pitch.js"></script>
 <script defer src="/worship/lyrics.js"></script>
+<script defer src="/worship/hubtools.js"></script>
 <script defer src="/worship/ytplayer.js"></script>
 <script defer src="/worship/rt.js"></script>
 <script defer src="/worship/anno.js"></script>
@@ -1326,6 +1327,7 @@ function render() {
   var playing = Array.prototype.filter.call(el('body').querySelectorAll('audio'), function (a) { return !a.paused; });
   el('body').innerHTML = html;
   try { mountFormBuilder(); } catch (e) { /* 송폼 만들기가 없어도 입력칸으로 저장할 수 있습니다 */ }
+  if (TAB === 'plan') mountLyricsPanel();
   playing.forEach(function (a) {
     var n = Array.prototype.filter.call(el('body').querySelectorAll('audio'), function (x) {
       return x.getAttribute('src') === a.getAttribute('src');
@@ -1420,7 +1422,7 @@ function planTab() {
 function startBar() {
   var n = (W.sheets || []).length + (W.finalSheets || []).length;
   return '<div class="panel pvstart">' + (n
-    ? '<button type="button" class="pvgo pvstartbtn" onclick="openPractice(\'\')" title="연습 · 필기 · 메트로놈 화면을 엽니다">▶ 연주 시작 <small>악보 ' + n + '개 · 필기 · 메트로놈 · 함께 보기</small></button>'
+    ? '<button type="button" class="pvgo pvstartbtn" onclick="openPractice(\'\')" title="세션 / 연습 · 필기 · 메트로놈 화면을 엽니다">▶ 세션 / 연습 시작 <small>악보 ' + n + '개 · 필기 · 메트로놈 · 함께 보기</small></button>'
     : '<p class="fnote" style="margin:0;">악보를 올리면 여기에 <b>연주 시작</b> 버튼이 나타납니다.</p>') + '</div>';
 }
 
@@ -1659,6 +1661,7 @@ function setTab() {
       '<div style="height:13px;"></div>' +
       '<div class="sect" style="margin-top:0;">결단찬양 악보</div>' +
       fileList('결단', W.finalSheets) + '</div>' +
+    lyricsBox() +
     mediaBox() +
     commentBox();
 }
@@ -1924,25 +1927,27 @@ function fileList(kind, list) {
     return '<div class="fileitem card"><span class="ic">' + (pdf ? 'PDF' : 'IMG') + '</span>' +
       '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a>' +
       '<span class="by">' + esc(f.by) + '</span>' +
-      '<button type="button" class="pvgo mini" onclick="openPractice(\'' + esc(jsq(f.id)) + '\')" title="연습 모드로 열기">🎼 연습</button>' +
+      '<button type="button" class="pvgo mini" onclick="openPractice(\'' + esc(jsq(f.id)) + '\')" title="세션 / 연습 시작">🎼 세션 / 연습 시작</button>' +
       (D.canEdit ? '<button class="btn mini danger" onclick="dropSheet(\'' + esc(jsq(f.id)) +
         '\')">삭제</button>' : '') + '</div>';
   }).join('') : '<p class="empty">올라온 악보가 없습니다.</p>';
 
   return rows +
-    (list.length ? '<button type="button" class="pvgo" style="margin-top:10px;" onclick="openPractice(\'\')">🎼 연습 모드로 열기 (필기 · 메트로놈 · 송폼)</button>' : '') +
+    (list.length ? '<button type="button" class="pvgo" style="margin-top:10px;" onclick="openPractice(\'\')">🎼 세션 / 연습 시작 (필기 · 메트로놈 · 송폼)</button>' : '') +
     (D.canEdit
       ? '<button type="button" class="pickbtn" style="margin-top:10px;" onclick="pickFile(\'' + kind + '\')">' +
         '＋ 악보 올리기 (PDF · 사진)</button>'
       : '') +
+    '<div class="repobar"><button type="button" class="pickbtn repobtn" onclick="openRepoModal(\'' + kind + '\')" title="저장해 둔 악보를 검색해서 이 콘티에 넣습니다">🗂 저장소에서 찾기</button>' +
+      (D.canEdit ? '<button type="button" class="pickbtn repobtn" onclick="openClipModal(\'' + kind + '\')" title="악보에서 필요한 쪽만 잘라 저장소에 보관합니다">✂ 쪽 잘라 저장소에 저장</button>' : '') + '</div>' +
     '<p class="msg" id="fileMsg_' + kind + '"></p>';
 }
 
 function pickFile(kind) { uploadKind = kind; el('filePicker').click(); }
 
-/* ---------- 연습 모드 (Step 2) — 악보를 크게 열고 필기 · 메트로놈 · 송폼 · 음정 · 가사를 씁니다 ---------- */
+/* ---------- 세션 / 연습 시작 (Step 2) — 악보를 크게 열고 필기 · 메트로놈 · 송폼 · 음정을 씁니다 ---------- */
 function openPractice(fid) {
-  if (!window.YNPractice) { alert('연습 모드를 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
+  if (!window.YNPractice) { alert('세션 / 연습 화면을 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
   var files = (W.sheets || []).concat(W.finalSheets || []);
   var songs = (W.songs || []).concat(W.finals || []).map(function (s) {
     return { title: s.title, key: s.key, bpm: s.bpm, form: s.form, team: s.team, link: s.link || '' };
@@ -2036,6 +2041,7 @@ function recBox() {
   }
   return '<div class="panel recp"><span class="chip">녹음</span>' +
     '<p class="hint">연습 녹음과 ' + (W.event ? '행사' : '주일 예배') + ' 녹음을 올려두면 모두 여기서 바로 들을 수 있어요. 아카이브에도 함께 남습니다.</p>' +
+    autoLinkBox() +
     (list.length ? group(wName, 예배) + group('연습 녹음', 연습) : '<p class="empty">아직 올라온 녹음이 없습니다.</p>') +
     '<div class="recadd">' +
       '<div class="gl2">녹음 추가</div>' +
@@ -2093,6 +2099,82 @@ function addRecLink() {
 function dropRec(id) {
   if (!confirm('이 녹음을 지울까요?')) return;
   callServer('removeWorshipRecording', [TOKEN, DATE, id], apply, fail);
+}
+
+/* ---------- 링크 자동걸기 (Step 2.8) — 드라이브 녹음 폴더에서 이 주의 토요일 연습 · 주일 예배 녹음을 찾아 겁니다 ---------- */
+
+var AUTO = { busy: false, rep: null, err: '', date: '', seq: 0, t: 0 };
+
+function autoLinkBox() {
+  var mine = AUTO.date === DATE;                                     // 다른 주로 넘어가면 지난 결과는 감춥니다
+  return '<div class="autolink"><button type="button" class="pickbtn autobtn" id="autoBtn" onclick="autoLinkRecs()"' + (AUTO.busy ? ' disabled' : '') + '>' +
+      (AUTO.busy ? '⏳ 녹음 폴더를 찾는 중…' : '🔗 링크 자동걸기') + '</button>' +
+    '<p class="fnote" style="margin:6px 0 0;">드라이브 녹음 폴더(하위 폴더 포함)에서 이 주 <b>토요일에 올라온 것은 연습</b>, <b>주일에 올라온 것은 예배</b> 녹음으로 자동으로 걸어 줍니다.</p>' +
+    '<div id="autoRep" aria-live="polite">' + (mine ? autoRepHtml() : '') + '</div></div>';
+}
+function autoRepHtml() {
+  if (AUTO.busy) return '<p class="autoinfo">폴더 안을 훑는 중입니다. 파일이 많으면 최대 30초쯤 걸려요…</p>';
+  if (AUTO.err) return '<p class="autoinfo bad" role="alert">' + esc(AUTO.err) + '</p>';
+  var r = AUTO.rep; if (!r) return '';
+  var rows = (r.added || []).map(function (a) {
+    return '<li><i class="rkind' + (a.kind === '예배' ? ' w' : '') + '">' + esc(a.label) + '</i><span>' + esc(a.title.replace(/^\[[^\]]*\]\s*/, '')) + '</span><em>' + esc(a.day.slice(5).replace('-', '/')) + '</em></li>';
+  }).join('');
+  var sk = r.skipped || {}, bits = [];
+  if (sk.duplicate) bits.push('이미 링크됨 ' + sk.duplicate);
+  if (sk.otherDay) bits.push('이 주 토 · 일이 아닌 날 ' + sk.otherDay);
+  if (r.errors) bits.push('열지 못한 항목 ' + r.errors);
+  return '<div class="autorep' + (r.timedOut ? ' warn' : '') + '"><p class="autoinfo ' + ((r.added || []).length ? 'ok' : '') + (r.timedOut ? ' bad' : '') + '">' + esc(r.message) + '</p>' +
+    (rows ? '<ul class="autolist">' + rows + '</ul>' : '') +
+    '<p class="fnote" style="margin:4px 0 0;">폴더 ' + r.folders + '개 · 파일 ' + r.scanned + '개 확인 · ' + (r.ms / 1000).toFixed(1) + '초' + (bits.length ? ' · ' + bits.join(' · ') : '') + '</p></div>';
+}
+function autoPaint() { var b = el('autoBtn'), r = el('autoRep'); if (b) { b.disabled = AUTO.busy; b.textContent = AUTO.busy ? '⏳ 녹음 폴더를 찾는 중…' : '🔗 링크 자동걸기'; } if (r) r.innerHTML = autoRepHtml(); }
+
+function autoLinkRecs() {
+  if (AUTO.busy) return;
+  var seq = ++AUTO.seq, key = DATE;
+  AUTO.busy = true; AUTO.rep = null; AUTO.err = ''; AUTO.date = key; autoPaint();
+  clearTimeout(AUTO.t);
+  AUTO.t = setTimeout(function () {                                     // 서버가 오래 답이 없으면 기다리지 않고 알려줍니다 (늦게 오면 그때 반영)
+    if (seq !== AUTO.seq || !AUTO.busy) return;
+    AUTO.busy = false; AUTO.err = '서버 응답이 너무 늦습니다 (60초). 녹음 폴더에 파일이 아주 많을 수 있어요. 잠시 후 다시 눌러 보세요.'; autoPaint();
+  }, 60000);
+  callServer('worshipAutoLinkRecordings', [TOKEN, key], function (r) {
+    clearTimeout(AUTO.t);
+    if (seq === AUTO.seq) { AUTO.busy = false; AUTO.err = ''; }
+    AUTO.rep = r.report; AUTO.date = key;
+    apply(r.week);                                                       // 새로 걸린 녹음이 곧바로 목록에 나타납니다
+    autoPaint();
+  }, function (e) {
+    clearTimeout(AUTO.t);
+    if (seq === AUTO.seq) { AUTO.busy = false; AUTO.err = (e && e.message) || '링크를 걸지 못했습니다.'; autoPaint(); }
+  });
+}
+
+/* ---------- 악보 저장소 · 악보 자르기 · 가사 도구 (Step 2.8, public/worship/hubtools.js) ---------- */
+
+function hub() {
+  if (!window.YNHubTools) { alert('도구를 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return null; }
+  if (!hub.ready) {
+    YNHubTools.init({
+      call: callServer, token: function () { return TOKEN; }, date: function () { return DATE; }, week: function () { return W; },
+      who: function () { return (D && D.who) || ''; }, canEdit: function () { return !!(D && D.canEdit); }, apply: apply,
+      people: function () { return ((D && D.members) || []).map(function (m) { return m.name; }); }
+    });
+    hub.ready = true;
+  }
+  return YNHubTools;
+}
+function openRepoModal(kind) { var t = hub(); if (t) t.openRepo(kind); }
+function openClipModal(kind) { var t = hub(); if (t) t.openClip({ kind: kind }); }
+
+/** 가사 도구 — 방송팀 요청 바로 위 (연습 화면에서 옮겨 왔습니다) */
+function lyricsBox() {
+  return '<div class="panel lyp" id="lyPanel"><span class="chip">가사</span><div id="lyHost" class="lyhost"></div></div>';
+}
+function mountLyricsPanel() {
+  var h = el('lyHost'); if (!h) return;
+  var t = window.YNHubTools; if (!t) { h.innerHTML = '<p class="empty">가사 도구를 불러오지 못했습니다. 페이지를 새로고침해 주세요.</p>'; return; }
+  try { hub(); t.mountLyrics(h); } catch (e) { h.innerHTML = '<p class="empty">가사 도구를 열지 못했습니다: ' + esc(e.message || e) + '</p>'; }
 }
 
 /* ---------- 방송팀 요청 — 검은 바탕으로 눈에 띄게 ---------- */

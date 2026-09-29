@@ -1,7 +1,7 @@
 /**
- * 연습 모드 패널 — 필기 옵션 · 송폼 · 메트로놈(음성 큐) · 음정 · 가사 · 함께(리더-팔로워)
+ * 세션 / 연습 패널 — 필기 옵션 · 송폼 · 메트로놈(음성 큐) · 음정 · 함께(리더-팔로워)
  * practice.js 가 YNPanels.build(P) 를 불러 탭 목록을 받습니다. 각 탭은 처음 열릴 때 만들어집니다.
- * (formb.js · metro.js · pitch.js · lyrics.js 가 없으면 그 탭은 "불러오지 못했다"는 안내만 보이고 나머지는 정상 동작)
+ * (formb.js · metro.js · pitch.js 가 없으면 그 탭은 "불러오지 못했다"는 안내만 보이고 나머지는 정상 동작)
  */
 (function (root) {
   'use strict';
@@ -18,19 +18,103 @@
     var tabs = [];
 
     /* ------------------------------------------------------------ 메트로놈 (여러 탭이 함께 씁니다) */
+    var flashEl = null;
+    /** 첫 박에 화면 전체가 살짝 깜빡입니다 (끄고 켤 수 있음). 마디가 1초에 3번을 넘게 도는 아주 빠른 박자에서는 눈이 아프지 않게 건너뜁니다. */
+    function flash(e) {
+      if (!M || !e || e.beat !== 0) return;
+      var st = M.state(); if (!st.cfg.flash) return;
+      if (st.bpm / 60 / st.num > 3) return;
+      try {
+        if (!flashEl) { flashEl = doc.createElement('div'); flashEl.className = 'pv-flash'; flashEl.setAttribute('aria-hidden', 'true'); doc.body.appendChild(flashEl); }
+        flashEl.classList.toggle('ci', !!e.countIn);
+        flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go');
+      } catch (x) { /* 화면 효과가 박자에 영향을 주면 안 됩니다 */ }
+    }
     function metro() {
       if (M) return M;
       if (!root.YNMetro) return null;
       var s = P.song(), bpm = s && +s.bpm >= 30 && +s.bpm <= 300 ? +s.bpm : undefined;
       M = root.YNMetro.create({
         bpm: bpm,
-        onBeat: function (e) { if (mUi) mUi.beat(e); },
-        onEvent: function (kind, d) { if (mUi) mUi.event(kind, d); else if (kind === 'error') P.toast(d && d.message || '소리를 낼 수 없습니다.', true); }
+        onBeat: function (e) { flash(e); if (mUi) mUi.beat(e); },
+        onEvent: function (kind, d) {
+          if (kind === 'error' && remoteWait) { remoteBlocked = true; P.toast('팀 메트로놈 소리가 막혀 있습니다. 화면을 한 번 누르면 바로 시작합니다.', true); }
+          if (mUi) mUi.event(kind, d); else if (kind === 'error') P.toast(d && d.message || '소리를 낼 수 없습니다.', true);
+        }
       });
       M.setLang(P.lang());
       return M;
     }
-    /** 큐 하나를 소리로 (박자가 돌면 박에 맞춰) + 리더면 팀에 전달 */
+
+    /* ---------- 클릭 컨트롤 · 동기화 ----------
+       소리는 기기마다 자기 오디오로 냅니다 (소리를 보내지 않음). 서로 나누는 것은 "상태" 뿐입니다 — BPM · 박자 · 강세 · 시작/멈춤.
+         local  : 혼자 쓰기 (실시간 없음 · 동기화 끔 · 클릭 컨트롤이 아직 없음)
+         send   : 내가 클릭 컨트롤 — 누르는 것을 서버로 보내고, 방 전체(나 포함)가 같은 시각에 시작
+         locked : 다른 사람이 클릭 컨트롤 — 내 조작은 막고 그 사람 것을 따라감 ("동기화 끄기"로 풀 수 있음) */
+    var remoteSeq = -1, lastAnchor = 0, remoteWait = false, remoteBlocked = false, sendT = 0, primed = false;
+    function ctl() {
+      var rt = P.rt();
+      if (!rt || !rt.online || P.manual()) return 'local';
+      if (rt.isClicker) return 'send';
+      if (rt.clicker) return 'locked';
+      return 'local';
+    }
+    function lockedMsg() { var rt = P.rt(); return (rt && rt.clicker ? rt.clicker : '다른 사람') + ' 님이 클릭 컨트롤입니다. 직접 쓰려면 "동기화 끄기"를 켜세요.'; }
+    /** 지금 내 메트로놈 상태를 서버로 (내가 클릭 컨트롤일 때) */
+    function sendState(o) {
+      var rt = P.rt(), m = metro(); if (!rt || !m || ctl() !== 'send') return;
+      o = o || {}; var st = m.state();
+      var body = { playing: o.playing != null ? !!o.playing : st.running, bpm: st.bpm, num: st.num, den: st.den, marks: st.marks, count: o.count != null ? o.count : (mUi ? mUi.count() : 0), keep: !!o.keep };
+      rt.sendMetro(body).catch(function (e) { P.toast('메트로놈 상태를 팀에 보내지 못했습니다: ' + e.message, true); });
+    }
+    function sendSoon(o) { clearTimeout(sendT); sendT = setTimeout(function () { sendState(o); }, 220); }
+    /** 클릭 컨트롤에게서 받은 상태를 내 메트로놈에 적용 — 서버 시각(startAt)을 내 오디오 시계로 바꿔 같은 박에 시작 */
+    function remoteMetro(st) {
+      var rt = P.rt(); if (!st || !rt || P.manual()) return;
+      if (st.seq != null && st.seq < remoteSeq) return;
+      var m = metro(); if (!m) return;
+      remoteSeq = st.seq == null ? remoteSeq : st.seq;
+      var cur = m.state();
+      if (Math.round(cur.bpm * 10) !== Math.round(st.bpm * 10)) m.setBpm(st.bpm);
+      if (cur.num !== st.num || cur.den !== st.den) m.setSig(st.num, st.den);
+      m.setMarks(st.marks);
+      if (!st.playing || !st.startAt) { lastAnchor = 0; remoteWait = false; if (m.state().running) m.stop(); if (mUi) mUi.sync(); return; }
+      if (m.state().running && lastAnchor === st.startAt) { if (mUi) mUi.sync(); return; }     // 강세만 바뀜 — 박은 그대로
+      lastAnchor = st.startAt; remoteWait = true; remoteBlocked = false;
+      if (m.state().running) m.stop();
+      var r = m.startIn(st.startAt - rt.serverNow(), st.count || 0);
+      if (r && r.ok === false) { remoteBlocked = true; P.toast(r.error || '소리를 낼 수 없습니다.', true); }
+      setTimeout(function () { remoteWait = false; }, 1500);
+      if (mUi) mUi.sync();
+    }
+    /** 아이폰 · 크롬은 사용자가 화면을 한 번 눌러야 소리를 낼 수 있습니다 — 처음 누를 때 미리 준비해 두면 원격 시작이 바로 됩니다 */
+    function prime() {
+      var rt = P.rt(); if (!rt || !rt.online) return;
+      if (!primed) { var m = metro(); if (m && m.prime) { m.prime(); primed = true; } }
+      if (remoteBlocked && !P.manual() && rt.metro && rt.metro.playing) { remoteBlocked = false; remoteMetro(Object.assign({}, rt.metro, { seq: null })); }
+    }
+    doc.addEventListener('pointerdown', prime, true);
+    /**
+     * 메트로놈 조작 한 곳 — 화면 버튼 · 단축키 · 곡 BPM 이 모두 이리로 옵니다.
+     *   kind: toggle · bpm(v) · sig(n,d) · mark(i) · tap
+     */
+    function act(kind, a, b2) {
+      var m = metro(); if (!m) return { ok: false, error: '메트로놈 도구를 불러오지 못했습니다.' };
+      var mode = ctl();
+      if (mode === 'locked') { P.toast(lockedMsg(), true); return { ok: false, locked: true }; }
+      var count = mUi ? mUi.count() : 0, res = { ok: true };
+      if (kind === 'toggle') {
+        if (mode === 'send') { sendState({ playing: !m.state().running, count: count }); return { ok: true, sent: true }; }
+        var r = m.toggle(count); if (r && r.ok === false) return r;
+      } else if (kind === 'bpm' || kind === 'tap') {
+        var v = kind === 'tap' ? m.tap() : a; res.bpm = v; if (!v) return { ok: true, tap: null };
+        m.setBpm(v); if (mode === 'send') sendSoon({});
+      } else if (kind === 'sig') { m.setSig(a, b2); if (mode === 'send') sendSoon({ keep: false });
+      } else if (kind === 'mark') { res.on = m.toggleMark(a); if (mode === 'send') sendState({ keep: true }); }
+      if (mUi) mUi.sync();
+      return res;
+    }
+    /** 큐 하나를 소리로 (박자가 돌면 박에 맞춰) + 페이지/클릭 컨트롤이면 팀에 전달 */
     function doCue(id, fromRemote) {
       var m = metro(); if (!m) { P.toast('메트로놈 도구를 불러오지 못했습니다.', true); return; }
       var r = m.cue(id);
@@ -39,19 +123,38 @@
       return r;
     }
     P.on('cue', function (c) {
-      if (!P.recvCue() || !c || !c.label) return;
+      if (!P.recvCue() || P.manual() || !c || !c.label) return;
       var m = metro(); if (!m) return;
-      var r = m.cue(String(c.label)); if (r && r.ok) P.toast('리더 큐: ' + (r.text || c.label), false, 1500);
+      var r = m.cue(String(c.label)); if (r && r.ok) P.toast('컨트롤 큐: ' + (r.text || c.label), false, 1500);
+    });
+    P.on('metro', function (st) { remoteMetro(st); });
+    /* 동기화를 다시 켜면 지금 팀 메트로놈 상태로 바로 맞춥니다 */
+    P.on('manual', function (on) {
+      var rt = P.rt();
+      if (!on && rt && rt.online && rt.metro && ctl() !== 'send') { remoteSeq = -1; lastAnchor = 0; remoteMetro(rt.metro); }
+      if (mUi) mUi.sync();
     });
     P.on('song', function (s) {
-      var b = s && +s.bpm; if (M && b >= 30 && b <= 300) { M.setBpm(b); if (mUi) mUi.sync(); }
+      var b = s && +s.bpm; if (!(M && b >= 30 && b <= 300)) return;
+      var mode = ctl(); if (mode === 'locked') return;                     // 클릭 컨트롤의 BPM 을 따르는 중
+      M.setBpm(b); if (mode === 'send') sendSoon({}); if (mUi) mUi.sync();
     });
-    P.on('close', function () { try { M && M.destroy(); } catch (e) {} M = null; });
+    P.on('close', function () { clearTimeout(sendT); doc.removeEventListener('pointerdown', prime, true); try { M && M.destroy(); } catch (e) {} M = null; if (flashEl && flashEl.parentNode) flashEl.parentNode.removeChild(flashEl); flashEl = null; });
+    ['clicker', 'conn', 'leader'].forEach(function (n) { P.on(n, function () { if (mUi) mUi.sync(); }); });
     /* 단축키용 — 메트로놈 탭을 한 번도 안 열었어도 ↑↓ (BPM) · Space (시작/멈춤) 이 동작합니다. 쓸 수 없으면 null */
-    P.metroKey = function (act, d) {
+    P.metroKey = function (act2, d) {
       var m = metro(); if (!m) return null;
-      if (act === 'bpm') { var v = Math.max(30, Math.min(300, Math.round(m.state().bpm) + (d || 0))); m.setBpm(v); if (onBpmUser) onBpmUser(); if (mUi) mUi.sync(); P.toast('BPM ' + v, false, 700); return { ok: true, bpm: v }; }
-      if (act === 'toggle') { var r = m.toggle(mUi ? mUi.count() : 0); if (r && r.ok === false) { P.toast(r.error || '소리를 낼 수 없습니다.', true); return { ok: false }; } if (mUi) mUi.sync(); P.toast(m.state().running ? '▶ 메트로놈 시작' : '■ 메트로놈 멈춤', false, 700); return { ok: true, running: m.state().running }; }
+      if (act2 === 'bpm') {
+        var v = Math.max(30, Math.min(300, Math.round(m.state().bpm) + (d || 0)));
+        var r = act('bpm', v); if (r.locked) return { ok: false, locked: true };
+        if (onBpmUser) onBpmUser(); P.toast('BPM ' + v, false, 700); return { ok: true, bpm: v };
+      }
+      if (act2 === 'toggle') {
+        var r2 = act('toggle'); if (r2 && r2.locked) return { ok: false, locked: true };
+        if (r2 && r2.ok === false) { P.toast(r2.error || '소리를 낼 수 없습니다.', true); return { ok: false }; }
+        if (r2 && r2.sent) { P.toast('▶/■ 팀 메트로놈에 보냈습니다', false, 700); return { ok: true, sent: true }; }
+        P.toast(m.state().running ? '▶ 메트로놈 시작' : '■ 메트로놈 멈춤', false, 700); return { ok: true, running: m.state().running };
+      }
       return null;
     };
 
@@ -149,16 +252,22 @@
       var m = metro(); if (!need('메트로놈', m, host)) return;
       var CUES = root.YNMetro.CUES, GROUPS = [['sec', '진행'], ['dyn', '다이내믹'], ['in', '들어가기']];
       host.innerHTML =
-        '<div class="pv-sec"><div class="pv-bpmrow"><button class="pv-btn2 sq" data-a="b-">−</button><input class="pv-bpm" type="number" inputmode="numeric" min="30" max="300" data-role="bpm" aria-label="BPM"><button class="pv-btn2 sq" data-a="b+">＋</button><button class="pv-btn2" data-a="tap">TAP</button></div>' +
+        '<div class="pv-sec pv-metrosec"><div class="pv-syncnote" data-role="syncnote"></div><div class="pv-bpmrow"><button class="pv-btn2 sq" data-a="b-">−</button><input class="pv-bpm" type="number" inputmode="numeric" min="30" max="300" data-role="bpm" aria-label="BPM"><button class="pv-btn2 sq" data-a="b+">＋</button><button class="pv-btn2" data-a="tap">TAP</button></div>' +
           '<div class="pv-row"><label class="pv-chk">박자 <select data-o="sig"><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="6/8">6/8</option><option value="12/8">12/8</option></select></label>' +
           '<label class="pv-chk">시작 전 <select data-o="count"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label></div>' +
-          '<div class="pv-dots" data-role="dots"></div><button class="pv-big" data-a="toggle" data-role="toggle">▶ 시작</button>' +
+          '<div class="pv-dots" data-role="dots" role="group" aria-label="박 — 눌러서 > 강세 켜고 끄기"></div>' +
+          '<p class="pv-help pv-dotshelp">원(박)을 누르면 ">" 강세가 켜지고 꺼집니다 — 강세 박은 더 높고 크게 울립니다.</p>' +
+          '<button class="pv-big" data-a="toggle" data-role="toggle">▶ 시작</button>' +
+          '<label class="pv-chk pv-flashchk"><input type="checkbox" data-o="flash"> 💡 전체 화면 깜빡임 <small>(첫 박에 화면이 번쩍)</small></label>' +
           '<div class="pv-msg2" data-role="msg"></div></div>' +
         '<div class="pv-sec"><h4>음성 큐 — 눌러서 알려주기</h4><p class="pv-help" data-role="cuehelp"></p>' +
           GROUPS.map(function (g) { return '<div class="pv-cuegrp"><span>' + g[1] + '</span><div class="pv-cues">' + CUES.filter(function (c) { return c.g === g[0]; }).map(function (c) { return '<button class="pv-cue" data-cue="' + c.id + '"></button>'; }).join('') + '</div></div>'; }).join('') +
           '<div class="pv-cuestat" data-role="cuestat"></div></div>' +
         '<div class="pv-sec"><h4>소리 · 큐 설정</h4>' +
-          '<label class="pv-rng">딸깍 소리 <input type="range" min="0" max="1" step="0.05" data-o="click"></label><label class="pv-rng">음성 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="voice"></label>' +
+          '<label class="pv-rng">딸깍 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="click"><output data-role="clickout"></output></label>' +
+          '<label class="pv-rng">딸깍 음높이 <input type="range" min="-12" max="12" step="0.5" data-o="pitch"><output data-role="pitchout"></output></label>' +
+          '<label class="pv-rng">음성 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="voice"></label>' +
+          '<p class="pv-help">볼륨 막대는 기본 크기의 0 ~ 5배입니다 (소리가 찢어지지 않게 자동으로 눌러 줍니다). 음높이는 반음 단위로 −12 ~ +12 입니다.</p>' +
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
           '<label class="pv-chk">큐 언어 <select data-o="lang"><option value="en">English</option><option value="ko">한국어</option></select></label>' +
@@ -166,9 +275,9 @@
           '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-help" data-role="lat"></div></div>' +
         '<div class="pv-sec"><h4>팀과 함께</h4>' +
-          '<label class="pv-chk"><input type="checkbox" data-o="send"> 내가 리더일 때 큐를 팀 전체에 보내기</label>' +
-          '<label class="pv-chk"><input type="checkbox" data-o="recv"> 리더가 보낸 큐 받기 (이 기기에서 소리 나게)</label>' +
-          '<p class="pv-help">박자(딸깍)는 기기마다 각자 냅니다. 리더 기기에서 누른 큐 이름만 다른 기기에서 자기 박자에 맞춰 소리 납니다.</p></div>';
+          '<label class="pv-chk"><input type="checkbox" data-o="send"> 내가 페이지/클릭 컨트롤일 때 큐를 팀 전체에 보내기</label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="recv"> 컨트롤이 보낸 큐 받기 (이 기기에서 소리 나게)</label>' +
+          '<p class="pv-help">딸깍 소리는 기기마다 각자 냅니다 (소리를 주고받지 않아요). 클릭 컨트롤이 정한 BPM · 박자 · 시작/멈춤만 모두에게 전달되어, 각 기기가 같은 시각에 자기 소리로 시작합니다. 큐 이름도 각 기기에서 자기 박자에 맞춰 소리 납니다.</p></div>';
       var q = function (s) { return host.querySelector(s); };
       var dotsEl = q('[data-role="dots"]'), toggleB = q('[data-role="toggle"]'), msg = q('[data-role="msg"]'), bpmIn = q('[data-role="bpm"]');
       function say(t, bad) { msg.textContent = t || ''; msg.className = 'pv-msg2' + (bad ? ' bad' : ''); }
@@ -177,13 +286,35 @@
         Array.prototype.forEach.call(host.querySelectorAll('[data-cue]'), function (b) { var c = CUES.filter(function (x) { return x.id === b.dataset.cue; })[0]; b.textContent = lang === 'ko' ? c.ko : c.en; b.title = c.en + ' / ' + c.ko; });
         q('[data-role="cuehelp"]').textContent = m.state().speech ? '박자가 돌아가는 중에 누르면 다음 마디 시작에 맞춰 말해 줍니다. 멈춰 있을 때는 바로 들려줍니다.' : root.YNMetro.help.noSpeech;
       }
-      function drawDots(num) { var s = ''; for (var i = 0; i < num; i++) s += '<i class="' + (i === 0 ? 'a' : '') + '"></i>'; dotsEl.innerHTML = s; }
+      /** 박 원 — 박자 수만큼, 칸 너비를 꽉 채워 크게 (9박 이상은 두 줄). 눌러서 ">" 강세 켜고 끄기 */
+      function drawDots(num, marks) {
+        var s = '';
+        for (var i = 0; i < num; i++) s += '<button type="button" class="pv-beat' + (marks && marks[i] ? ' acc' : '') + '" data-beat="' + i + '" aria-pressed="' + (marks && marks[i] ? 'true' : 'false') + '" aria-label="' + (i + 1) + '박 강세"><b>' + (i + 1) + '</b><em>&gt;</em></button>';
+        dotsEl.style.setProperty('--n', num > 8 ? Math.ceil(num / 2) : num);
+        dotsEl.className = 'pv-dots n' + num;
+        dotsEl.innerHTML = s;
+      }
+      function paintMarks(marks) {
+        var ds = dotsEl.children;
+        for (var i = 0; i < ds.length; i++) { var on = !!(marks && marks[i]); ds[i].classList.toggle('acc', on); ds[i].setAttribute('aria-pressed', on ? 'true' : 'false'); }
+      }
       function sync() {
         var st = m.state(), c = st.cfg;
         if (doc.activeElement !== bpmIn) bpmIn.value = Math.round(st.bpm);
         toggleB.textContent = st.running ? '■ 멈춤' : '▶ 시작'; toggleB.classList.toggle('on', st.running);
         var sigv = st.num + '/' + st.den, ss = q('[data-o="sig"]'); if (ss.value !== sigv) ss.value = sigv;
-        if (dotsEl.children.length !== st.num) drawDots(st.num);
+        if (dotsEl.children.length !== st.num) drawDots(st.num, st.marks); else paintMarks(st.marks);
+        q('[data-o="flash"]').checked = !!c.flash;
+        q('[data-o="pitch"]').value = c.pitch; q('[data-role="pitchout"]').textContent = (c.pitch > 0 ? '+' : '') + c.pitch + ' 반음';
+        q('[data-role="clickout"]').textContent = '×' + (Math.round(st.gain * 10) / 10);
+        var mode = ctl(), rt = P.rt(), note = q('[data-role="syncnote"]'), lock = mode === 'locked';
+        host.classList.toggle('pv-locked', lock);
+        ['[data-a="b-"]', '[data-a="b+"]', '[data-a="tap"]', '[data-role="bpm"]', '[data-o="sig"]', '[data-o="count"]', '[data-role="toggle"]'].forEach(function (sel) { var el = q(sel); if (el) el.disabled = lock; });
+        Array.prototype.forEach.call(dotsEl.children, function (d) { d.disabled = lock; });
+        if (mode === 'send') note.innerHTML = '🎚 <b>내가 클릭 컨트롤</b> — 여기서 누르는 시작 · 멈춤 · BPM · 박자 · 강세가 팀 모두의 메트로놈에 전달됩니다.';
+        else if (lock) note.innerHTML = '🎚 <b>' + h(rt.clicker) + '</b> 님이 클릭 컨트롤입니다 — 시작 · 멈춤 · BPM 이 자동으로 따라옵니다. <button class="pv-btn2" data-a="manualon">동기화 끄고 직접 쓰기</button>';
+        else if (P.manual() && rt && rt.online) note.innerHTML = '⛔ <b>동기화 꺼짐</b> — 이 메트로놈은 혼자 움직입니다. <button class="pv-btn2" data-a="manualoff">동기화 다시 켜기</button>';
+        else note.textContent = '';
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
         q('[data-o="lang"]').value = c.lang; q('[data-o="sound"]').value = c.sound;
         q('[data-role="lat"]').textContent = st.speech ? '음성 지연 보정: 약 ' + Math.round(c.lat) + 'ms (말하는 데 걸리는 시간을 기기가 스스로 재서 박자에 맞춥니다)' : '';
@@ -208,14 +339,17 @@
       };
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
+        if (b.dataset.beat != null && b.dataset.beat !== '') { var rb = act('mark', +b.dataset.beat); if (rb && rb.ok === false && !rb.locked) say(rb.error || '', true); return; }
+        if (b.dataset.a === 'manualon') { P.setManual(true); return; }
+        if (b.dataset.a === 'manualoff') { P.setManual(false); return; }
         if (b.dataset.cue) { var r = doCue(b.dataset.cue); if (r && r.ok) { b.classList.add('flash'); setTimeout(function () { b.classList.remove('flash'); }, 350); } return; }
         var a = b.dataset.a; if (!a) return;
-        if (a === 'toggle') { var r2 = m.toggle(+q('[data-o="count"]').value); if (r2 && r2.ok === false) say(r2.error, true); else say(''); }
-        else if (a === 'b-') m.setBpm(m.state().bpm - 1); else if (a === 'b+') m.setBpm(m.state().bpm + 1);
-        else if (a === 'tap') { var t = m.tap(); if (t) say('탭 템포 ≈ ' + Math.round(t) + ' BPM'); else say('계속 눌러 박자를 알려주세요.'); }
+        if (a === 'toggle') { var r2 = act('toggle'); if (r2 && r2.ok === false && !r2.locked) say(r2.error, true); else say(''); }
+        else if (a === 'b-') act('bpm', Math.max(30, Math.round(m.state().bpm) - 1)); else if (a === 'b+') act('bpm', Math.min(300, Math.round(m.state().bpm) + 1));
+        else if (a === 'tap') { var t = act('tap'); if (t && t.bpm) say('탭 템포 ≈ ' + Math.round(t.bpm) + ' BPM'); else if (t && !t.locked) say('계속 눌러 박자를 알려주세요.'); }
         sync();
       });
-      bpmIn.addEventListener('change', function () { var v = Math.round(+bpmIn.value); if (!(v >= 30 && v <= 300)) { say('BPM 은 30 ~ 300 사이로 입력해주세요.', true); sync(); return; } say(''); m.setBpm(v); rememberBpm(); });
+      bpmIn.addEventListener('change', function () { var v = Math.round(+bpmIn.value); if (!(v >= 30 && v <= 300)) { say('BPM 은 30 ~ 300 사이로 입력해주세요.', true); sync(); return; } say(''); act('bpm', v); rememberBpm(); });
       /* 곡 자동 BPM — 악보 쪽을 넘겨 다음 곡이 되면 리더가 곡 정보에 넣어 둔 BPM 을 자동으로 적용합니다.
          곡 정보에 BPM 이 없거나 현장에서 바꾸고 싶으면 그대로 고치면 됩니다 (−/＋ · 탭 · 직접 입력). 고친 값은 그 곡에만 기억되어 다시 돌아와도 유지됩니다. */
       var bpmOver = {}, curSongKey = '';
@@ -228,20 +362,25 @@
         var own = bpmOver[curSongKey], base = Math.round(+x.bpm);
         var v = own || (base >= 30 && base <= 300 ? base : 0);
         if (!v) { say('이 곡에는 BPM 이 없습니다. 직접 입력하거나 탭 템포를 쓰세요.'); return; }
-        if (Math.round(m.state().bpm) !== v) m.setBpm(v);
+        if (ctl() === 'locked') { say(''); return; }                             // 클릭 컨트롤의 BPM 을 따르는 중
+        if (Math.round(m.state().bpm) !== v) act('bpm', v);
         say(own ? '이 곡에서 고친 BPM ' + v + ' 를 적용했습니다.' : '곡 정보의 BPM ' + v + ' 를 자동 적용했습니다. (바꾸려면 직접 고치세요)');
       }
       P.on('song', applySongBpm);
       try { applySongBpm(P.song()); } catch (e) {}                          // 탭을 처음 열 때 이미 정해진 곡에도 적용
       host.addEventListener('change', function (e) {
         var t = e.target, o = t.dataset && t.dataset.o; if (!o) return;
-        if (o === 'sig') { var p = t.value.split('/'); m.setSig(+p[0], +p[1]); drawDots(+p[0]); }
+        if (o === 'sig') { var p = t.value.split('/'); var rs = act('sig', +p[0], +p[1]); if (rs && rs.locked) { sync(); return; } drawDots(+p[0], m.state().marks); }
+        else if (o === 'flash') m.setFlash(t.checked); else if (o === 'pitch') m.setPitch(+t.value);
         else if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'mode') m.setMode(t.value);
-        else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'first') m.setFirstAccent(t.checked);
+        else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'first') { if (t.checked !== !!m.state().marks[0]) act('mark', 0); }
         else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked);
         sync();
       });
-      host.addEventListener('input', function (e) { var t = e.target; if (t.dataset && t.dataset.o === 'click') m.setClickVolume(+t.value); else if (t.dataset && t.dataset.o === 'voice') m.setVoiceVolume(+t.value); });
+      host.addEventListener('input', function (e) {
+        var t = e.target, o = t.dataset && t.dataset.o;
+        if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'pitch') m.setPitch(+t.value);
+      });
       m.setLang(P.lang()); labels(); sync();
       P.on('conn', sync);
       return { onShow: function () { labels(); sync(); }, destroy: function () { mUi = null; } };
@@ -255,41 +394,45 @@
       return { destroy: function () { try { pr.destroy(); } catch (e) {} } };
     } });
 
-    /* ------------------------------------------------------------ 가사 추출 */
-    tabs.push({ id: 'lyrics', icon: '📝', label: '가사', build: function (host) {
-      if (!need('가사 추출', root.YNLyrics, host)) return;
-      var ly = root.YNLyrics.mount(host, { getPdf: function () { return P.pdf(); }, getPage: function () { return P.page(); }, getCanvas: function () { return P.canvas(); },
-        title: (P.song() || {}).title || (P.file().name || '가사'), onError: function (t) { P.toast(t, true); } });
-      return { destroy: function () { try { ly.destroy(); } catch (e) {} } };
-    } });
+    /* (가사 추출은 Step 2.8 에서 허브 화면의 "가사 도구"(방송팀 요청 바로 위)로 옮겼습니다 — public/worship/hubtools.js) */
 
-    /* ------------------------------------------------------------ 함께 (리더 · 따라가기) */
+    /* ------------------------------------------------------------ 함께 (페이지 컨트롤 · 클릭 컨트롤 · 동기화 끄기) */
     tabs.push({ id: 'together', icon: '👥', label: '함께', build: function (host) {
       function paint() {
         var rt = P.rt(), st = rt ? rt.state : 'unavailable', on = st === 'online', lead = on ? rt.leader : null, mine = on && rt.isLeader;
+        var clk = on ? rt.clicker : null, cmine = on && rt.isClicker, manual = P.manual();
         var html = '<div class="pv-sec"><h4>연결</h4><div class="pv-conninfo ' + st + '">' +
           ({ online: '● 실시간 연결됨 — ' + rt.peers.length + '명 접속 중', connecting: '○ 연결하는 중…', offline: '○ 연결이 끊겼습니다. 자동으로 다시 연결합니다.', unavailable: '○ 실시간 기능을 쓸 수 없어 혼자 보기로 동작합니다.', denied: '✕ 이 예배에 접속할 권한이 없습니다.', idle: '○ 준비 중' }[st] || st) + '</div>' +
           (rt && rt.error && !on ? '<div class="pv-help">' + h(rt.error) + '</div>' : '') + '</div>';
         if (on) {
-          html += '<div class="pv-sec"><h4>접속한 사람</h4><ul class="pv-peers">' + rt.peers.map(function (p) { return '<li class="' + (p.lead ? 'lead' : '') + '">' + (p.lead ? '👑 ' : '') + h(p.name) + (p.canLead && !p.lead ? ' <small>(리더 가능)</small>' : '') + '</li>'; }).join('') + '</ul></div>';
-          html += '<div class="pv-sec"><h4>리더</h4><p class="pv-help">' + (mine ? '지금 내가 리더입니다. 내가 넘기는 악보 · 쪽 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 리더입니다.' : '아직 리더가 없습니다.') + '</p><div class="pv-row">' +
-            (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">리더 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">리더 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">👑 내가 리더 하기</button>') : '<span class="pv-help">팀장 · 인도자만 리더가 될 수 있습니다.</span>') + '</div></div>';
-          if (lead && !mine) html += '<div class="pv-sec"><h4>따라가기</h4><label class="pv-switch"><input type="checkbox" data-a="follow"' + (P.follow() ? ' checked' : '') + '><span></span><b>리더 화면 따라가기</b></label>' +
-            '<p class="pv-help">끄면 리더가 넘겨도 내 화면은 그대로입니다 (나만 다른 곳을 보고 싶을 때). 다시 켜면 리더가 있는 곳으로 바로 돌아갑니다.</p>' + (!P.follow() ? '<div class="pv-row"><button class="pv-btn2" data-a="now">리더 화면으로 한 번만 가기</button></div>' : '') + '</div>';
-          if (P.canLead() || true) html += '<div class="pv-sec"><h4>큐(음성 안내)</h4><label class="pv-chk"><input type="checkbox" data-a="send"' + (P.sendCueOn() ? ' checked' : '') + '> 리더일 때 큐를 팀에 보내기</label><label class="pv-chk"><input type="checkbox" data-a="recv"' + (P.recvCue() ? ' checked' : '') + '> 리더의 큐 받기</label></div>';
+          html += '<div class="pv-sec pv-syncsec ' + (manual ? 'off' : 'on') + '"><h4>동기화</h4><label class="pv-switch"><input type="checkbox" data-a="manual"' + (manual ? ' checked' : '') + '><span></span><b>동기화 끄기 (수동)</b></label>' +
+            '<p class="pv-help">' + (manual ? '지금은 <b>꺼져 있습니다.</b> 내 악보 화면과 메트로놈은 팀과 상관없이 따로 움직이고, 남이 넘기는 쪽 · 바꾸는 BPM · 시작/멈춤 · 큐를 모두 무시합니다. 내가 하는 조작도 팀에 보내지 않습니다. 다시 켜면 팀의 현재 화면 · 박자로 바로 맞춥니다.' : '켜 두면(기본) 페이지 컨트롤이 넘기는 쪽과 클릭 컨트롤이 정하는 BPM · 박자 · 시작/멈춤을 따라갑니다. 내 화면 · 박자만 따로 쓰고 싶을 때 "동기화 끄기"를 켜세요.') + '</p></div>';
+          html += '<div class="pv-sec"><h4>접속한 사람</h4><ul class="pv-peers">' + rt.peers.map(function (p) {
+            return '<li class="' + (p.lead || p.click ? 'lead' : '') + '">' + (p.lead ? '📄 ' : '') + (p.click ? '🎚 ' : '') + h(p.name) +
+              (p.lead ? ' <small>(페이지 컨트롤)</small>' : '') + (p.click ? ' <small>(클릭 컨트롤)</small>' : '') + (p.canLead && !p.lead && !p.click ? ' <small>(컨트롤 가능)</small>' : '') + '</li>'; }).join('') + '</ul></div>';
+          html += '<div class="pv-sec"><h4>📄 페이지 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤입니다. 내가 넘기는 악보 · 쪽 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 페이지 컨트롤입니다.' : '아직 페이지 컨트롤이 없습니다.') + '</p><div class="pv-row">' +
+            (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">페이지 컨트롤 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">페이지 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">📄 내가 페이지 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div></div>';
+          html += '<div class="pv-sec"><h4>🎚 클릭 컨트롤</h4><p class="pv-help">' + (cmine ? '지금 내가 클릭 컨트롤입니다. 내가 누르는 시작 · 멈춤 · BPM · 박자 · 강세를 모두의 메트로놈이 따라옵니다. (소리는 각자 기기에서 냅니다)' : clk ? h(clk) + ' 님이 클릭 컨트롤입니다. 그분이 누르는 시작 · 멈춤 · BPM · 박자를 이 기기의 메트로놈이 따라갑니다.' : '아직 클릭 컨트롤이 없습니다. 없으면 메트로놈은 각자 자유롭게 씁니다.') + '</p><div class="pv-row">' +
+            (P.canLead() ? (cmine ? '<button class="pv-btn2" data-a="crelease">클릭 컨트롤 내려놓기</button>' : clk ? '<button class="pv-btn2 warn" data-a="cforce">클릭 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="cclaim">🎚 내가 클릭 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div>' +
+            '<p class="pv-help">페이지 컨트롤과 클릭 컨트롤은 서로 독립입니다 — 한 사람이 둘 다 맡아도 되고, 나눠 맡아도 됩니다.</p></div>';
+          if (lead && !mine && !manual) html += '<div class="pv-sec"><h4>따라가기</h4><label class="pv-switch"><input type="checkbox" data-a="follow"' + (P.follow() ? ' checked' : '') + '><span></span><b>페이지 컨트롤 화면 따라가기</b></label>' +
+            '<p class="pv-help">끄면 페이지 컨트롤이 넘겨도 내 화면만 그대로입니다 (메트로놈은 계속 따라옵니다). 다시 켜면 그 사람이 있는 곳으로 바로 돌아갑니다.</p>' + (!P.follow() ? '<div class="pv-row"><button class="pv-btn2" data-a="now">컨트롤 화면으로 한 번만 가기</button></div>' : '') + '</div>';
+          html += '<div class="pv-sec"><h4>큐(음성 안내)</h4><label class="pv-chk"><input type="checkbox" data-a="send"' + (P.sendCueOn() ? ' checked' : '') + '> 컨트롤일 때 큐를 팀에 보내기</label><label class="pv-chk"><input type="checkbox" data-a="recv"' + (P.recvCue() ? ' checked' : '') + '> 컨트롤의 큐 받기</label></div>';
         }
         host.innerHTML = html;
       }
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('button[data-a]') : null; if (!b) return; var a = b.dataset.a;
-        if (a === 'claim') P.claim(false).catch(function () {}); else if (a === 'force') { if (root.confirm('지금 리더에게서 리더를 넘겨받을까요?')) P.claim(true).catch(function () {}); }
+        if (a === 'claim') P.claim(false).catch(function () {}); else if (a === 'force') { if (root.confirm('지금 페이지 컨트롤을 넘겨받을까요?')) P.claim(true).catch(function () {}); }
         else if (a === 'release') P.release(); else if (a === 'now') P.followNow();
+        else if (a === 'cclaim') P.claimClick(false).catch(function () {}); else if (a === 'cforce') { if (root.confirm('지금 클릭 컨트롤을 넘겨받을까요?')) P.claimClick(true).catch(function () {}); }
+        else if (a === 'crelease') P.releaseClick();
       });
       host.addEventListener('change', function (e) {
         var t = e.target, a = t.dataset && t.dataset.a;
-        if (a === 'follow') P.setFollow(t.checked); else if (a === 'send') P.sendCueOn(t.checked); else if (a === 'recv') P.recvCue(t.checked);
+        if (a === 'follow') P.setFollow(t.checked); else if (a === 'send') P.sendCueOn(t.checked); else if (a === 'recv') P.recvCue(t.checked); else if (a === 'manual') P.setManual(t.checked);
       });
-      ['conn', 'peers', 'leader', 'follow', 'state', 'joined'].forEach(function (n) { P.on(n, function () { if (host.offsetParent !== null) paint(); }); });
+      ['conn', 'peers', 'leader', 'clicker', 'follow', 'manual', 'state', 'joined'].forEach(function (n) { P.on(n, function () { if (host.offsetParent !== null) paint(); }); });
       paint();
       return { onShow: paint };
     } });

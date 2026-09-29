@@ -5751,7 +5751,7 @@ function removeWorshipEvent(token, key) {
   var ev0 = 행사찾기_(key);
   ((ev0 && ev0.sessions) || []).forEach(function (x) { 행사자료지우기_(x.key, false); });
   악보목록_(key, '콘티').concat(악보목록_(key, '결단')).forEach(function (f) {
-    try { DriveApp.getFileById(f.id).setTrashed(true); } catch (e) {}
+    악보치우기_(f.id);        // 저장소(Step 2.8)에 보관된 악보는 드라이브에서 지우지 않습니다
   });
   rows_(SHEET_찬양녹음).forEach(function (r) {
     var fid = String(r[WR_파일] || '').trim();
@@ -5777,7 +5777,7 @@ function removeWorshipEvent(token, key) {
 /** 한 예배 키(행사 · 세션)의 편성 · 콘티 · 악보 · 녹음 · 댓글을 지웁니다 */
 function 행사자료지우기_(key) {
   악보목록_(key, '콘티').concat(악보목록_(key, '결단')).forEach(function (f) {
-    try { DriveApp.getFileById(f.id).setTrashed(true); } catch (e) {}
+    악보치우기_(f.id);        // 저장소(Step 2.8)에 보관된 악보는 드라이브에서 지우지 않습니다
   });
   rows_(SHEET_찬양녹음).forEach(function (r) {
     var fid = String(r[WR_파일] || '').trim();
@@ -6312,7 +6312,7 @@ function removeWorshipSheet(token, date, fileId) {
   requireWorshipEdit_(token);
   date = 날짜문자열_(date);
   fileId = String(fileId || '').trim();
-  try { DriveApp.getFileById(fileId).setTrashed(true); } catch (e) {}
+  악보치우기_(fileId);        // 저장소(Step 2.8)에 보관된 악보는 드라이브에서 지우지 않습니다
   시트치환_(SHEET_찬양악보, HEAD_찬양악보, function (r) {
     return 날짜문자열_(r[WF_날짜]) === date && String(r[WF_파일]).trim() === fileId;
   }, []);

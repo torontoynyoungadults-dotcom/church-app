@@ -24,6 +24,7 @@ class FakeGoogle {
     this.nextId = 1;
     this.log = [];
     this.fail = null;
+    this.files = new Map();     // 드라이브 폴더 · 파일 (시트가 아닌 것): id → { id, name, mimeType, parents, createdTime, modifiedTime, size, bytes, trashed }
   }
   tick() { this.clock++; return new Date(BASE_TIME + this.clock * 1000).toISOString(); }
   newId(prefix) { return prefix + String(this.nextId++).padStart(6, '0') + 'xxxxxxxxxxxxxxxxxxxxxxxx'; }
@@ -60,18 +61,30 @@ class FakeGoogle {
 
   /* ------------------------------------------------ 브리지 인터페이스 */
   sheets(method, params) { return this.dispatch('sheets', method, params || {}); }
-  drive(method, params) { return this.dispatch('drive', method, params || {}); }
+  drive(method, params, extra) { return this.dispatch('drive', method, params || {}, extra); }
   calendar() { return {}; }
   call(op) { return op === 'token' ? 'fake-token' : null; }
 
-  dispatch(svc, method, p) {
+  dispatch(svc, method, p, extra) {
     if (this.fail && this.fail(svc, method, p)) throw new Error('fake: 일부러 실패시킴 ' + method);
     const id = p.spreadsheetId || p.fileId || '';
     this.log.push({ svc, method, id, write: /batchUpdate|create|copyTo|delete|update/.test(method) && !/values\.batchGet/.test(method) });
     const fn = this['m_' + method.replace(/\./g, '_')];
     if (!fn) throw new Error('fake: 지원하지 않는 API: ' + svc + '.' + method);
-    return fn.call(this, p);
+    return fn.call(this, p, extra);
   }
+
+  /** 드라이브에 폴더 · 파일을 직접 만들어 둡니다 (시험 준비용). created 는 ISO 문자열 또는 Date */
+  addFolder(name, parent, created) { return this.addFile({ name, parent, mimeType: 'application/vnd.google-apps.folder', created }); }
+  addFile(o) {
+    const id = this.newId('fl');
+    const t = o.created ? new Date(o.created).toISOString() : this.tick();
+    const bytes = o.bytes ? Buffer.from(o.bytes) : Buffer.alloc(0);
+    const f = { id, name: o.name, mimeType: o.mimeType || 'application/octet-stream', parents: o.parent ? [o.parent] : [], createdTime: t, modifiedTime: t, size: String(bytes.length), bytes, trashed: false };
+    this.files.set(id, f);
+    return f;
+  }
+  fileMeta(f) { return { id: f.id, name: f.name, mimeType: f.mimeType, parents: f.parents.slice(), createdTime: f.createdTime, modifiedTime: f.modifiedTime, size: f.size, trashed: f.trashed, webViewLink: 'https://drive.google.com/file/d/' + f.id + '/view?usp=drivesdk' }; }
 
   m_spreadsheets_get(p) {
     const b = this.book(p.spreadsheetId);
@@ -161,22 +174,48 @@ class FakeGoogle {
     return this.props(dst, copy);
   }
   m_files_list(p) {
-    const m = /^'([^']+)' in parents/.exec(p.q);
+    const q = p.q || '';
+    const m = /'([^']+)' in parents/.exec(q);
     const folder = m ? m[1] : '';
-    const files = Array.from(this.books.values()).filter((b) => b.parent === folder)
+    const nameM = /name = '((?:[^'\\]|\\.)*)'/.exec(q);
+    const name = nameM ? nameM[1].replace(/\\(.)/g, '$1') : '';
+    const wantFolder = /mimeType = 'application\/vnd\.google-apps\.folder'/.test(q);
+    const notFolder = /mimeType != 'application\/vnd\.google-apps\.folder'/.test(q);
+    const books = wantFolder ? [] : Array.from(this.books.values()).filter((b) => b.parent === folder && (!name || b.name === name))
       .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
-      .map((b) => ({ id: b.id, name: b.name, modifiedTime: b.modified }));
-    return { files };
+      .map((b) => ({ id: b.id, name: b.name, modifiedTime: b.modified, mimeType: MIME_SHEET }));
+    const FOLDER = 'application/vnd.google-apps.folder';
+    const files = Array.from(this.files.values()).filter((f) => !f.trashed && f.parents.indexOf(folder) >= 0 && (!name || f.name === name) &&
+      (!wantFolder || f.mimeType === FOLDER) && (!notFolder || f.mimeType !== FOLDER)).map((f) => this.fileMeta(f));
+    return { files: books.concat(files) };
   }
-  m_files_get(p) {
+  m_files_get(p, extra) {
+    const f = this.files.get(p.fileId);
+    if (f) {
+      if (p.alt === 'media') return { bytes: Buffer.from(f.bytes) };
+      return this.fileMeta(f);
+    }
     const b = this.book(p.fileId);
     return { id: b.id, name: b.name, modifiedTime: b.modified, mimeType: MIME_SHEET };
   }
-  m_files_create(p) {
+  m_files_create(p, extra) {
     const r = p.requestBody;
+    if (r.mimeType && r.mimeType !== MIME_SHEET) {
+      const bytes = extra && extra.media && extra.media.data ? Buffer.from(extra.media.data) : Buffer.alloc(0);
+      return this.fileMeta(this.addFile({ name: r.name, parent: (r.parents || [])[0], mimeType: r.mimeType, bytes }));
+    }
     const b = this.addBook(r.name, { 'Sheet1': [] }, (r.parents || [])[0] || '');
     return { id: b.id, name: b.name };
   }
+  m_files_update(p) {
+    const f = this.files.get(p.fileId);
+    if (!f) return { id: p.fileId };
+    const r = p.requestBody || {};
+    if (r.trashed != null) f.trashed = !!r.trashed;
+    if (r.name) f.name = r.name;
+    return this.fileMeta(f);
+  }
+  m_permissions_create() { return {}; }
 }
 
 module.exports = { FakeGoogle, MIME_SHEET };

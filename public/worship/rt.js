@@ -15,13 +15,13 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var FWD = ['peers', 'leader', 'nav', 'cue', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved'];
+  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved'];
   var OUTBOX_MAX = 300, CALL_TIMEOUT = 8000;
 
   function create(opt) {
     opt = opt || {};
     var ioFn = opt.io || (typeof io !== 'undefined' ? io : null);
-    var S = { state: ioFn ? 'idle' : 'unavailable', me: null, leader: null, peers: [], nav: null, offset: 0, socket: null, handlers: {}, outbox: [], joined: false, closed: false, lastError: '' };
+    var S = { state: ioFn ? 'idle' : 'unavailable', me: null, leader: null, clicker: null, metro: null, peers: [], nav: null, offset: 0, socket: null, handlers: {}, outbox: [], joined: false, closed: false, lastError: '' };
 
     function emitLocal(name, a, b) { (S.handlers[name] || []).slice().forEach(function (fn) { try { fn(a, b); } catch (e) { if (typeof console !== 'undefined') console.warn('[rt:' + name + ']', e); } }); }
     function setState(s, why) { if (S.state === s && !why) return; S.state = s; S.lastError = why || ''; emitLocal('state', s, why || ''); }
@@ -29,11 +29,13 @@
     var api = {
       on: function (n, fn) { (S.handlers[n] = S.handlers[n] || []).push(fn); return api; },
       off: function (n, fn) { S.handlers[n] = (S.handlers[n] || []).filter(function (f) { return f !== fn; }); return api; },
-      get state() { return S.state; }, get me() { return S.me; }, get leader() { return S.leader; }, get peers() { return S.peers; }, get nav() { return S.nav; },
+      get state() { return S.state; }, get me() { return S.me; }, get leader() { return S.leader; }, get clicker() { return S.clicker; }, get metro() { return S.metro; }, get peers() { return S.peers; }, get nav() { return S.nav; },
       get online() { return S.state === 'online'; }, get error() { return S.lastError; },
       /** 서버 시각 (ms) — 큐 · 박자를 여러 기기에서 맞출 때 */
       serverNow: function () { return Date.now() + S.offset; },
       get isLeader() { return !!(S.me && S.leader && S.me.name === S.leader); },
+      /** 클릭 컨트롤 (메트로놈) — 페이지 컨트롤(isLeader)과 별개 */
+      get isClicker() { return !!(S.me && S.clicker && S.me.name === S.clicker); },
 
       connect: function () {
         if (!ioFn) { setState('unavailable', '실시간 도구(socket.io)를 불러오지 못했습니다'); return api; }
@@ -54,6 +56,8 @@
           sock.on(n, function (p) {
             if (n === 'peers') S.peers = p || [];
             if (n === 'leader') { S.leader = p && p.name || null; }
+            if (n === 'clicker') { S.clicker = p && p.name || null; }
+            if (n === 'metro') { if (p && S.metro && p.seq < S.metro.seq) return; S.metro = p || null; }
             if (n === 'nav') S.nav = p;
             emitLocal(n, p);
           });
@@ -85,7 +89,11 @@
 
       claim: function (force) { return api.call('leader:claim', { force: !!force }); },
       release: function () { return api.call('leader:release', {}); },
-      close: function () { S.closed = true; try { if (S.socket) { S.socket.emit('leave', {}); S.socket.disconnect(); } } catch (e) {} S.socket = null; S.joined = false; S.me = null; S.leader = null; if (S.state !== 'unavailable') setState('idle'); },
+      claimClick: function (force) { return api.call('click:claim', { force: !!force }); },
+      releaseClick: function () { return api.call('click:release', {}); },
+      /** 메트로놈 상태 보내기 (클릭 컨트롤만) — { playing, bpm, num, den, marks, count, keep } */
+      sendMetro: function (st) { return api.call('metro', st || {}); },
+      close: function () { S.closed = true; try { if (S.socket) { S.socket.emit('leave', {}); S.socket.disconnect(); } } catch (e) {} S.socket = null; S.joined = false; S.me = null; S.leader = null; S.clicker = null; S.metro = null; if (S.state !== 'unavailable') setState('idle'); },
       pending: function () { return S.outbox.length; }
     };
 
@@ -108,7 +116,7 @@
           else if (r && r.code === 'busy') setTimeout(function () { if (S.socket === sock && sock.connected) join(); }, 5000);
           return;
         }
-        S.joined = true; S.me = r.you; S.leader = r.leader || null; S.peers = r.peers || []; S.nav = r.nav || null;
+        S.joined = true; S.me = r.you; S.leader = r.leader || null; S.clicker = r.clicker || null; S.metro = r.metro || null; S.peers = r.peers || []; S.nav = r.nav || null;
         if (r.serverTime) S.offset = r.serverTime + (Date.now() - t0) / 2 - Date.now();
         setState('online');
         emitLocal('joined', r);

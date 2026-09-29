@@ -1,12 +1,12 @@
 /**
- * 연습 모드 — 찬양 악보를 크게 열어 필기 · 송폼 · 메트로놈 · 음정 · 가사를 한 화면에서 쓰는 전체 화면 뷰어
+ * 세션 / 연습 — 찬양 악보를 크게 열어 필기 · 송폼 · 메트로놈 · 음정을 한 화면에서 쓰는 전체 화면 뷰어 (가사 도구는 허브 화면으로 옮김)
  * ------------------------------------------------------------
  *  YNPractice.open({ token, room, sheets:[{id,name}], songs:[{title,key,bpm,form}], start:악보ID, canEdit, callServer })
  *
  *  · 레이아웃: 📱 태블릿(큰 버튼 · 펜 우선 · 화면 가장자리 탭으로 넘김 · 도구 막대 떠 있음)  /  💻 컴퓨터(위 도구줄 · 오른쪽 패널 · 단축키)
- *  · 리더-팔로워: 리더가 넘기는 악보 · 쪽 · 확대를 모두가 따라감. "따라가기" 스위치로 사람마다 끌 수 있음 (끄면 내 화면은 그대로)
+ *  · 페이지 컨트롤(구 리더) - 팔로워: 페이지 컨트롤이 넘기는 악보 · 쪽 · 확대를 모두가 따라감. "따라가기" 스위치로 사람마다 끌 수 있음 (끄면 내 화면은 그대로)
  *  · 필기: anno.js (펜 · 형광펜 · 글자/코드 · 기호). 팀 공유는 rt.js(Socket.io)로 실시간, 나만 보기는 서버(구글 시트)에 저장
- *  · 패널(송폼 · 메트로놈 · 음정 · 가사 · 함께)은 practice-panels.js 에 있습니다
+ *  · 패널(송폼 · 메트로놈 · 음정 · 함께)은 practice-panels.js 에 있습니다
  * 실시간 연결이 없어도(오프라인 · 서버 문제) 혼자 보기 · 나만 보기 필기는 그대로 동작합니다.
  */
 (function (root) {
@@ -47,7 +47,7 @@
 
   var TOOLS = [
     { t: 'none', ic: '✋', n: '이동' }, { t: 'pen', ic: '✏️', n: '펜' }, { t: 'hl', ic: '🖍', n: '형광펜' }, { t: 'text', ic: 'T', n: '글자' },
-    { t: 'chord', ic: 'Am', n: '코드' }, { t: 'sym', ic: '♯', n: '기호' }, { t: 'eraser', ic: '⌫', n: '지우개' }
+    { t: 'chord', ic: 'Am', n: '코드' }, { t: 'sym', ic: '♯', n: '기호' }, { t: 'fbox', ic: '▭', n: '송폼 박스' }, { t: 'eraser', ic: '⌫', n: '지우개' }
   ];
   var current = null;
 
@@ -63,7 +63,7 @@
       layout: detectLayout(), hand: ls('hand') === 'left' ? 'left' : 'right', fit: null, zoom: 1, sheetIdx: 0, page: 1, pages: 1, songIdx: -1,
       doc: null, rid: 0, task: null, tab: '', layer: 'team', scope: 'song', follow: true, pendingNav: null, applying: false, navT: 0, dead: false,
       scopeOf: {}, unsent: {}, localMine: {}, delMine: {}, mineLoaded: {}, teamFrom: {}, annoId: 0, mineDirty: {}, mineT: 0, minePend: 0, savedAt: 0, msgT: 0, lang: ls('lang') === 'ko' ? 'ko' : 'en',
-      recvCue: ls('recvcue') !== '0', sendCue: ls('sendcue') !== '0', wake: null, loadId: 0, cache: {}, cacheOrder: []
+      recvCue: ls('recvcue') !== '0', sendCue: ls('sendcue') !== '0', manual: ls('manual') === '1', wake: null, loadId: 0, cache: {}, cacheOrder: []
     };
     S.fit = S.layout === 'tablet' ? 'page' : 'width';
     var startIdx = 0; sheets.forEach(function (s, i) { if (s.id === opts.start) startIdx = i; }); S.sheetIdx = startIdx;
@@ -71,7 +71,7 @@
     /* ------------------------------------------------------------ 화면 뼈대 */
     var el = doc.createElement('div');
     el.className = 'pv';
-    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '연습 모드');
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '세션 / 연습');
     el.innerHTML =
       '<header class="pv-top">' +
         '<button class="pv-b" data-a="close" title="닫기 (Esc)">✕</button>' +
@@ -79,7 +79,7 @@
         '<div class="pv-grp pv-pager"><button class="pv-b" data-a="prev" title="이전 쪽 (←)">‹</button><span class="pv-pg">1 / 1</span><button class="pv-b" data-a="next" title="다음 쪽 (→)">›</button></div>' +
         '<div class="pv-grp pv-zoom"><button class="pv-b" data-a="zout" title="줄이기 (-)">−</button><button class="pv-b" data-a="zfit" title="화면에 맞춤">맞춤</button><button class="pv-b" data-a="zin" title="키우기 (+)">＋</button><button class="pv-b pv-cropbtn" data-a="crop" aria-pressed="true" title="여백 자동 맞춤 — 글자 · 음표가 있는 부분만 화면에 꽉 차게 키웁니다 (끄면 종이 전체)">✂ 여백</button><button class="pv-b pv-spreadbtn" data-a="spread" aria-pressed="false" title="두 쪽 나란히 보기 (컴퓨터 화면)">📖 두 쪽</button></div>' +
         '<div class="pv-grp pv-seg pv-layoutseg" role="group" aria-label="화면 배치"><button data-layout="tablet" title="태블릿 화면">📱 태블릿</button><button data-layout="computer" title="컴퓨터 화면">💻 컴퓨터</button></div>' +
-        '<div class="pv-grp pv-chips"><span class="pv-chip pv-conn" title="실시간 연결">…</span><button class="pv-chip pv-lead" data-a="tab:together" title="리더 · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="리더 화면 따라가기 켜기/끄기"></button></div>' +
+        '<div class="pv-grp pv-chips"><span class="pv-chip pv-conn" title="실시간 연결">…</span><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
         '<button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기">☰</button>' +
         '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="도구 메뉴 열기" title="도구 메뉴 열기 / 닫기"><span class="ic">🛠</span><span class="nm">메뉴</span></button>' +
       '</header>' +
@@ -96,7 +96,7 @@
         '<div class="pv-dh"><b>🛠 도구 메뉴</b><button type="button" class="pv-dclose" data-a="drawer-close" aria-label="메뉴 닫기">✕</button></div>' +
         '<section class="pv-ds"><h5>보기</h5><div class="pv-dslot" data-slot="view"></div></section>' +
         '<section class="pv-ds"><h5>필기 도구</h5><div class="pv-dslot" data-slot="tools"></div></section>' +
-        '<section class="pv-ds"><h5>패널</h5><div class="pv-dslot"><button type="button" class="pv-btn2 primary" data-a="drawer-panel">🎛 메트로놈 · 시작음 · 가사 · 함께 (패널 열기)</button></div></section>' +
+        '<section class="pv-ds"><h5>패널</h5><div class="pv-dslot"><button type="button" class="pv-btn2 primary" data-a="drawer-panel">🎛 메트로놈 · 시작음 · 함께 (패널 열기)</button></div></section>' +
       '</aside>';
     doc.body.appendChild(el); doc.body.classList.add('pv-lock');
     function $(sel) { return el.querySelector(sel); }
@@ -453,16 +453,19 @@
       layout: function () { return S.layout; }, setLayout: function (l) { applyLayout(l, true); }, hand: function () { return S.hand; },
       setHand: function (hd) { S.hand = hd === 'left' ? 'left' : 'right'; ls('hand', S.hand); applyLayout(S.layout, false); },
       anno: function () { return an; }, rt: function () { return rt; }, canEdit: !!opts.canEdit, canLead: function () { return !!(rt && rt.me && rt.me.canLead); },
-      isLeader: function () { return !!(rt && rt.isLeader); }, showTab: function (id) { showTab(id); },
+      isLeader: function () { return !!(rt && rt.isLeader); }, isClicker: function () { return !!(rt && rt.isClicker); }, showTab: function (id) { showTab(id); },
       getLayer: function () { return S.layer; }, getScope: function () { return S.scope; }, setLayer: function (l) { setLayer(l, true); }, setScope: function (s) { setScope(s); },
       recvCue: function (v) { if (v !== undefined) { S.recvCue = !!v; ls('recvcue', v ? '1' : '0'); } return S.recvCue; },
       sendCueOn: function (v) { if (v !== undefined) { S.sendCue = !!v; ls('sendcue', v ? '1' : '0'); } return S.sendCue; },
       cueIdFor: cueIdFor,
-      /** 리더면 팀 모두에게 큐를 보냅니다 (스위치가 켜져 있을 때) */
+      /** 페이지 컨트롤 또는 클릭 컨트롤이면 팀 모두에게 큐를 보냅니다 (스위치가 켜져 있을 때 · 동기화를 끈 동안에는 보내지 않음) */
       broadcastCue: function (id) {
-        if (!rt || !rt.isLeader || !S.sendCue || !rt.online) return Promise.resolve(false);
+        if (!rt || !(rt.isLeader || rt.isClicker) || !S.sendCue || !rt.online || S.manual) return Promise.resolve(false);
         return rt.call('cue', { label: id, kind: 'cue' }).then(function () { return true; }, function (e) { toast('큐를 팀에 보내지 못했습니다: ' + e.message, true); return false; });
       },
+      /** 동기화 끄기 (수동) — 켜 두면 남이 넘기는 쪽 · 바꾸는 BPM · 시작/멈춤 · 큐를 모두 무시하고, 내 것도 보내지 않습니다 */
+      manual: function () { return S.manual; }, setManual: function (b) { setManual(b); },
+      claimClick: function (force) { return claimClick(force); }, releaseClick: function () { return releaseClick(); },
       follow: function () { return S.follow; }, setFollow: function (b) { setFollow(b); }, followNow: function () { followNow(); },
       claim: function (force) { return claim(force); }, release: function () { return release(); },
       exportPng: function () { return exportPng(); }, exportPdf: function (print) { return exportPdf(print); },
@@ -578,22 +581,22 @@
 
     /* ------------------------------------------------------------ 실시간 · 리더-팔로워 */
     function sendNav() {
-      if (S.applying || !rt || !rt.isLeader) return;
+      if (S.applying || !rt || !rt.isLeader || S.manual) return;       // 동기화를 끈 동안에는 내 화면을 보내지 않음
       clearTimeout(S.navT);
       S.navT = setTimeout(function () {
-        if (!rt || !rt.isLeader) return;
-        rt.call('nav', { file: fileId(), page: S.page, song: S.songIdx, zoom: S.zoom, sy: scrollFrac() }).catch(function (e) { if (e.code !== 'perm') toast('리더 화면을 보내지 못했습니다: ' + e.message, true); });
+        if (!rt || !rt.isLeader || S.manual) return;
+        rt.call('nav', { file: fileId(), page: S.page, song: S.songIdx, zoom: S.zoom, sy: scrollFrac() }).catch(function (e) { if (e.code !== 'perm') toast('페이지 컨트롤 화면을 보내지 못했습니다: ' + e.message, true); });
       }, 120);
     }
     function applyNav(nav, force) {
       if (!nav || S.dead) return;
       if (rt && rt.isLeader) return;                                  // 리더 자신은 따라갈 대상이 없음
-      if (!S.follow && !force) { S.pendingNav = nav; renderChips(); return; }
+      if ((!S.follow || S.manual) && !force) { S.pendingNav = nav; renderChips(); return; }
       S.pendingNav = null; S.applying = true;
       var done = function () { S.applying = false; renderChips(); };
       try {
         var idx = nav.file ? sheets.findIndex(function (s) { return s.id === nav.file; }) : S.sheetIdx;
-        if (nav.file && idx < 0) { toast('리더가 연 악보가 내 목록에 없습니다. (악보 목록을 새로고침해 보세요)', true); return done(); }
+        if (nav.file && idx < 0) { toast('페이지 컨트롤이 연 악보가 내 목록에 없습니다. (악보 목록을 새로고침해 보세요)', true); return done(); }
         if (nav.song != null && nav.song >= 0 && nav.song !== S.songIdx) setSong(nav.song, true);
         var z = nav.zoom > 0 ? nav.zoom : 1;
         var after = function () { if (Math.abs(z - S.zoom) > 0.01) { S.zoom = clamp(z, 0.4, 4); return renderPage(); } };
@@ -602,24 +605,41 @@
         else { var same = nav.page === S.page; if (!same) goPage(nav.page, false); Promise.resolve(after()).then(function () { scrollTo(); done(); }, done); }
       } catch (e) { done(); }
     }
+    function setManual(b) {
+      b = !!b; if (S.manual === b) return;
+      S.manual = b; ls('manual', b ? '1' : '0');
+      if (!b) {                                                           // 다시 켜면 지금 상태로 바로 맞춥니다
+        if (S.follow && rt && !rt.isLeader) { var n = S.pendingNav || rt.nav; if (n) applyNav(n, true); }
+        else if (rt && rt.isLeader) sendNav();
+      }
+      renderChips(); P.emit('manual', b);
+      toast(b ? '동기화를 껐습니다. 내 화면 · 메트로놈은 따로 움직이고, 내 조작도 팀에 보내지 않습니다.' : '동기화를 켰습니다. 팀과 같은 화면 · 박자로 맞춥니다.');
+    }
     function setFollow(b) {
       S.follow = !!b;
       if (S.follow && S.pendingNav) applyNav(S.pendingNav, true);
       else if (S.follow && rt && rt.nav && !rt.isLeader) applyNav(rt.nav, true);
       renderChips(); P.emit('follow', S.follow);
-      toast(S.follow ? '리더 화면을 따라갑니다.' : '따라가기를 껐습니다. 내 화면은 그대로 유지됩니다.');
+      toast(S.follow ? '페이지 컨트롤 화면을 따라갑니다.' : '따라가기를 껐습니다. 내 화면은 그대로 유지됩니다.');
     }
-    function followNow() { var n = S.pendingNav || (rt && rt.nav); if (n) applyNav(n, true); else toast('리더가 아직 화면을 넘기지 않았습니다.'); }
+    function followNow() { var n = S.pendingNav || (rt && rt.nav); if (n) applyNav(n, true); else toast('페이지 컨트롤이 아직 화면을 넘기지 않았습니다.'); }
     function claim(force) {
       if (!rt) return Promise.reject(new Error('실시간 연결이 없습니다.'));
-      return rt.claim(force).then(function () { toast('리더가 되었습니다. 지금부터 넘기는 화면을 팀이 따라옵니다.'); sendNav(); renderChips(); }, function (e) {
+      return rt.claim(force).then(function () { toast('페이지 컨트롤이 되었습니다. 지금부터 넘기는 화면을 팀이 따라옵니다.'); sendNav(); renderChips(); }, function (e) {
         toast(e.code === 'taken' ? e.message + ' 넘겨받으려면 "넘겨받기"를 누르세요.' : e.message, true); throw e;
       });
     }
-    function release() { return rt ? rt.release().then(function () { toast('리더를 내려놓았습니다.'); renderChips(); }, function (e) { toast(e.message, true); }) : Promise.resolve(); }
+    function release() { return rt ? rt.release().then(function () { toast('페이지 컨트롤을 내려놓았습니다.'); renderChips(); }, function (e) { toast(e.message, true); }) : Promise.resolve(); }
+    function claimClick(force) {
+      if (!rt) return Promise.reject(new Error('실시간 연결이 없습니다.'));
+      return rt.claimClick(force).then(function () { toast('클릭 컨트롤이 되었습니다. 지금부터 누르는 시작 · 멈춤 · BPM 을 팀 모두의 메트로놈이 따라옵니다.'); renderChips(); P.emit('clicker'); }, function (e) {
+        toast(e.code === 'taken' ? e.message + ' 넘겨받으려면 "넘겨받기"를 누르세요.' : e.message, true); throw e;
+      });
+    }
+    function releaseClick() { return rt ? rt.releaseClick().then(function () { toast('클릭 컨트롤을 내려놓았습니다.'); renderChips(); P.emit('clicker'); }, function (e) { toast(e.message, true); }) : Promise.resolve(); }
 
     function renderChips() {
-      var conn = $('.pv-conn'), lead = $('.pv-lead'), fol = $('.pv-follow');
+      var conn = $('.pv-conn'), lead = $('.pv-lead'), fol = $('.pv-follow'), clk = $('.pv-click');
       var st = rt ? rt.state : 'unavailable';
       var label = { idle: '연결 전', connecting: '연결 중…', online: '실시간 연결됨', offline: '연결 끊김 — 다시 연결 중', unavailable: '혼자 보기 (실시간 없음)', denied: '연결 거부됨' }[st] || st;
       conn.textContent = { online: '● 실시간', connecting: '○ 연결 중', offline: '○ 끊김', unavailable: '○ 혼자', denied: '✕ 거부', idle: '○' }[st] || '○';
@@ -628,13 +648,19 @@
       var peers = rt ? rt.peers.length : 0;
       if (st === 'online') {
         lead.style.display = ''; var ln = rt.leader;
-        lead.textContent = rt.isLeader ? '👑 내가 리더' : ln ? '👑 ' + ln : '리더 없음'; lead.className = 'pv-chip pv-lead' + (rt.isLeader ? ' me' : ln ? ' has' : '');
-        lead.title = peers + '명 접속 중 — 눌러서 리더 · 함께 보기 열기';
-      } else lead.style.display = 'none';
-      if (st === 'online' && rt.leader && !rt.isLeader) {
-        fol.style.display = ''; fol.className = 'pv-chip pv-follow ' + (S.follow ? 'on' : 'off');
+        lead.textContent = rt.isLeader ? '📄 내가 페이지 컨트롤' : ln ? '📄 ' + ln : '페이지 컨트롤 없음'; lead.className = 'pv-chip pv-lead' + (rt.isLeader ? ' me' : ln ? ' has' : '');
+        lead.title = peers + '명 접속 중 — 눌러서 페이지 컨트롤 · 클릭 컨트롤 · 동기화 설정 열기';
+        var cn = rt.clicker;
+        clk.style.display = ''; clk.textContent = rt.isClicker ? '🎚 내가 클릭 컨트롤' : cn ? '🎚 ' + cn : '클릭 컨트롤 없음'; clk.className = 'pv-chip pv-click' + (rt.isClicker ? ' me' : cn ? ' has' : '');
+        clk.title = '메트로놈(클릭)을 조절하는 사람 — 눌러서 설정 열기';
+      } else { lead.style.display = 'none'; clk.style.display = 'none'; }
+      if (st === 'online' && S.manual) {
+        fol.style.display = ''; fol.className = 'pv-chip pv-follow off manual'; fol.textContent = '⛔ 동기화 꺼짐 (수동)'; fol.setAttribute('aria-pressed', 'false');
+        fol.title = '눌러서 동기화 다시 켜기';
+      } else if (st === 'online' && rt.leader && !rt.isLeader) {
+        fol.style.display = ''; fol.className = 'pv-chip pv-follow ' + (S.follow ? 'on' : 'off'); fol.title = '페이지 컨트롤 화면 따라가기 켜기/끄기';
         var behind = !S.follow && S.pendingNav && (S.pendingNav.page !== S.page || S.pendingNav.file !== fileId());
-        fol.textContent = S.follow ? '따라가는 중' : (behind ? '따라가기 꺼짐 · 리더 ' + S.pendingNav.page + '쪽' : '따라가기 꺼짐');
+        fol.textContent = S.follow ? '따라가는 중' : (behind ? '따라가기 꺼짐 · 컨트롤 ' + S.pendingNav.page + '쪽' : '따라가기 꺼짐');
         fol.setAttribute('aria-pressed', S.follow ? 'true' : 'false');
       } else fol.style.display = 'none';
       P.emit('conn', st);
@@ -643,24 +669,30 @@
       S.follow = true;                                                  // 따라가기는 접속할 때마다 켜진 채로 시작 (끄는 것은 그 순간만)
       if (opts.realtime === false || !root.YNRT || !S.room) { renderChips(); return; }
       rt = root.YNRT.create({ token: opts.token, room: S.room, io: opts.io });
-      ['state', 'peers', 'leader', 'outbox'].forEach(function (n) { rt.on(n, function () { renderChips(); P.emit(n); }); });
+      ['state', 'peers', 'leader', 'clicker', 'outbox'].forEach(function (n) { rt.on(n, function () { renderChips(); P.emit(n); }); });
       rt.on('joined', function (r) {
         renderChips(); P.emit('joined', r);
         if (r.you) an.setPerms(r.you.name, r.you.canEdit);
         if (S.doc) loadTeam(++S.annoId, fileId());
         if (r.nav && !rt.isLeader) applyNav(r.nav, false);
+        if (r.metro) P.emit('metro', r.metro);
       });
+      rt.on('metro', function (m) { P.emit('metro', m); });
       rt.on('nav', function (n) { applyNav(n, false); });
       rt.on('leader', function (m) {
         if (rt.isLeader) sendNav();
-        else if (m && m.name && m.reason === 'takeover') toast(m.name + ' 님이 리더를 넘겨받았습니다.');
-        else if (m && !m.name && m.reason === 'left') toast('리더가 나갔습니다.');
+        else if (m && m.name && m.reason === 'takeover') toast(m.name + ' 님이 페이지 컨트롤을 넘겨받았습니다.');
+        else if (m && !m.name && m.reason === 'left') toast('페이지 컨트롤이 나갔습니다.');
         renderChips();
       });
       rt.on('sent', function (m) { if (m.name === 'anno:add' && m.payload && m.payload.item) { delete S.unsent[m.payload.item.id]; P.emit('sync'); } });
       rt.on('rejected', function (r) {
         var m = r.msg; if (m.name === 'anno:add' && m.payload && m.payload.item) { delete S.unsent[m.payload.item.id]; an.remoteDel('team', m.payload.item.id); }
         toast('보내지 못한 필기가 있습니다: ' + r.error.message, true); P.emit('sync');
+      });
+      rt.on('clicker', function (m) {
+        if (m && m.name && m.reason === 'takeover' && !rt.isClicker) toast(m.name + ' 님이 클릭 컨트롤을 넘겨받았습니다.');
+        else if (m && !m.name && m.reason === 'left') toast('클릭 컨트롤이 나갔습니다.');
       });
       rt.on('cue', function (c) { P.emit('cue', c); });
       rt.on('anno:add', function (m) { if (m.file !== fileId() || scopes().indexOf(m.scope) < 0) return; S.scopeOf[m.item.id] = m.scope; an.remoteAdd('team', m.item); });
@@ -672,19 +704,19 @@
     }
 
     /* ------------------------------------------------------------ 도구 막대 */
-    var SIZES = { pen: [0.0018, 0.003, 0.0055], hl: [0.012, 0.02, 0.032], text: [0.018, 0.024, 0.034], sym: [0.022, 0.032, 0.05] };
-    S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false;
-    function sizeKey() { return S.tool === 'hl' ? 'hl' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
+    var SIZES = { pen: [0.0018, 0.003, 0.0055], hl: [0.012, 0.02, 0.032], text: [0.018, 0.024, 0.034], sym: [0.022, 0.032, 0.05], fbox: [0.014, 0.02, 0.03] };
+    S.tool = 'none'; S.sizeIdx = 1; S.symOpen = false; S.fboxTag = (YA && ls('fbtag') && /^[A-Za-z0-9]{1,8}$/.test(ls('fbtag'))) ? ls('fbtag') : 'V';
+    function sizeKey() { return S.tool === 'fbox' ? 'fbox' : S.tool === 'hl' ? 'hl' : S.tool === 'text' || S.tool === 'chord' ? 'text' : S.tool === 'sym' ? 'sym' : 'pen'; }
     S.fsz = {}; S.font = ls('font') && YA && YA.FONTS[ls('font')] ? ls('font') : 'sans';
     function applySize() {
       var v = S.fsz[sizeKey()] || SIZES[sizeKey()][S.sizeIdx];
-      if (S.tool === 'pen' || S.tool === 'hl') an.setWidth(v); else if (S.tool === 'text' || S.tool === 'chord') an.setTextSize(v); else if (S.tool === 'sym') an.setSymSize(v);
+      if (S.tool === 'pen' || S.tool === 'hl') an.setWidth(v); else if (S.tool === 'text' || S.tool === 'chord') an.setTextSize(v); else if (S.tool === 'sym') an.setSymSize(v); else if (S.tool === 'fbox') an.setFboxSize(v);
     }
     function setTool(t) {
       S.tool = t; an.setTool(t);
       if (t === 'pen') an.setWidth(SIZES.pen[S.sizeIdx]); else if (t === 'hl') an.setWidth(SIZES.hl[S.sizeIdx]);
       applySize(); S.symOpen = t === 'sym'; renderTools(); renderSymPop(); P.emit('tool', t);
-      var hint = { pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)' }[t];
+      var hint = { pen: '펜: 손가락 · 펜 · 마우스로 그립니다.', hl: '형광펜: 문지르면 반투명하게 칠해집니다.', text: '글자: 악보를 눌러 글을 씁니다. 쓴 글자를 다시 누르면 고칠 수 있습니다.', chord: '코드: 악보를 눌러 코드를 씁니다. 아래 버튼으로 빠르게 입력하세요.', sym: '기호: 고른 기호를 악보에 눌러 찍습니다. (이음줄 · 크레센도는 끌어서 길이 조절)', eraser: '지우개: 지울 필기를 문지르세요. (내가 쓴 것만 지워집니다)', fbox: '송폼 박스: 악보 위를 끌어서 네모를 그리고, 위 칸에서 V · C · P · B · Int 같은 이름표를 고르세요. 그냥 누르면 기본 크기 박스가 생깁니다.' }[t];
       if (hint) toast(hint, false, 2600);
     }
     function renderTools() {
@@ -697,10 +729,13 @@
       var fontRow = !txt ? '' :
         '<div class="pv-tg pv-fontrow"><label class="pv-fl"><span>글꼴</span><select data-font aria-label="글꼴">' + YA.FONT_KEYS.map(function (k) { return '<option value="' + k + '"' + (S.font === k ? ' selected' : '') + '>' + h(YA.FONT_NAMES[k]) + '</option>'; }).join('') + '</select></label>' +
         '<label class="pv-fl"><span>크기</span><input type="range" data-fsz min="0.012" max="' + (isSym ? '0.09' : '0.08') + '" step="0.002" value="' + fsz + '" aria-label="글자 크기"><output>' + Math.round(fsz * 1000) + '</output></label></div>';
+      var fbRow = S.tool !== 'fbox' ? '' :
+        '<div class="pv-tg pv-fbrow" role="group" aria-label="송폼 이름표">' + YA.FBOX_TAGS.map(function (k) { return '<button type="button" class="pv-fbtag' + (S.fboxTag === k ? ' on' : '') + '" data-fbtag="' + h(k) + '" title="' + h(YA.FBOX_NAMES[k] || k) + '" aria-pressed="' + (S.fboxTag === k) + '">' + h(k) + '</button>'; }).join('') + '</div>';
       toolsEl.innerHTML =
         '<div class="pv-tg">' + TOOLS.map(function (t) { return '<button class="pv-tool' + (S.tool === t.t ? ' on' : '') + '" data-tool="' + t.t + '" title="' + t.n + '" aria-pressed="' + (S.tool === t.t) + '"><span class="ic">' + t.ic + '</span><span class="nm">' + t.n + '</span></button>'; }).join('') + '</div>' +
         '<div class="pv-tg pv-colors">' + cols.map(function (c) { var nm = (YA.COLOR_NAMES && YA.COLOR_NAMES[c]) || c; return '<button class="pv-col' + (c === S.curColor ? ' on' : '') + (c === '#ffffff' ? ' white' : '') + '" data-color="' + c + '" style="--c:' + c + '" title="' + nm + '" aria-label="색 ' + nm + '" aria-pressed="' + (c === S.curColor) + '"></button>'; }).join('') + '</div>' +
         fontRow +
+        fbRow +
         '<div class="pv-tg pv-sizes">' + [0, 1, 2].map(function (i) { return '<button class="pv-size' + (S.sizeIdx === i && !S.fsz[sizeKey()] ? ' on' : '') + '" data-size="' + i + '" title="' + (txt ? '크기 ' : '굵기 ') + (i + 1) + '"><i style="--s:' + (4 + i * 4) + 'px"></i></button>'; }).join('') + '</div>' +
         '<div class="pv-tg"><button class="pv-tool sm" data-a="undo" title="되돌리기 (Ctrl+Z)"' + (st.canUndo ? '' : ' disabled') + '><span class="ic">↶</span><span class="nm">취소</span></button>' +
           '<button class="pv-tool sm" data-a="redo" title="다시 (Ctrl+Shift+Z)"' + (st.canRedo ? '' : ' disabled') + '><span class="ic">↷</span><span class="nm">다시</span></button>' +
@@ -710,6 +745,7 @@
     }
     toolsEl.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
+      if (b.dataset.fbtag) { S.fboxTag = b.dataset.fbtag; an.setFboxTag(S.fboxTag); ls('fbtag', S.fboxTag); renderTools(); return; }
       if (b.dataset.tool) { setTool(b.dataset.tool === S.tool && b.dataset.tool !== 'none' ? 'none' : b.dataset.tool); return; }
       if (b.dataset.color) { S.curColor = b.dataset.color; if (S.tool === 'hl') { an.setHlColor(S.curColor); S.hlSel = S.curColor; } else { an.setColor(S.curColor); S.penSel = S.curColor; } renderTools(); an.focusEditor && an.focusEditor(); return; }
       if (b.dataset.size != null) { S.sizeIdx = +b.dataset.size; delete S.fsz[sizeKey()]; applySize(); renderTools(); an.focusEditor && an.focusEditor(); return; }
@@ -828,7 +864,7 @@
       else if (a === 'spread') toggleSpread();
       else if (a === 'crop') { S.crop = !S.crop; ls('crop', S.crop ? '1' : '0'); S.zoom = 1; syncCropUi(); renderPage(); sendNav(); toast(S.crop ? '여백을 줄여 악보를 크게 보여 줍니다' : '종이 전체를 보여 줍니다'); }
       else if (a === 'zfit') { S.fitUser = true; S.zoom = 1; S.fit = S.fit === 'page' ? 'width' : 'page'; renderPage(); sendNav(); toast(S.fit === 'page' ? '한 쪽이 다 보이게 맞춤' : '가로 폭에 맞춤'); }
-      else if (a === 'panel') toggleSide(); else if (a === 'follow') setFollow(!S.follow); else if (a && a.indexOf('tab:') === 0) showTab(a.slice(4));
+      else if (a === 'panel') toggleSide(); else if (a === 'follow') { if (S.manual) setManual(false); else setFollow(!S.follow); } else if (a && a.indexOf('tab:') === 0) showTab(a.slice(4));
     });
     stage.addEventListener('click', function (e) {
       if (S.layout !== 'tablet' || S.tool !== 'none' || !box.contains(e.target) || S.zoom > 1.05 || e.target.closest('.pv-toast')) return;
@@ -857,7 +893,7 @@
       if (mod && (k === 'z' || k === 'Z')) { e.preventDefault(); e.shiftKey ? an.redo() : an.undo(); renderTools(); return; }
       if (mod && (k === 'y' || k === 'Y')) { e.preventDefault(); an.redo(); renderTools(); return; }
       if (mod || e.altKey) return;
-      var map = { ArrowRight: 'n', PageDown: 'n', ArrowLeft: 'p', PageUp: 'p', ArrowUp: 'bu', ArrowDown: 'bd', ' ': 'sp', Spacebar: 'sp', '+': 'zi', '=': 'zi', '-': 'zo', '0': 'zf', Escape: 'esc', v: 'none', p: 'pen', h: 'hl', t: 'text', c: 'chord', s: 'sym', e: 'eraser' };
+      var map = { ArrowRight: 'n', PageDown: 'n', ArrowLeft: 'p', PageUp: 'p', ArrowUp: 'bu', ArrowDown: 'bd', ' ': 'sp', Spacebar: 'sp', '+': 'zi', '=': 'zi', '-': 'zo', '0': 'zf', Escape: 'esc', v: 'none', p: 'pen', h: 'hl', t: 'text', c: 'chord', s: 'sym', b: 'fbox', e: 'eraser' };
       var m = map[k]; if (!m) return;
       if (m === 'bu' || m === 'bd' || m === 'sp') {                                    // 메트로놈: ↑↓ BPM · Space 시작/멈춤 — 메트로놈을 쓸 수 없으면 원래 동작(스크롤 등) 그대로
         if (!P.metroKey) return;
@@ -900,7 +936,7 @@
       }
     };
     current = api;
-    S.layer = ls('layer') === 'mine' ? 'mine' : 'team'; S.layerUser = !!ls('layer'); S.scope = ls('scope') === 'date' && S.room ? 'date' : 'song'; an.setLayer(S.layer); if (an.setFont) an.setFont(S.font);
+    S.layer = ls('layer') === 'mine' ? 'mine' : 'team'; S.layerUser = !!ls('layer'); S.scope = ls('scope') === 'date' && S.room ? 'date' : 'song'; an.setLayer(S.layer); if (an.setFont) an.setFont(S.font); if (an.setFboxTag) an.setFboxTag(S.fboxTag);
     setCompact(calcCompact()); autoFit(); applyLayout(S.layout, false); renderTools(); buildTabs(); connect(); requestWake();
     var g0 = typeof opts.song === 'number' ? opts.song : guessSong(sheets[S.sheetIdx].name, songs); if (g0 >= 0) setSong(g0, true);
     loadSheet(S.sheetIdx, 1, false);

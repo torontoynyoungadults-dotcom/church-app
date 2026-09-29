@@ -38,7 +38,7 @@ const isBeats = (arr, step, tol) => arr.every((v, i) => i === 0 || Math.abs(v - 
   check('딸깍이 4초 동안 8번 이상', ts.length >= 8, ts.length);
   check('간격이 0.500초 (±3ms)', isBeats(ts, 0.5, 0.003), ts.map((t, i) => i ? +(t - ts[i - 1]).toFixed(4) : 0));
   check('첫 박(악센트)이 4박마다 높은 음', o1.every((o, i) => (i % 4 === 0) === (o.f > (o1[1] ? o1[1].f : 0) || i % 4 === 0)) && o1[0].f > o1[1].f, o1.slice(0, 5).map((o) => o.f));
-  check('박 표시 점이 움직임', await pa.evaluate(() => document.querySelectorAll('[data-role="dots"] i').length === 4));
+  check('박 표시 점이 움직임', await pa.evaluate(() => document.querySelectorAll('[data-role="dots"] .pv-beat').length === 4));
 
   console.log('· 큐: 박자를 흐트러뜨리지 않고 박에 맞춰 말하기');
   const t0 = ts[0], cueAt = await now(pa);
@@ -94,7 +94,7 @@ const isBeats = (arr, step, tol) => arr.every((v, i) => i === 0 || Math.abs(v - 
 
   console.log('· 리더 → 팔로워 큐 전달');
   await pa.click('.pv-tabbtn[data-tab="together"]'); await pa.click('button[data-a="claim"]');
-  check('A 리더', await L.waitTrue(pa, () => /내가 리더/.test(document.querySelector('.pv-lead').textContent)));
+  check('A 리더', await L.waitTrue(pa, () => /내가 페이지 컨트롤/.test(document.querySelector('.pv-lead').textContent)));
   await pa.click('.pv-tabbtn[data-tab="metro"]');
   check('보내기 옵션이 켜져 있음(기본)', await pa.evaluate(() => document.querySelector('[data-o="send"]').checked));
   const nb0 = await pb.evaluate(() => window.__say.length);

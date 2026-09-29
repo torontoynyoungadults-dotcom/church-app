@@ -175,6 +175,13 @@ async function main() {
   eq(cleanItem(stroke('abcdef12', { c: 'red' }), U, 1).c, '#ff5a1f', '이상한 색은 기본색으로');
   eq(cleanItem(stroke('abcdef12', { p: [NaN, 'x', 0.5, 0.5] }), U, 1).p, [0, 0, 0.5, 0.5], '숫자가 아닌 좌표는 0 으로');
   eq(cleanItem(null, U, 1), null, 'null 거절');
+  const fb = (o) => Object.assign({ id: 'fbox1234', t: 'fbox', k: 'V', x: 0.1, y: 0.2, w: 0.4, h: 0.1, c: '#ff5a1f', sz: 0.02 }, o || {});
+  { const r = cleanItem(fb(), U, 1); ok(r && r.t === 'fbox' && r.k === 'V' && r.w === 0.4, '송폼 박스 정상'); }
+  eq(cleanItem(fb({ k: 'V<b>' }), U, 1), null, '송폼 박스: 이상한 이름표 거절');
+  eq(cleanItem(fb({ k: '' }), U, 1), null, '송폼 박스: 이름표가 비면 거절');
+  { const r = cleanItem(fb({ x: 0.9, w: 0.6 }), U, 1); ok(r && r.x + r.w <= 1.0001, '송폼 박스: 악보 밖으로 나가면 안쪽으로 맞춤'); }
+  { const r = cleanItem(fb({ sz: 9 }), U, 1); ok(r && r.sz <= 0.06, '송폼 박스: 글자 크기 상한'); }
+  { const r = cleanItem(fb({ k: '후렴' }), U, 1); ok(r && r.k === '후렴', '송폼 박스: 한글 이름표 허용'); }
 
   section('방 정리');
   clients.forEach((c) => c.disconnect());

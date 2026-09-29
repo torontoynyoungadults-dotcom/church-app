@@ -38,7 +38,7 @@ function 찬양소켓인증_(token) {
 function 찬양악보파일허용_(id) {
   id = String(id || '').trim();
   if (!/^[A-Za-z0-9_-]{10,}$/.test(id)) return false;
-  return rows_(SHEET_찬양악보).some(function (r) { return String(r[WF_파일] || '').trim() === id; });
+  return rows_(SHEET_찬양악보).some(function (r) { return String(r[WF_파일] || '').trim() === id; }) || 저장소파일냐_(id);   // 콘티 악보 + 악보 저장소(Step 2.8)
 }
 
 function 찬양주석파일_(id) {

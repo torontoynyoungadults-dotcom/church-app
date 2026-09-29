@@ -43,7 +43,7 @@ function boot(env, fake) {
   Object.assign(process.env, { PUBLIC_URL: 'https://app.test' }, env);
   Object.keys(require.cache).forEach((k) => { if (k.indexOf(LIB) === 0 || k.indexOf(path.join(ROOT, 'scripts', 'db-setup')) === 0) delete require.cache[k]; });
   const stub = {
-    sheets: (m, p) => fake.sheets(m, p), drive: (m, p) => fake.drive(m, p), calendar: (m, p) => fake.calendar(m, p),
+    sheets: (m, p) => fake.sheets(m, p), drive: (m, p, x) => fake.drive(m, p, x), calendar: (m, p) => fake.calendar(m, p),
     call: (op, a) => fake.call(op, a),
   };
   require.cache[BRIDGE] = { id: BRIDGE, filename: BRIDGE, loaded: true, exports: stub };

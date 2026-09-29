@@ -63,3 +63,39 @@
 - 손글씨 글꼴은 기기에 있는 글꼴(iPhone/iPad: Bradley Hand · Noteworthy, Windows: Segoe Print)을 씁니다. 없으면 기본 필기체로 보입니다.
 - 유튜브 API 는 처음 열 때 인터넷에서 받습니다(오프라인이면 기본 재생기).
 - 시험: `npm run test:step2` (계산) + `npm run test:step2:browser` (진짜 크롬, 아이폰 크기 포함).
+
+## 8. Step 2.8 — 찬양·방송 허브 통합 (음원 자동 링크 · 악보 저장소 · 송폼 박스 · 가사 도구 · 메트로놈 · 컨트롤 분리)
+
+### 8-1. 무엇이 생겼나 (요청 ↔ 위치)
+| 요청 | 위치 | 동작 |
+|---|---|---|
+| 드라이브 폴더 음원 자동 링크 | `logic/worship3.js` `worshipAutoLinkRecordings` · 허브 "링크 자동걸기" 버튼 | 폴더 `10bz4qq7GL6WPlh51ld3wTIrwDzOi17PD` 를 하위 폴더까지 훑어 mp3/wav/m4a 를 **생성일 요일**로 분류(토=토요일 연습 / 일=주일 예배) 후 콘티 녹음 목록에 링크만 추가. 25초 시간 제한 · 중복 건너뜀 · 원본 파일은 앱이 절대 지우지 않음(링크만 저장) |
+| 악보 저장소 | `worshipRepoList/Save/Remove/AddToSetlist` · `public/worship/hubtools.js` | PDF 쪽 범위("2-3, 5") 잘라 영구 보관(제목·날짜·인도자 메타). 콘티 만들 때 "🗂 저장소에서 찾기" 모달에서 검색 · 미리보기 · 바로 선택 |
+| 송폼 박스 | `anno.js` `fbox` · `practice.js` 도구 "송폼 박스" (단축키 B) | 악보 위 투명 테두리 네모 + 이름표(Int · V · V1~3 · P · C · C2 · B · Inst · Itld · Solo · Tag · Turn · Out · Coda · End, 직접 8자까지). 실시간 공유 · 저장 · 지우개 |
+| 가사 추출 이동 | `Worship.html` `lyricsBox` (방송팀 요청 바로 위) | 곡별 가사: 악보 PDF 글자 추출(쪽 범위 · 코드 줄 제외/포함) · 붙여넣기 정리 · 검색 링크. `찬양가사` 탭에 저장, 방송 화면(전체화면 슬라이드)으로 |
+| 버튼 이름 | 허브 · 연습 화면 | "연습 모드" → "세션 / 연습 시작" |
+| 메트로놈 | `metro.js` · `practice-panels.js` | 박 수만큼 **칸 너비를 꽉 채우는 큰 원**(12/8 은 두 줄), 원을 눌러 ">" 강세(높고 크게), **전체 화면 깜빡임**(첫 박 · 끄고 켜기), **음높이 −12~+12 반음**, **볼륨 0~5배**(리미터로 찢어짐 방지) |
+| 역할 분리 | `lib/realtime.js` · `rt.js` · `practice*.js` | "페이지 컨트롤"(구 리더: 악보·쪽·확대·큐) 과 "클릭 컨트롤"(메트로놈: BPM·박자·강세·시작/멈춤) 이 **서로 독립**. 한 사람이 둘 다 맡아도, 나눠 맡아도 됨 |
+| 동기화 끄기 | "함께" 탭 스위치 · 헤더 칩 | 켜면 남의 페이지 넘김 · BPM · 시작/멈춤 · 큐를 모두 무시하고 내 조작도 보내지 않음. 끄면(다시 동기화) 팀의 현재 화면 · 박자로 바로 맞춤 |
+
+### 8-2. 소리는 보내지 않습니다 — 상태만 나눕니다
+- 각 기기가 자기 Web Audio 로 딸깍을 냅니다. 서버가 나르는 것은 `{playing, bpm, num, den, marks, count, startAt, seq}` 뿐.
+- `startAt` = 서버 시계 + 450ms. 모든 기기가 서버 시각 → 자기 오디오 시계로 바꿔 **같은 박에** 시작합니다(브라우저 시험: 기기 간 박 차이 60ms 이내).
+- 강세만 바뀌면(`keep`) 시작 시각을 그대로 두어 박이 끊기지 않고, BPM · 박자 · 시작이 바뀌면 새 시작 시각으로 모두 다시 맞춥니다.
+- 늦게 들어온 사람은 진행 중 상태(시작 시각 포함)를 받아 **박 위치를 유지한 채** 다음 박부터 합류합니다.
+- 아이폰 · 크롬은 사용자가 화면을 한 번 눌러야 소리가 납니다 — 처음 누를 때 소리 장치를 미리 깨우고, 막혀 있으면 안내 후 다음 터치에서 자동 시작합니다.
+
+### 8-3. 바뀐 파일
+- 새 파일: `logic/worship3.js`, `public/worship/hubtools.js`, `public/vendor/pdf-lib.min.js`, `scripts/test-step28.js`, `scripts/test-step28-client.js`, `scripts/test-step28-metro.js`, `scripts/browser/e2e-step28.js`, `scripts/browser/e2e-metro.js`
+- 고친 파일: `lib/google.js`(생성일 `getDateCreated`), `lib/db.js`(탭 `악보저장소` · `찬양가사`), `lib/runtime.js`, `lib/realtime.js`(클릭 컨트롤 · metro · fbox), `logic/app.js`(악보 삭제 시 저장소 파일 보호), `logic/worship2.js`, `public/worship/{anno,practice,practice-panels,metro,rt}.js`, `public/worship/hub.css`, `views/Worship.html`, 시험 도우미(`fake-google.js` · `e2e-*` 일부), `package.json`(`npm run test:step28`)
+- 기존 기능 보존: 시트 열/탭은 새 탭 두 개만 추가(기존 열 그대로) · 기존 API 이름 · 인수 그대로 · 리더/`leader:*` 이벤트 이름 유지(화면 글자만 "페이지 컨트롤") · 메트로놈 `setFirstAccent` 등 기존 함수 유지 · 옛 저장 볼륨 값은 새 키(`gain`)로 분리해 갑자기 커지지 않음
+
+### 8-4. 알아 둘 한계
+- 가사 사이트는 저작권 때문에 긁어오지 않습니다 — 악보 PDF 글자 추출 · 붙여넣기 정리 · 검색 링크 방식.
+- 음원 자동 링크의 `getDateCreated()` 는 시험용 가짜 드라이브로 검증했습니다. 실제 드라이브 폴더에서 한 번 눌러 보고 요일 분류를 확인해 주세요(업로드가 아닌 "복사/이동" 파일은 생성일이 다를 수 있음).
+- 동기 정확도는 네트워크 지연에 따라 수십 ms 흔들릴 수 있고, 블루투스 스피커 등 출력 지연은 기기마다 달라 서로 겹쳐 들리는 정도는 기기 조합에 좌우됩니다.
+- 첫 박 깜빡임은 마디가 1초에 3번을 넘는 매우 빠른 박자에서는 눈 보호를 위해 자동으로 건너뜁니다.
+- 클릭 컨트롤이 나가도 이미 돌고 있는 메트로놈은 계속 돕니다(누구든 클릭 컨트롤을 맡아 멈출 수 있음).
+
+### 8-5. 시험
+`npm run test:step28` (서버 77 · 클라이언트 37 · 메트로놈/역할 72 · 브라우저 허브 62 · 브라우저 메트로놈/역할 69) + 기존 Step 1~3 전 시험 통과(160 · 73/640/103 · 198 · e2e-a 54 · b 27 · c 17 · step2c 82 · full 48 · portal 8 · budget 37).

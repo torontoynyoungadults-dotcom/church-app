@@ -17,6 +17,9 @@
   var COLOR_NAMES = { '#e53935': '빨강', '#2563eb': '파랑', '#16a34a': '초록', '#7c3aed': '보라', '#111111': '검정', '#ffffff': '흰색 (수정액)' };
   var HL_COLORS = ['#ffe14d', '#7dff8a', '#ff9ad5', '#7fd4ff', '#ffb066'];
   var STRETCH = { tie: 1, cresc: 1, decresc: 1 };
+  /** 송폼 박스 이름표 — 서버(lib/realtime.js FBOX_TAG_RE)는 이 글자들과 같은 모양(영문 · 숫자 · 한글 8자 이내)만 받습니다. Int=인트로 V=절 P=프리코러스 C=후렴 B=브릿지 */
+  var FBOX_TAGS = ['Int', 'V', 'V1', 'V2', 'V3', 'P', 'C', 'C2', 'B', 'Inst', 'Itld', 'Solo', 'Tag', 'Turn', 'Out', 'Coda', 'End'];
+  var FBOX_NAMES = { Int: '인트로', V: '절', V1: '1절', V2: '2절', V3: '3절', P: '프리코러스', C: '후렴', C2: '후렴 2', B: '브릿지', Inst: '연주', Itld: '간주', Solo: '솔로', Tag: '태그', Turn: '턴어라운드', Out: '아웃트로', Coda: '코다', End: '끝' };
   /** 글꼴 — 글자 · 코드 · 글자 모양 기호(음표 도장 · 다이내믹)에 씁니다. 서버는 이 키(sans · serif · hand)만 받습니다 */
   var FONT_KEYS = ['sans', 'serif', 'hand'];
   var FONT_NAMES = { sans: '고딕 (Sans-serif)', serif: '명조 (Serif)', hand: '손글씨 (Handwriting)' };
@@ -111,6 +114,20 @@
     return { x1: x - half.w, y1: y - half.h, x2: x + half.w, y2: y + half.h };
   }
 
+  /* ------------------------------------------------------------ 송폼 박스 도우미 */
+  function isLightColor(c) { var m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c || ''); return !!m && (parseInt(m[1], 16) * 0.3 + parseInt(m[2], 16) * 0.59 + parseInt(m[3], 16) * 0.11) > 170; }
+  function rrect(c, x, y, w, h, r) { c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r); c.lineTo(x + w, y + h - r); c.quadraticCurveTo(x + w, y + h, x + w - r, y + h); c.lineTo(x + r, y + h); c.quadraticCurveTo(x, y + h, x, y + h - r); c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y); c.closePath(); }
+  var _fm = null;
+  /** 이름표(라벨) 칸 — 박스 왼쪽 위 바깥에 붙고, 위가 쪽 밖이면 안쪽으로 들어옵니다 (px) */
+  function fboxLabel(it, W, H) {
+    var px = Math.max(11, Math.min(26, (it.sz || 0.02) * W)), pad = Math.max(4, px * 0.4), tw = 0, s = String(it.k || '');
+    try { if (typeof document !== 'undefined') { _fm = _fm || document.createElement('canvas').getContext('2d'); _fm.font = '800 ' + px + 'px ' + FONTS.sans; tw = _fm.measureText(s).width; } } catch (e) {}
+    if (!tw) tw = s.length * px * 0.62;
+    var h = px + pad, x = it.x * W, y = it.y * H - h;
+    if (y < 0) y = it.y * H;
+    return { x: x, y: y, w: tw + pad * 2, h: h, px: px, pad: pad };
+  }
+
   /* ------------------------------------------------------------ 항목 그리기 */
   function strokePath(c, p, W, H) {
     var n = p.length / 2; if (!n) return;
@@ -134,6 +151,13 @@
         c.font = (it.chord ? '800 ' : '600 ') + px + 'px ' + FONTS[fontOf(it)]; c.textBaseline = 'alphabetic';
         c.lineWidth = Math.max(2, px * 0.2); c.strokeStyle = 'rgba(255,255,255,.9)'; c.strokeText(it.s || '', 0, 0);
         c.fillStyle = it.c || '#ff5a1f'; c.fillText(it.s || '', 0, 0);
+      } else if (it.t === 'fbox') {
+        var bx = it.x * W, by = it.y * H, bw = Math.max(4, (it.w || 0.1) * W), bh = Math.max(4, (it.h || 0.05) * H), a0 = o.alpha == null ? 1 : o.alpha;
+        c.lineWidth = Math.max(2, 0.0035 * W); c.lineJoin = 'miter';
+        c.globalAlpha = a0 * 0.07; c.fillRect(bx, by, bw, bh);                                          // 거의 투명한 색 (악보가 그대로 보임)
+        c.globalAlpha = a0; c.strokeRect(bx, by, bw, bh);
+        var lb = fboxLabel(it, W, H); c.fillStyle = it.c || '#ff5a1f'; c.beginPath(); rrect(c, lb.x, lb.y, lb.w, lb.h, Math.min(5, lb.h / 3)); c.fill();
+        c.font = '800 ' + lb.px + 'px ' + FONTS.sans; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = isLightColor(it.c) ? '#111111' : '#ffffff'; c.fillText(String(it.k || ''), lb.x + lb.pad, lb.y + lb.h / 2 + 0.5);
       } else if (it.t === 'sym') {
         var k = it.k, s = Math.max(8, (it.sz || 0.03) * W);
         c.translate(it.x * W, it.y * H); if (it.rot) c.rotate(it.rot * Math.PI / 180);
@@ -175,6 +199,13 @@
       return false;
     }
     if (it.t === 'text') { var px = Math.max(8, (it.sz || 0.025) * W), w = textWidth(it, W); return x >= it.x * W - tol && x <= it.x * W + w + tol && y >= it.y * H - px - tol && y <= it.y * H + px * 0.3 + tol; }
+    if (it.t === 'fbox') {                                                              // 테두리 · 이름표만 (안쪽은 비어 있어 그 밑의 필기를 가리지 않음)
+      var bx = it.x * W, by = it.y * H, bw = (it.w || 0.1) * W, bh = (it.h || 0.05) * H, t2 = Math.max(tol, 6);
+      var lb = fboxLabel(it, W, H);
+      if (x >= lb.x - 2 && x <= lb.x + lb.w + 2 && y >= lb.y - 2 && y <= lb.y + lb.h + 2) return true;
+      var out = x >= bx - t2 && x <= bx + bw + t2 && y >= by - t2 && y <= by + bh + t2, inn = x > bx + t2 && x < bx + bw - t2 && y > by + t2 && y < by + bh - t2;
+      return out && !inn;
+    }
     if (it.t === 'sym') { var b = symBox(it.k, it, W, H); return x >= b.x1 - tol && x <= b.x2 + tol && y >= b.y1 - tol && y <= b.y2 + tol; }
     return false;
   }
@@ -190,8 +221,8 @@
   function create(o) {
     var cv = o.canvas, host = o.host, ctx = cv.getContext('2d');
     var S = { layers: { team: new Map(), mine: new Map() }, vis: { team: true, mine: true }, page: 1, tool: 'none', color: PALETTE[0], hlColor: HL_COLORS[0],
-      pw: 0.003, hw: 0.02, sym: 'sharp', symSize: 0.032, textSize: 0.024, font: 'sans', layer: 'team', W: 1, H: 1, dpr: 1, cur: null, live: new Map(), hist: [], redo: [],
-      sawPen: false, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
+      pw: 0.003, hw: 0.02, sym: 'sharp', fboxTag: 'V',  symSize: 0.032, textSize: 0.024, font: 'sans', layer: 'team', W: 1, H: 1, dpr: 1, cur: null, live: new Map(), hist: [], redo: [],
+      sawPen: false, fboxSize: 0.02, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
     function say(t, bad) { try { if (o.onMessage) o.onMessage(t, !!bad); } catch (e) {} }
     function changed() { try { if (o.onChange) o.onChange(); } catch (e) {} }
 
@@ -223,8 +254,8 @@
       if (keep && !S.liveTimer) S.liveTimer = setTimeout(function () { S.liveTimer = 0; invalidate(); }, 1200);
       if (S.cur && (S.cur.kind === 'pen' || S.cur.kind === 'hl')) {
         var cc = S.cur; drawItem(ctx, { t: cc.kind, c: cc.color, w: cc.w, p: cc.straight ? cc.p.slice(0, 2).concat(cc.p.slice(-2)) : cc.p, line: cc.straight }, S.W, S.H);
-      } else if (S.cur && S.cur.kind === 'sym') {
-        drawItem(ctx, S.cur.item, S.W, S.H, { alpha: 0.7 });
+      } else if (S.cur && (S.cur.kind === 'sym' || S.cur.kind === 'fbox')) {
+        drawItem(ctx, S.cur.item, S.W, S.H, { alpha: 0.75 });
       }
     }
 
@@ -260,7 +291,7 @@
       cv.style.pointerEvents = drawing() ? 'auto' : 'none';
       var lockTouch = S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen);
       cv.style.touchAction = !drawing() ? 'auto' : lockTouch ? 'pan-x pan-y pinch-zoom' : 'none';
-      cv.style.cursor = !drawing() ? '' : S.tool === 'eraser' ? 'cell' : S.tool === 'text' || S.tool === 'chord' ? 'text' : 'crosshair';
+      cv.style.cursor = !drawing() ? '' : S.tool === 'eraser' ? 'cell' : S.tool === 'fbox' ? 'crosshair' : S.tool === 'text' || S.tool === 'chord' ? 'text' : 'crosshair';
     }
     function activeColor() { return S.tool === 'hl' ? S.hlColor : S.color; }
 
@@ -297,6 +328,9 @@
         var stretch = !!STRETCH[S.sym];
         S.cur = { kind: 'sym', ptr: e.pointerId, x0: p.x, y0: p.y, stretch: stretch, item: { id: newId(), t: 'sym', pg: S.page, c: S.color, x: r4(p.x), y: r4(p.y), sz: S.symSize, k: S.sym, f: textLike(S.sym) && S.font !== 'sans' ? S.font : undefined, w2: stretch ? 0.08 : undefined } };
         invalidate();
+      } else if (S.tool === 'fbox') {
+        S.cur = { kind: 'fbox', ptr: e.pointerId, x0: p.x, y0: p.y, moved: false, item: { id: newId(), t: 'fbox', pg: S.page, c: S.color, x: r4(p.x), y: r4(p.y), w: 0.001, h: 0.001, sz: S.fboxSize, k: S.fboxTag } };
+        invalidate();
       } else if (S.tool === 'text' || S.tool === 'chord') { S.cur = { kind: 'textpos', ptr: e.pointerId, x: p.x, y: p.y }; }
     }
     function onMove(e) {
@@ -311,6 +345,11 @@
         }
         sendLive(c); invalidate();
       } else if (c.kind === 'erase') { list.forEach(function (ev) { var q = norm(ev); eraseAt(q.x * S.W, q.y * S.H); }); }
+      else if (c.kind === 'fbox') {
+        var q3 = norm(e), it3 = c.item, x1 = Math.min(c.x0, q3.x), y1 = Math.min(c.y0, q3.y);
+        it3.x = r4(x1); it3.y = r4(y1); it3.w = r4(Math.abs(q3.x - c.x0)); it3.h = r4(Math.abs(q3.y - c.y0));
+        if (it3.w > 0.008 || it3.h > 0.008) c.moved = true; invalidate();
+      }
       else if (c.kind === 'sym' && c.stretch) { var q2 = norm(e); c.item.w2 = r4(clamp(Math.abs(q2.x - c.x0), 0.02, 0.5)); invalidate(); }
     }
     function sendLive(c, final) {
@@ -331,6 +370,13 @@
         var it = { id: c.id, t: c.kind, pg: S.page, c: c.color, w: r4(clamp(c.w, 0.0005, 0.06)), p: p };
         if (c.straight) it.line = 1;
         addLocal(S.layer, it);
+      } else if (c.kind === 'fbox') {
+        var fb = c.item;
+        if (!c.moved || fb.w < 0.012 || fb.h < 0.008) {                                                  // 그냥 눌렀다 뗐으면 기본 크기 박스
+          fb.x = r4(clamp(c.x0, 0, 0.7)); fb.y = r4(clamp(c.y0, 0.02, 0.93)); fb.w = 0.3; fb.h = 0.07;
+        }
+        fb.w = r4(Math.min(fb.w, 1 - fb.x)); fb.h = r4(Math.min(fb.h, 1 - fb.y));
+        addLocal(S.layer, fb);
       } else if (c.kind === 'sym') { var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f; addLocal(S.layer, s); }
       else if (c.kind === 'textpos') { openEditor(c.x, c.y); }
       invalidate();
@@ -418,7 +464,7 @@
         cv.width = Math.round(S.W * S.dpr); cv.height = Math.round(S.H * S.dpr); cv.style.width = S.W + 'px'; cv.style.height = S.H + 'px'; invalidate();
       },
       setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; S.cur = null; invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
-      setTool: function (t) { closeEditor(true); S.tool = ['none', 'pen', 'hl', 'text', 'chord', 'sym', 'eraser'].indexOf(t) >= 0 ? t : 'none'; S.cur = null; refreshTouch(); invalidate(); },
+      setTool: function (t) { closeEditor(true); S.tool = ['none', 'pen', 'hl', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; S.cur = null; refreshTouch(); invalidate(); },
       setColor: function (c) {
         if (!/^#[0-9a-f]{6}$/i.test(c)) return;
         if (S.tool === 'hl') S.hlColor = c; else S.color = c;
@@ -429,6 +475,7 @@
       setHlColor: function (c) { if (/^#[0-9a-f]{6}$/i.test(c)) S.hlColor = c; },
       setWidth: function (w) { w = +w; if (w > 0) { if (S.tool === 'hl') S.hw = clamp(w, 0.005, 0.06); else S.pw = clamp(w, 0.0008, 0.02); } },
       setSymbol: function (k) { if (SYMBOLS.some(function (s) { return s.k === k; })) S.sym = k; },
+      setFboxTag: function (k) { k = String(k || '').slice(0, 8); if (/^[A-Za-z0-9\u3131-\uD7A3]{1,8}$/.test(k)) S.fboxTag = k; }, setFboxSize: function (v) { S.fboxSize = clamp(+v || 0.02, 0.012, 0.04); },
       setSymSize: function (s) { S.symSize = clamp(+s || 0.032, 0.012, 0.12); }, setTextSize: function (s) { S.textSize = clamp(+s || 0.024, 0.012, 0.08); if (S.editor) { S.editor.sz = S.textSize; S.editor.szSet = true; paintEditor(); } },
       setLayer: function (ly) { if (ly === 'team' || ly === 'mine') S.layer = ly; },
       setVisible: function (ly, on) { S.vis[ly] = !!on; invalidate(); },
@@ -453,7 +500,7 @@
       items: function (ly) { return Array.from(S.layers[ly].values()); },
       count: function (pg) { var n = 0; ['team', 'mine'].forEach(function (ly) { S.layers[ly].forEach(function (i) { if (pg == null || i.pg === pg) n++; }); }); return n; },
       drawPage: drawPage,
-      state: function () { return { cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },
+      state: function () { return { fboxTag: S.fboxTag, cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },
       redraw: redraw, closeEditor: function () { closeEditor(true); },
       destroy: function () { S.dead = true; closeEditor(false); try { cv.remove(); } catch (e) {} }
     };
@@ -461,5 +508,5 @@
   }
 
   return { create: create, newId: newId, simplify: simplify, limitPoints: limitPoints, drawItem: drawItem, hit: hit, symBox: symBox,
-    SYMBOLS: SYMBOLS, PALETTE: PALETTE, COLOR_NAMES: COLOR_NAMES, FONTS: FONTS, FONT_KEYS: FONT_KEYS, FONT_NAMES: FONT_NAMES, GLYPHS: GLYPHS, HL_COLORS: HL_COLORS, STRETCH: STRETCH, CHORD_KEYS: CHORD_KEYS };
+    SYMBOLS: SYMBOLS, FBOX_TAGS: FBOX_TAGS, FBOX_NAMES: FBOX_NAMES, fboxLabel: fboxLabel, PALETTE: PALETTE, COLOR_NAMES: COLOR_NAMES, FONTS: FONTS, FONT_KEYS: FONT_KEYS, FONT_NAMES: FONT_NAMES, GLYPHS: GLYPHS, HL_COLORS: HL_COLORS, STRETCH: STRETCH, CHORD_KEYS: CHORD_KEYS };
 }));
