@@ -82,7 +82,7 @@ function testAnnoNew() {
   const A = W('anno.js'), RT = require(path.join(__dirname, '..', 'lib', 'realtime.js'));
   eq(A.PALETTE.length, 6, '색은 6개'); eq(A.PALETTE.map((c) => A.COLOR_NAMES[c]).map((n) => n.split(' ')[0]), ['빨강', '파랑', '초록', '보라', '검정', '흰색'], '빨강 · 파랑 · 초록 · 보라 · 검정 · 흰색');
   ok(A.PALETTE.every((c) => /^#[0-9a-f]{6}$/i.test(c)) && A.PALETTE[5] === '#ffffff', '흰색(수정액)이 있음');
-  eq(A.FONT_KEYS, ['sans', 'serif', 'hand'], '글꼴 3가지'); ok(A.FONT_KEYS.every((k) => A.FONTS[k] && A.FONT_NAMES[k]), '글꼴마다 이름 · 글꼴 목록');
+  eq(A.FONT_KEYS, ['sans', 'serif', 'hand', 'pen', 'dodum'], '글꼴 5가지 (고딕 · 명조 · 기기 손글씨 · 나눔 펜 · 고운돋움)'); ok(A.FONT_KEYS.every((k) => A.FONTS[k] && A.FONT_NAMES[k]), '글꼴마다 이름 · 글꼴 목록');
   eq(['g:quarter', 'g:eighth', 'g:sharp', 'g:flat'].map((k) => A.GLYPHS[k.slice(2)]), ['\u2669', '\u266a', '\u266f', '\u266d'], '♩ ♪ ♯ ♭');
   ok(['g:quarter', 'g:eighth', 'g:sharp', 'g:flat'].every((k) => A.SYMBOLS.some((s) => s.k === k) && RT.SYMBOLS.indexOf(k) >= 0), '음표 도장이 화면과 서버 목록에 모두 있음');
   // 그리기: 기록용 가짜 캔버스

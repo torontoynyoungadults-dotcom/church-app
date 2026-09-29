@@ -580,3 +580,30 @@ body.ht-lock { overflow: hidden; }
 .pv-fbtag { min-width: 40px; height: 36px; padding: 0 9px; border-radius: 10px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .09); color: var(--g-ink); font-size: 14px; font-weight: 800; cursor: pointer; }
 .pv-fbtag.on { background: linear-gradient(135deg, #ff9d47, #ff7a1c); color: #1a0f05; border-color: transparent; box-shadow: 0 4px 14px rgba(var(--g-a-rgb), .4); }
 .pv-tablet .pv-fbtag { height: 44px; min-width: 48px; font-size: 15px; }
+
+/* ===== Step 2.9 — 필기 화면 손가락 처리 · 크기 조절기 · 선택 도구 ===== */
+/* 그리는 캔버스에만 touch-action:none (아이패드 · 폰에서 필기가 끊기거나 글자가 선택되는 것을 막음). 악보 화면은 화면 쪽 JS 가 밀기 · 넘기기 · 확대를 처리 */
+.pv-anno { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.pv-stage { -webkit-touch-callout: none; }
+.pv-stage.pv-gest { touch-action: pan-x pan-y; }                  /* 손가락 2개 확대는 JS(터치 이벤트)가 직접 처리 */
+.pv-stage canvas.pv-pdf, .pv-stage .pv-page { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+.pv-num { display: inline-flex; align-items: stretch; flex: none; border: 1px solid var(--g-line2); border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, .08); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.pv-num input[type=number] { width: 44px; padding: 5px 2px; border: 0; background: transparent; color: var(--g-a2); font-size: 15px; font-weight: 800; text-align: center; font-family: inherit; -moz-appearance: textfield; appearance: textfield; outline: none; }
+.pv-num input[type=number]::-webkit-outer-spin-button, .pv-num input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.pv-num:focus-within { border-color: var(--g-a, #ff8a2a); box-shadow: 0 0 0 2px rgba(255, 138, 42, .28); }
+.pv-numbtns { display: flex; flex-direction: column; border-left: 1px solid var(--g-line2); }
+.pv-nb { flex: 1; min-width: 30px; min-height: 18px; padding: 0 6px; border: 0; background: rgba(255, 138, 42, .16); color: var(--g-a2, #ffb066); font-size: 10px; line-height: 1; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.pv-nb + .pv-nb { border-top: 1px solid var(--g-line2); }
+.pv-nb:active { background: rgba(255, 138, 42, .42); }
+.pv-nb:disabled { opacity: .4; }
+.pv-tablet .pv-nb { min-height: 22px; }
+.pv-selhint { font-size: 12px; line-height: 1.45; color: var(--g-sub); padding: 4px 2px; max-width: 220px; }
+.pv-tablet .pv-selhint { max-width: 130px; }
+.pv-del { color: #ff8a8a; }
+.an-editor { -webkit-user-select: text; user-select: text; }
+.pv-fl2 { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; font-weight: 700; color: var(--g-sub); }
+.pv-fl2 > span { flex: none; min-width: 44px; }
+.pv-fl2 input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--g-line2); background: rgba(255, 255, 255, .09); color: var(--g-ink); font-size: 14px; font-family: inherit; }
+.pv-fl2 input:focus { outline: none; border-color: var(--g-a, #ff8a2a); box-shadow: 0 0 0 2px rgba(255, 138, 42, .28); }
+.pv-songedit h4 small { font-weight: 600; color: var(--g-sub); margin-left: 6px; }

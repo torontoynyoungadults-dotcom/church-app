@@ -91,13 +91,14 @@ const S = require('./e2e-server');
   const nTeam = await L.teamCount(pa);
   await pb.evaluate(() => window.__pv.P.setLayer('team'));
   await pb.click('.pv-tool[data-tool="eraser"]');
-  await L.drag(pb, [[.15, .15], [.75, .15]]);        // 형광펜(Alice 것) 위
+  const hy = await pa.evaluate(() => window.__pv.P.anno().items('team').filter((i) => i.t === 'hl')[0].p[1]), hx = await pa.evaluate(() => window.__pv.P.anno().items('team').filter((i) => i.t === 'hl')[0].p[0]);
+  await L.dragPage(pb, [[hx + .2, hy], [hx + .25, hy]]);        // 형광펜(Alice 것) 위 — 필기 캔버스 기준 좌표
   await sleep(500);
   check('B(권한 없음)는 A 필기를 못 지움', await L.teamCount(pb) === nTeam, [await L.teamCount(pb), nTeam]);
   const toast = await pb.evaluate(() => document.querySelector('.pv-toast').textContent);
   check('안내 메시지가 뜸', /지울 수 없습니다/.test(toast), toast);
   await pa.click('.pv-tool[data-tool="eraser"]'); await sleep(350);
-  await L.drag(pa, [[.15, .15], [.75, .15]]);
+  await L.dragPage(pa, [[hx + .2, hy], [hx + .25, hy]]);
   check('A 는 지울 수 있음', await L.waitTrue(pa, (n) => window.__pv.P.anno().items('team').length === n - 1, nTeam));
   check('지운 것이 B 에도 반영', await L.waitTrue(pb, (n) => window.__pv.P.anno().items('team').length === n - 1, nTeam, 2500));
   await pa.keyboard.press('Control+z');

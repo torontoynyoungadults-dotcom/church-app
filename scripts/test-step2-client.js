@@ -147,7 +147,7 @@ function testMetro() {
   s = new M.Sched({ now: () => 0, bpm: 9999 }); eq(s.bpm, 300, 'BPM 상한 300');
   s.setBpm(-5); eq(s.bpm, 30, 'BPM 하한 30');
   s.setBpm('abc'); eq(s.bpm, 30, '숫자가 아닌 BPM 은 하한으로');
-  eq(M.CUES.length, 18, '요청하신 음성 큐 18개');
+  eq(M.CUES.length, 24, '음성 큐 24개 (기본 18 + 반복 · 콜아웃 6: Repeat Chorus · Half Chorus · Tag the last line · Last line again · One more time · One more bar)');
   const want = ['Verse 1', 'Verse 2', 'Verse 3', 'Chorus', 'Bridge', 'Pre-chorus', 'Vamp', 'Interlude', 'Ending', 'Intro', 'Voice', 'Break', 'Die down', 'Fermata', 'Session in', 'Alto in', 'Tenor in', 'Solo'];
   eq(want.filter((w) => !M.CUES.some((c) => c.en === w)), [], '큐 목록: 요청하신 이름이 모두 있음');
   ok(M.CUES.every((c) => c.ko), '모든 큐에 한국어 안내가 있음');

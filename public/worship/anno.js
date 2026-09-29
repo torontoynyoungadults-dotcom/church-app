@@ -21,15 +21,38 @@
   var FBOX_TAGS = ['Int', 'V', 'V1', 'V2', 'V3', 'P', 'C', 'C2', 'B', 'Inst', 'Itld', 'Solo', 'Tag', 'Turn', 'Out', 'Coda', 'End'];
   var FBOX_NAMES = { Int: '인트로', V: '절', V1: '1절', V2: '2절', V3: '3절', P: '프리코러스', C: '후렴', C2: '후렴 2', B: '브릿지', Inst: '연주', Itld: '간주', Solo: '솔로', Tag: '태그', Turn: '턴어라운드', Out: '아웃트로', Coda: '코다', End: '끝' };
   /** 글꼴 — 글자 · 코드 · 글자 모양 기호(음표 도장 · 다이내믹)에 씁니다. 서버는 이 키(sans · serif · hand)만 받습니다 */
-  var FONT_KEYS = ['sans', 'serif', 'hand'];
-  var FONT_NAMES = { sans: '고딕 (Sans-serif)', serif: '명조 (Serif)', hand: '손글씨 (Handwriting)' };
+  var FONT_KEYS = ['sans', 'serif', 'hand', 'pen', 'dodum'];
+  var FONT_NAMES = { sans: '고딕 (Sans-serif)', serif: '명조 (Serif)', hand: '손글씨 (기기 글꼴)', pen: '나눔 펜 손글씨', dodum: '고운돋움 (손글씨체)' };
+  /** 한글 손글씨 웹폰트 (구글 폰트) — 화면 글자 · 코드에 고를 수 있고, 못 받으면 아래 대체 글꼴로 보입니다 */
+  var WEBFONT_URL = 'https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Gowun+Dodum&display=swap';
+  var WEBFONT_FACES = ['Nanum Pen Script', 'Gowun Dodum'];
   var FONTS = {
+    pen: '"Nanum Pen Script","Segoe Print","Bradley Hand","Noteworthy","Apple SD Gothic Neo",cursive',
+    dodum: '"Gowun Dodum","Nanum Gothic","Apple SD Gothic Neo","Malgun Gothic",sans-serif',
     sans: '"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif',
     serif: '"Times New Roman","Noto Serif KR","Apple Myungjo","Batang",Georgia,serif',
     hand: '"Segoe Print","Bradley Hand","Noteworthy","Nanum Pen Script","Comic Sans MS","Apple SD Gothic Neo",cursive'
   };
   var GLYPH_FALLBACK = ',"Segoe UI Symbol","Apple Symbols","Noto Music","DejaVu Sans"';
   var GLYPHS = { quarter: '\u2669', eighth: '\u266a', sharp: '\u266f', flat: '\u266d' };     // ♩ ♪ ♯ ♭
+  /** 웹폰트를 한 번만 불러오고, 다 받으면 바로 다시 그리도록 알려 줍니다 (캔버스는 글꼴이 늦게 오면 예전 모양 그대로라서) */
+  var _fontsAsked = false;
+  function ensureWebFonts(done) {
+    if (typeof document === 'undefined') return;
+    try {
+      if (!_fontsAsked) {
+        _fontsAsked = true;
+        if (!document.getElementById('yn-anno-fonts')) {
+          var pc = document.createElement('link'); pc.rel = 'preconnect'; pc.href = 'https://fonts.gstatic.com'; pc.crossOrigin = 'anonymous'; document.head.appendChild(pc);
+          var lk = document.createElement('link'); lk.id = 'yn-anno-fonts'; lk.rel = 'stylesheet'; lk.href = WEBFONT_URL; document.head.appendChild(lk);
+          lk.onload = function () { if (done) done(); };
+        }
+      }
+      if (document.fonts && document.fonts.load) {
+        Promise.all(WEBFONT_FACES.map(function (f) { return document.fonts.load('24px "' + f + '"', '\uAC00\uB098\uB2E4'); })).then(function () { if (done) done(); }, function () {});
+      }
+    } catch (e) { /* 글꼴을 못 받아도 대체 글꼴로 계속 동작 */ }
+  }
   function textLike(k) { return k.indexOf('dyn:') === 0 || k.indexOf('g:') === 0; }
   function fontOf(it) { return FONTS[it && it.f] ? it.f : 'sans'; }
 
@@ -113,6 +136,16 @@
     var half = k.indexOf('dyn:') === 0 ? { w: s * (DYN_TEXT[k.slice(4)].length * .3 + .2), h: s * .5 } : { w: s * .62, h: s * .55 };
     return { x1: x - half.w, y1: y - half.h, x2: x + half.w, y2: y + half.h };
   }
+
+  /** 선택 표시 · 잡기용 — 글자 · 기호 · 송폼 박스가 차지하는 사각형(px) */
+  function itemBox(it, W, H) {
+    if (it.t === 'text') { var px = Math.max(8, (it.sz || 0.025) * W), w = textWidth(it, W); return { x: it.x * W - 3, y: it.y * H - px - 1, w: w + 6, h: px * 1.3 + 4 }; }
+    if (it.t === 'sym') { var b = symBox(it.k, it, W, H); return { x: b.x1, y: b.y1, w: b.x2 - b.x1, h: b.y2 - b.y1 }; }
+    if (it.t === 'fbox') { var lb = fboxLabel(it, W, H), x0 = Math.min(it.x * W, lb.x), y0 = Math.min(it.y * H, lb.y); return { x: x0, y: y0, w: Math.max(it.x * W + it.w * W, lb.x + lb.w) - x0, h: Math.max(it.y * H + it.h * H, lb.y + lb.h) - y0 }; }
+    return null;
+  }
+  function movable(it) { return !!it && (it.t === 'text' || it.t === 'sym' || it.t === 'fbox'); }
+  var SZ_RANGE = { text: [0.012, 0.08], sym: [0.012, 0.12], fbox: [0.008, 0.06] };
 
   /* ------------------------------------------------------------ 송폼 박스 도우미 */
   function isLightColor(c) { var m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c || ''); return !!m && (parseInt(m[1], 16) * 0.3 + parseInt(m[2], 16) * 0.59 + parseInt(m[3], 16) * 0.11) > 170; }
@@ -222,7 +255,7 @@
     var cv = o.canvas, host = o.host, ctx = cv.getContext('2d');
     var S = { layers: { team: new Map(), mine: new Map() }, vis: { team: true, mine: true }, page: 1, tool: 'none', color: PALETTE[0], hlColor: HL_COLORS[0],
       pw: 0.003, hw: 0.02, sym: 'sharp', fboxTag: 'V',  symSize: 0.032, textSize: 0.024, font: 'sans', layer: 'team', W: 1, H: 1, dpr: 1, cur: null, live: new Map(), hist: [], redo: [],
-      sawPen: false, fboxSize: 0.02, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
+      sawPen: false, sel: null, fboxSize: 0.02, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
     function say(t, bad) { try { if (o.onMessage) o.onMessage(t, !!bad); } catch (e) {} }
     function changed() { try { if (o.onChange) o.onChange(); } catch (e) {} }
 
@@ -257,6 +290,18 @@
       } else if (S.cur && (S.cur.kind === 'sym' || S.cur.kind === 'fbox')) {
         drawItem(ctx, S.cur.item, S.W, S.H, { alpha: 0.75 });
       }
+      var si = selItem();
+      if (si && si.pg === S.page && S.vis[S.sel.layer]) drawSel(ctx, si);
+    }
+    /** 선택한 항목 둘레의 점선 테두리 + 모서리 점 (끌어서 옮길 수 있다는 표시) */
+    function selItem() { return S.sel && S.layers[S.sel.layer] ? (S.layers[S.sel.layer].get(S.sel.id) || null) : null; }
+    function drawSel(c, it) {
+      var b = itemBox(it, S.W, S.H); if (!b) return;
+      var pad = 4, x = b.x - pad, y = b.y - pad, w = b.w + pad * 2, h = b.h + pad * 2;
+      c.save(); c.setLineDash([6, 4]); c.lineWidth = 2; c.strokeStyle = '#ff8a2a'; c.strokeRect(x, y, w, h); c.setLineDash([]);
+      c.fillStyle = '#ff8a2a'; c.strokeStyle = '#fff'; c.lineWidth = 1.5;
+      [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(function (q) { c.beginPath(); c.rect(q[0] - 4, q[1] - 4, 8, 8); c.fill(); c.stroke(); });
+      c.restore();
     }
 
     /* ---- 항목 추가 · 삭제 (되돌리기 기록 포함) ---- */
@@ -290,8 +335,11 @@
     function refreshTouch() {
       cv.style.pointerEvents = drawing() ? 'auto' : 'none';
       var lockTouch = S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen);
-      cv.style.touchAction = !drawing() ? 'auto' : lockTouch ? 'pan-x pan-y pinch-zoom' : 'none';
-      cv.style.cursor = !drawing() ? '' : S.tool === 'eraser' ? 'cell' : S.tool === 'fbox' ? 'crosshair' : S.tool === 'text' || S.tool === 'chord' ? 'text' : 'crosshair';
+      // 그리는 캔버스는 손가락이든 애플 펜슬이든 브라우저가 스크롤 · 확대로 가로채지 못하게 항상 none (필기가 끊기는 문제).
+      // 손가락을 "펜만 그림" 으로 막아 둔 경우의 스크롤 · 스와이프 · 핀치는 화면 쪽 터치 처리(practice.js)가 직접 합니다.
+      void lockTouch;
+      cv.style.touchAction = 'none'; cv.style.webkitUserSelect = 'none'; cv.style.userSelect = 'none'; cv.style.webkitTouchCallout = 'none';
+      cv.style.cursor = !drawing() ? '' : S.tool === 'select' ? 'move' : S.tool === 'eraser' ? 'cell' : S.tool === 'fbox' ? 'crosshair' : S.tool === 'text' || S.tool === 'chord' ? 'text' : 'crosshair';
     }
     function activeColor() { return S.tool === 'hl' ? S.hlColor : S.color; }
 
@@ -309,6 +357,27 @@
       return gone;
     }
 
+    /** 누른 자리의 옮길 수 있는 항목 (글자 · 코드 · 기호 · 송폼 박스) — 위에 그려진 것부터 */
+    function pickMovable(px, py, touch) {
+      var tol = touch ? 14 : 7, found = null;
+      ['team', 'mine'].forEach(function (ly) {
+        if (!S.vis[ly]) return;
+        pageItems(ly, S.page).forEach(function (it) {
+          if (!movable(it)) return;
+          var b = itemBox(it, S.W, S.H);
+          var inBox = it.t !== 'fbox' && b && px >= b.x - tol && px <= b.x + b.w + tol && py >= b.y - tol && py <= b.y + b.h + tol;
+          if (inBox || hit(it, px, py, S.W, S.H, tol)) found = { layer: ly, item: it };
+        });
+      });
+      return found;
+    }
+    function startMove(e, g, p, editOnTap) {
+      var was = !!(S.sel && S.sel.id === g.item.id && S.sel.layer === g.layer);
+      S.sel = { layer: g.layer, id: g.item.id };
+      S.cur = { kind: 'move', ptr: e.pointerId, layer: g.layer, orig: g.item, item: Object.assign({}, g.item), x0: p.x, y0: p.y, px0: e.clientX, py0: e.clientY,
+        moved: false, editOnTap: !!editOnTap, wasSel: was, locked: !canModify(g.layer, g.item), warned: false };
+      invalidate(); changed();
+    }
     function onDown(e) {
       if (!drawing() || S.dead) return;
       if (e.pointerType === 'pen') { if (!S.sawPen) { S.sawPen = true; refreshTouch(); } }
@@ -320,7 +389,11 @@
       e.preventDefault();
       try { cv.setPointerCapture(e.pointerId); } catch (x) {}
       var p = norm(e), touch = e.pointerType === 'touch';
-      if (S.tool === 'pen' || S.tool === 'hl') {
+      if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord' && S.sel) { S.sel = null; changed(); }
+      if (S.tool === 'select') {
+        var g = pickMovable(p.x * S.W, p.y * S.H, touch);
+        if (g) startMove(e, g, p, false); else if (S.sel) { S.sel = null; invalidate(); changed(); }
+      } else if (S.tool === 'pen' || S.tool === 'hl') {
         S.cur = { kind: S.tool, id: newId(), ptr: e.pointerId, p: [p.x, p.y], color: activeColor(), w: S.tool === 'hl' ? S.hw : S.pw, sent: 0, fresh: true, straight: S.tool === 'hl' && S.straight, touch: touch };
         invalidate();
       } else if (S.tool === 'eraser') { S.cur = { kind: 'erase', ptr: e.pointerId, touch: touch }; eraseAt(p.x * S.W, p.y * S.H); }
@@ -331,12 +404,24 @@
       } else if (S.tool === 'fbox') {
         S.cur = { kind: 'fbox', ptr: e.pointerId, x0: p.x, y0: p.y, moved: false, item: { id: newId(), t: 'fbox', pg: S.page, c: S.color, x: r4(p.x), y: r4(p.y), w: 0.001, h: 0.001, sz: S.fboxSize, k: S.fboxTag } };
         invalidate();
-      } else if (S.tool === 'text' || S.tool === 'chord') { S.cur = { kind: 'textpos', ptr: e.pointerId, x: p.x, y: p.y }; }
+      } else if (S.tool === 'text' || S.tool === 'chord') {
+        var g2 = pickMovable(p.x * S.W, p.y * S.H, touch);
+        if (g2 && g2.item.t === 'text' && canModify(g2.layer, g2.item)) startMove(e, g2, p, true);              // 글자를 누르면: 그냥 떼면 고치기 · 끌면 옮기기
+        else S.cur = { kind: 'textpos', ptr: e.pointerId, x: p.x, y: p.y };
+      }
     }
     function onMove(e) {
       var c = S.cur; if (!c || e.pointerId !== c.ptr) return;
       var list = (e.getCoalescedEvents && e.getCoalescedEvents()) || [e]; if (!list.length) list = [e];
-      if (c.kind === 'pen' || c.kind === 'hl') {
+      if (c.kind === 'move') {
+        if (!c.moved && Math.hypot(e.clientX - c.px0, e.clientY - c.py0) < 5) return;                           // 살짝 흔들린 것은 "누름"으로
+        if (c.locked) { if (!c.warned) { c.warned = true; say('다른 사람이 쓴 필기는 옮길 수 없습니다. (팀장 · 인도자만 가능)', true); } return; }
+        c.moved = true;
+        var qm = norm(e), o0 = c.orig, it0 = c.item, dx = qm.x - c.x0, dy = qm.y - c.y0;
+        if (o0.t === 'fbox') { it0.x = r4(clamp(o0.x + dx, 0, 1 - (o0.w || 0))); it0.y = r4(clamp(o0.y + dy, 0, 1 - (o0.h || 0))); }
+        else { it0.x = r4(clamp(o0.x + dx, 0, 1)); it0.y = r4(clamp(o0.y + dy, 0, 1)); }
+        S.layers[c.layer].set(it0.id, it0); invalidate();                                                       // 미리보기: 옮기는 동안은 새 자리에 그려짐
+      } else if (c.kind === 'pen' || c.kind === 'hl') {
         for (var i = 0; i < list.length; i++) {
           var q = norm(list[i]), n = c.p.length;
           if (n >= 6000) break;
@@ -362,8 +447,18 @@
       var c = S.cur; if (!c || e.pointerId !== c.ptr) return;
       S.cur = null;
       try { cv.releasePointerCapture(e.pointerId); } catch (x) {}
-      if (e.type === 'pointercancel') { invalidate(); return; }
-      if (c.kind === 'pen' || c.kind === 'hl') {
+      if (e.type === 'pointercancel') { if (c.kind === 'move') S.layers[c.layer].set(c.orig.id, c.orig); invalidate(); return; }
+      if (c.kind === 'move') {
+        if (!c.moved) {
+          S.layers[c.layer].set(c.orig.id, c.orig);
+          if (c.editOnTap) { S.sel = null; openEditor(c.orig.x, c.orig.y, c.orig, c.layer); }
+          else if (c.wasSel && c.orig.t === 'text' && !c.locked) openEditor(c.orig.x, c.orig.y, c.orig, c.layer);       // 선택된 글자를 한 번 더 누르면 고치기
+          changed();
+        } else {
+          var after = Object.assign({}, c.item, { ts: Date.now() });
+          put(c.layer, after); record({ op: 'edit', layer: c.layer, before: c.orig, after: after });
+        }
+      } else if (c.kind === 'pen' || c.kind === 'hl') {
         var p = c.p; if (p.length < 4) p = [p[0], p[1], p[0] + 0.0005, p[1]];
         if (c.straight && p.length > 4) p = p.slice(0, 2).concat(p.slice(-2));
         p = limitPoints(p, 1400);
@@ -454,6 +549,13 @@
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove);
     cv.addEventListener('pointerup', function (e) { onUp(e); }); cv.addEventListener('pointercancel', function (e) { onUp(e); });
     cv.addEventListener('contextmenu', function (e) { if (drawing()) e.preventDefault(); });
+    /* 아이패드 · 폰: 그리는 동안 글자 선택 · 스크롤 · 확대가 끼어들어 필기가 끊기는 것을 막습니다 (그리는 캔버스에만 적용) */
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (n) {
+      cv.addEventListener(n, function (e) { if (drawing() && e.cancelable) e.preventDefault(); }, { passive: false });
+    });
+    cv.addEventListener('selectstart', function (e) { if (drawing()) e.preventDefault(); });
+    cv.addEventListener('dragstart', function (e) { e.preventDefault(); });
+    ensureWebFonts(function () { invalidate(); });
     refreshTouch();
 
     /* ---- 바깥에서 부르는 함수 ---- */
@@ -463,8 +565,8 @@
         S.W = Math.max(1, Math.round(cssW)); S.H = Math.max(1, Math.round(cssH));
         cv.width = Math.round(S.W * S.dpr); cv.height = Math.round(S.H * S.dpr); cv.style.width = S.W + 'px'; cv.style.height = S.H + 'px'; invalidate();
       },
-      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; S.cur = null; invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
-      setTool: function (t) { closeEditor(true); S.tool = ['none', 'pen', 'hl', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; S.cur = null; refreshTouch(); invalidate(); },
+      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; S.cur = null; S.sel = null; invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
+      setTool: function (t) { closeEditor(true); S.tool = ['none', 'pen', 'hl', 'select', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; S.cur = null; if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord') S.sel = null; changed(); refreshTouch(); invalidate(); },
       setColor: function (c) {
         if (!/^#[0-9a-f]{6}$/i.test(c)) return;
         if (S.tool === 'hl') S.hlColor = c; else S.color = c;
@@ -488,6 +590,30 @@
       remoteClear: function (ly, ids) { (ids || []).forEach(function (id) { S.layers[ly].delete(id); }); invalidate(); changed(); },
       remoteLive: function (m) { if (!m || !m.id) return; var old = S.live.get(m.id); S.live.set(m.id, { id: m.id, t: m.t, pg: m.pg, c: m.c, w: m.w, p: m.p, by: m.by, at: Date.now() }); invalidate(); },
       undo: undo, redo: redo,
+      /** 그리던 획 · 옮기던 항목을 저장하지 않고 버림 (손가락 두 개로 확대를 시작할 때) */
+      cancelCurrent: function () { var c = S.cur; if (!c) return false; S.cur = null; if (c.kind === 'move' && S.layers[c.layer]) S.layers[c.layer].set(c.orig.id, c.orig); invalidate(); return true; },
+      /** 선택한 항목 (없으면 null) — 화면 도구줄이 크기 · 글꼴 칸을 맞추는 데 씁니다 */
+      selected: function () { var it = selItem(); return it ? { layer: S.sel.layer, id: it.id, t: it.t, sz: it.sz, f: it.f, c: it.c, s: it.s, chord: it.chord, canModify: canModify(S.sel.layer, it) } : null; },
+      select: function (layer, id) { if (S.layers[layer] && S.layers[layer].get(id)) { S.sel = { layer: layer, id: id }; invalidate(); changed(); return true; } return false; },
+      deselect: function () { if (S.sel) { S.sel = null; invalidate(); changed(); } },
+      deleteSelected: function () {
+        var it = selItem(); if (!it) return false;
+        if (!canModify(S.sel.layer, it)) { say('다른 사람이 쓴 필기는 지울 수 없습니다.', true); return false; }
+        var ly = S.sel.layer, t = take(ly, it.id); S.sel = null; if (t) record({ op: 'del', layer: ly, item: t }); return !!t;
+      },
+      /** 선택 항목 고치기 — patch: { sz, f, c } 중 필요한 것만. 되돌리기 가능 · 같은 자리에서 실시간 전파 */
+      editSelected: function (patch) {
+        var it = selItem(); if (!it || !patch) return false;
+        var ly = S.sel.layer; if (!canModify(ly, it)) { say('다른 사람이 쓴 필기는 고칠 수 없습니다.', true); return false; }
+        var after = Object.assign({}, it, { ts: Date.now() }), rng = SZ_RANGE[it.t] || SZ_RANGE.text, ch = false;
+        if (patch.sz != null && isFinite(+patch.sz)) { var nz = r4(clamp(+patch.sz, rng[0], rng[1])); if (nz !== it.sz) { after.sz = nz; ch = true; } }
+        if (patch.f != null && it.t === 'text' && FONTS[patch.f]) { if (patch.f === 'sans') { if (after.f != null) { delete after.f; ch = true; } } else if (after.f !== patch.f) { after.f = patch.f; ch = true; } }
+        if (patch.c != null && /^#[0-9a-f]{6}$/i.test(patch.c) && after.c !== patch.c) { after.c = patch.c; ch = true; }
+        if (!ch) return false;
+        put(ly, after); record({ op: 'edit', layer: ly, before: it, after: after }); return true;
+      },
+      /** 손가락으로 그려지는 상태인가 (펜만 그림 모드에서는 손가락이 화면 밀기 · 넘기기 · 확대에 쓰임) */
+      fingerDraws: function () { return !(S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen)); },
       clearPage: function (ly, all) {
         var ids = [], gone = [];
         pageItems(ly, S.page).forEach(function (it) { if (mine(it) || ly === 'mine' || (all && S.canEdit)) { ids.push(it.id); gone.push(it); } });
@@ -500,7 +626,7 @@
       items: function (ly) { return Array.from(S.layers[ly].values()); },
       count: function (pg) { var n = 0; ['team', 'mine'].forEach(function (ly) { S.layers[ly].forEach(function (i) { if (pg == null || i.pg === pg) n++; }); }); return n; },
       drawPage: drawPage,
-      state: function () { return { fboxTag: S.fboxTag, cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },
+      state: function () { return { fboxTag: S.fboxTag, cur: S.cur ? S.cur.kind : null, ed: !!S.editor, tool: S.tool, sel: S.sel ? { layer: S.sel.layer, id: S.sel.id } : null, layer: S.layer, page: S.page, color: S.color, font: S.font, textSize: S.textSize, symSize: S.symSize, edColor: S.editor ? S.editor.color : null, sawPen: S.sawPen, canUndo: S.hist.length > 0, canRedo: S.redo.length > 0, vis: Object.assign({}, S.vis), penMode: S.penMode }; },
       redraw: redraw, closeEditor: function () { closeEditor(true); },
       destroy: function () { S.dead = true; closeEditor(false); try { cv.remove(); } catch (e) {} }
     };

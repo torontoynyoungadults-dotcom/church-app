@@ -31,7 +31,14 @@ async function drag(page, pts) {
   for (let i = 1; i < pts.length; i++) await page.mouse.move(b.x + pts[i][0] * b.width, b.y + pts[i][1] * b.height, { steps: 4 });
   await page.mouse.up();
 }
+/** 악보(필기 캔버스) 전체 기준의 좌표(0~1)로 끌기 — 화면 배치가 바뀌어도 필기 항목 위를 정확히 지나감 */
+async function dragPage(page, pts) {
+  const b = await page.locator('.pv-anno').boundingBox();
+  await page.mouse.move(b.x + pts[0][0] * b.width, b.y + pts[0][1] * b.height); await page.mouse.down();
+  for (let i = 1; i < pts.length; i++) await page.mouse.move(b.x + pts[i][0] * b.width, b.y + pts[i][1] * b.height, { steps: 6 });
+  await page.mouse.up();
+}
 async function clickAt(page, fx, fy) { const b = await vis(page); await page.mouse.click(b.x + fx * b.width, b.y + fy * b.height); }
 async function ensureTool(page, t) { const cur = await page.evaluate(() => (window.__pv = window.__pv && window.__pv.P ? window.__pv : window.YNPractice.current()).P.anno().state().tool); if (cur !== t) await page.click('.pv-tool[data-tool="' + t + '"]'); }
 function summary() { console.log(`\n통과 ${pass} · 실패 ${fail}`); if (fail) console.log('실패:', fails.join(' | ')); return fail === 0; }
-module.exports = { vis, ensureTool, check, sleep, launch, waitTrue, opened, overlayPx, pdfInk, teamCount, mineCount, drag, clickAt, summary };
+module.exports = { vis, ensureTool, check, sleep, launch, waitTrue, opened, overlayPx, pdfInk, teamCount, mineCount, drag, dragPage, clickAt, summary };

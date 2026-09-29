@@ -227,7 +227,7 @@
       '<div class="ht-row"><label class="ht-f"><span>날짜</span><input type="date" data-r="date" value="' + h(day) + '"></label>' +
         '<label class="ht-f grow"><span>인도자</span><input type="text" data-r="leader" maxlength="30" list="htLeaders" value="' + h(C.who() || '') + '" autocomplete="off"></label>' +
         '<datalist id="htLeaders">' + (C.people ? C.people() : []).map(function (n) { return '<option value="' + h(n) + '">'; }).join('') + '</datalist>' +
-        '<label class="ht-f sm"><span>Key</span><input type="text" data-r="key" maxlength="8"></label><label class="ht-f sm"><span>BPM</span><input type="number" data-r="bpm" min="30" max="300" inputmode="numeric"></label></div>' +
+        '<label class="ht-f sm"><span>Key</span><input type="text" data-r="key" maxlength="8"></label><label class="ht-f sm"><span>BPM</span><input type="number" data-r="bpm" min="30" max="300" step="1" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off"></label></div>' +
       '<label class="ht-f"><span>메모 (선택)</span><input type="text" data-r="note" maxlength="200" placeholder="예: 2절까지 · 결단 버전"></label>' +
       '<div class="ht-foot"><button type="button" class="ht-b primary" data-r="save" disabled>저장소에 저장</button><button type="button" class="ht-b ghost" data-r="cancel">닫기</button></div>';
     var say = msgBox(m.body);

@@ -111,6 +111,7 @@
         m.setBpm(v); if (mode === 'send') sendSoon({});
       } else if (kind === 'sig') { m.setSig(a, b2); if (mode === 'send') sendSoon({ keep: false });
       } else if (kind === 'mark') { res.on = m.toggleMark(a); if (mode === 'send') sendState({ keep: true }); }
+      else if (kind === 'marks') { m.setMarks(a); if (mode === 'send') sendState({ keep: true }); }
       if (mUi) mUi.sync();
       return res;
     }
@@ -219,6 +220,39 @@
           '<label class="pv-chk"><input type="checkbox" data-o="cue" checked> 칸을 누르면 음성 큐로 알려주기 (박자가 돌고 있으면 박에 맞춰)</label>' +
           '<label class="pv-chk pv-penrow">큐 언어 <select data-o="lang"><option value="en">English (Verse 1 …)</option><option value="ko">한국어 (1절 …)</option></select></label>' +
           '<p class="pv-help">칸을 누르면 지금 위치가 밝게 표시됩니다. 리더가 "팀에 큐 보내기"를 켜 두었다면 팀원 기기에서도 같은 큐가 들립니다. 송폼은 곡 정보의 "송폼 만들기"에서 고칩니다.</p></div>';
+      /* 곡 정보 고치기 — BPM · 송폼 · 유튜브 링크. 팀장 · 인도자는 팀 전체에 (실시간), "나만 보기" 이거나 팀원이면 나에게만 저장 */
+      host.insertAdjacentHTML('beforeend', '<div class="pv-sec pv-songedit"><h4>곡 정보 고치기 <small>BPM · 송폼 · 유튜브</small></h4>' +
+        '<label class="pv-fl2"><span>BPM</span><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" maxlength="3" data-e="bpm" autocomplete="off" placeholder="예: 72"></label>' +
+        '<label class="pv-fl2"><span>송폼</span><input type="text" data-e="form" maxlength="120" autocomplete="off" placeholder="예: Int V1 C V2 C B C"></label><div data-role="formb"></div>' +
+        '<label class="pv-fl2"><span>유튜브</span><input type="url" inputmode="url" data-e="link" autocomplete="off" placeholder="https://youtu.be/…"></label>' +
+        '<div class="pv-row"><button type="button" class="pv-btn2 primary" data-a="saveinfo">저장</button></div><div class="pv-msg2" data-role="infomsg"></div><div class="pv-help" data-role="infowhere"></div></div>');
+      var eBpm = host.querySelector('[data-e="bpm"]'), eForm = host.querySelector('[data-e="form"]'), eLink = host.querySelector('[data-e="link"]'), eMsg = host.querySelector('[data-role="infomsg"]'), eWhere = host.querySelector('[data-role="infowhere"]');
+      var fb = root.YNForm.mount ? root.YNForm.mount(host.querySelector('[data-role="formb"]'), { value: '', onChange: function (str) { eForm.value = str; } }) : null;
+      function infoWhere() {
+        eWhere.textContent = P.cfgLayer() === 'team' ? '저장하면 팀 모두의 화면에 실시간으로 바뀝니다. (허브의 곡 정보와 같은 값입니다)'
+          : P.canTeam() ? '"나만 보기" 가 켜져 있어 나에게만 저장됩니다. 팀에 공유하려면 필기 도구의 "나만 보기" 를 끄세요.' : '팀 공유는 팀장 · 인도자만 할 수 있어서 나에게만 저장됩니다.';
+      }
+      function fillInfo(force) {
+        var s = P.song(); if (!s) { eBpm.value = eForm.value = eLink.value = ''; return; }
+        var a = doc.activeElement;
+        if (force || a !== eBpm) eBpm.value = s.bpm || '';
+        if (force || a !== eForm) { eForm.value = s.form || ''; if (fb) fb.set(eForm.value); }
+        if (force || a !== eLink) eLink.value = s.link || '';
+        infoWhere();
+      }
+      eForm.addEventListener('change', function () { if (fb) fb.set(eForm.value); });
+      host.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-a="saveinfo"]') : null; if (!b) return;
+        var i = P.songIdx(), s = P.song(); if (!s) { eMsg.textContent = '먼저 곡을 골라주세요.'; eMsg.className = 'pv-msg2 bad'; return; }
+        var patch = {}, bpm = String(eBpm.value || '').replace(/[^0-9]/g, '');
+        if (bpm !== String(s.bpm || '')) { if (bpm && (+bpm < 30 || +bpm > 300)) { eMsg.textContent = 'BPM 은 30 ~ 300 사이로 넣어주세요.'; eMsg.className = 'pv-msg2 bad'; return; } patch.bpm = bpm; }
+        if (String(eForm.value || '').trim() !== String(s.form || '')) patch.form = String(eForm.value || '').trim();
+        var lk = String(eLink.value || '').trim();
+        if (lk !== String(s.link || '')) { if (lk && !/^https?:\/\//i.test(lk)) { eMsg.textContent = '링크는 http 로 시작하는 주소여야 합니다.'; eMsg.className = 'pv-msg2 bad'; return; } patch.link = lk; }
+        if (!Object.keys(patch).length) { eMsg.textContent = '바뀐 내용이 없습니다.'; eMsg.className = 'pv-msg2'; return; }
+        b.disabled = true; eMsg.textContent = '저장 중…'; eMsg.className = 'pv-msg2';
+        P.saveSongInfo(i, patch, function (ok) { b.disabled = false; eMsg.textContent = ok ? '저장했습니다.' : '저장하지 못했습니다.'; eMsg.className = 'pv-msg2' + (ok ? '' : ' bad'); if (ok) fillInfo(true); });
+      });
       var sel = host.querySelector('[data-role="song"]'), meta = host.querySelector('[data-role="meta"]'), player = null, cur = -1;
       function fill() {
         sel.innerHTML = '<option value="-1">곡 선택…</option>' + P.songs.map(function (s, i) { return '<option value="' + i + '">' + h((i + 1) + '. ' + s.title) + '</option>'; }).join('');
@@ -227,7 +261,8 @@
       function song() {
         var s = P.song(); fill(); cur = -1;
         meta.textContent = s ? [s.key ? 'Key ' + s.key : '', s.bpm ? s.bpm + ' BPM' : '', s.team || ''].filter(Boolean).join(' · ') : '악보에 해당하는 곡을 골라주세요.';
-        if (player) player.set(s ? s.form : ''); 
+        if (player) player.set(s ? s.form : '');
+        fillInfo(true); eMsg.textContent = '';
       }
       function pick(tok, i, num) {
         cur = i; var id = P.cueIdFor(num && num.cueKey || tok.k);
@@ -243,16 +278,16 @@
         if (b.dataset.a === 'next') { var t = player.next(); cur = Math.min(list.length - 1, cur + 1); var num = root.YNForm.numbered(list)[cur]; if (host.querySelector('[data-o="cue"]').checked && num) { var id = P.cueIdFor(num.cueKey); if (id) doCue(id); } }
         else { cur = Math.max(0, cur - 1); player.setCurrent(cur); }
       });
-      P.on('song', song); song();
-      return { onShow: fill };
+      P.on('song', song); P.on('songedit', function () { song(); }); P.on('songs', function () { song(); }); P.on('layer', infoWhere); song();
+      return { onShow: function () { fill(); infoWhere(); } };
     } });
 
     /* ------------------------------------------------------------ 메트로놈 + 음성 큐 */
     tabs.push({ id: 'metro', icon: '⏱', label: '메트로놈', build: function (host) {
       var m = metro(); if (!need('메트로놈', m, host)) return;
-      var CUES = root.YNMetro.CUES, GROUPS = [['sec', '진행'], ['dyn', '다이내믹'], ['in', '들어가기']];
+      var CUES = root.YNMetro.CUES, GROUPS = [['sec', '진행'], ['rep', '반복 · 콜아웃'], ['dyn', '다이내믹'], ['in', '들어가기']];
       host.innerHTML =
-        '<div class="pv-sec pv-metrosec"><div class="pv-syncnote" data-role="syncnote"></div><div class="pv-bpmrow"><button class="pv-btn2 sq" data-a="b-">−</button><input class="pv-bpm" type="number" inputmode="numeric" min="30" max="300" data-role="bpm" aria-label="BPM"><button class="pv-btn2 sq" data-a="b+">＋</button><button class="pv-btn2" data-a="tap">TAP</button></div>' +
+        '<div class="pv-sec pv-metrosec"><div class="pv-syncnote" data-role="syncnote"></div><div class="pv-bpmrow"><button class="pv-btn2 sq" data-a="b-">−</button><input class="pv-bpm" type="number" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" min="30" max="300" step="1" data-role="bpm" aria-label="BPM"><button class="pv-btn2 sq" data-a="b+">＋</button><button class="pv-btn2" data-a="tap">TAP</button></div>' +
           '<div class="pv-row"><label class="pv-chk">박자 <select data-o="sig"><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option><option value="6/8">6/8</option><option value="12/8">12/8</option></select></label>' +
           '<label class="pv-chk">시작 전 <select data-o="count"><option value="0">바로</option><option value="1">1마디</option><option value="2">2마디</option></select></label></div>' +
           '<div class="pv-dots" data-role="dots" role="group" aria-label="박 — 눌러서 > 강세 켜고 끄기"></div>' +
@@ -271,6 +306,8 @@
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
           '<label class="pv-chk">큐 언어 <select data-o="lang"><option value="en">English</option><option value="ko">한국어</option></select></label>' +
+          '<label class="pv-chk">음성 <select data-o="gender"><option value="male">남성 목소리 (기본)</option><option value="female">여성 목소리</option><option value="any">기기 기본</option></select></label>' +
+          '<div class="pv-help" data-role="voiceinfo"></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="first" checked> 첫 박 강세 (1박을 더 높고 크게)</label>' +
           '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-help" data-role="lat"></div></div>' +
@@ -316,7 +353,9 @@
         else if (P.manual() && rt && rt.online) note.innerHTML = '⛔ <b>동기화 꺼짐</b> — 이 메트로놈은 혼자 움직입니다. <button class="pv-btn2" data-a="manualoff">동기화 다시 켜기</button>';
         else note.textContent = '';
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
-        q('[data-o="lang"]').value = c.lang; q('[data-o="sound"]').value = c.sound;
+        q('[data-o="lang"]').value = c.lang; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.gender || 'male';
+        var vi = m.voiceInfo ? m.voiceInfo(c.lang) : null;
+        q('[data-role="voiceinfo"]').textContent = !st.speech ? '' : vi ? '사용 음성: ' + vi.name + (c.gender === 'male' ? (vi.male ? ' (남성)' : ' — 이 기기에서 남성 음성을 못 찾아 낮은 음높이로 대신합니다') : '') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…';
         q('[data-role="lat"]').textContent = st.speech ? '음성 지연 보정: 약 ' + Math.round(c.lat) + 'ms (말하는 데 걸리는 시간을 기기가 스스로 재서 박자에 맞춥니다)' : '';
         q('[data-o="send"]').checked = P.sendCueOn(); q('[data-o="recv"]').checked = P.recvCue();
         var pend = st.pending && st.pending.length ? '대기 중: ' + st.pending.map(function (p) { return p.label; }).join(', ') : '';
@@ -329,7 +368,7 @@
           var d = ds[e.beat]; if (d) { d.classList.add('on'); if (e.countIn) d.classList.add('ci'); }
         },
         event: function (kind, d) {
-          if (kind === 'state') sync();
+          if (kind === 'state') { sync(); if (pendingCfg && !m.state().running) { pendingCfg = false; setTimeout(function () { applySongBpm(P.song(), false); }, 0); } }
           else if (kind === 'error') { say(d && d.message, true); P.toast(d && d.message || '소리를 낼 수 없습니다.', true); }
           else if (kind === 'info') say(d && d.message);
           else if (kind === 'speechError') say('음성 안내를 재생하지 못했습니다 — 대신 "삐" 소리로 알려드립니다.', true);
@@ -339,7 +378,7 @@
       };
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
-        if (b.dataset.beat != null && b.dataset.beat !== '') { var rb = act('mark', +b.dataset.beat); if (rb && rb.ok === false && !rb.locked) say(rb.error || '', true); return; }
+        if (b.dataset.beat != null && b.dataset.beat !== '') { var rb = act('mark', +b.dataset.beat); if (rb && rb.ok === false && !rb.locked) say(rb.error || '', true); else saveMetroSoon(); return; }
         if (b.dataset.a === 'manualon') { P.setManual(true); return; }
         if (b.dataset.a === 'manualoff') { P.setManual(false); return; }
         if (b.dataset.cue) { var r = doCue(b.dataset.cue); if (r && r.ok) { b.classList.add('flash'); setTimeout(function () { b.classList.remove('flash'); }, 350); } return; }
@@ -353,27 +392,60 @@
       /* 곡 자동 BPM — 악보 쪽을 넘겨 다음 곡이 되면 리더가 곡 정보에 넣어 둔 BPM 을 자동으로 적용합니다.
          곡 정보에 BPM 이 없거나 현장에서 바꾸고 싶으면 그대로 고치면 됩니다 (−/＋ · 탭 · 직접 입력). 고친 값은 그 곡에만 기억되어 다시 돌아와도 유지됩니다. */
       var bpmOver = {}, curSongKey = '';
-      function rememberBpm() { if (curSongKey) bpmOver[curSongKey] = Math.round(m.state().bpm); }
+      function rememberBpm() { if (curSongKey) bpmOver[curSongKey] = Math.round(m.state().bpm); saveMetroSoon(); }
       onBpmUser = rememberBpm;
       host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-a="b-"],[data-a="b+"],[data-a="tap"]')) setTimeout(rememberBpm, 0); });
-      function applySongBpm(x) {
+      /* 곡별 메트로놈 설정(박자 · 강세 · 시작 전 마디 · BPM)을 팀과 함께 저장 · 실시간 공유 — 저장은 P.cfgSet (나만 보기 · 권한은 거기서 처리) */
+      var applyingCfg = false, saveT = 0, pendingCfg = false;
+      function saveMetroSoon() {
+        if (applyingCfg || !curSongKey) return;
+        clearTimeout(saveT);
+        saveT = setTimeout(function () {
+          var st = m.state(); if (!curSongKey) return;
+          P.cfgSet('metro', curSongKey, { num: st.num, den: st.den, marks: st.marks.map(function (x) { return x ? (x === 2 ? 2 : 1) : 0; }), count: mUi ? Math.min(2, mUi.count()) : 0, bpm: Math.round(st.bpm) });
+        }, 700);
+      }
+      function applyMetroCfg(fromRemote) {
+        var mc = curSongKey ? P.cfgGet('metro', curSongKey) : null; if (!mc) return false;
+        if (ctl() === 'locked') return false;                                       // 클릭 컨트롤의 박자를 따르는 중
+        if (m.state().running && fromRemote) { pendingCfg = true; say('팀 메트로놈 설정이 바뀌었습니다 — 멈추면 적용됩니다.'); return false; }
+        applyingCfg = true;
+        try {
+          var st = m.state();
+          if (mc.num && (mc.num !== st.num || mc.den !== st.den)) act('sig', mc.num, mc.den);
+          if (Array.isArray(mc.marks) && mc.marks.length === m.state().num) act('marks', mc.marks);
+          if (mc.count != null && mUi) { var cs = q('[data-o="count"]'); if (cs) cs.value = String(Math.min(2, mc.count)); }
+          if (mc.bpm >= 30 && mc.bpm <= 300 && Math.round(m.state().bpm) !== mc.bpm) { bpmOver[curSongKey] = mc.bpm; act('bpm', mc.bpm); }
+          if (mUi) { drawDots(m.state().num, m.state().marks); mUi.sync(); }
+        } finally { applyingCfg = false; }
+        return true;
+      }
+      function applySongBpm(x, fromSync) {
         if (!x) { curSongKey = ''; return; }
         curSongKey = String(x.title || '');
+        if (pendingCfg && !m.state().running) pendingCfg = false;
+        var got = applyMetroCfg(!!fromSync);
+        if (got) { say('팀 · 내 메트로놈 설정(' + Math.round(m.state().bpm) + ' BPM · ' + m.state().num + '/' + m.state().den + ')을 적용했습니다.'); return; }
         var own = bpmOver[curSongKey], base = Math.round(+x.bpm);
         var v = own || (base >= 30 && base <= 300 ? base : 0);
         if (!v) { say('이 곡에는 BPM 이 없습니다. 직접 입력하거나 탭 템포를 쓰세요.'); return; }
         if (ctl() === 'locked') { say(''); return; }                             // 클릭 컨트롤의 BPM 을 따르는 중
-        if (Math.round(m.state().bpm) !== v) act('bpm', v);
+        if (fromSync && m.state().running) { say('곡 정보의 BPM 이 ' + v + ' 로 바뀌었습니다 — 멈추면 적용됩니다.'); pendingCfg = true; return; }
+        if (Math.round(m.state().bpm) !== v) { applyingCfg = true; try { act('bpm', v); } finally { applyingCfg = false; } }
         say(own ? '이 곡에서 고친 BPM ' + v + ' 를 적용했습니다.' : '곡 정보의 BPM ' + v + ' 를 자동 적용했습니다. (바꾸려면 직접 고치세요)');
       }
+      /* 팀이 바꾼 설정 · 곡 정보가 오면 (메트로놈이 멈춰 있을 때) 바로 적용 */
+      P.on('cfg', function (e) { if (e && (e.kind === 'all' || (e.kind === 'metro' && e.key === curSongKey))) applySongBpm(P.song(), !!e.remote); });
+      P.on('songedit', function (s) { if (s && String(s.title || '') === curSongKey) { bpmOver[curSongKey] = 0; applySongBpm(s, true); } });
       P.on('song', applySongBpm);
       try { applySongBpm(P.song()); } catch (e) {}                          // 탭을 처음 열 때 이미 정해진 곡에도 적용
       host.addEventListener('change', function (e) {
         var t = e.target, o = t.dataset && t.dataset.o; if (!o) return;
-        if (o === 'sig') { var p = t.value.split('/'); var rs = act('sig', +p[0], +p[1]); if (rs && rs.locked) { sync(); return; } drawDots(+p[0], m.state().marks); }
+        if (o === 'sig') { var p = t.value.split('/'); var rs = act('sig', +p[0], +p[1]); if (rs && rs.locked) { sync(); return; } drawDots(+p[0], m.state().marks); saveMetroSoon(); }
+        else if (o === 'count') saveMetroSoon();
         else if (o === 'flash') m.setFlash(t.checked); else if (o === 'pitch') m.setPitch(+t.value);
         else if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'mode') m.setMode(t.value);
-        else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'first') { if (t.checked !== !!m.state().marks[0]) act('mark', 0); }
+        else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'gender') m.setGender(t.value); else if (o === 'first') { if (t.checked !== !!m.state().marks[0]) act('mark', 0); }
         else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked);
         sync();
       });

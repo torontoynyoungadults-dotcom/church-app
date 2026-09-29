@@ -15,7 +15,7 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved'];
+  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed'];
   var OUTBOX_MAX = 300, CALL_TIMEOUT = 8000;
 
   function create(opt) {

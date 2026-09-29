@@ -27,6 +27,9 @@
     { id: 'end', en: 'Ending', ko: '엔딩', g: 'sec' },
     { id: 'voice', en: 'Voice', ko: '보이스', g: 'dyn' }, { id: 'break', en: 'Break', ko: '브레이크', g: 'dyn' }, { id: 'die', en: 'Die down', ko: '작게', g: 'dyn' },
     { id: 'ferm', en: 'Fermata', ko: '늘임표', g: 'dyn' }, { id: 'solo', en: 'Solo', ko: '솔로', g: 'dyn' },
+    { id: 'repc', en: 'Repeat Chorus', ko: '후렴 반복', g: 'rep' }, { id: 'halfc', en: 'Half Chorus', ko: '후렴 반절', g: 'rep' },
+    { id: 'tag', en: 'Tag the last line', ko: '끝 소절 반복', g: 'rep' }, { id: 'lastl', en: 'Last line again', ko: '마지막 줄 한 번 더', g: 'rep' },
+    { id: 'once', en: 'One more time', ko: '한 번 더', g: 'rep' }, { id: 'onebar', en: 'One more bar', ko: '한 마디 더', g: 'rep' },
     { id: 'sess', en: 'Session in', ko: '세션 인', g: 'in' }, { id: 'alto', en: 'Alto in', ko: '알토 인', g: 'in' }, { id: 'tenor', en: 'Tenor in', ko: '테너 인', g: 'in' }
   ];
   var CUE_BY = {};
@@ -36,6 +39,33 @@
   /** 박마다 ">" 강세 표시 — 기본은 마디 첫 박만 (사용자가 원 모양 박을 눌러 바꿉니다) */
   function defaultMarks(num, first) { var a = []; for (var i = 0; i < num; i++) a.push(i === 0 && first !== false ? 1 : 0); return a; }
   function clamp(v, lo, hi) { v = Number(v); return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo; }
+
+  /* ============================================================
+     남성 음성 고르기 — window.speechSynthesis 의 음성 목록에서 남성 음성을 찾습니다
+     ============================================================ */
+  var MALE_RE = /\b(male|man|daniel|alex|fred|tom|aaron|arthur|oliver|rishi|gordon|lee|reed|evan|nathan|ralph|albert|bruce|junior|david|mark|george|guy|james|richard|ryan|mike|paul|liam|eric|brian|christopher|roger|steffan|thomas|rocko|eddy|grandpa|injoon|in-joon|minsu|jinho|seongmin|hyunsu|junho|jun-?ho|seojun|bongjin|gijun)\b|남성|남자|인준|민수|진호|현수/i;
+  var FEMALE_RE = /\b(female|woman|samantha|victoria|karen|moira|tessa|fiona|zira|susan|hazel|jenny|aria|yuna|sun-?hi|heami|sora|kyoko|kanya|sara|allison|ava|joanna|kendra|kimberly|salli|ivy|emma|amy|nicky|catherine|serena|shelley|sandy|flo|grandma|kathy|princess|bella|zoe|mei-?jia|ting-?ting|sin-?ji|seoyeon|jimin|sunhi)\b|google\s*한국어|여성|여자|유나|선희|혜미/i;
+  function isMaleVoice(v) { var n = String((v && v.name) || ''); return !!n && MALE_RE.test(n) && !FEMALE_RE.test(n); }
+  function isFemaleVoice(v) { return FEMALE_RE.test(String((v && v.name) || '')); }
+  /**
+   * voices 목록에서 언어(en · ko)에 맞는 음성을 고릅니다.
+   * gender 'male'(기본): 남성 이름의 음성 → 없으면 (여성 이름이 아닌 것 → 그래도 없으면) 아무거나. 기기 안 음성 우선.
+   * gender 'female': 여성 음성 우선. 'any': 성별 상관없음.
+   */
+  function pickVoiceFrom(voices, lang, gender) {
+    var want = lang === 'ko' ? 'ko' : 'en';
+    var list = (voices || []).filter(function (v) { return String(v.lang || '').toLowerCase().replace('_', '-').indexOf(want) === 0; });
+    var local = function (a) { return a.filter(function (v) { return v.localService; })[0] || a[0] || null; };
+    if (gender === 'male') {
+      var m = list.filter(isMaleVoice); if (m.length) return local(m);
+      var u = list.filter(function (v) { return !isFemaleVoice(v); }); if (u.length) return local(u);
+    } else if (gender === 'female') {
+      var f = list.filter(isFemaleVoice); if (f.length) return local(f);
+    }
+    return local(list);
+  }
+  /** 남성 음성을 못 찾았을 때 낮은 목소리로 들리게 하는 음높이 (0.1 ~ 2, 기본 1) */
+  var MALE_FALLBACK_PITCH = 0.7;
 
   /* ============================================================
      Sched — 시간만 다루는 순수한 부분 (소리 없음 · 브라우저 없음)
@@ -201,11 +231,11 @@
     var q = [];                       // 화면에 보여줄 박 (소리가 나는 때에 맞춰 깜빡임)
     var pending = [];                 // 예약해 둔 큐 {plan, cue, timeout}
     var S = {
-      click: store('gain'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), mode: store('mode'), lead: store('lead'), lang: store('lang'), lat: store('lat'), sound: store('sound'), first: store('first')
+      click: store('gain'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first')
     };
     var cfg = {
       click: S.click == null ? 0.4 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : S.voice, mode: S.mode || 'lead', lead: S.lead || 2,
-      lang: S.lang || 'en', lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
+      lang: S.lang || 'en', gender: S.gender === 'female' || S.gender === 'any' ? S.gender : 'male', lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
       first: S.first !== false,                                  // 첫 박 강세 (기본 켬) — 끄면 첫 박도 다른 박과 같은 높이 · 세기
       pitch: S.pitch == null ? 0 : clamp(S.pitch, LIMITS.minPitch, LIMITS.maxPitch),   // 딸깍 음높이 (반음 단위, -12 ~ +12)
       flash: S.flash === true                                    // 첫 박에 화면 전체 깜빡임
@@ -216,19 +246,16 @@
 
     function loadVoices() {
       if (!speechOk) return;
-      try { voices = window.speechSynthesis.getVoices() || []; } catch (e) { voices = []; }
+      var had = voices.length; try { voices = window.speechSynthesis.getVoices() || []; } catch (e) { voices = []; }
+      if (voices.length !== had && had >= 0 && typeof emitState === 'function' && !destroyed) { try { emitState(); } catch (e) { /* 무시 */ } }
     }
     if (speechOk) {
       loadVoices();
       try { window.speechSynthesis.addEventListener('voiceschanged', loadVoices); } catch (e) { /* 옛 브라우저 */ }
     }
-    function pickVoice(lang) {
-      var want = lang === 'ko' ? 'ko' : 'en';
-      var list = voices.filter(function (v) { return String(v.lang || '').toLowerCase().indexOf(want) === 0; });
-      // 기기 안에 있는 (인터넷이 필요 없는) 음성을 우선 — 네트워크 음성은 시작이 늦고 들쭉날쭉합니다
-      return list.filter(function (v) { return v.localService; })[0] || list[0] || null;
-    }
-
+    /** 이름으로 보는 남성 · 여성 음성 (브라우저는 성별 정보를 주지 않아서 이름으로 가려냅니다) */
+    function pickVoice(lang) { return pickVoiceFrom(voices, lang, cfg.gender); }
+    function currentVoice(lang) { var v = pickVoice(lang || cfg.lang); return v ? { name: v.name, lang: v.lang, male: isMaleVoice(v), local: !!v.localService } : null; }
     /**
      * 딸깍 소리는 전용 볼륨(master)과 리미터를 거쳐 나갑니다.
      * 볼륨 막대(0~1)가 기본 크기의 0 ~ 5 배 (LIMITS.maxGain) 이고, 리미터가 소리가 찢어지는 것을 막습니다.
@@ -268,7 +295,7 @@
       o.start(time); o.stop(time + 0.07);
     }
     /** 음성을 쓸 수 없을 때의 대체 — 종류마다 다른 "삐" 패턴 (오디오 시계에 예약하므로 박에 정확히 맞습니다) */
-    var EAR = { sec: [660, 660], dyn: [880], in: [523, 784] };
+    var EAR = { sec: [660, 660], dyn: [880], in: [523, 784], rep: [784, 659, 784] };
     function earcon(time, group, idx) {
       var seq = (EAR[group] || EAR.sec).slice();
       if (group === 'sec') { seq = []; for (var i = 0; i < Math.min(4, (idx || 0) + 1); i++) seq.push(660); }
@@ -288,6 +315,7 @@
         var u = new SpeechSynthesisUtterance(text);
         u.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
         var v = pickVoice(lang); if (v) u.voice = v;
+        u.pitch = cfg.gender === 'male' && !(v && isMaleVoice(v)) ? MALE_FALLBACK_PITCH : 1;        // 남성 음성이 없으면 낮은 음높이로 대신
         u.rate = 1.05; u.volume = calibrate ? 0 : Math.min(1, Math.max(0, cfg.voice));
         var t0 = performance.now();
         u.onstart = function () {
@@ -465,6 +493,7 @@
       setLead: function (n) { set('lead', Math.round(clamp(n, 1, 8))); }, setLang: function (l) { set('lang', l === 'ko' ? 'ko' : 'en'); },
       setLatency: function (ms) { latEma = clamp(ms, 0, 900); set('lat', Math.round(latEma)); }, setSound: function (s) { set('sound', s); }, setFirstAccent: function (on) { sched.setMark(0, !!on); set('first', !!on); },
       tap: function () { var b = tapper.tap(Date.now()); if (b) { sched.setBpm(b); emitState(); } return b; },
+      setGender: function (g) { set('gender', g === 'female' || g === 'any' ? g : 'male'); }, voiceInfo: currentVoice, refreshVoices: loadVoices,
       state: state, sched: sched, ctx: function () { return ctx; }, help: HELP,
       destroy: function () {
         destroyed = true; stop();
@@ -475,5 +504,5 @@
     };
   }
 
-  return { CUES: CUES, CUE_BY: CUE_BY, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS };
+  return { CUES: CUES, CUE_BY: CUE_BY, defaultMarks: defaultMarks, Sched: Sched, TapTempo: TapTempo, create: create, HELP: HELP, LIMITS: LIMITS, pickVoiceFrom: pickVoiceFrom, isMaleVoice: isMaleVoice, MALE_FALLBACK_PITCH: MALE_FALLBACK_PITCH };
 }));

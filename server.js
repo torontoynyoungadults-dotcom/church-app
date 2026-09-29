@@ -54,6 +54,24 @@ app.get('/', (req, res) => {
   }
 });
 
+/**
+ * 저장이 끝난 뒤 같은 방(웹소켓)에 알립니다 — 연습 화면의 설정 · 곡 정보를 팀이 실시간으로 함께 보게 (Step 2.9)
+ *   · 함수가 결과에 bcast { room, event, payload } 를 달아 주면 그대로 전달 (화면에는 bcast 를 빼고 보냄)
+ *   · 허브에서 콘티(곡)를 저장 · 삭제 · 여러 곡 저장하면 'songs:changed' → 열려 있는 연습 화면이 곡 목록을 다시 불러옴
+ */
+const SONG_CHANGERS = { saveWorshipSong: 1, removeWorshipSong: 1, saveWorshipSongs: 1 };
+function liveAfter(fn, args, result) {
+  try {
+    if (result && typeof result === 'object' && result.bcast) {
+      const { bcast, ...rest } = result;
+      if (bcast && typeof rt !== 'undefined') rt.broadcast(bcast.room, bcast.event, bcast.payload);
+      return rest;
+    }
+    if (SONG_CHANGERS[fn] && typeof rt !== 'undefined') rt.broadcast(String(args[1] || ''), 'songs:changed', { t: Date.now(), fn });
+  } catch (e) { console.error('[실시간 알림 실패]', fn, e && e.message); }
+  return result;
+}
+
 /** 화면 → 서버 함수 */
 app.post('/api/:fn', (req, res) => {
   const fn = req.params.fn;
@@ -61,7 +79,8 @@ app.post('/api/:fn', (req, res) => {
   if (!runtime.isCallable(fn)) return res.json({ ok: false, error: '알 수 없는 요청입니다: ' + fn });
   const t0 = Date.now(), g0 = { calls: bstats().calls, ms: bstats().ms };
   try {
-    const { result } = runtime.run((api) => api[fn].apply(null, args));
+    let { result } = runtime.run((api) => api[fn].apply(null, args));
+    result = liveAfter(fn, args, result);
     res.json({ ok: true, result });
   } catch (e) {
     if (!(e && e.message && /[가-힣]/.test(e.message))) console.error('[' + fn + ']', e);

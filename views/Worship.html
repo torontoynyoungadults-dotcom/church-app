@@ -570,16 +570,17 @@
   .tn.off { background: var(--bad-bg); color: var(--bad); }
   .tn.off.hl { background: var(--bad); color: #fff; }
   .tn.guest { color: var(--tone); background: var(--tone-soft); }
-  .stbar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500;
-    padding: 0 10px calc(10px + env(safe-area-inset-bottom));
-  }
+  /* 안 되는 날 고르기 막대 — 예전에는 화면 아래에 떠(fixed) 스케줄표 아래쪽 날짜와 사유 칸이 겹쳤습니다.
+     이제는 표 위에 자리를 차지하는 일반 칸이라 날짜 · 사유 · 버튼이 서로 겹치지 않습니다. */
+  .stbar { position: static; margin: 10px 0 14px; padding: 0; }
   .stbar-in {
-    max-width: 560px; margin: 0 auto; background: var(--surface); border-radius: 18px;
-    box-shadow: 0 -2px 24px rgba(0,0,0,.28); padding: 12px 13px 11px; border: 1px solid var(--tone);
+    max-width: none; margin: 0; background: var(--surface); border-radius: 16px;
+    box-shadow: none; padding: 12px 13px 11px; border: 1px solid var(--tone);
   }
+  .stbar .addrow { flex-wrap: wrap; align-items: stretch; }
+  .stbar .addrow input { flex: 1 1 100%; min-width: 0; width: 100%; box-sizing: border-box; }
+  .stbar .addrow .btn { flex: 1 1 0; }
   .stbar-t { font-size: 15px; font-weight: 800; margin-bottom: 8px; color: var(--tone); }
-  .stbar .addrow input { min-width: 0; }
   .stpl { flex: none; width: 76px; font-size: 13.5px; font-weight: 800; color: var(--ink-3); padding-top: 5px; }
   .yc-sh .nm { margin: 2px 0; }
   .stsub { font-size: 14.5px; color: var(--ink-3); margin: -8px 0 12px; }
@@ -1755,7 +1756,7 @@ function bulkForm(kind) {
         '<div class="r2">' + inp('team', '원곡팀') + inp('key', 'Key') + '</div>' +
         '<div class="r3">' + inp('link', '유튜브 링크 https://youtu.be/…', ' inputmode="url"') + '</div>' +
         (r.open ? '<div class="det">' +
-          '<div class="two"><div><label>BPM</label>' + inp('bpm', '예: 72', ' inputmode="numeric"') + '</div>' +
+          '<div class="two"><div><label>BPM</label>' + inp('bpm', '예: 72', ' inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off"') + '</div>' +
             '<div><label>송폼</label>' + inp('form', 'V1-C-V2-C-B-C') + '</div></div>' +
           '<label>설명</label><textarea placeholder="간주 · 전조 · 반복 등" oninput="' + R + '.note=this.value">' + esc(r.note || '') + '</textarea>' +
           '<label style="margin-top:6px;">솔로</label>' + (r.solo || []).map(function (x, j) { return bulkSoloRow(kind, i, j, x); }).join('') +
@@ -1815,7 +1816,7 @@ function songForm(kind, s) {
     '</div>' +
     '<div class="two">' +
       '<div class="f"><label>BPM <span style="font-weight:600;text-transform:none;letter-spacing:0;">(선택)</span></label>' +
-        '<input type="text" id="sBpm" inputmode="numeric" value="' + esc(s.bpm) + '" placeholder="예: 72"></div>' +
+        '<input type="text" id="sBpm" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="' + esc(s.bpm) + '" placeholder="예: 72"></div>' +
       '<div class="f"><label>송폼 <span style="font-weight:600;text-transform:none;letter-spacing:0;">(선택)</span></label>' +
         '<input type="text" id="sForm" value="' + esc(s.form) + '" placeholder="예: V1-C-V2-C-B-C"></div>' +
     '</div>' +
@@ -1949,8 +1950,9 @@ function pickFile(kind) { uploadKind = kind; el('filePicker').click(); }
 function openPractice(fid) {
   if (!window.YNPractice) { alert('세션 / 연습 화면을 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
   var files = (W.sheets || []).concat(W.finalSheets || []);
-  var songs = (W.songs || []).concat(W.finals || []).map(function (s) {
-    return { title: s.title, key: s.key, bpm: s.bpm, form: s.form, team: s.team, link: s.link || '' };
+  var songs = (W.songs || []).map(function (s) { return { s: s, kind: '콘티' }; }).concat((W.finals || []).map(function (s) { return { s: s, kind: '결단' }; })).map(function (x) {
+    var s = x.s;      // seq · kind 는 연습 화면이 BPM · 송폼 · 링크를 같은 줄에 저장하고 팀에 실시간으로 나누는 데 씁니다
+    return { title: s.title, key: s.key, bpm: s.bpm, form: s.form, team: s.team, link: s.link || '', seq: s.seq, kind: x.kind };
   });
   var api = YNPractice.open({
     token: TOKEN, room: DATE, sheets: files.map(function (f) { return { id: f.id, name: f.name }; }), songs: songs,
@@ -2512,7 +2514,7 @@ function schedTab() {
 
   var bar = picking
     ? '<div class="stbar"><div class="stbar-in">' +
-        '<div class="stbar-t">' + (ST.pick.length ? ST.pick.length + '개 날짜 선택됨' : '표에서 안 되는 날짜를 누르세요') + '</div>' +
+        '<div class="stbar-t">' + (ST.pick.length ? ST.pick.length + '개 날짜 선택됨' : '아래 표에서 안 되는 날짜를 누르세요') + '</div>' +
         '<div class="addrow"><input type="text" id="offReason" placeholder="사유 — 예: 출장 · 시험 · 가족 행사" maxlength="100" ' +
           'onkeydown="if(event.key===\'Enter\')saveOff()">' +
           '<button class="btn" onclick="ST.pick=null;render();">취소</button>' +
@@ -2530,14 +2532,15 @@ function schedTab() {
 
   return '<div class="panel stpanel"><div class="sechead"><span class="chip">스케줄표</span>' + viewSeg + '</div>' +
       '<div class="sttools">' + rangeSel + hlSel + '</div>' +
-      '<p class="hint">' + (picking ? '안 되는 날짜를 눌러 고른 뒤 아래에서 사유를 적어주세요.'
+      '<p class="hint">' + (picking ? '안 되는 날짜를 눌러 고른 뒤 위 칸에 사유를 적고 저장하세요.'
         : (D.canEdit ? '칸을 누르면 바로 배정합니다. 날짜를 누르면 그날 자세히 볼 수 있어요.'
                      : '날짜를 누르면 그날 편성과 불가 사유를 볼 수 있어요.')) +
         ' <span class="lg"><span class="tn off">불가</span> <span class="tn hl">강조</span> <span class="tn guest">객원</span></span></p>' +
+      bar +
       (ST.view === 'card' ? stCards(groups, kn, picking, mineSet)
         : '<div class="stwrap"><table class="st"><thead>' + head1 + head2 + '</thead><tbody>' + body + '</tbody></table></div>') +
       '<p class="msg" id="stMsg"></p>' +
-    '</div>' + mine + bar;
+    '</div>' + mine;
 }
 
 /** 카드 보기 — 한 주일이 카드 하나. 옆으로 넘기지 않고 위아래로만 봅니다 */

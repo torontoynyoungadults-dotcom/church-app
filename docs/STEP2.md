@@ -99,3 +99,48 @@
 
 ### 8-5. 시험
 `npm run test:step28` (서버 77 · 클라이언트 37 · 메트로놈/역할 72 · 브라우저 허브 62 · 브라우저 메트로놈/역할 69) + 기존 Step 1~3 전 시험 통과(160 · 73/640/103 · 198 · e2e-a 54 · b 27 · c 17 · step2c 82 · full 48 · portal 8 · budget 37).
+
+## 9. Step 2.9 — 필기 이동 · 손글씨 글꼴 · 음성 콜아웃(남성) · 설정 팀 실시간 공유 · 터치 제스처 · 일정표 겹침 수정
+
+### 9-1. 요청 9가지 ↔ 위치
+| # | 요청 | 어디에 | 동작 |
+|---|---|---|---|
+| 1 | 글자 크기 슬라이더 → 숫자 + ▲▼ | `practice.js` `renderTools` / `stepFsz` · `hub.css` `.pv-num` | 작은 숫자 칸(직접 입력 가능) + ▲▼(꾹 누르면 반복, 글자 입력 중 포커스를 뺏지 않음). 선택·이동 도구에서는 선택한 항목의 크기 |
+| 2 | 글자 · 코드 · 기호 선택 후 끌어 옮기기 | `anno.js` `select` 도구(단축키 M) · `pickMovable/startMove` · `selected/editSelected/deleteSelected` | 누르면 주황 점선 테두리(선택), 끌면 옮김(팀 필기는 실시간 · Ctrl+Z / 다시). 글자 도구로 글자를 누르면 "떼면 고치기 · 끌면 옮기기". 송폼 박스도 옮김. 남의 필기는 팀장 · 인도자만 |
+| 3 | 한글 손글씨 웹폰트 | `anno.js` `FONTS.pen`(Nanum Pen Script) · `FONTS.dodum`(Gowun Dodum) · `ensureWebFonts` · `lib/realtime.js` `FONT_KEYS` | 글자 · 코드 · 글자모양 기호의 글꼴 선택에 "나눔 펜 손글씨" · "고운돋움". 구글 폰트를 받으면 캔버스를 다시 그림(못 받으면 대체 글꼴) |
+| 4 | 음성 콜아웃 + 남성 목소리 | `metro.js` `CUES`(그룹 `rep`) · `pickVoiceFrom` · `cfg.gender` · `practice-panels.js` | Repeat Chorus · Half Chorus · Tag the last line · Last line again · One more time · One more bar(한국어 이름도). 남성 음성을 이름으로 찾고(기본), 없으면 음높이 0.7 로 대신. 패널에 "음성" 선택 + "사용 음성" 안내. 박자에 맞춰 미리 말하기는 기존 그대로 |
+| 5 | 일정표 날짜 고르기 ↔ 사유 칸 겹침 | `views/Worship.html` `.stbar` | 원인: 바닥에 떠 있던(fixed) 막대가 아래쪽 날짜 칸을 덮음 → 표 위의 일반 블록으로 바꿈(사유 칸은 한 줄 전체, 저장 · 취소는 아래 줄) |
+| 6 | 모든 설정 팀 실시간 공유 | `logic/worship4.js` · `server.js liveAfter` · `lib/realtime.js broadcast` · `rt.js` · `practice.js` cfg · `practice-panels.js` | 아래 9-2 |
+| 7 | 쓸어 넘기기 · 두 손가락 확대 | `practice.js` 터치 제스처(`T`) · `anno.js cancelCurrent` | 왼쪽 쓸기 = 다음 쪽, 오른쪽 쓸기 = 이전 쪽(확대 중이면 화면 이동). 두 손가락 벌리기 · 좁히기 = 확대 · 축소(손을 떼면 실제로 다시 그림). 필기 도구 중 두 손가락 = 그리던 획을 버리고 확대 |
+| 8 | 아이패드 · 폰 필기 끊김 / 글자 선택 | `hub.css` `.pv-anno` · `anno.js` `refreshTouch` | `touch-action: none` 은 **필기 캔버스에만**(펜슬 · 손가락 공통, 도구를 쓰는 동안 항상). 캔버스의 `touchstart/move/end/cancel` 에서 `preventDefault()`(non-passive) · `selectstart` · `dragstart` 차단 · `user-select: none`. 원인: 예전에는 "펜만 그림" 모드가 `touch-action: pan-x pan-y pinch-zoom` 이라 사파리가 스크롤로 가로채 획이 끊김. 펜슬 전용 모드에서 손가락 스크롤 · 쓸기는 화면 쪽 JS 가 직접 처리 |
+| 9 | BPM 숫자 키패드 | `practice-panels.js`(메트로놈 · 곡 정보) · `hubtools.js` · `Worship.html` | `type="number"`(허브 텍스트 칸은 `type="text"`) + `inputmode="numeric"` + `pattern="[0-9]*"` + `enterkeyhint="done"` |
+
+### 9-2. 설정 팀 실시간 공유 (요청 6)
+저장은 모두 **HTTP API → 시트**, 실시간 전달은 **저장이 끝난 뒤 서버가 웹소켓으로**(그래서 시트에 없는 값이 화면에만 퍼지는 일이 없음). 필기는 예전 그대로(웹소켓 → 묶어서 저장).
+
+| 설정 | 저장 자리 | 누가 바꾸나 | 실시간 |
+|---|---|---|---|
+| 쪽 ↔ 곡 연결 | 새 탭 `연습설정`(DB05, 종류 `map`, 열쇠 = 악보 파일 ID) | 팀 층: 팀장 · 인도자 | 이벤트 `cfg` |
+| 곡별 메트로놈(박자 · 강세 · 시작 전 마디 · BPM) | `연습설정` 종류 `metro`, 열쇠 = 곡 이름 | 팀 층: 팀장 · 인도자 | `cfg` (연주 중이면 멈춘 뒤 적용) |
+| 곡 정보 BPM · 송폼 · 유튜브 링크 | **기존 `찬양콘티` 줄** 그대로(`worshipSongPatch` — 그 세 칸만 고치고 제목 · 팀 · Key · 설명 · 솔로는 보존) | 팀장 · 인도자 | `song` |
+| 허브에서 콘티 저장 · 삭제 | `saveWorshipSong/Songs` · `removeWorshipSong` 뒤에 자동 | — | `songs:changed` → 열린 연습 화면이 곡 목록을 다시 불러옴 |
+
+- **"나만 보기"**(또는 팀 권한이 없는 사람): 같은 탭에 소유 = 내 이름으로만 저장, 전달하지 않음. 내 설정이 팀 설정보다 **우선**(팀 값이 바뀌어도 내가 정해 둔 것은 유지). 팀에 저장하면 내 예전 개인 설정은 정리됩니다.
+- 새 함수(화면에서 부름): `worshipCfgLoad(token, room)` · `worshipCfgSave(token, room, layer, kind, key, value, cid)` · `worshipSongPatch(token, room, kind, seq, patch, cid)` · `worshipSongsOf(token, room)`. 결과에 `bcast:{room,event,payload}` 를 달면 `server.js liveAfter` 가 떼어 내 같은 방(`w:<방>`)에만 뿌립니다(허용 이벤트 `cfg` · `song` · `songs:changed` 뿐). `cid` 로 내가 보낸 것이 되돌아와도 무시합니다.
+- 연결이 끊겼다 돌아오면 `worshipCfgLoad` 를 다시 불러 놓친 변경을 채웁니다. 기기에 기억하던 쪽↔곡 연결(localStorage)은 서버가 안 될 때의 대비로 그대로 둡니다.
+- **기기마다 따로 두는 것**(의도): 딸깍 볼륨 · 음높이 · 소리 종류 · 음성 볼륨 · 큐 언어 · 남/여 음성 · 큐 타이밍 — 스피커 · 귀에 따라 다르기 때문입니다.
+
+### 9-3. 기존 기능 보존
+- 기존 API 이름 · 인수 · 시트 열은 그대로(새 탭 `연습설정` 하나만 추가, 탭이 없으면 첫 저장 때 자동 생성). `worshipSongPatch` 는 기존 `saveWorshipSong` 과 같은 줄을 같은 방식(`시트치환_`)으로 고침.
+- 기존 도구 · 단축키(V P H T C S B E) · 필기 데이터(글꼴 키 `sans/serif/hand` 그대로, `pen/dodum` 추가) · 메트로놈 큐 18개 · 클릭/페이지 컨트롤 · 동기화 끄기 그대로. 예전 화면(캐시된 옛 스크립트)이 보낸 필기도 서버가 그대로 받음.
+- 시험 기대값만 바뀜: 큐 18 → 24, 글꼴 3 → 5, 글자 크기 슬라이더 → ▲▼(`e2e-step2c`), 지우개 시험의 좌표는 필기 위치 기준(화면 배치와 무관)으로.
+
+### 9-4. 알아 둘 한계
+- 구글 폰트(나눔 펜 · 고운돋움)는 인터넷이 되는 기기에서 받아 옵니다. 시험 서버는 외부망이 없어 **대체 글꼴 경로만** 검증했습니다(링크 · 글꼴 이름 · 저장 · 동기화는 검증). 실제 기기에서 글꼴 모양을 한 번 확인해 주세요.
+- 남성 음성은 브라우저가 성별을 알려 주지 않아 **이름(Daniel · David · InJoon 등)으로 추정**합니다. 못 찾으면 낮은 음높이로 대신하고 패널에 표시합니다. 아이폰 · 안드로이드 · 윈도우마다 설치된 음성이 달라 결과가 다를 수 있습니다.
+- 팀 설정은 팀장 · 인도자(`canEdit`)만 바꿉니다(이 앱에서는 찬양 · 방송팀에 속하면 대부분 해당). 아니면 자동으로 내 설정으로 저장하고 안내합니다.
+- 허브 화면(스케줄표 · 콘티 목록 등) 자체는 웹소켓 연결이 없어 다른 사람이 바꿔도 새로 열어야 갱신됩니다 — 실시간으로 갱신되는 곳은 **열려 있는 연습(세션) 화면**입니다.
+- 두 손가락 확대는 CSS 변형으로 미리 보여 주고 손을 떼면 다시 그립니다(확대 중심은 화면 위쪽 기준).
+
+### 9-5. 시험
+`npm run test:step29` — 서버 · 순수 로직 101(글꼴 서버/화면 일치 · 큐 24 · 남성 음성 · 설정 저장/정리/권한/bcast · 곡 정보 patch · 실시간 방 분리) · 브라우저 59(touch-action · 터치 preventDefault · 쓸기/확대 · 선택/이동/실시간/되돌리기 · 글꼴 · ▲▼ · 콜아웃 · 남성 음성 · BPM 속성) · 진짜 server.js 브라우저 44(쪽↔곡 · 메트로놈 · 곡 정보 · 나만 보기 · 허브 저장 → 연습 화면 갱신 · 일정표 겹침 1280/390px). 기존 Step 1 · 2 · 2.8 · 3 시험 모두 통과.
