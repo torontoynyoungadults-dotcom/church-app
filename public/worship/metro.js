@@ -398,14 +398,36 @@
 
     /* ---------- 음성 ---------- */
     var latEma = cfg.lat;
-    function speak(text, lang, calibrate) {
+    /**
+     * 음성 직전에 오디오 경로를 "미디어 재생 중"으로 만듭니다 (무음 스위치 우회, 딸깍 소리와 같은 채널).
+     *   ① audioSession = 'playback' + 소리 없는 <audio> 반복 재생 (Media.start)
+     *   ② AudioContext 를 깨우고(resume) 0.05초짜리 무음 버퍼를 흘려 iOS 가 "지금 오디오가 재생 중"으로 인식하게 합니다
+     * make=true 는 사용자가 방금 누른 순간(큐 버튼)에만 — 그때는 AudioContext 가 없어도 새로 만듭니다.
+     * 예약된 큐(setTimeout)는 이미 만들어진 AudioContext 만 깨웁니다.
+     */
+    function routeAudio(make) {
+      try { Media.start(); } catch (e) { /* 무시 */ }
+      try {
+        if (!ctx && make && AC) ensureCtx();
+        if (!ctx) return false;
+        if (ctx.state !== 'running' && ctx.resume) { var r = ctx.resume(); if (r && r.catch) r.catch(function () { /* 사용자가 다시 눌러야 하는 경우 */ }); }
+        var buf = ctx.createBuffer(1, Math.max(1, Math.round(ctx.sampleRate * 0.05)), ctx.sampleRate);   // 0.05초 무음
+        var src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination);
+        src.onended = function () { src.onended = null; try { src.disconnect(); } catch (e) { /* 이미 끊김 */ } };
+        src.start(0);
+        return true;
+      } catch (e) { return false; }
+    }
+    function speak(text, lang, calibrate, fromGesture) {
       if (!speechOk) return false;
       try {
+        routeAudio(!!fromGesture);                       // 무음 스위치가 켜져 있어도 들리게 — speak() 바로 앞에서, 같은 동작 안에서
         var u = new SpeechSynthesisUtterance(text);
         u.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
         var v = pickVoice(lang); if (v) u.voice = v;
         u.pitch = cfg.gender === 'male' && !(v && isMaleVoice(v)) ? MALE_FALLBACK_PITCH : 1;        // 남성 음성이 없으면 낮은 음높이로 대신
-        u.rate = 0.97;                                   // 조금 여유 있게 — 빠른 합성음처럼 들리지 않게 u.volume = calibrate ? 0 : Math.min(1, Math.max(0, cfg.voice));
+        u.rate = 0.97;                                   // 조금 여유 있게 — 빠른 합성음처럼 들리지 않게
+        u.volume = calibrate ? 0 : Math.min(1, Math.max(0, cfg.voice));   // 지연 재기(calibrate)는 소리 없이, 평소에는 음성 볼륨 (0~1)
         var t0 = performance.now();
         u.onstart = function () {
           var m = performance.now() - t0;
@@ -542,7 +564,7 @@
       var useSpeech = speechOk && cfg.sound !== 'mute';
       if (!ctx || !sched.running) {                              // 멈춰 있을 때 — 시험 삼아 바로 들려줍니다
         Media.start(); if (!sched.running) setTimeout(function () { if (!sched.running) Media.stop(); }, 4000);   // 무음 모드에서도 음성이 들리게 잠깐만 미디어 채널로
-        if (useSpeech) speak(text, cfg.lang); 
+        if (useSpeech) speak(text, cfg.lang, false, true);     // 사용자가 누른 바로 그 순간 — 오디오 경로를 열고 곧바로 말합니다
         else if (ctx || AC) { try { ensureCtx(); ctx.resume(); earcon(ctx.currentTime + 0.02, c.g, 0); } catch (e) { return { ok: false, error: HELP.noAudio }; } }
         notify('cue', { status: 'spoken', text: text, immediate: true });
         return { ok: true, immediate: true, text: text };
