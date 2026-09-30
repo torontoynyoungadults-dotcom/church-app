@@ -167,7 +167,8 @@ const INIT = `(() => {
   // 삭제
   await pa.click('.pv-tool[data-tool="select"]'); await sleep(300);
   const nBefore = (await items(pa)).length; const hh = await findOn(pa, (i) => i.id === hello.id); const ph = await where(pa, hh);
-  await pa.mouse.click(ph.x, ph.y); await sleep(250); await pa.keyboard.press('Delete'); await sleep(400);
+  // (Hub v4: 방금 만든 글자가 자동 선택되므로, 지울 글자는 화면 좌표 대신 select() 로 확실히 고른다 — 확대된 악보에서는 좌표가 화면 밖일 수 있음)
+  await pa.evaluate((id) => { const a = window.__pv.P.anno(); ['team', 'mine'].some((ly) => a.select(ly, id)); }, hello.id); await sleep(250); await pa.keyboard.press('Delete'); await sleep(400);
   check('Delete 키로 선택한 글자 삭제 (팀에도)', (await items(pa)).length === nBefore - 1 && await L.waitTrue(pb, (id) => !window.__pv.P.anno().items('team').some((q) => q.id === id), hello.id, 3000));
   await pa.keyboard.press('Control+z'); await sleep(300);
   check('삭제도 Ctrl+Z 로 복구', !!(await findOn(pa, (i) => i.id === hello.id)));
