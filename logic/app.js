@@ -9929,6 +9929,7 @@ function 주보새틀_(date) {
     servants: p && p.servants ? p.servants : 주보기본섬김이_(),
     status: '새 주보'
   };
+  if (p && p.pages && p.pages.length) b.pages = 주보페이지이어받기_(p.pages);          // Step 9 — 지난 주 페이지 뼈대(내용은 비움)
   var auto = 주보자동값_(date);
   b.order.forEach(function (o) {
     if (o.key === 'praise' && auto.praise) o.value = auto.praise;
@@ -10166,13 +10167,14 @@ function saveBulletin(token, data, publish) {
   }
 
   var keep = {};
-  ['occasion', 'order', 'cleanup', 'bible', 'study', 'news', 'servants'].forEach(function (k) {
+  ['occasion', 'order', 'cleanup', 'bible', 'study', 'news', 'servants', 'pages'].forEach(function (k) {   // Step 9: pages = 사용자 페이지 (logic/step9.js)
     if (data.hasOwnProperty(k)) keep[k] = data[k];
   });
   keep.occasion = String(keep.occasion || '').trim().slice(0, 30);
   keep.order = (keep.order || []).filter(function (o) { return o && String(o.label || '').trim(); }).map(function (o) {
     return { key: String(o.key || '').slice(0, 20), label: String(o.label).trim().slice(0, 30), value: String(o.value || '').slice(0, 2000), stand: !!o.stand };
   });
+  if (keep.pages !== undefined) keep.pages = 주보페이지정리_(keep.pages);          // Step 9
   var json = JSON.stringify(keep);
   if (json.length > 주보조각 * 10) throw new Error('주보 내용이 너무 깁니다. 성경 본문이나 셀 교재를 줄여 주세요.');
 

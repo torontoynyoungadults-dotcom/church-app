@@ -251,6 +251,8 @@
   .verses p.en { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 17px; line-height: 1.5; color: #7A746C; margin: 1px 0 12px; }
 
   /* 셀모임 */
+  .pgsub { margin-top: 8px; font-size: 14px; color: #EDEBE7; font-weight: 500; }
+  .stitle .pgby { font-size: 14px; font-weight: 700; color: #6E6A65; margin-top: 5px; }
   .stitle { text-align: center; margin: 2px 0 14px; }
   .stitle .t { font-family: 'Noto Sans KR', sans-serif; font-size: 22px; font-weight: 700; color: var(--orange-2); letter-spacing: -.5px; }
   .stitle .r { font-size: 13px; color: #8A847C; margin-top: 4px; letter-spacing: .04em; }
@@ -459,13 +461,29 @@ function hasNews(b) {
   var n = b.news || {};
   return (n.announcements || []).some(function (a) { return a.title || a.body; }) || newsEvents(b).length || hasNewFamily(b) || (n.prayers || []).some(function (x) { return x; });
 }
+/* 사용자 페이지 (셀모임 교제 · 목회칼럼 · 직접 만든 페이지) — 주보 JSON 의 pages 배열. 없으면 예전 주보 그대로 */
+var PAGE_KIND = { fellowship: '셀모임 교제', column: '목회칼럼', custom: '직접 만든 페이지' };
+function pagesOf(b) {
+  var out = [];
+  (Object.prototype.toString.call(b.pages) === '[object Array]' ? b.pages : []).forEach(function (p, i) {
+    if (!p || !(p.title || String(p.body || '').trim())) return;
+    // 끝에 _p 를 붙여 다른 구역 이름(…study 등)과 겹치지 않게 합니다
+    out.push({ key: 'pg_' + (String(p.id || '').replace(/[^A-Za-z0-9]/g, '') || ('n' + i)) + '_p', p: p });
+  });
+  return out;
+}
 function sectionsOf(b) {
-  return SECTIONS.filter(function (s) {
+  var out = SECTIONS.filter(function (s) {
     if (s[0] === 'bible') return hasBible(b);
     if (s[0] === 'study') return hasStudy(b);
     if (s[0] === 'news') return hasNews(b);
     return true;
   });
+  var pg = pagesOf(b);
+  if (!pg.length) return out;
+  var at = out.length;
+  for (var i = 0; i < out.length; i++) if (out[i][0] === 'servants') { at = i; break; }   // 섬김이 앞에 끼워 넣습니다
+  return out.slice(0, at).concat(pg.map(function (x) { return [x.key, x.p.title || PAGE_KIND[x.p.kind] || '페이지']; }), out.slice(at));
 }
 
 function qrSvg(text) {
@@ -576,6 +594,21 @@ function renderBulletin(b, idp) {
       '</div>' : '') +
       '</div></section>';
   }
+
+  /* 4-2. 사용자 페이지 */
+  pagesOf(b).forEach(function (x) {
+    var p = x.p;
+    var eyebrow = p.eyebrow || (p.kind === 'fellowship' ? 'CELL FELLOWSHIP' : p.kind === 'column' ? 'PASTORAL COLUMN' : '');
+    h += '<section class="sheet pgsec" id="' + idp + x.key + '"><div class="shead">' +
+      (eyebrow ? '<div class="eyebrow">' + esc(eyebrow) + '</div>' : '') +
+      '<h2><span class="ko">' + esc(p.title || PAGE_KIND[p.kind] || '') + '</span></h2>' +
+      (p.subtitle ? '<div class="pgsub">' + esc(p.subtitle) + '</div>' : '') + '</div><div class="card">' +
+      ((p.ref || p.author) ? '<div class="stitle">' + (p.ref ? '<div class="r">' + esc(p.ref) + '</div>' : '') +
+        (p.author ? '<div class="pgby">' + esc(p.author) + '</div>' : '') + '</div>' : '') +
+      '<div class="sbody">' + emf(p.body || '') + '</div>' +
+      (p.link && safeUrl(p.link) ? '<p class="center" style="margin:12px 0 0;"><a class="btn-o" target="_blank" rel="noopener" href="' + esc(safeUrl(p.link)) + '">' + esc(p.linkLabel || '자세히 보기') + '</a></p>' : '') +
+      '</div></section>';
+  });
 
   /* 5. 섬김이 */
   var sv = b.servants || {};
@@ -715,7 +748,7 @@ function paintEditor() {
     '<div class="eacts" id="eActs"></div></div>' +
     '<div class="tabs" id="eTabs">' + [
       ['worship', '1 예배 순서'], ['bible', '2 성경 본문'], ['study', '3 셀모임'], ['news', '4 소식 · 광고'],
-      ['servants', '5 섬김이'], ['sched', '스케줄 · 권한'], ['preview', '미리보기']
+      ['servants', '5 섬김이'], ['pages', '＋ 추가 페이지' + ((B.pages || []).length ? ' (' + B.pages.length + ')' : '')], ['sched', '스케줄 · 권한'], ['preview', '미리보기']
     ].map(function (t) { return '<button data-t="' + t[0] + '" class="' + (TAB === t[0] ? 'on' : '') + '" onclick="setTab(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>' +
     '<div id="ePane"></div></div>' +
     '<div class="ebar"><div class="row"><div class="st" id="eBarSt"></div>' +
@@ -1018,7 +1051,7 @@ function save(publish) {
 /* ---------- 패널 ---------- */
 
 function paintPane() {
-  var f = { worship: paneWorship, bible: paneBible, study: paneStudy, news: paneNews, servants: paneServants, sched: paneSched, preview: panePreview }[TAB];
+  var f = { worship: paneWorship, bible: paneBible, study: paneStudy, news: paneNews, servants: paneServants, pages: panePages, sched: paneSched, preview: panePreview }[TAB];
   el('ePane').innerHTML = f();
   if (TAB === 'worship') wireDrag();
   if (TAB === 'sched' && !SCHED) loadSched();
@@ -1465,6 +1498,71 @@ function fromSystem() {
   if ((B.servants.groups || []).length && !confirm('지금 모둠을 시스템 명단으로 바꿀까요?')) return;
   callServer('bulletinServantsFromSystem', [TOKEN], function (g) { B.servants.groups = g; markDirty(); paintPane(); },
     function (e) { alert(e.message); });
+}
+
+/* 추가 페이지 — 셀모임 교제 · 목회칼럼 · 직접 만들기 (더하고 · 빼고 · 순서 바꾸기) */
+var PAGE_MAX = 12;
+var PAGE_PRESET = {
+  fellowship: { kind: 'fellowship', title: '셀모임 교제', eyebrow: 'CELL FELLOWSHIP', subtitle: '', author: '', ref: '', body: '', link: '', linkLabel: '', keep: true },
+  column: { kind: 'column', title: '목회칼럼', eyebrow: 'PASTORAL COLUMN', subtitle: '', author: '', ref: '', body: '', link: '', linkLabel: '', keep: true },
+  custom: { kind: 'custom', title: '', eyebrow: '', subtitle: '', author: '', ref: '', body: '', link: '', linkLabel: '', keep: true }
+};
+function newPageId() {
+  var used = {}; (B.pages || []).forEach(function (p) { used[p.id] = 1; });
+  var id;
+  do { id = 'p' + Math.floor(Math.random() * 1679616 + 46656).toString(36) + Date.now().toString(36).slice(-3); } while (used[id]);
+  return id.slice(0, 12);
+}
+function addPage(kind) {
+  B.pages = B.pages || [];
+  if (B.pages.length >= PAGE_MAX) { alert('추가 페이지는 최대 ' + PAGE_MAX + '개까지 만들 수 있습니다.'); return; }
+  var p = {}; var src = PAGE_PRESET[kind] || PAGE_PRESET.custom;
+  for (var k in src) p[k] = src[k];
+  p.id = newPageId();
+  B.pages.push(p);
+  markDirty(); refreshPagesTab(); paintPane();
+}
+function refreshPagesTab() {
+  var t = document.querySelector('#eTabs button[data-t="pages"]');
+  if (t) t.textContent = '＋ 추가 페이지' + ((B.pages || []).length ? ' (' + B.pages.length + ')' : '');
+}
+function panePages() {
+  var pgs = B.pages || [];
+  var h = emToolbar('내용 칸에서 강조할 글자를 드래그해 고른 뒤 누르세요. (**굵게**, ==주황==, 🎨 글자색, 🔗 링크, 🖼 사진)') +
+    '<div class="ecard"><h3>추가 페이지 <span class="s">셀모임 교제 · 목회칼럼 · 직접 만들기</span></h3>' +
+    '<p class="hint" style="font-size:12px;color:var(--ink-3);margin:-4px 0 12px;line-height:1.6;">여기서 만든 페이지는 온라인 주보의 <b>섬김이 앞</b>에 순서대로 나오고, 위쪽 이동 메뉴와 PDF 에도 들어갑니다. ' +
+      '“다음 주에도 이어받기” 를 켜 두면 다음 주 새 주보에 <b>제목·꾸밈만</b> 남고 내용은 비워서 넘어옵니다.</p>' +
+    (pgs.length ? '' : '<p class="hint" style="margin:0 0 10px;">아직 추가한 페이지가 없습니다. 아래 버튼으로 만들어 보세요.</p>') +
+    pgs.map(function (p, i) {
+      var at = 'B.pages[' + i + ']';
+      var col = p.kind === 'column';
+      return '<div class="sub-item" data-pg="' + esc(p.id) + '"><div class="hd"><b>페이지 ' + (i + 1) + ' · ' + esc(PAGE_KIND[p.kind] || PAGE_KIND.custom) + '</b>' +
+        '<button class="b ic" onclick="move(B.pages,' + i + ',-1);refreshPagesTab()" ' + (i === 0 ? 'disabled' : '') + '>▲</button>' +
+        '<button class="b ic" onclick="move(B.pages,' + i + ',1);refreshPagesTab()" ' + (i === pgs.length - 1 ? 'disabled' : '') + '>▼</button>' +
+        '<button class="b ic del" data-act="del" onclick="dropPage(' + i + ')">✕</button></div>' +
+        '<div class="two"><div class="ef"><label>제목 <span style="font-weight:400;color:var(--ink-3);">(이동 메뉴에도 이 글자가 나옵니다)</span></label>' + inp(p.title, at + '.title=this.value;refreshPagesTab()', '예: 셀모임 교제', 'text', 'pgTitle' + i) + '</div>' +
+        '<div class="ef"><label>종류</label><select onchange="' + at + '.kind=this.value;markDirty();paintPane()">' +
+          Object.keys(PAGE_KIND).map(function (k) { return '<option value="' + k + '"' + (p.kind === k ? ' selected' : '') + '>' + PAGE_KIND[k] + '</option>'; }).join('') + '</select></div></div>' +
+        '<div class="two"><div class="ef"><label>영문 라벨 <span style="font-weight:400;color:var(--ink-3);">(제목 위 작은 글씨)</span></label>' + inp(p.eyebrow, at + '.eyebrow=this.value', 'CELL FELLOWSHIP') + '</div>' +
+        '<div class="ef"><label>부제</label>' + inp(p.subtitle, at + '.subtitle=this.value', '예: 이번 주 함께 나눌 이야기') + '</div></div>' +
+        '<div class="two"><div class="ef"><label>' + (col ? '글쓴이' : '글쓴이 · 인도자 (선택)') + '</label>' + inp(p.author, at + '.author=this.value', col ? '예: 강산 목사' : '') + '</div>' +
+        '<div class="ef"><label>본문 구절 · 출처 (선택)</label>' + inp(p.ref, at + '.ref=this.value', '예: 시편 23:1-6') + '</div></div>' +
+        '<div class="ef"><label>내용</label>' + ta(p.body, at + '.body=this.value', col ? '칼럼 글을 붙여 넣으세요' : '나눔 질문 · 교제 안내 등을 적으세요', 8, 'pgBody' + i) + aiBtn('pgBody' + i, 'pgMsg' + i) + '</div>' +
+        '<div class="two"><div class="ef"><label>링크 (선택 · https://)</label>' + inp(p.link, at + '.link=this.value', 'https://…', 'url') + '</div>' +
+        '<div class="ef"><label>버튼 글자</label>' + inp(p.linkLabel, at + '.linkLabel=this.value', '자세히 보기') + '</div></div>' +
+        '<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--ink-2);"><input type="checkbox" ' + (p.keep === false ? '' : 'checked') + ' onchange="' + at + '.keep=this.checked;markDirty()"> 다음 주에도 이어받기 (제목만 남고 내용은 비워집니다)</label></div>';
+    }).join('') +
+    '<div class="rowbtns">' +
+      '<button class="b" data-add="fellowship" onclick="addPage(\'fellowship\')">＋ 셀모임 교제</button>' +
+      '<button class="b" data-add="column" onclick="addPage(\'column\')">＋ 목회칼럼</button>' +
+      '<button class="b" data-add="custom" onclick="addPage(\'custom\')">＋ 직접 만들기</button></div>' +
+    '<p class="hint" style="font-size:12px;color:var(--ink-3);margin:8px 0 0;">최대 ' + PAGE_MAX + '페이지 · 제목도 내용도 비어 있는 페이지는 저장할 때 자동으로 빠집니다.</p></div>';
+  return h;
+}
+function dropPage(i) {
+  var p = (B.pages || [])[i]; if (!p) return;
+  if (!confirm('“' + (p.title || '제목 없는 페이지') + '” 페이지를 지울까요?')) return;
+  B.pages.splice(i, 1); markDirty(); refreshPagesTab(); paintPane();
 }
 
 /* 스케줄 관리 */

@@ -16,6 +16,8 @@
     -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
     padding: 15px 16px 14px !important; margin-bottom: 12px !important;
     box-shadow: 0 8px 26px rgba(0,0,0,.26) !important;
+    /* backdrop-filter 가 카드마다 따로 층을 만들어서, 뒤따르는 "내 할 일" 이 검색 결과를 덮었습니다 → 환영 카드를 위 층으로 */
+    position: relative; z-index: 40;
   }
   .herotop { display: flex; align-items: center; gap: 12px; }
   .ava {
@@ -153,12 +155,12 @@
   }
   .tile:active { transform: scale(.97); }
   .tile:hover { box-shadow: 0 6px 20px rgba(0,0,0,.28); }
-  .tile .ti {
+  .tile .ticon {
     width: 42px; height: 42px; border-radius: 13px; flex: none;
     display: flex; align-items: center; justify-content: center;
     background: var(--mc-soft); color: var(--mc);
   }
-  .tile .ti svg { width: 22px; height: 22px; }
+  .tile .ticon svg { width: 22px; height: 22px; }
   .tile .tt { font-size: 15.5px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.4; word-break: keep-all; }
   .tile .td {
     font-size: 12px; color: var(--ink-3); line-height: 1.45; max-width: 100%;
@@ -413,7 +415,7 @@
   }
   .qsearch input::placeholder { color: #837D75; }
   .qsdrop {
-    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30;
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 9999;
     background: #1C1B19; border: 1px solid var(--hair-night); border-radius: 12px; overflow: hidden;
     max-height: 300px; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,.4);
   }
@@ -1075,6 +1077,7 @@ body .mcardlink,
   }
 </style>
 <link rel="stylesheet" href="/forms/forms.css?v=7">
+<link rel="stylesheet" href="/portal/portal-lux.css?v=9">
 </head>
 <body>
 <div class="shell">
@@ -1254,12 +1257,9 @@ body .mcardlink,
       <button type="button" class="mebtn" id="meBtn" onclick="showProfile(true)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.8 3.1-6.3 7-6.3s7 2.5 7 6.3"/></svg>
         내 정보 관리 <span>&rsaquo;</span></button>
-      <a class="mebtn" id="notesBtn" href="?page=notes" style="margin-top:8px;text-decoration:none;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h8.5L19 7v13.5H7z"/><path d="M15 3.5V7.5h4"/><path d="M10 12h6M10 15.5h6"/></svg>
-        내 설교 노트 <span>&rsaquo;</span></a>
       <div class="qsearch" style="display:none;">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="text" id="qsInput" placeholder="이름 · 전화번호 · 팀 · 셀로 찾기" autocomplete="off" oninput="qsInputChanged()" onfocus="qsInputChanged()">
+        <input type="text" id="qsInput" placeholder="이름 · 전화번호 · 팀 · 셀 · 새가족 찾기" autocomplete="off" oninput="qsInputChanged()" onfocus="qsInputChanged()">
         <div id="qsDrop" class="qsdrop" style="display:none;"></div>
       </div>
     </div>
@@ -1275,6 +1275,10 @@ body .mcardlink,
       <a class="bulbtn ai dev" id="btnDevotion" href="?page=devotion">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="M12 8c0-3 2.4-5 5.6-5C17.6 6 15.2 8 12 8z"/><path d="M12 11.5c0-2.6-2-4.4-4.8-4.4-.2 2.7 1.9 4.4 4.8 4.4z"/></svg></span>
         <span class="bt"><b>오늘의 묵상</b></span><span class="ba">›</span>
+      </a>
+      <a class="bulbtn ai notes" id="notesBtn" href="?page=notes">
+        <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h8.5L19 7v13.5H7z"/><path d="M15 3.5V7.5h4"/><path d="M10 12h6M10 15.5h6"/></svg></span>
+        <span class="bt"><b>내 설교 노트</b></span><span class="ba">›</span>
       </a>
     </div>
 
@@ -1316,7 +1320,7 @@ body .mcardlink,
     </div>
 
     <div id="menuWrap" style="display:none;">
-      <p class="seclabel">청년부 행정</p>
+      <p class="seclabel">청년부 아카이브 &amp; 예배 관리</p>
       <div class="tiles" id="menus"></div>
     </div>
 
@@ -2613,23 +2617,61 @@ function qsInputChanged() {
   if (!q) { qsHideDrop(); return; }
   var mySeq = ++QS_SEQ;
   QS_TIMER = setTimeout(function () {
-    callServer('quickMemberSearch', [TOKEN, q], function (r) {
+    // 교인 + 새가족을 함께 찾습니다. (서버가 예전 버전이면 교인만 찾는 예전 검색으로 되돌아갑니다)
+    callServer('quickSearchAll', [TOKEN, q], function (r) {
       if (mySeq !== QS_SEQ) return;
-      qsDrawDrop(r.list || []);
-    }, function () { if (mySeq === QS_SEQ) qsHideDrop(); });
+      qsDrawDrop(r.list || [], r.counts);
+    }, function () {
+      callServer('quickMemberSearch', [TOKEN, q], function (r) {
+        if (mySeq !== QS_SEQ) return;
+        qsDrawDrop((r.list || []).map(function (p) { p.kind = 'member'; return p; }));
+      }, function () { if (mySeq === QS_SEQ) qsHideDrop(); });
+    });
   }, 220);
 }
 
-function qsDrawDrop(list) {
+/** 따옴표가 들어간 이름도 onclick 안에서 깨지지 않게 */
+function qsArg(s) { return esc(String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")); }
+
+function qsDrawDrop(list, counts) {
   var box = el('qsDrop');
-  if (!list.length) { box.innerHTML = '<div class="qsempty">일치하는 교인이 없습니다.</div>'; box.style.display = 'block'; return; }
-  box.innerHTML = list.map(function (p) {
-    var meta = [p.cell, (p.teams || []).join(', ')].filter(function (x) { return x; }).join(' · ');
-    return '<div class="qsrow" onclick="qsOpenDetail(\'' + esc(p.name).replace(/'/g, "\\'") + '\')">' +
-      '<div><div class="qsn">' + esc(p.name) + '</div>' +
-      (meta ? '<div class="qsm">' + esc(meta) + '</div>' : '') + '</div></div>';
-  }).join('');
+  if (!list.length) { box.innerHTML = '<div class="qsempty">일치하는 교인 · 새가족이 없습니다.</div>'; box.style.display = 'block'; return; }
+  var html = '', last = '';
+  list.forEach(function (p) {
+    var kind = p.kind === 'newcomer' ? 'newcomer' : 'member';
+    if (kind !== last) {
+      var n = counts && counts[kind] != null ? counts[kind] : '';
+      html += '<div class="qshead ' + kind + '">' + (kind === 'newcomer' ? '새가족' : '교인') +
+        (n !== '' ? ' <i>' + esc(n) + '</i>' : '') + '</div>';
+      last = kind;
+    }
+    if (kind === 'newcomer') {
+      var nm = [p.stage, p.cell, p.owner ? '담당 ' + p.owner : '', p.tail ? '···' + p.tail : ''].filter(function (x) { return x; }).join(' · ');
+      html += '<div class="qsrow nf" data-kind="newcomer" onclick="qsOpenNewcomer(\'' + qsArg(p.name) + '\')">' +
+        '<div class="qsb"><div class="qsn">' + esc(p.name) + ' <span class="qstag">새가족</span></div>' +
+        (nm ? '<div class="qsm">' + esc(nm) + '</div>' : '') + '</div><span class="qsgo">&rsaquo;</span></div>';
+    } else {
+      var meta = [p.cell, (p.teams || []).join(', ')].filter(function (x) { return x; }).join(' · ');
+      html += '<div class="qsrow" data-kind="member" onclick="qsOpenDetail(\'' + qsArg(p.name) + '\')">' +
+        '<div class="qsb"><div class="qsn">' + esc(p.name) + '</div>' +
+        (meta ? '<div class="qsm">' + esc(meta) + '</div>' : '') + '</div><span class="qsgo">&rsaquo;</span></div>';
+    }
+  });
+  box.innerHTML = html;
   box.style.display = 'block';
+}
+
+/** 새가족을 누르면 — 서버가 열어 주는 그 새가족의 상세 화면(?page=newfamily&open=이름)으로 바로 이동 */
+function qsOpenNewcomer(name) {
+  qsHideDrop();
+  topMsg(name + ' 새가족 상세를 여는 중…', '');
+  callServer('resolveDeepLink', [TOKEN, 'newcomer', name], function (r) {
+    if (r && r.ok && r.url) {
+      // 서버가 만든 주소여도 이 사이트 안에서만 움직이도록 경로만 씁니다
+      try { var u = new URL(r.url, location.href); location.assign(u.pathname + u.search); return; } catch (e) {}
+    }
+    topMsg((r && r.message) || '열 수 없는 새가족입니다.', 'err');
+  }, function (e) { topMsg((e && e.message) || '새가족 상세를 열지 못했습니다.', 'err'); });
 }
 
 function qsHideDrop() {
@@ -2719,11 +2761,15 @@ function qsCloseModal() {
 
 /* ---------- 커미티 — 다른 사람 화면으로 보기 ---------- */
 
+var AS_KIND = 'member', VT = null, VIEW_KIND = '', NEWCOMER = null;
+
 function renderAs() {
   var box = el('asBox');
   if (VIEW) {
-    box.innerHTML = '<div class="asview"><span><b>' + esc(VIEW) + '</b>님이 보는 화면입니다.' +
-      (VIEW_NOLINK ? ' 교적에 전화번호가 없어 메뉴는 열 수 없습니다.'
+    var nfv = VIEW_KIND === 'newcomer';
+    box.innerHTML = '<div class="asview"><span><b>' + esc(VIEW) + '</b>' + (nfv ? ' 새가족' : '님') + '이 보는 화면입니다.' +
+      (nfv ? ' 새가족은 포털에 들어오지 않으므로 <b>보기 전용</b>입니다.' :
+       VIEW_NOLINK ? ' 교적에 전화번호가 없어 메뉴는 열 수 없습니다.'
                    : ' 메뉴를 누르면 <b>' + esc(VIEW) + '님으로</b> 열립니다 — 거기서 한 일은 그분 이름으로 남습니다.') + '</span>' +
       '<button class="btn mini" onclick="viewAs(\'\')">내 화면으로</button></div>';
     return;
@@ -2736,26 +2782,70 @@ function renderAs() {
         '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>' +
         '다른 분 화면 보기</button>' +
       '<div class="asin" id="asIn" style="display:none;">' +
-        '<input type="text" id="asName" list="asList" placeholder="교적 이름" ' +
-          'onchange="if(this.value)viewAs(this.value)" onkeydown="if(event.key===\'Enter\')viewAs(this.value)">' +
-        '<datalist id="asList">' + ppl.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>' +
+        '<div class="asseg" role="tablist">' +
+          '<button type="button" id="asKm" class="on" onclick="setAsKind(\'member\')">교인</button>' +
+          '<button type="button" id="asKn" onclick="setAsKind(\'newcomer\')">새가족</button>' +
+        '</div>' +
+        '<input type="text" id="asName" list="asList" placeholder="교적 이름" autocomplete="off" ' +
+          'onchange="if(this.value)viewAs(this.value,AS_KIND)" onkeydown="if(event.key===\'Enter\')viewAs(this.value,AS_KIND)">' +
+        '<datalist id="asList"></datalist>' +
       '</div>' +
     '</div>';
+  AS_KIND = 'member';
+  fillAsList();
+}
+
+/** 고른 종류(교인 / 새가족)에 맞는 이름 목록 */
+function fillAsList() {
+  var dl = el('asList'); if (!dl) return;
+  var opts;
+  if (AS_KIND === 'newcomer') {
+    opts = ((VT && VT.newcomers) || []).map(function (n) {
+      return '<option value="' + esc(n.name) + '" label="' + esc([n.stage, n.cell].filter(Boolean).join(' · ')) + '">';
+    });
+  } else {
+    opts = (VT && VT.members ? VT.members.map(function (m) { return m.name; }) : ((SELF && SELF.people) || []))
+      .map(function (n) { return '<option value="' + esc(n) + '">'; });
+  }
+  dl.innerHTML = opts.join('');
+  var inp = el('asName');
+  if (inp) inp.placeholder = AS_KIND === 'newcomer' ? '새가족 이름' : '교적 이름';
+}
+
+function setAsKind(k) {
+  AS_KIND = k === 'newcomer' ? 'newcomer' : 'member';
+  el('asKm').className = AS_KIND === 'member' ? 'on' : '';
+  el('asKn').className = AS_KIND === 'newcomer' ? 'on' : '';
+  var inp = el('asName');
+  if (inp) { inp.value = ''; }
+  fillAsList();
+  if (inp) inp.focus();
+}
+
+/** 펼칠 때 한 번 — 교인 · 새가족 목록을 받습니다 (실패해도 예전 people 목록으로 계속 됩니다) */
+function loadViewTargets() {
+  if (VT) return;
+  callServer('portalViewTargets', [TOKEN], function (r) { VT = r || null; fillAsList(); }, function () {});
 }
 
 function toggleAs() {
   var b = el('asIn');
   var on = b.style.display === 'none';
   b.style.display = on ? 'flex' : 'none';
-  if (on) setTimeout(function () { el('asName').focus(); }, 30);
+  if (on) { loadViewTargets(); setTimeout(function () { var n = el('asName'); if (n) n.focus(); }, 30); }
 }
 
-function viewAs(name) {
+function viewAs(name, kind) {
   name = String(name || '').trim();
-  if (!name) { VIEW = ''; CAL_CACHE = {}; paint(SELF); window.scrollTo(0, 0); return; }
+  if (!name) { VIEW = ''; VIEW_KIND = ''; NEWCOMER = null; CAL_CACHE = {}; paint(SELF); window.scrollTo(0, 0); return; }
+  var nf = kind === 'newcomer';
   var box = el('asBox');
-  box.insertAdjacentHTML('beforeend', '<p class="fnote" id="asMsg" style="padding:0 16px;">' + esc(name) + '님 화면을 불러오는 중…</p>');
-  callServer('portalViewAs', [TOKEN, name], function (res) { VIEW = name; VIEW_NOLINK = !!res.noLink; paint(res); window.scrollTo(0, 0); }, function (e) { var m = el('asMsg'); if (m) m.textContent = e.message || '불러오지 못했습니다.'; });
+  var old = el('asMsg'); if (old) old.remove();
+  box.insertAdjacentHTML('beforeend', '<p class="fnote" id="asMsg" style="padding:0 16px;">' + esc(name) + (nf ? ' 새가족' : '님') + ' 화면을 불러오는 중…</p>');
+  callServer(nf ? 'portalViewAsNewcomer' : 'portalViewAs', [TOKEN, name], function (res) {
+    VIEW = name; VIEW_KIND = nf ? 'newcomer' : ''; NEWCOMER = res.newcomer || null; VIEW_NOLINK = !!res.noLink;
+    paint(res); window.scrollTo(0, 0);
+  }, function (e) { var m = el('asMsg'); if (m) m.textContent = e.message || '불러오지 못했습니다.'; });
 }
 
 function roTap() { alert('교적에 전화번호가 없는 분이라 메뉴를 그분으로 열 수 없습니다. "내 화면으로" 를 눌러 돌아가세요.'); }
@@ -2904,6 +2994,12 @@ function renderHero() {
       ROLES.map(function (r) { return '<span class="pill role">' + esc(r) + '</span>'; }).join('') +
       '</span></div>';
   }
+  if (VIEW && VIEW_KIND === 'newcomer' && NEWCOMER) {
+    rows += '<div class="hrow"><span class="hk">새가족</span><span class="hv">' +
+      [NEWCOMER.stage, NEWCOMER.status, NEWCOMER.owner ? '담당 ' + NEWCOMER.owner : ''].filter(Boolean).map(function (t) {
+        return '<span class="pill">' + esc(t) + '</span>';
+      }).join('') + '</span></div>';
+  }
   if (!rows) {
     rows = '<div class="hrow"><span class="hk">소속</span><span class="hv">' +
       '<span class="pill sub">아직 등록된 셀 · 사역팀이 없습니다</span></span></div>';
@@ -2912,7 +3008,7 @@ function renderHero() {
 }
 
 function tileIcon(key) {
-  return '<span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  return '<span class="ticon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
     'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
     (MENU_ICON[key] || MENU_ICON.admin) + '</svg></span>';
 }

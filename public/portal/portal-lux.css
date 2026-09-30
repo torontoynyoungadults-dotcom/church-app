@@ -1,0 +1,158 @@
+/* ==========================================================================
+   포털 Step 10 — Luxury Dark Glassmorphism
+   · 검색 결과 · 정보 카드 · 화면 보기 · 설교 노트 단추
+   · 모든 메뉴 아이콘을 한 가지 큰 크기로 통일
+   Portal.html 의 <style> 과 Theme 뒤에 불러오므로 같은 우선순위에서 이쪽이 이깁니다.
+   지우면 예전 모양으로 돌아갑니다 (기능은 그대로).
+   ========================================================================== */
+
+:root {
+  --ico-box: 48px;      /* 아이콘 바탕 네모 */
+  --ico-svg: 26px;      /* 그 안의 그림 */
+  --ico-r: 14px;
+  --lux-glow: rgba(242, 107, 33, .55);
+  --lux-glow-soft: rgba(242, 107, 33, .22);
+  --lux-edge: rgba(255, 255, 255, .16);
+}
+
+/* ---------- 1. 검색 결과: 항상 맨 위에 (z-index 9999 · absolute) ---------- */
+.hero { position: relative; z-index: 40; }
+.qsearch { position: relative; z-index: 1; }
+.qsdrop {
+  position: absolute !important; left: 0; right: 0; top: calc(100% + 8px); z-index: 9999 !important;
+  background:
+    linear-gradient(160deg, rgba(48, 40, 34, .92) 0%, rgba(24, 21, 19, .94) 100%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%);
+  border: 1px solid rgba(242, 107, 33, .42) !important;
+  border-radius: 16px !important;
+  max-height: min(60vh, 380px); overflow-y: auto; overscroll-behavior: contain;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .05) inset,
+    0 0 22px var(--lux-glow-soft),
+    0 12px 28px rgba(0, 0, 0, .45),
+    0 28px 60px rgba(0, 0, 0, .35) !important;
+}
+.qsearch input {
+  background: rgba(255, 255, 255, .06) !important;
+  border: 1px solid var(--lux-edge) !important; border-radius: 14px !important;
+  transition: border-color .15s, box-shadow .15s;
+}
+.qsearch input:focus {
+  outline: none; border-color: rgba(242, 107, 33, .7) !important;
+  box-shadow: 0 0 0 3px rgba(242, 107, 33, .18), 0 0 18px var(--lux-glow-soft);
+}
+.qshead {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px 6px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .08em; color: #B7B0A7;
+  background: rgba(20, 18, 16, .9); border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+.qshead i { font-style: normal; color: #F0A57F; letter-spacing: 0; }
+.qshead.newcomer { color: #7FD6DC; }
+.qshead.newcomer i { color: #7FD6DC; }
+.qsrow { padding: 11px 14px; gap: 10px; transition: background .12s; }
+.qsrow .qsb { flex: 1; min-width: 0; }
+.qsrow .qsm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qsrow .qsgo { flex: none; color: #837D75; font-size: 18px; }
+.qsrow:hover, .qsrow:active { background: rgba(242, 107, 33, .12) !important; }
+.qsrow.nf:hover, .qsrow.nf:active { background: rgba(79, 193, 201, .13) !important; }
+.qstag {
+  display: inline-block; vertical-align: 1px; margin-left: 6px; padding: 1px 7px; border-radius: 99px;
+  font-size: 11px; font-weight: 800; letter-spacing: 0;
+  color: #7FD6DC; background: rgba(79, 193, 201, .14); border: 1px solid rgba(79, 193, 201, .36);
+}
+
+/* ---------- 2. 정보 카드 (교인 상세 · 화면 보기 안내 · 모달) ---------- */
+.ynmodalcard {
+  background: linear-gradient(165deg, rgba(44, 38, 33, .96) 0%, rgba(22, 20, 18, .98) 100%) !important;
+  border: 1px solid rgba(242, 107, 33, .30);
+  box-shadow: 0 0 26px var(--lux-glow-soft), 0 18px 44px rgba(0, 0, 0, .55), 0 40px 80px rgba(0, 0, 0, .35) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+}
+.qsdetail .qsgrid {
+  padding: 4px 16px; margin: 0 0 4px; border-radius: 16px;
+  background: rgba(255, 255, 255, .045); border: 1px solid var(--lux-edge);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28), 0 1px 0 rgba(255, 255, 255, .06) inset;
+}
+.qsdetail .qsgrid .field { padding: 10px 0; }
+.qsdetail .qsgrid .fk { letter-spacing: .04em; }
+.qsdrow {
+  padding: 10px 13px !important; border-radius: 12px !important;
+  background: rgba(255, 255, 255, .05) !important; border: 1px solid rgba(255, 255, 255, .09);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .2); cursor: pointer;
+}
+.qsdrow:hover { border-color: rgba(242, 107, 33, .45); box-shadow: 0 0 14px var(--lux-glow-soft), 0 3px 10px rgba(0, 0, 0, .2); }
+.qsphoto img, .qsphoto .qsphempty { box-shadow: 0 0 0 2px rgba(242, 107, 33, .55), 0 0 20px var(--lux-glow-soft); }
+.qssect { letter-spacing: .08em; color: #F0A57F; }
+
+.hero, .acard, .tile, .todo .ti, .asview {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .07) inset, 0 6px 16px rgba(0, 0, 0, .25), 0 18px 40px rgba(0, 0, 0, .2) !important;
+}
+.hero { border-color: rgba(242, 107, 33, .30) !important; }
+.acard:hover, .tile:hover {
+  border-color: rgba(242, 107, 33, .5) !important;
+  box-shadow: 0 0 20px var(--lux-glow-soft), 0 10px 28px rgba(0, 0, 0, .38) !important;
+}
+
+/* ---------- 3. 다른 분 화면 보기 (교인 / 새가족) ---------- */
+.asin { flex-wrap: wrap; align-items: stretch; }
+.asseg {
+  display: inline-flex; flex: none; padding: 3px; gap: 3px; border-radius: 12px;
+  background: rgba(255, 255, 255, .07); border: 1px solid var(--lux-edge);
+}
+.asseg button {
+  border: none; background: none; color: #CFC9C1; font: 800 13.5px inherit; font-family: inherit;
+  padding: 7px 13px; border-radius: 9px; cursor: pointer;
+}
+.asseg button.on { background: linear-gradient(135deg, #F26B21, #D2511F); color: #fff; box-shadow: 0 0 14px var(--lux-glow-soft); }
+.asin input { flex: 1 1 140px; }
+.asview { border-color: rgba(181, 146, 240, .55) !important; box-shadow: 0 0 20px rgba(124, 92, 214, .28) !important; }
+
+/* ---------- 4. 내 설교 노트 — 메인 메뉴 (오늘의 묵상 옆) ---------- */
+.aibtns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 16px 12px; }
+.aibtns .bulbtn.ai, body .aibtns .bulbtn.ai { margin: 0; padding: 14px 13px; gap: 11px; }
+.aibtns .bulbtn .bt b { white-space: nowrap; }
+.bulbtn.ai.notes .bi { background: linear-gradient(135deg, #F26B21, #D2511F) !important; }
+@media (max-width: 340px) { .aibtns { grid-template-columns: 1fr; } }
+
+/* ---------- 5. 아이콘 크기 통일 — 메뉴 · 관리 · 버튼 모두 같은 크기 ---------- */
+.tile .ticon,
+.acard .ac-ic,
+.mcardlink .mi,
+.bulbtn .bi,
+.prebtns .bulbtn .bi,
+.cabtn .bi,
+.fmbtn .fi, .fmbtn .bi,
+.pushcard .pi {
+  width: var(--ico-box) !important; height: var(--ico-box) !important; min-width: var(--ico-box);
+  border-radius: var(--ico-r) !important; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 !important; border-width: 1px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .06) inset, 0 4px 12px rgba(0, 0, 0, .28);
+}
+.tile .ticon svg,
+.acard .ac-ic svg,
+.mcardlink .mi svg,
+.bulbtn .bi svg,
+.prebtns .bulbtn .bi svg,
+.cabtn .bi svg,
+.fmbtn .fi svg, .fmbtn .bi svg,
+.mebtn svg {
+  width: var(--ico-svg) !important; height: var(--ico-svg) !important; flex: none;
+  stroke-width: 1.8;
+}
+.tile .ticon { border: 1px solid rgba(255, 255, 255, .1); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.tile { gap: 9px; padding: 15px 6px 13px; }
+.mebtn { gap: 10px; }
+
+/* 아이콘 바탕이 흐려 안 보이는 어두운 카드 위에서도 또렷하게 */
+.tile .ticon { background: var(--mc-soft, rgba(255, 255, 255, .08)); }
+.acard .ac-ic { background: var(--mc-soft, rgba(255, 255, 255, .08)); }
+
+/* 이모지 아이콘(신청서 · 알림)도 같은 상자, 글자만 크게 */
+.fmbtn .fi, .pushcard .pi { font-size: 24px !important; line-height: 1; }
+
+/* 큰 아이콘 때문에 좁아진 관리 카드 — 제목이 글자 중간에서 꺾이지 않게 */
+.acard .ac-hit { gap: 8px !important; padding: 10px 9px 8px 10px !important; }
+.acard .ac-t { word-break: keep-all; overflow-wrap: normal; font-size: 13.5px; }
+.acard .ac-go { font-size: 16px; }

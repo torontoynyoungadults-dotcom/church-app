@@ -173,6 +173,13 @@
   .pick.off { border-color: #E6C9C5; color: var(--bad); }
   .pick.off.on { background: var(--bad); border-color: var(--bad); color: #fff; }
   .pick i { font-style: normal; opacity: .6; font-size: 11.5px; margin-left: 4px; }
+  .gsbox .addrow { margin-bottom: 7px; }
+  .gsbox .addrow input { flex: 1; min-width: 0; width: 100%; box-sizing: border-box; }
+  .gsres:empty { display: none; }
+  .gsempty { font-size: 13px; color: var(--ink-3); padding: 4px 2px; line-height: 1.6; }
+  .gsempty.err { color: var(--bad); }
+  .gsnote { font-weight: 600; letter-spacing: 0; opacity: .7; margin-left: 4px; }
+  .pick.gsp { border-style: dashed; }
 
   /* ---------- 콘티 ---------- */
   .song { padding: 13px; margin-bottom: 8px; }
@@ -1575,11 +1582,75 @@ function picker(off) {
       '<span class="fnote" style="margin:0;">' + (p.multi ? '여러 명' : '한 명') + '</span>' +
       '<button class="btn mini" onclick="openPos=\'\';render();">닫기</button></div>' +
     pickGroups(p, W.slots[p.key] || [], off, 'togglePick') +
-    '<div class="pgroup" style="margin-bottom:0;"><div class="gl">객원 직접 입력</div>' +
+    guestBox('gs', 'togglePick') +
+    '<div class="pgroup" style="margin-bottom:0;"><div class="gl">객원 직접 입력 <span class="gsnote">교적에 없는 분</span></div>' +
       '<div class="addrow"><input type="text" id="guestName" placeholder="이름" maxlength="20" ' +
         'onkeydown="if(event.key===\'Enter\')addGuest()">' +
       '<button class="btn accent" onclick="addGuest()">추가</button></div></div>' +
     '</div>';
+}
+
+/* ---------- 객원 — 교적에서 찾기 (이름 · 전화번호 · 셀 · 영문이름) ----------
+   고른 분은 예전 직접 입력과 똑같이 "이름"으로 편성에 저장됩니다 (저장 방식은 그대로) */
+var GS_TIMER = null, GS_SEQ = 0;
+
+function guestBox(pre, fn) {
+  return '<div class="pgroup gsbox"><div class="gl">객원 · 교적에서 찾기</div>' +
+    '<div class="addrow"><input type="text" id="' + pre + 'Q" placeholder="이름 · 전화번호 · 셀 · 영문이름" maxlength="30" autocomplete="off" ' +
+      'oninput="gsInput(\'' + pre + '\',\'' + fn + '\')"></div>' +
+    '<div class="pwrap gsres" id="' + pre + 'Res"></div></div>';
+}
+
+/** 지금 그 칸에 들어가 있는 이름들 */
+function gsPicked(fn) {
+  if (fn === 'stToggle') {
+    var r = ST.cell ? stRow(ST.cell.key) : null;
+    return (r && ST.cell && r.slots[ST.cell.pos]) || [];
+  }
+  return (W && W.slots && W.slots[openPos]) || [];
+}
+
+function gsInput(pre, fn) {
+  var q = (el(pre + 'Q').value || '').trim();
+  var box = el(pre + 'Res');
+  clearTimeout(GS_TIMER);
+  if (!q) { box.innerHTML = ''; return; }
+  var my = ++GS_SEQ;
+  GS_TIMER = setTimeout(function () {
+    callServer('worshipGuestSearch', [TOKEN, q], function (r) {
+      if (my !== GS_SEQ || !el(pre + 'Res')) return;
+      gsDraw(pre, fn, r || {});
+    }, function (e) {
+      if (my !== GS_SEQ || !el(pre + 'Res')) return;
+      el(pre + 'Res').innerHTML = '<span class="gsempty err">' + esc((e && e.message) || '찾지 못했습니다.') + '</span>';
+    });
+  }, 200);
+}
+
+function gsFace(g) {
+  var ch = esc(String(g.name || '?').charAt(0));
+  return g.photo
+    ? '<img class="fc" src="' + esc(g.photo) + '" alt="" onerror="this.outerHTML=&quot;<span class=\'fc\'>' + ch + '</span>&quot;">'
+    : '<span class="fc">' + ch + '</span>';
+}
+
+function gsDraw(pre, fn, r) {
+  var box = el(pre + 'Res');
+  var picked = gsPicked(fn);
+  var list = r.list || [];
+  var html = list.map(function (g) {
+    var meta = [g.cell, g.tail ? '···' + g.tail : ''].filter(Boolean).join(' ');
+    return '<button type="button" class="pick gsp' + (picked.indexOf(g.name) !== -1 ? ' on' : '') + '" onclick="' + fn + '(\'' + esc(jsq(g.name)) + '\')">' +
+      gsFace(g) + esc(g.name) + (meta ? '<i>' + esc(meta) + '</i>' : '') + '</button>';
+  }).join('');
+  if (!list.length) {
+    html = '<span class="gsempty">' + ((r.hint || []).length
+      ? esc(r.hint.join(', ')) + ' — 이미 팀원입니다. 위 팀원 목록에서 고르세요.'
+      : '교적에 일치하는 분이 없습니다. 아래에서 직접 입력하세요.') + '</span>';
+  } else if (r.total > list.length) {
+    html += '<span class="gsempty">그 밖에 ' + (r.total - list.length) + '명 — 검색어를 더 적어 주세요.</span>';
+  }
+  box.innerHTML = html;
 }
 
 function addGuest() {
@@ -2632,7 +2703,8 @@ function drawStPicker() {
   box.innerHTML = '<div class="yc-h"><h3>' + stTitle(r) + ' · ' + esc(p.label) + '</h3></div>' +
     '<p class="stsub">' + (p.multi ? '여러 명 고를 수 있습니다' : '한 명 — 누르면 바로 들어갑니다') + ' · 바로 저장됩니다</p>' +
     pickGroups(p, r.slots[p.key] || [], offMap(r.off), 'stToggle') +
-    '<div class="pgroup" style="margin-bottom:0;"><div class="gl">객원 직접 입력</div>' +
+    guestBox('stgs', 'stToggle') +
+    '<div class="pgroup" style="margin-bottom:0;"><div class="gl">객원 직접 입력 <span class="gsnote">교적에 없는 분</span></div>' +
       '<div class="addrow"><input type="text" id="stGuest" placeholder="이름" maxlength="20" ' +
         'onkeydown="if(event.key===\'Enter\')stToggle(this.value.trim())">' +
       '<button class="btn accent" onclick="stToggle(val(\'stGuest\'))">추가</button></div></div>' +
