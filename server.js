@@ -115,6 +115,49 @@ function timerRoute(kind) {
 app.post('/api/worshipTimerGet', timerRoute('get'));
 app.post('/api/worshipTimerCmd', timerRoute('cmd'));
 
+/**
+ * 설교 요약 (허브 v5) — 자막이 없으면 제미나이가 유튜브 영상을 직접 보고 요약합니다 (1~3분 걸릴 수 있음).
+ * 예전처럼 다리(bridge)를 거쳐 기다리면 그동안 서버 전체가 멈추므로, 노트 정제와 같은 방식으로
+ * 준비(자막 찾기 · 로그인 확인) → 비동기 AI 호출 → 마무리(저장)로 나눕니다. 화면 쪽 호출 이름은 그대로입니다.
+ */
+async function sermonAsync(prepName, doneName, args, res) {
+  try {
+    const prep = runtime.run((api) => api[prepName].apply(null, args)).result;
+    let ai = await notesAi.gemini(prep);
+    let result = runtime.run((api) => api[doneName](prep, ai.text, 0)).result;
+    if (result && result.retryPrompt) {                                  // 형식이 어긋나면 한 번 더 (관리 화면 요약)
+      ai = await notesAi.gemini(Object.assign({}, prep, { prompt: result.retryPrompt }));
+      result = runtime.run((api) => api[doneName](prep, ai.text, 1)).result;
+      if (result) delete result.retryPrompt;
+    }
+    res.json({ ok: true, result });
+  } catch (e) {
+    if (!(e && e.message && /[가-힣]/.test(e.message))) console.error('[' + doneName + ']', e);
+    res.json({ ok: false, error: (e && e.message) || String(e) });
+  }
+}
+app.post('/api/sermonMake', (req, res) => sermonAsync('sermonMakePrep_', 'sermonMakeDone_', Array.isArray(req.body && req.body.args) ? req.body.args : [], res));
+app.post('/api/sermonGeminiSummary', (req, res) => sermonAsync('sermonGeminiSummaryPrep_', 'sermonGeminiSummaryDone_', Array.isArray(req.body && req.body.args) ? req.body.args : [], res));
+
+/** 매주 자동 요약에서 자막이 없던 영상 — 서버를 멈추지 않고 뒤에서 영상으로 요약합니다 */
+async function sermonVideoFollowUp(result) {
+  const list = (result && result.needVideo) || [];
+  for (const v of list.slice(0, 1)) {
+    try {
+      const prep = runtime.run((api) => api.설교영상준비_(v)).result;
+      if (!prep) continue;
+      const ai = await notesAi.gemini(prep);
+      runtime.run((api) => api.설교영상저장_(prep, ai.text));
+      console.log('[설교 영상 요약]', v.title || v.id, '완료');
+    } catch (e) { console.error('[설교 영상 요약 실패]', v.id, e.message); }
+  }
+}
+function runJob(fn) {
+  const r = runtime.run((api) => api[fn]()).result;
+  if (fn === '설교요약돌기' && r && r.needVideo && r.needVideo.length) sermonVideoFollowUp(r);
+  return r;
+}
+
 /** 화면 → 서버 함수 */
 app.post('/api/:fn', (req, res) => {
   const fn = req.params.fn;
@@ -165,7 +208,7 @@ app.all('/cron/:job', (req, res) => {
   if (!process.env.CRON_SECRET || !safeEqual(req.query.secret, process.env.CRON_SECRET)) return res.status(403).send('forbidden');
   if (scheduler.names().indexOf(job) === -1) return res.status(404).send('unknown job');
   try {
-    runtime.run((api) => api[job]());
+    runJob(job);
     res.send('ok');
   } catch (e) {
     console.error('[cron]', job, e);
@@ -282,6 +325,6 @@ server.listen(PORT, () => {
     }, 300);
   }
   if (process.env.DISABLE_SCHEDULER !== '1') {
-    scheduler.start((fn) => runtime.run((api) => api[fn]()));
+    scheduler.start((fn) => runJob(fn));
   }
 });

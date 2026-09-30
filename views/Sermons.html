@@ -330,10 +330,10 @@ function makeIt(id) {
   BUSY = id;
   var b = el('b-' + id);
   if (b) { b.disabled = true; b.innerHTML = '<span class="spin"></span>'; }
-  say('mMsg', '자막을 가져와 요약하는 중입니다… 20초쯤 걸립니다.');
-  callServer('sermonMake', [TOKEN, id, PASTE], function () {
+  say('mMsg', '자막을 가져와 요약하는 중입니다… 20초쯤 걸립니다. 자막이 없는 영상은 AI 가 영상을 직접 보고 요약해서 1~3분 걸릴 수 있습니다.');
+  callServer('sermonMake', [TOKEN, id, PASTE], function (r) {
     BUSY = ''; PASTE = '';
-    say('mMsg', '요약을 만들었습니다.', 'ok');
+    say('mMsg', '요약을 만들었습니다.' + (r && /영상/.test(r.source || '') ? ' (자막이 없어 AI 가 영상을 보고 요약했습니다 — 한 번 확인해 주세요)' : ''), 'ok');
     load();
   }, function (e) {
     BUSY = '';

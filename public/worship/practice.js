@@ -51,6 +51,89 @@
   ];
   var current = null;
 
+  /* ------------------------------------------------------------ 성능 (허브 v5)
+     · 악보 파일 바이트를 화면(연습 창) 밖에서도 잠깐 기억합니다 — 허브 화면이 한가할 때 첫 악보를 미리 받아 두면(warm)
+       "세션 / 연습 시작"을 눌렀을 때 내려받기를 기다리지 않습니다. 최근 BYTE_MAX 개만, 오래된 것부터 버림.
+     · PDF 도구(pdf.js)도 한가할 때 미리 불러 둡니다 (처음 열 때 큰 스크립트를 읽느라 멈칫하던 부분)
+     · 휴대폰으로 찍은 큰 사진 악보(예: 4000×3000)는 화면에 필요한 크기(긴 변 IMG_MAX)로 한 번만 줄여 둡니다.
+       필기 좌표는 쪽 전체 기준(0~1)이라 줄여도 필기 위치 · 다른 사람 화면과의 동기화는 그대로입니다. */
+  var BYTES = new Map(), BYTE_MAX = 4, IMG_MAX = 2800;
+  function sheetBytes(id) {
+    var hit = BYTES.get(id);
+    if (hit) { BYTES.delete(id); BYTES.set(id, hit); return hit; }
+    var p = root.fetch('/sheet/' + encodeURIComponent(id), { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) throw new Error(r.status === 404 ? '이 악보를 찾을 수 없습니다 (삭제되었거나 권한이 없습니다).' : '악보를 불러오지 못했습니다 (오류 ' + r.status + ')');
+      return r.arrayBuffer();
+    }, function () { throw new Error('악보를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'); });
+    p.catch(function () { if (BYTES.get(id) === p) BYTES.delete(id); });            // 실패한 것은 기억하지 않음 (다음에 다시 시도)
+    BYTES.set(id, p);
+    while (BYTES.size > BYTE_MAX) BYTES.delete(BYTES.keys().next().value);
+    return p;
+  }
+  function isPdfBytes(u8) { return u8.length > 4 && u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46; }
+  function warmPdfjs() {
+    return loadScript('/vendor/pdfjs/pdf.min.js', function () { return !!root.pdfjsLib; }).then(function () {
+      try { root.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js'; } catch (e) {}
+    });
+  }
+  /** 허브 화면이 한가할 때 부릅니다: 악보 바이트 + (PDF 면) pdf.js 를 미리 */
+  function warm(ids) {
+    (ids || []).slice(0, 2).forEach(function (id) {
+      if (!id) return;
+      sheetBytes(id).then(function (buf) { if (isPdfBytes(new Uint8Array(buf, 0, Math.min(8, buf.byteLength)))) return warmPdfjs(); }).catch(function () { /* 미리 받기는 덤 */ });
+    });
+  }
+  /** 그림 파일 머리에서 가로 · 세로만 읽습니다 (PNG · JPEG · GIF · WebP) — 모르면 null */
+  function imgDims(u8) {
+    try {
+      if (u8[0] === 0x89 && u8[1] === 0x50) return { w: (u8[16] << 24 | u8[17] << 16 | u8[18] << 8 | u8[19]) >>> 0, h: (u8[20] << 24 | u8[21] << 16 | u8[22] << 8 | u8[23]) >>> 0 };
+      if (u8[0] === 0x47 && u8[1] === 0x49) return { w: u8[6] | u8[7] << 8, h: u8[8] | u8[9] << 8 };
+      if (u8[0] === 0x52 && u8[1] === 0x49 && u8[8] === 0x57 && u8[12] === 0x56) {
+        var tag = String.fromCharCode(u8[12], u8[13], u8[14], u8[15]);
+        if (tag === 'VP8X') return { w: 1 + (u8[24] | u8[25] << 8 | u8[26] << 16), h: 1 + (u8[27] | u8[28] << 8 | u8[29] << 16) };
+        if (tag === 'VP8 ') return { w: (u8[26] | u8[27] << 8) & 0x3fff, h: (u8[28] | u8[29] << 8) & 0x3fff };
+        if (tag === 'VP8L') { var b = u8[21] | u8[22] << 8 | u8[23] << 16 | u8[24] << 24; return { w: 1 + (b & 0x3fff), h: 1 + ((b >> 14) & 0x3fff) }; }
+        return null;
+      }
+      if (u8[0] === 0xff && u8[1] === 0xd8) {
+        var i = 2;
+        while (i + 9 < u8.length) {
+          if (u8[i] !== 0xff) { i++; continue; }
+          var m = u8[i + 1], len = u8[i + 2] << 8 | u8[i + 3];
+          if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: u8[i + 7] << 8 | u8[i + 8], h: u8[i + 5] << 8 | u8[i + 6] };
+          if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+          i += 2 + len;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+  /** 큰 사진을 줄여서 바로 풀기 — 브라우저가 화면 밖(다른 스레드)에서 풀면서 줄이므로 화면이 멈추지 않습니다. */
+  function decodeScaled(blob, u8) {
+    var d = imgDims(u8), big = d ? Math.max(d.w, d.h) : 0;
+    if (!root.createImageBitmap) return Promise.reject(new Error('no bitmap'));
+    if (!d || big <= IMG_MAX) return root.createImageBitmap(blob).then(prescale);
+    var rw = Math.max(1, Math.round(d.w * IMG_MAX / big));
+    // 가로만 정하면 세로는 비율대로 (사진 회전 정보가 있어도 모양이 찌그러지지 않음)
+    return root.createImageBitmap(blob, { resizeWidth: rw, resizeQuality: 'high' }).then(function (bm) {
+      if (Math.max(bm.width, bm.height) > IMG_MAX * 1.4) return prescale(bm);            // 줄이기 옵션을 모르는 브라우저
+      return bm;
+    }, function () { return root.createImageBitmap(blob).then(prescale); });
+  }
+  /** 큰 사진을 화면에 필요한 크기로 한 번만 줄입니다 (긴 변 IMG_MAX). 작으면 그대로 */
+  function prescale(img) {
+    var w = img.width || img.naturalWidth || 0, hh = img.height || img.naturalHeight || 0, big = Math.max(w, hh);
+    if (!big || big <= IMG_MAX) return img;
+    var k = IMG_MAX / big, cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(hh * k));
+    try {
+      var cv = doc.createElement('canvas'); cv.width = cw; cv.height = ch;
+      var c = cv.getContext('2d'); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+      c.fillStyle = '#fff'; c.fillRect(0, 0, cw, ch); c.drawImage(img, 0, 0, cw, ch);
+      if (img.close) { try { img.close(); } catch (e) {} }                  // 원본 비트맵 메모리를 바로 돌려줌
+      return cv;
+    } catch (e) { return img; }
+  }
+
   function open(opts) {
     opts = opts || {};
     if (current) { try { current.close(); } catch (e) {} }
@@ -224,26 +307,20 @@
     }
 
     /* ------------------------------------------------------------ 악보 불러오기 · 그리기 */
-    function ensurePdfjs() {
-      return loadScript('/vendor/pdfjs/pdf.min.js', function () { return !!root.pdfjsLib; }).then(function () {
-        try { root.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js'; } catch (e) {}
-      });
-    }
+    function ensurePdfjs() { return warmPdfjs(); }
     function fetchDoc(f) {
       var c = S.cache[f.id]; if (c) return Promise.resolve(c);
-      return fetch('/sheet/' + encodeURIComponent(f.id), { credentials: 'same-origin' }).then(function (r) {
-        if (!r.ok) throw new Error(r.status === 404 ? '이 악보를 찾을 수 없습니다 (삭제되었거나 권한이 없습니다).' : '악보를 불러오지 못했습니다 (오류 ' + r.status + ')');
-        return r.arrayBuffer();
-      }, function () { throw new Error('악보를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'); }).then(function (buf) {
-        var u8 = new Uint8Array(buf), isPdf = u8.length > 4 && u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46;
+      return sheetBytes(f.id).then(function (buf) {
+        var u8 = new Uint8Array(buf), isPdf = isPdfBytes(u8);
         if (isPdf) {
+          u8 = u8.slice();                                                      // pdf.js 는 받은 버퍼를 작업자에게 넘겨 버리므로, 기억해 둔 원본은 그대로 두고 복사본을 줌
           return ensurePdfjs().then(function () { return root.pdfjsLib.getDocument({ data: u8 }).promise; }).then(function (pdf) { return { pdf: pdf, n: pdf.numPages }; },
             function (e) { throw new Error(e && e.name === 'PasswordException' ? '암호가 걸린 PDF 는 열 수 없습니다.' : 'PDF 를 읽지 못했습니다 (파일이 손상되었을 수 있습니다).'); });
         }
         var type = /^\x89PNG/.test(String.fromCharCode.apply(null, u8.slice(0, 4))) ? 'image/png' : 'image/jpeg';
         var blob = new Blob([u8], { type: type });
-        if (root.createImageBitmap) return root.createImageBitmap(blob).then(function (bm) { return { img: bm, n: 1 }; }, function () { throw new Error('사진 악보를 읽지 못했습니다.'); });
-        return new Promise(function (res, rej) { var im = new root.Image(); im.onload = function () { res({ img: im, n: 1 }); }; im.onerror = function () { rej(new Error('사진 악보를 읽지 못했습니다.')); }; im.src = root.URL.createObjectURL(blob); });
+        if (root.createImageBitmap) return decodeScaled(blob, u8).then(function (bm) { return { img: bm, n: 1 }; }, function () { throw new Error('사진 악보를 읽지 못했습니다.'); });
+        return new Promise(function (res, rej) { var im = new root.Image(); im.decoding = 'async'; im.onload = function () { res({ img: prescale(im), n: 1 }); root.URL.revokeObjectURL(im.src); }; im.onerror = function () { rej(new Error('사진 악보를 읽지 못했습니다.')); }; im.src = root.URL.createObjectURL(blob); });
       }).then(function (d) {
         d.fid = f.id; S.cache[f.id] = d; S.cacheOrder.push(f.id);
         while (S.cacheOrder.length > 5) { var old = S.cacheOrder.shift(); if (S.cache[old] && S.cache[old].pdf && old !== f.id) { try { S.cache[old].pdf.destroy(); } catch (e) {} } delete S.cache[old]; }
@@ -307,9 +384,12 @@
     /* ------------------------------------------------------------ 두 쪽 나란히 (컴퓨터 화면)
        왼쪽 = 지금 쪽 (필기 · 실시간 동기화는 이 쪽에만 — 기존 그대로). 오른쪽 = 다음 쪽 (보기 전용, 눌러서 왼쪽으로 가져오면 필기 가능). */
     var box2 = $('.pv-pagebox2'), pdf2 = $('.pv-pdf2'), spreadBtn = $('.pv-spreadbtn');
-    function spreadOn() { return !!S.spread && S.layout === 'computer' && stage.clientWidth >= 860; }
+    /* 허브 v5 — 아이패드를 가로로 눕힌 태블릿 화면(라이브 모드)에서도 두 쪽을 나란히 (넓은 가로 화면에서만) */
+    function landscapeWide() { var w = root.innerWidth || 0, hh = root.innerHeight || 0; return w > hh && w >= 1000; }
+    function spreadAllowed() { return S.layout === 'computer' || (S.layout === 'tablet' && landscapeWide()); }
+    function spreadOn() { return !!S.spread && spreadAllowed() && stage.clientWidth >= 860; }
     function syncSpreadUi() {
-      var on = spreadOn(), can = S.layout === 'computer';
+      var on = spreadOn(), can = spreadAllowed();
       el.classList.toggle('pv-spread', on); spreadBtn.style.display = can ? '' : 'none';
       spreadBtn.classList.toggle('on', on); spreadBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
       if (!on) box2.style.display = 'none';
@@ -327,9 +407,9 @@
       }, function () { box2.style.display = 'none'; });
     }
     box2.onclick = function () { if (S.page < S.pages) goPage(S.page + 1, true); toast('필기하려면 이 쪽이 왼쪽에 옵니다. 다음 쪽은 오른쪽에 보입니다.'); };
-    S.spread = ls('spread') === '1';
+    S.spread = ls('spread') === '1' || (ls('spread') === null && S.layout === 'tablet' && landscapeWide());   // 태블릿 가로 화면은 처음에 두 쪽 (직접 끄면 기억)
     function toggleSpread() {
-      if (S.layout !== 'computer' || stage.clientWidth < 860) { toast('두 쪽 보기는 넓은 컴퓨터 화면에서만 됩니다.', true); return; }
+      if (!spreadAllowed() || stage.clientWidth < 860) { toast('두 쪽 보기는 넓은 화면(컴퓨터 · 가로로 눕힌 태블릿)에서만 됩니다.', true); return; }
       S.spread = !S.spread; ls('spread', S.spread ? '1' : '0'); S.zoom = 1; renderPage();
     }
     /* ------------------------------------------------------------ 그려 둔 쪽 그림 저장소
@@ -1492,5 +1572,5 @@
     return api;
   }
 
-  root.YNPractice = { open: open, current: function () { return current; }, close: function () { if (current) current.close(); }, isOpen: function () { return !!current; }, guessSong: guessSong, cueIdFor: cueIdFor, detectLayout: detectLayout, CUE_MAP: CUE_MAP };
+  root.YNPractice = { warm: warm, prescale: prescale, IMG_MAX: IMG_MAX, open: open, current: function () { return current; }, close: function () { if (current) current.close(); }, isOpen: function () { return !!current; }, guessSong: guessSong, cueIdFor: cueIdFor, detectLayout: detectLayout, CUE_MAP: CUE_MAP };
 }(typeof self !== 'undefined' ? self : this));

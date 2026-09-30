@@ -126,13 +126,33 @@
     background: linear-gradient(135deg, rgba(52,168,85,.9), rgba(46,154,75,.75));
     border-color: rgba(120,215,155,.4); color: #fff;
   }
-  /* 팀원 관리 */
-  .mmrow { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.1); }
+  /* 팀원 관리 — 줄을 누르면 자세한 카드가 펼쳐짐 (허브 v5) */
+  .mmrow { border-top: 1px solid rgba(255,255,255,.1); }
   .mmrow:first-of-type { border-top: none; }
-  .mmrow .mmn { flex: 1; min-width: 0; }
-  .mmrow .mmn b { display: block; font-size: 16px; color: #FFFFFF; }
-  .mmrow .mmn small { display: block; font-size: 13px; color: #E3DFD9; margin-top: 2px; }
-  .mmrow .btn { flex: none; }
+  .mmhead { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 2px; cursor: pointer;
+    border-radius: 12px; -webkit-tap-highlight-color: transparent; }
+  .mmhead:focus-visible { outline: 2px solid rgba(var(--tone-rgb,210,81,31),.9); outline-offset: 2px; }
+  .mmhead:hover { background: rgba(255,255,255,.04); }
+  .mmrow .mmn { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+  .mmrow .mmn b { display: block; max-width: 100%; font-size: 16px; color: #FFFFFF; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; }
+  .mmrow .mmn small { display: flex; flex-wrap: wrap; gap: 4px; font-size: 13px; color: #E3DFD9; }
+  .mmrow .mmn .ratebadge { margin-top: 2px; }
+  .mmchev { flex: none; width: 28px; height: 28px; border-radius: 99px; display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,.08); color: #EDEAE5; font-size: 13px; }
+  .mmrow.open .mmchev { background: rgba(46,154,75,.35); color: #fff; }
+  .mmbody { padding: 2px 0 12px; }
+  .mmdet { border-radius: 14px; padding: 12px 13px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.13); animation: mmopen .16s ease-out; }
+  @keyframes mmopen { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .mmdet { animation: none; } }
+  .mmgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)) !important; }
+  .mmact { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+  .mrole.none { background: rgba(255,255,255,.1) !important; color: #D9D4CD !important; }
+  /* 긴 이메일 · 아이디 · 이름이 잘리거나 옆 칸과 겹치지 않게 */
+  .field { min-width: 0; }
+  .field .fv, .fv { overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
+  .field .fv a { color: #FFC9AB; text-decoration: none; }
+  .dcard .dhead { flex-wrap: wrap; }
+  .dcard .dname, .mname, .tname { overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
   .mrole { display: inline-block; font-size: 12px; font-weight: 750; background: rgba(46,154,75,.22);
     color: #9FE0B4; border-radius: 6px; padding: 2px 7px; margin-right: 4px; }
 
@@ -321,7 +341,7 @@
     <div id="paneMem" style="display:none;">
       <div class="panel">
         <span class="chip">팀원</span>
-        <p class="hint">이 팀에 속한 분들입니다. 새로 들어온 분을 넣고, 그만둔 분은 뺄 수 있습니다.</p>
+        <p class="hint">이 팀에 속한 분들입니다. <b>이름을 누르면</b> 연락처 · 생일 · 출석 같은 자세한 정보가 펼쳐지고, 다시 누르면 접힙니다. 새로 들어온 분을 넣고, 그만둔 분은 뺄 수 있습니다.</p>
         <div id="memManage"></div>
         <div style="display:flex;gap:6px;margin-top:12px;">
           <input type="text" id="mmNew" placeholder="새 팀원 이름 (교적에 있는 이름)">
@@ -331,21 +351,10 @@
         <div id="mmRoleBox"></div>
         <p class="msg" id="mmMsg"></p>
       </div>
-      <div class="panel">
-        <span class="chip">팀원 정보</span>
-        <p class="hint">연락처 · 생일 · 출석률입니다.</p>
-        <div id="dirList2"></div>
-      </div>
     </div>
 
     <!-- ===== 보고서 ===== -->
     <div id="paneRep">
-    <div class="panel">
-      <div class="linkbar">
-        <button type="button" class="dirbtn" id="dirToggle" onclick="toggleDir()">팀원 정보 보기</button>
-      </div>
-      <div id="dirPanel" style="display:none;margin-top:12px;"><div id="dirList"></div></div>
-    </div>
 
     <div class="panel">
       <span class="chip">보고하는 달<span class="req">*</span></span>
@@ -630,7 +639,8 @@ function onTeamChange() {
   expense = '아니오';
 
   renderMembers();
-  if (el('dirPanel').style.display === 'block') loadDir();
+  MM_OPEN = {};
+  if (el('paneMem').style.display === 'block') drawMemManage();
   loadExisting();
 }
 
@@ -656,8 +666,7 @@ function editRole(name) {
   RP.edit(name + ' · 역할', m.role || '', teamSugg(t), function (v, done) {
     callServer('setTeamMemberRole', [TOKEN, t.name, name, v], function (list) {
         TEAMS = IS_MASTER ? list : list.filter(function (x) { return x.name === t.name; });
-        done(); renderMembers();
-        if (el('dirPanel').style.display === 'block') loadDir();
+        done(); renderMembers(); refreshDir();
       }, function (e) { done(e.message || '저장하지 못했습니다.'); });
   });
 }
@@ -700,8 +709,7 @@ function doAddMember() {
   callServer('addTeamMember', [TOKEN, t.name, name, role], function (list) {
       TEAMS = IS_MASTER ? list : list.filter(function (x) { return x.name === t.name; });
       el('newMember').value = ''; el('newRoleBox').innerHTML = '';
-      renderMembers();
-      if (el('dirPanel').style.display === 'block') loadDir();
+      renderMembers(); refreshDir();
       showMsg(name + '님을 추가했습니다.', 'ok');
     }, function (e) { showMsg(e.message || '추가 실패', 'err'); });
 }
@@ -712,31 +720,90 @@ function doRemoveMember(name) {
   callServer('removeTeamMember', [TOKEN, t.name, name], function (list) {
       TEAMS = IS_MASTER ? list : list.filter(function (x) { return x.name === t.name; });
       delete states[name];
-      renderMembers();
-      if (el('dirPanel').style.display === 'block') loadDir();
+      renderMembers(); refreshDir();
     }, function (e) { showMsg(e.message || '제거 실패', 'err'); });
 }
 
-/* ---------- 팀원 정보 ---------- */
+/* ---------- 팀원 관리 탭 — 이름을 누르면 자세한 정보 카드가 펼쳐집니다 (허브 v5) ----------
+   예전에는 "팀원" 목록과 아래 "팀원 정보" 목록(그리고 보고서 탭의 "팀원 정보 보기")에 같은 사람이 두 번씩 나왔습니다.
+   이제 목록은 하나 — 줄을 누르면 그 사람 카드가 열리고, 다시 누르면 닫힙니다. 정보는 팀마다 한 번만 불러 기억합니다. */
+var DIR = {};          // 팀 이름 → { list: [...], byName: {} } (getTeamDirectory 결과)
+var DIR_WAIT = {};     // 팀 이름 → 불러오는 중
+var MM_OPEN = {};      // 펼쳐 둔 이름
 
-/* ---------- 팀원 관리 탭 ---------- */
+/** 출석 표시 — "100% · 3/3" 대신 무엇의 출석인지 알 수 있게 */
+function attLabel(m) {
+  if (!m || m.rate === null || m.rate === undefined || m.rate === '') return '';
+  var n = Number(m.totalMeetings) || 0;
+  return '셀 출석 ' + m.rate + '%' + (n ? ' (' + (Number(m.present) || 0) + '/' + n + '회)' : '');
+}
+function attClass(rate) { return rate >= 80 ? 'hi' : rate >= 60 ? 'mid' : 'low'; }
+
+function loadDirFor(t, force) {
+  if (!t) return;
+  if (DIR[t.name] && !force) return;
+  if (DIR_WAIT[t.name]) return;
+  DIR_WAIT[t.name] = true;
+  callServer('getTeamDirectory', [TOKEN, t.name], function (list) {
+      DIR_WAIT[t.name] = false;
+      try { mergePhotos(list); } catch (e) {}
+      var by = {}; (list || []).forEach(function (m) { by[m.name] = m; });
+      DIR[t.name] = { list: list || [], byName: by };
+      var cur = currentTeam(); if (cur && cur.name === t.name && el('paneMem').style.display === 'block') drawMemManage();
+    }, function (e) {
+      DIR_WAIT[t.name] = false;
+      DIR[t.name] = { list: [], byName: {}, err: (e && e.message) || '팀원 정보를 불러오지 못했습니다.' };
+      var cur = currentTeam(); if (cur && cur.name === t.name) drawMemManage();
+    });
+}
+/** 팀원 명단이 바뀌면(추가 · 빼기 · 역할) 기억해 둔 정보도 새로 */
+function refreshDir() { var t = currentTeam(); if (!t) return; delete DIR[t.name]; if (el('paneMem').style.display === 'block') { drawMemManage(); } }
+
+function memDetail(m, info) {
+  if (!info) return '<div class="mmdet"><p class="hint">' + (DIR_WAIT[currentTeam().name] ? '정보를 불러오는 중…' : '교적에서 이 분의 정보를 찾지 못했습니다.') + '</p></div>';
+  var fields = [
+    ['소속 셀', info.cell], ['성별', info.gender], ['전화번호', info.phone], ['카카오톡', info.kakao],
+    ['이메일', info.email], ['생년월일', info.birthdayDisplay], ['세례여부', info.baptized],
+    ['제자훈련', info.discipleship], ['선교팀', belongText(info.missions)], ['셀 출석', attLabel(info).replace(/^셀 출석 /, '')]
+  ].map(function (f) {
+    var v = f[1] ? esc(f[1]) : '&mdash;';
+    if (f[0] === '전화번호' && f[1]) v = '<a href="tel:' + esc(String(f[1]).replace(/[^0-9+]/g, '')) + '">' + v + '</a>';
+    if (f[0] === '이메일' && f[1]) v = '<a href="mailto:' + esc(f[1]) + '">' + v + '</a>';
+    return '<div class="field"><div class="fk">' + f[0] + '</div><div class="fv">' + v + '</div></div>';
+  }).join('');
+  return '<div class="mmdet"><div class="grid mmgrid">' + fields + '</div>' +
+    '<div class="mmact"><button type="button" class="btn mini" onclick="editRole(\'' + esc(jsq(m.name)) + '\')">역할 바꾸기 (여러 개)</button>' +
+    '<button type="button" class="btn mini danger" onclick="mmRemove(\'' + esc(jsq(m.name)) + '\')">팀에서 빼기</button></div></div>';
+}
+
 function drawMemManage() {
   var t = currentTeam();
   if (!t) { el('memManage').innerHTML = '<p class="hint">팀을 먼저 선택해주세요.</p>'; return; }
-  el('memManage').innerHTML = t.members.length
-    ? t.members.map(function (m) {
+  loadDirFor(t);
+  var d = DIR[t.name];
+  el('memManage').innerHTML = (d && d.err ? '<p class="msg err">' + esc(d.err) + '</p>' : '') + (t.members.length
+    ? t.members.map(function (m, i) {
         var rl = m.roles && m.roles.length ? m.roles : (m.role ? String(m.role).split(/\s*[,·]\s*/) : []);
         var roles = rl.filter(function (x) { return x; })
           .map(function (r) { return '<span class="mrole">' + esc(r) + '</span>'; }).join('');
-        return '<div class="mmrow"><div class="mmn"><b>' + esc(m.name) + '</b>' +
-          (roles ? '<small>' + roles + '</small>' : '<small>역할 없음</small>') + '</div>' +
-          '<button class="btn mini danger" onclick="mmRemove(\'' + jsq(m.name) + '\')">빼기</button></div>';
+        var info = d && d.byName[m.name], open = !!MM_OPEN[m.name], att = attLabel(info);
+        var did = 'mmd' + i;
+        return '<div class="mmrow' + (open ? ' open' : '') + '">' +
+          '<button type="button" class="mmhead" aria-expanded="' + (open ? 'true' : 'false') + '" aria-controls="' + did + '" onclick="mmToggle(\'' + esc(jsq(m.name)) + '\')">' +
+            pav(m.name) +
+            '<span class="mmn"><b>' + esc(m.name) + '</b>' +
+              '<small>' + (roles || '<span class="mrole none">역할 없음</span>') + '</small>' +
+              (att ? '<span class="ratebadge ' + attClass(info.rate) + '">' + esc(att) + '</span>' : '') +
+            '</span>' +
+            '<span class="mmchev" aria-hidden="true">' + (open ? '▴' : '▾') + '</span>' +
+          '</button>' +
+          '<div class="mmbody" id="' + did + '"' + (open ? '' : ' hidden') + '>' + (open ? memDetail(m, info) : '') + '</div>' +
+        '</div>';
       }).join('')
-    : '<p class="hint">아직 팀원이 없습니다. 아래에서 추가해주세요.</p>';
+    : '<p class="hint">아직 팀원이 없습니다. 아래에서 추가해주세요.</p>');
   if (!el('mmRoleBox').innerHTML) el('mmRoleBox').innerHTML = RP.html('mmRole', '', teamSugg(t));
-  // 팀원 정보도 같이
-  loadDir2();
 }
+function mmToggle(name) { MM_OPEN[name] = !MM_OPEN[name]; drawMemManage(); }
 
 function mmAdd() {
   var t = currentTeam();
@@ -747,7 +814,7 @@ function mmAdd() {
   callServer('addTeamMember', [TOKEN, t.name, name, role], function (list) {
       TEAMS = IS_MASTER ? list : list.filter(function (x) { return x.name === t.name; });
       el('mmNew').value = ''; el('mmRoleBox').innerHTML = '';
-      drawMemManage(); renderMembers();
+      delete DIR[t.name]; drawMemManage(); renderMembers();
       say2(name + '님을 넣었습니다.', 'ok');
     }, function (e) { say2(e.message || '추가하지 못했습니다.', 'err'); });
 }
@@ -757,8 +824,8 @@ function mmRemove(name) {
   if (!confirm(name + '님을 팀 명단에서 뺄까요?')) return;
   callServer('removeTeamMember', [TOKEN, t.name, name], function (list) {
       TEAMS = IS_MASTER ? list : list.filter(function (x) { return x.name === t.name; });
-      delete states[name];
-      drawMemManage(); renderMembers();
+      delete states[name]; delete MM_OPEN[name];
+      delete DIR[t.name]; drawMemManage(); renderMembers();
       say2(name + '님을 뺐습니다.', 'ok');
     }, function (e) { say2(e.message || '빼지 못했습니다.', 'err'); });
 }
@@ -768,64 +835,6 @@ function say2(t, k) {
   if (!m) return;
   m.className = 'msg' + (k ? ' ' + k : '');
   m.textContent = t || '';
-}
-
-function loadDir2() {
-  var t = currentTeam();
-  if (!t) return;
-  var box = el('dirList2');
-  box.innerHTML = '<p class="hint">불러오는 중…</p>';
-  callServer('getTeamDirectory', [TOKEN, t.name], function (list) {
-      mergePhotos(list);
-      box.innerHTML = list.length ? dirHtml(list) : '<p class="hint">등록된 팀원이 없습니다.</p>';
-    }, function (e) { box.innerHTML = '<p class="msg err">' + esc(e.message || '') + '</p>'; });
-}
-
-function toggleDir() {
-  var p = el('dirPanel'), open = p.style.display === 'block';
-  p.style.display = open ? 'none' : 'block';
-  el('dirToggle').textContent = open ? '팀원 정보 보기' : '닫기';
-  el('dirToggle').className = open ? 'dirbtn' : 'dirbtn on';
-  if (!open) loadDir();
-}
-
-function loadDir() {
-  var t = currentTeam();
-  if (!t) return;
-  el('dirList').innerHTML = '<p class="hint">불러오는 중…</p>';
-  callServer('getTeamDirectory', [TOKEN, t.name], function (list) {
-      mergePhotos(list);
-      if (!list.length) { el('dirList').innerHTML = '<p class="hint">등록된 팀원이 없습니다.</p>'; return; }
-      el('dirList').innerHTML = dirHtml(list);
-    }, function (e) { el('dirList').innerHTML = '<p class="hint">' + esc(e.message) + '</p>'; });
-}
-
-function dirHtml(list) {
-  return list.map(function (m, i) {
-        var badge = '';
-        if (m.rate !== null && m.rate !== undefined) {
-          var c = m.rate >= 80 ? 'var(--good)' : m.rate >= 60 ? 'var(--mid)' : 'var(--danger)';
-          var bg = m.rate >= 80 ? 'var(--good-bg)' : m.rate >= 60 ? 'var(--mid-bg)' : '#FBE9E6';
-          badge = '<span class="ratebadge ' + (m.rate >= 80 ? 'hi' : m.rate >= 60 ? 'mid' : 'low') + '">' +
-            m.rate + '% &middot; ' + m.present + '/' + m.totalMeetings + '</span>';
-        }
-        var fields = [
-          ['소속 셀', m.cell], ['성별', m.gender], ['전화번호', m.phone], ['카카오톡', m.kakao],
-          ['이메일', m.email], ['생년월일', m.birthdayDisplay], ['세례여부', m.baptized],
-          ['제자훈련', m.discipleship],
-          ['소속 셀', m.cell], ['선교팀', belongText(m.missions)]
-        ].map(function (f) {
-          return '<div class="field"><div class="fk">' + f[0] + '</div>' +
-            '<div class="fv">' + (f[1] ? esc(f[1]) : '&mdash;') + '</div></div>';
-        }).join('');
-        return '<div class="dcard">' +
-          '<div class="dhead">' + pav(m.name, 'lg') + '<span class="dname">' + esc(m.name) + '</span>' + badge +
-          '<span class="rolepill' + (m.role ? '' : ' none') + '" style="margin-left:auto;">' +
-          esc(m.role || '역할 미지정') + '</span></div>' +
-          '<div class="grid">' + fields + '</div>' +
-          '<div style="margin-top:9px;"><button class="btn" onclick="editRole(\'' + esc(jsq(m.name)) + '\')">역할 바꾸기 (여러 개)</button></div>' +
-          '</div>';
-  }).join('');
 }
 
 function saveRole(name, i) {

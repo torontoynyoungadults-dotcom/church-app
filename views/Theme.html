@@ -1416,7 +1416,9 @@ header .homelink img { display: block; }
    "보이지 않는 글씨" 를 화면이 그려질 때마다 스스로 고칩니다.
    ============================================================ */
 (function () {
-  var BASE = [25, 25, 25];     // 배경 사진의 대략적인 밝기
+  var BASE = [25, 25, 25];     // 배경 사진의 대략적인 밝기 (밝은 화면이면 아래 바탕밝기_ 가 바꿉니다)
+  function 바탕밝기_() { BASE = document.documentElement.getAttribute('data-theme') === 'light' ? [242, 239, 234] : [25, 25, 25]; }
+  바탕밝기_();
   var 진하게 = '#141414';
   var 밝게 = '#FFFFFF';
 
@@ -1473,18 +1475,24 @@ header .homelink img { display: block; }
     return (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
   }
 
-  function 바탕(el) {
-    var layers = [], n = el, hop = 0;
-    while (n && n.nodeType === 1 && hop++ < 24) {
-      var st = getComputedStyle(n);
-      var g = 그라디언트색(st.backgroundImage);
-      if (g) { layers.push(g); break; }
+  /* 한 번 훑는 동안 칸마다 계산한 바탕색을 기억합니다 (같은 부모를 칸마다 다시 올라가며 계산하지 않게) */
+  var 바탕기억 = null;
+  function 바탕(el, hop) {
+    hop = hop || 0;
+    if (!el || el.nodeType !== 1 || hop > 24) return BASE.slice();
+    if (바탕기억 && 바탕기억.has(el)) return 바탕기억.get(el);
+    var st = getComputedStyle(el), out;
+    var g = 그라디언트색(st.backgroundImage);
+    if (g) out = 겹치기(g, BASE);
+    else {
       var c = 색뜯기(st.backgroundColor);
-      if (c && c[3] > 0) { layers.push(c); if (c[3] >= 1) break; }
-      n = n.parentElement;
+      if (c && c[3] >= 1) out = [c[0], c[1], c[2]];
+      else {
+        var under = 바탕(el.parentElement, hop + 1);
+        out = (c && c[3] > 0) ? 겹치기(c, under) : under;
+      }
     }
-    var out = BASE.slice();
-    for (var i = layers.length - 1; i >= 0; i--) out = 겹치기(layers[i], out);
+    if (바탕기억) 바탕기억.set(el, out);
     return out;
   }
 
@@ -1531,45 +1539,100 @@ header .homelink img { display: block; }
   var 감시 = null;
   var 감시설정 = { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] };
 
+  /* 성능 (허브 v5) — 예전에는 무엇이 하나 바뀔 때마다 화면 전체(모든 칸)를 다시 훑었습니다.
+     연습 화면의 메트로놈 깜빡임 · 필기 · 알림처럼 1초에 여러 번 바뀌는 곳이 있으면 그때마다 전체를 훑어 화면이 버벅였습니다.
+     이제는 ① 바뀐 칸과 그 안쪽만 보고 ② 연습(악보) 화면 · 캔버스 · 깜빡임처럼 우리가 색을 직접 정한 곳은 건너뛰며
+     ③ 한 번에 오래 붙잡지 않도록 잘게 나눠(한가한 때) 처리합니다. 결과(글씨색 고치기)는 예전과 같습니다. */
+  var 안봄 = '.pv, .pv-flash, .yg-ov, canvas, [data-noink], body.pv-lock > .shell';
+  function 안볼곳(el) {
+    try { return !!(el && el.closest && el.closest(안봄)); } catch (e) { return false; }
+  }
+  var 줄 = [];          // 살펴볼 칸들 (바뀐 곳의 맨 위 칸)
+  var 전체 = false;     // 화면 전체를 한 번 훑어야 하는지
+  var 한가 = window.requestIdleCallback ? function (f) { return window.requestIdleCallback(f, { timeout: 400 }); } : function (f) { return setTimeout(function () { f({ timeRemaining: function () { return 8; }, didTimeout: true }); }, 16); };
+
+  /** root 와 그 안쪽 칸들 — 건너뛸 곳(연습 화면 · 캔버스 · 가려진 허브 등)은 그 안쪽까지 통째로 뺍니다 */
+  function 칸들(root) {
+    if (!root || root.nodeType !== 1 || 안볼곳(root)) return [];
+    var out = [], stack = [root];
+    while (stack.length) {
+      var n = stack.pop();
+      if (n !== root) { try { if (n.matches && n.matches(안봄)) continue; } catch (e) {} }
+      out.push(n);
+      for (var c = n.lastElementChild; c; c = c.previousElementSibling) stack.push(c);
+    }
+    return out;
+  }
   function 훑기() {
     if (!document.body) return;
+    전체 = true; 예약(0);
+  }
+  var 일 = null;        // 지금 처리 중인 칸 목록
+  function 처리(deadline) {
+    대기 = null;
+    if (document.hidden) { 대기 = setTimeout(function () { 예약(0); }, 1000); return; }
+    if (!일) {
+      if (전체) { 전체 = false; 줄 = []; 일 = 칸들(document.body); }
+      else {
+        var roots = 줄.splice(0), seen = [];
+        roots.forEach(function (r) {                                     // 다른 칸 안에 들어 있는 칸은 한 번만
+          if (!r.isConnected) return;
+          for (var i = 0; i < seen.length; i++) if (seen[i] === r || seen[i].contains(r)) return;
+          seen = seen.filter(function (s) { return !r.contains(s); }); seen.push(r);
+        });
+        일 = [];
+        seen.forEach(function (r) { 일 = 일.concat(칸들(r)); });
+      }
+    }
     if (감시) { try { 감시.disconnect(); } catch (e) {} }   // 우리 변경이 되돌아오지 않게
+    바탕기억 = window.WeakMap ? new WeakMap() : null;
     try {
-      한번(document.body);
-      var els = document.body.querySelectorAll('*');
-      for (var i = 0; i < els.length; i++) {
-        try { 한번(els[i]); } catch (e) { /* 한 칸 실패해도 나머지는 계속 봅니다 */ }
+      var start = Date.now();
+      while (일.length) {
+        var el = 일.shift();
+        try { if (el.isConnected) 한번(el); } catch (e) { /* 한 칸 실패해도 나머지는 계속 봅니다 */ }
+        if (일.length && (Date.now() - start) > 10 && !(deadline && deadline.didTimeout && (Date.now() - start) < 30)) break;   // 10ms 넘게 붙잡지 않음
       }
     } catch (e) {
     } finally {
       if (감시) { try { 감시.takeRecords(); 감시.observe(document.body, 감시설정); } catch (e) {} }
     }
+    if (일 && 일.length) { 대기 = 한가(처리); return; }
+    일 = null;
+    if (줄.length || 전체) 예약(0);
   }
 
   var 대기 = null;
-  function 예약() {
+  function 예약(ms) {
     if (대기) return;
-    대기 = setTimeout(function () { 대기 = null; 훑기(); }, 150);
+    대기 = setTimeout(function () { 대기 = 한가(처리); }, ms == null ? 150 : ms);
   }
 
   function 시작() {
-    예약();
-    // 자료를 나중에 받아 그리는 화면도 놓치지 않도록 몇 번 더 봅니다
-    var 때 = [400, 1200, 2500, 5000, 9000];
-    for (var i = 0; i < 때.length; i++) setTimeout(예약, 때[i]);
-
-    var evs = ['click', 'change', 'input', 'keyup'];
-    for (var j = 0; j < evs.length; j++) {
-      document.addEventListener(evs[j], function () { setTimeout(예약, 60); }, true);
-    }
+    전체 = true; 예약();
+    // 자료를 나중에 받아 그리는 화면도 놓치지 않도록 몇 번 더 봅니다 (전체)
+    var 때 = [1200, 5000];
+    for (var i = 0; i < 때.length; i++) setTimeout(function () { 전체 = true; 예약(); }, 때[i]);
     if (!window.MutationObserver) return;
-    감시 = new MutationObserver(function () { 예약(); });
-    감시.observe(document.body, 감시설정);
+    감시 = new MutationObserver(function (recs) {
+      var n = 0;
+      for (var i = 0; i < recs.length; i++) {
+        var t = recs[i].target;
+        if (t && t.nodeType === 3) t = t.parentElement;               // 글자만 바뀐 경우 그 글자를 담은 칸
+        if (!t || t.nodeType !== 1 || 안볼곳(t)) continue;
+        if (recs[i].type === 'attributes' && t.getAttribute && t.getAttribute('data-ynink') && recs[i].attributeName === 'style') continue;
+        줄.push(t); n++;
+      }
+      if (줄.length > 400) { 줄 = []; 전체 = true; }
+      if (n) 예약();
+    });
+    감시.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] });
+    감시설정 = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', 시작);
   else 시작();
-  window.YNContrast = { scan: 훑기 };
+  window.YNContrast = { scan: function () { 바탕밝기_(); 훑기(); } };
 })();
 </script>
 <style>
@@ -1649,4 +1712,140 @@ window.YNAI = (function () {
 })();
 /* 이미 있던 화면들의 onclick="aiPolish(...)" 을 그대로 이어받습니다 */
 if (typeof window.aiPolish !== 'function') window.aiPolish = YNAI.polish;
+</script>
+
+<style>
+/* =========================================================
+   허브 v5 — 밝은 글래스모피즘 (☀️ / 🌙 전환)
+   ---------------------------------------------------------
+   · <html data-theme="light"> 이면 바탕 · 카드 · 입력칸 · 버튼 · 탭을 밝은 유리로 바꿉니다.
+   · 페이지마다 흰 글씨를 !important 로 정해 둔 곳이 많아, 남은 "밝은 바탕 위 흰 글씨"는
+     가독성 지킴이(위 스크립트)가 자동으로 진한 글씨로 바꿉니다 — 모든 화면을 하나하나 다시 칠하지 않아도 됩니다.
+   · 세션 / 연습(악보) 화면은 무대 조명 아래에서도 눈부시지 않도록 늘 어두운 화면을 씁니다.
+   --------------------------------------------------------- */
+html[data-theme="light"] { color-scheme: light; }
+html[data-theme="light"] body { background: #EFEBE5; color: #1A1917; }
+html[data-theme="light"] body::before {
+  background: radial-gradient(900px 520px at 90% -10%, rgba(var(--tone-rgb, 210,81,31), .16), transparent 60%),
+              radial-gradient(700px 520px at -10% 110%, rgba(108, 79, 211, .10), transparent 60%),
+              linear-gradient(rgba(248,246,242,.90), rgba(240,236,230,.94)), url('/bulletin/bg.jpg') center top / cover no-repeat;
+}
+html[data-theme="light"] body .shell, html[data-theme="light"] body .shell *,
+html[data-theme="light"] body .yc-sheet, html[data-theme="light"] body .yc-sheet * {
+  --ink-1: #1A1917; --ink-2: #35322D; --ink-3: #5A554E; --ink-4: #7C766E;
+  --night-ink: #1A1917; --night-sub: #5A554E; --hair: rgba(26,25,23,.13); --hair-2: rgba(26,25,23,.21); --hair-night: rgba(26,25,23,.14);
+}
+html[data-theme="light"] header .meta, html[data-theme="light"] header .sub { color: #5A554E !important; }
+html[data-theme="light"] body .panel {
+  background: rgba(255,255,255,.66) !important; border: 1px solid rgba(255,255,255,.75) !important; color: #1A1917 !important;
+  box-shadow: 0 10px 30px rgba(60,40,20,.10), inset 0 1px 0 rgba(255,255,255,.8) !important;
+}
+html[data-theme="light"] body .card, html[data-theme="light"] body .nfcard, html[data-theme="light"] body .mcard, html[data-theme="light"] body .dcard,
+html[data-theme="light"] body .mrow, html[data-theme="light"] body .song, html[data-theme="light"] body .fileitem, html[data-theme="light"] body .msrow,
+html[data-theme="light"] body .stat, html[data-theme="light"] body .notice, html[data-theme="light"] body .banner, html[data-theme="light"] body .callout,
+html[data-theme="light"] body .mmdet, html[data-theme="light"] body .tile, html[data-theme="light"] body .lr, html[data-theme="light"] body .noteBox {
+  background: rgba(255,255,255,.72) !important; border-color: rgba(26,25,23,.10) !important; color: #1A1917 !important; box-shadow: 0 2px 10px rgba(60,40,20,.06) !important;
+}
+html[data-theme="light"] body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+html[data-theme="light"] body select, html[data-theme="light"] body textarea {
+  background-color: rgba(255,255,255,.9) !important; border-color: rgba(26,25,23,.18) !important; color: #1A1917 !important;
+}
+html[data-theme="light"] body input::placeholder, html[data-theme="light"] body textarea::placeholder { color: #8A847C !important; }
+html[data-theme="light"] body .btn:not(.accent):not(.danger):not(.primary):not(.ghost),
+html[data-theme="light"] body .pgtabs button, html[data-theme="light"] body .pgtabs a, html[data-theme="light"] body .ttabs button,
+html[data-theme="light"] body .tabs button, html[data-theme="light"] body .seg button, html[data-theme="light"] body .shell button:not([class]) {
+  background: rgba(255,255,255,.78) !important; border-color: rgba(26,25,23,.14) !important; color: #2A2723 !important;
+}
+html[data-theme="light"] body .pgtabs button.on, html[data-theme="light"] body .pgtabs a.on, html[data-theme="light"] body .tabs button.on,
+html[data-theme="light"] body .ttabs button.on, html[data-theme="light"] body .seg button.on {
+  background: linear-gradient(135deg, var(--tone), var(--accent, var(--tone))) !important; color: #fff !important; border-color: transparent !important;
+}
+html[data-theme="light"] body .btn.danger { background: rgba(255,255,255,.85) !important; color: #A82F16 !important; border-color: rgba(168,47,22,.35) !important; }
+html[data-theme="light"] body .chip { color: var(--tone) !important; }
+html[data-theme="light"] body .panel a:not(.btn):not(.tile) { color: #B4431A; }
+html[data-theme="light"] .ynfoot, html[data-theme="light"] footer { color: #5A554E !important; }
+html[data-theme="light"] .ynfoot a { color: #35322D !important; }
+html[data-theme="light"] .ynbell, html[data-theme="light"] .ynrefresh, html[data-theme="light"] .yntheme { background: rgba(255,255,255,.85); border-color: rgba(26,25,23,.14); color: #2A2723; }
+html[data-theme="light"] .skel { background: linear-gradient(90deg, rgba(26,25,23,.06) 25%, rgba(26,25,23,.12) 37%, rgba(26,25,23,.06) 63%) !important; background-size: 400% 100% !important; }
+html[data-theme="light"] body .mrole { background: rgba(46,154,75,.14) !important; color: #1D6B3A !important; }
+html[data-theme="light"] body .ratebadge.hi, html[data-theme="light"] body .ratebadge.mid, html[data-theme="light"] body .ratebadge.low { color: #fff !important; }
+html[data-theme="light"] body .mmchev { background: rgba(26,25,23,.07); color: #35322D; }
+/* 찬양 허브 — 주차 줄 · 콘티 */
+html[data-theme="light"] body .wk { background: rgba(255,255,255,.75) !important; border-color: rgba(26,25,23,.12) !important; }
+html[data-theme="light"] body .wk.on { background: linear-gradient(135deg, var(--tone), var(--accent, var(--tone))) !important; }
+html[data-theme="light"] body .pvstart { background: rgba(255,255,255,.93) !important; border-color: rgba(26,25,23,.12) !important; }
+html[data-theme="light"] body .asfloat { background: rgba(245,240,255,.97); color: #2A1F45; border-color: #9B84E0; }
+html[data-theme="light"] body .asfloat b { color: #1A1030; }
+
+html[data-theme="light"] body .tabs { background: rgba(255,255,255,.6) !important; border-color: rgba(26,25,23,.10) !important; }
+html[data-theme="light"] body .tabs button { background: transparent !important; border: none !important; }
+html[data-theme="light"] body .wkcal, html[data-theme="light"] body .wktoday { background: rgba(255,255,255,.8) !important; border-color: rgba(26,25,23,.14) !important; color: #2A2723 !important; }
+html[data-theme="light"] body .wktoday.here { border-color: var(--tone) !important; color: var(--tone) !important; }
+html[data-theme="light"] header img { filter: invert(1) brightness(.35); }
+html[data-theme="light"] body .ynfoot .cw, html[data-theme="light"] body .ynfoot .cp { color: #5A554E !important; }
+
+html[data-theme="light"] body .panel.dark, html[data-theme="light"] body .hero {
+  background: radial-gradient(130% 100% at 0% 0%, rgba(var(--tone-rgb, 210,81,31), .14) 0%, rgba(var(--tone-rgb, 210,81,31), 0) 62%), rgba(255,255,255,.7) !important;
+  border-color: rgba(255,255,255,.8) !important; color: #1A1917 !important; box-shadow: 0 10px 30px rgba(60,40,20,.10) !important;
+}
+html[data-theme="light"] body .bulbtn { background: rgba(255,255,255,.75) !important; border-color: rgba(26,25,23,.12) !important; color: #1A1917 !important; }
+html[data-theme="light"] body .qsearch input { background: rgba(255,255,255,.95) !important; }
+
+/* 세션 / 연습 · 통계 팝업은 밝은 화면에서도 어두운 유리 그대로 (입력칸도) */
+html[data-theme="light"] body :is(.pv, .yg, .fp) input:not([type=checkbox]):not([type=radio]):not([type=range]),
+html[data-theme="light"] body :is(.pv, .yg, .fp) select, html[data-theme="light"] body :is(.pv, .yg, .fp) textarea {
+  background-color: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.26) !important; color: #f8f5f0 !important;
+}
+
+/* 전환 단추 — 모든 페이지 머리말 왼쪽 위 (오른쪽 위 ↻ 새로고침과 짝) */
+.yntheme {
+  position: absolute; top: 14px; left: 14px; z-index: 5; width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  background: var(--night-2); border: 1px solid var(--hair-night); color: #F5F3EF; font: inherit;
+  -webkit-tap-highlight-color: transparent; transition: transform .25s;
+}
+.yntheme svg { width: 19px; height: 19px; }
+.yntheme:active { transform: scale(.9) rotate(-20deg); }
+.yntheme:focus-visible, .ynrefresh:focus-visible { outline: 2px solid var(--tone); outline-offset: 2px; }
+html.yn-theming, html.yn-theming * { transition: background-color .25s, border-color .25s, color .2s !important; }
+@media (prefers-reduced-motion: reduce) { html.yn-theming, html.yn-theming * { transition: none !important; } }
+</style>
+<script>
+/* 허브 v5 — ☀️ / 🌙 밝은 · 어두운 글래스모피즘 전환 (이 기기에 기억) */
+(function () {
+  var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>';
+  var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>';
+  function now() { return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+  function paintBtn(b) {
+    var light = now() === 'light';
+    b.innerHTML = light ? MOON : SUN;                                  // 지금 밝으면 🌙(어둡게), 어두우면 ☀️(밝게)
+    b.setAttribute('aria-label', light ? '어두운 화면으로 바꾸기' : '밝은 화면으로 바꾸기');
+    b.title = light ? '어두운 화면 (🌙)' : '밝은 화면 (☀️)';
+    b.setAttribute('aria-pressed', light ? 'true' : 'false');
+  }
+  function meta(light) { var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', light ? '#EFEBE5' : '#1C1C1C'); }
+  function set(t) {
+    var light = t === 'light', root = document.documentElement;
+    root.classList.add('yn-theming');
+    if (light) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
+    try { localStorage.setItem('ynTheme', light ? 'light' : 'dark'); } catch (e) {}
+    meta(light);
+    Array.prototype.forEach.call(document.querySelectorAll('.yntheme'), paintBtn);
+    try { if (window.YNContrast) window.YNContrast.scan(); } catch (e) {}
+    setTimeout(function () { root.classList.remove('yn-theming'); }, 320);
+    try { window.dispatchEvent(new CustomEvent('yn-theme', { detail: { theme: light ? 'light' : 'dark' } })); } catch (e) {}
+  }
+  window.YNTheme = { get: now, set: set, toggle: function () { set(now() === 'light' ? 'dark' : 'light'); } };
+  function mount() {
+    meta(now() === 'light');
+    Array.prototype.forEach.call(document.querySelectorAll('body > .shell > header, body > header'), function (h) {
+      if (h.querySelector('.yntheme')) return;
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'yntheme';
+      b.addEventListener('click', function () { window.YNTheme.toggle(); });
+      paintBtn(b); h.appendChild(b);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+})();
 </script>

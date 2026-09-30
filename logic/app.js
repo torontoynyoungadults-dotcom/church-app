@@ -7873,12 +7873,16 @@ function registerNewcomer(link, data) {
     새가족등록알림_({ name: finalName, gender: gender, birthday: birthday, contact: contact, kakao: kakao, baptized: baptized,
       prevChurch: prevChurch, job: job, plan: plan, question: question, email: email }, isNew);
   } catch (e) {}
-  // 새가족팀 · 커미티 휴대폰으로도 알려줍니다
-  알림보내기_('새가족', 역할인사람_('새가족팀').concat(역할인사람_('커미티')), {
-    title: isNew ? '새가족이 등록했습니다' : '새가족이 내용을 고쳤습니다',
-    body: finalName + ' (' + gender + ') — ' + plan,
-    url: 딥링크주소_('newcomer', finalName), tag: '새가족', keep: true
-  });
+  // 새가족팀 · 커미티 휴대폰으로도 알려줍니다 — 처음 등록할 때만 (허브 v5).
+  // 예전에는 새가족이 내용을 고칠 때마다 "화면에 붙어 있는" 알림이 다시 와서 같은 분(예: 김민솔) 알림이 계속 떴습니다. 고친 내용은 메일로만 갑니다.
+  // 알림 꼬리표(tag)를 사람마다 달리 해서, 같은 분 알림은 하나로 합쳐지고 다른 분 알림을 덮어쓰지 않습니다.
+  if (isNew) {
+    알림보내기_('새가족', 역할인사람_('새가족팀').concat(역할인사람_('커미티')), {
+      title: '새가족이 등록했습니다',
+      body: finalName + ' (' + gender + ') — ' + plan,
+      url: 딥링크주소_('newcomer', finalName), tag: '새가족-' + finalName
+    });
+  }
   return { ok: true, isNew: isNew, name: finalName, mine: 새가족내등록_(email), nfToken: 새가족토큰_(email) };
 }
 
@@ -7978,6 +7982,8 @@ function portalViewAs(token, name) {
   if (real) {
     out.cellApp = real.cellApp; out.myCell = real.myCell; out.forms = real.forms;
     out.todos = real.todos; out.badges = real.badges;
+    // 허브 v5 — 그분 로그인 응답에 있는 나머지 값도 그대로 (화면이 1:1 로 같게). 표 · 다른 사람 목록은 빼고
+    Object.keys(real).forEach(function (k) { if (out[k] === undefined && k !== 'token' && k !== 'people') out[k] = real[k]; });
   }
   return out;
 }
@@ -12112,9 +12118,40 @@ function hideTodo(token, id) {
   id = String(id || '').trim().slice(0, 80);
   if (!id) return { ok: true };
   var sh = 할일숨김시트_();
-  sh.appendRow([who.name, id, Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')]);
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var rows = [[who.name, id, now]];
+  // 새 새가족 알림을 치우면 — 그 알림에 들어 있던 분들을 한 분씩 "확인함" 으로 남깁니다 (다음 날 다시 뜨지 않게, 허브 v5)
+  if (id.indexOf('nf-new-') === 0) {
+    try {
+      var hidden = 숨긴것_(who.name), today = ymd_(new Date());
+      새가족안읽음_(새가족전체_(), hidden, today).forEach(function (n) { rows.push([who.name, 새가족확인키_(n), now]); });
+    } catch (e) { /* 확인 기록이 안 돼도 오늘 알림은 치워집니다 */ }
+  }
+  rows.forEach(function (r) { sh.appendRow(r); });
   캐시비움_();
   return { ok: true };
+}
+
+/** 새가족 한 분을 "확인함" 으로 기억하는 열쇠 — 이름 + 등록일 (같은 이름이 다시 등록하면 새로 뜸) */
+function 새가족확인키_(n) { return ('nf-seen-' + String(n.name || '').trim() + '|' + String(n.joinedAt || '').trim()).slice(0, 80); }
+/** 아직 확인하지 않은 새 새가족 — 등록 14일 이내 · 교육 시작 전 · 담당자 없음 · 이 사람이 확인(치우기)하지 않음 */
+function 새가족안읽음_(nf, hidden, today) {
+  hidden = hidden || {};
+  return (nf || []).filter(function (n) {
+    if (!n || !n.name || !n.joinedAt) return false;
+    var days = (parseYmd_(today) - parseYmd_(n.joinedAt)) / 86400000;
+    if (!(days >= 0 && days <= 14)) return false;
+    if (Number(n.completedWeeks) > 0) return false;
+    if (String(n.owner || '').trim()) return false;                       // 담당자가 정해졌으면 할 일이 끝남
+    if (/수료|정착|중단|보류|완료/.test(String(n.status || '') + String(n.stage || ''))) return false;
+    return !hidden[새가족확인키_(n)];
+  }).sort(function (a, b) { return String(a.joinedAt).localeCompare(String(b.joinedAt)) || String(a.name).localeCompare(String(b.name)); });
+}
+/** 알림 ID — 들어 있는 사람들로 정해집니다 (새 분이 오면 새 알림, 같은 분들이면 같은 알림) */
+function 새가족알림ID_(list) {
+  var key = list.map(새가족확인키_).join(',');
+  var h = 0; for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+  return 'nf-new-' + (h >>> 0).toString(36);
 }
 
 /** 치운 것을 모두 되돌립니다 */
@@ -12358,14 +12395,15 @@ function 내할일_(token) {
           sub: 배정.slice(0, 4).map(function (n) { return n.name; }).join(', ') + (배정.length > 4 ? ' 외' : ''),
           url: base + '?page=newfamily&t=' + encodeURIComponent(token) + (배정.length === 1 ? '&open=' + encodeURIComponent(배정[0].name) : ''), tone: 'warn' }));
       }
-      var 새로 = nf.filter(function (n) {
-        return n.joinedAt && (parseYmd_(today) - parseYmd_(n.joinedAt)) / 86400000 <= 7 && n.completedWeeks === 0;
-      });
-      if (새로.length && !hidden['nf-new-' + today]) {
-        out.push(할일하나_({ id: 'nf-new-' + today, kind: 'role', icon: '👋',
-          title: '이번 주 새로 등록한 새가족 ' + 새로.length + '명',
+      /* 허브 v5 — "새로 등록한 새가족" 은 아직 확인하지 않은(=읽지 않은) 분만 띄웁니다.
+         예전에는 날짜마다 새 알림(nf-new-오늘)이라, 치워도 다음 날 같은 분(예: 김민솔)이 7일 동안 다시 떴습니다.
+         이제 사람마다 "확인함" 을 기억하고(치우면 그 알림에 있던 분들을 모두 확인함으로), 담당자가 정해진 분도 뺍니다. */
+      var 새로 = 새가족안읽음_(nf, hidden, today);
+      if (새로.length) {
+        out.push(할일하나_({ id: 새가족알림ID_(새로), kind: 'role', icon: '👋',
+          title: '새로 등록한 새가족 ' + 새로.length + '명',
           sub: 새로.map(function (n) { return n.name; }).join(', ') + ' — 담당자를 정해주세요',
-          url: base + '?page=newfamily&t=' + encodeURIComponent(token) + (새로.length === 1 ? '&open=' + encodeURIComponent(새로[0].name) : ''), tone: 'info' }));
+          url: base + '?page=newfamily&t=' + encodeURIComponent(token) + (새로.length === 1 ? '&open=' + encodeURIComponent(새로[0].name) : ''), tone: 'info', hideable: true }));
       }
     }
 
@@ -14622,8 +14660,13 @@ function 자막가져오기_(videoId) {
 
   /* 1차 ~ 2차: Innertube player API — 유튜브 웹/앱이 실제로 쓰는 내부 API라 페이지 구조가 바뀌어도 덜 깨집니다.
      클라우드에서 UlrFetchApp 으로 시청 페이지를 그대로 긁으면 동의화면·차단이 잦아, 이 API를 먼저 씁니다. */
+  /* 허브 v5: 유튜브가 WEB 클라이언트의 자막 주소에 "재생 확인 토큰(PO token)"을 요구하기 시작해서, 서버에서 부르면
+     자막 목록은 오는데 내용이 빈 채로 오는 일이 잦습니다("자막을 찾지 못함"의 주원인). 안드로이드 앱 클라이언트는
+     아직 토큰 없이 자동 생성(ASR) 자막까지 내려주므로 맨 앞에 둡니다. */
   var innertube클라이언트들 = [
-    { clientName: 'WEB', clientVersion: '2.20240610.01.00', key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', xName: '1' },
+    { clientName: 'ANDROID', clientVersion: '20.10.38', androidSdkVersion: 30, key: 'AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w', xName: '3',
+      ua: 'com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip' },
+    { clientName: 'WEB', clientVersion: '2.20250312.04.00', key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', xName: '1' },
     { clientName: 'IOS', clientVersion: '19.45.4', deviceModel: 'iPhone16,2', key: 'AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc', xName: '5' }
   ];
   for (var ci = 0; ci < innertube클라이언트들.length; ci++) {
@@ -14631,25 +14674,29 @@ function 자막가져오기_(videoId) {
       var cli = innertube클라이언트들[ci];
       var client = { clientName: cli.clientName, clientVersion: cli.clientVersion, hl: 'ko', gl: 'KR' };
       if (cli.deviceModel) client.deviceModel = cli.deviceModel;
-      var body = JSON.stringify({ videoId: videoId, context: { client: client } });
+      if (cli.androidSdkVersion) client.androidSdkVersion = cli.androidSdkVersion;
+      var body = JSON.stringify({ videoId: videoId, context: { client: client }, contentCheckOk: true, racyCheckOk: true });
+      var hd = {
+        'X-YouTube-Client-Name': cli.xName,
+        'X-YouTube-Client-Version': cli.clientVersion,
+        'Origin': 'https://www.youtube.com'
+      };
+      if (cli.ua) hd['User-Agent'] = cli.ua;
       var res = 유튜브가져오기_('https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=' + cli.key, {
         method: 'post',
         contentType: 'application/json',
         payload: body,
-        headers: {
-          'X-YouTube-Client-Name': cli.xName,
-          'X-YouTube-Client-Version': cli.clientVersion,
-          'Origin': 'https://www.youtube.com'
-        }
+        headers: hd
       });
       var d = JSON.parse(res);
       var tracks0 = d && d.captions && d.captions.playerCaptionsTracklistRenderer &&
         d.captions.playerCaptionsTracklistRenderer.captionTracks;
       var 고른것0 = 자막트랙고르기_(tracks0);
-      var base0 = 고른것0 ? String(고른것0.baseUrl || '') : '';
+      var base0 = 고른것0 ? String(고른것0.baseUrl || '').replace(/&fmt=[^&]*/g, '') : '';
       if (base0) {
-        var text0 = 자막XML풀기_(유튜브가져오기_(base0 + '&fmt=json3'));
-        if (!text0) text0 = 자막XML풀기_(유튜브가져오기_(base0));
+        var text0 = '';
+        try { text0 = 자막XML풀기_(유튜브가져오기_(base0 + '&fmt=json3', cli.ua ? { headers: { 'User-Agent': cli.ua } } : null)); } catch (e0) {}
+        if (!text0) { try { text0 = 자막XML풀기_(유튜브가져오기_(base0, cli.ua ? { headers: { 'User-Agent': cli.ua } } : null)); } catch (e1) {} }
         if (text0) return text0;
       }
     } catch (e) {}
@@ -14690,62 +14737,24 @@ function 자막가져오기_(videoId) {
     }
   } catch (e) {}
 
+  /* 5차 (허브 v5): 목록 없이 곧장 자동 생성(asr) 자막을 불러 봅니다 — 한국어 → 영어 */
+  var 곧장 = [['ko', 'asr'], ['ko', ''], ['en', 'asr']];
+  for (var qi = 0; qi < 곧장.length; qi++) {
+    try {
+      var u3 = 'https://www.youtube.com/api/timedtext?v=' + enc + '&lang=' + 곧장[qi][0] + (곧장[qi][1] ? '&kind=' + 곧장[qi][1] : '') + '&fmt=json3';
+      var text3 = 자막XML풀기_(유튜브가져오기_(u3));
+      if (text3) return text3;
+    } catch (e) {}
+  }
+
   return '';
 }
 
-/** 설교 요약 만들기 — 자막이 없으면 커미티가 본문을 붙여 넣을 수 있습니다 */
+/** 설교 요약 만들기 — 자막 → (없으면) AI 가 영상을 직접 보고 요약. 커미티가 본문을 붙여 넣을 수도 있습니다.
+ *  화면에서는 server.js 가 같은 이름으로 먼저 받아 비동기로 처리합니다(서버가 멈추지 않게). 여기는 한 번에 끝까지 하는 길 (logic/hub5.js) */
 function sermonMake(token, videoId, manualText) {
-  if (!커미티토큰_(token)) throw new Error('커미티만 만들 수 있습니다.');
-  AI확인_();
-  videoId = String(videoId || '').trim();
-  if (!videoId) throw new Error('영상을 골라주세요.');
-
-  var 정보 = null;
-  유튜브영상들_().forEach(function (v) { if (v.id === videoId) 정보 = v; });
-  if (!정보) 정보 = { id: videoId, title: '', date: '', url: 'https://www.youtube.com/watch?v=' + videoId };
-
-  var 본문 = String(manualText || '').trim();
-  if (!본문) { try { 본문 = 자막가져오기_(videoId); } catch (e) { 본문 = ''; } }
-  if (본문.length < 200) {
-    throw new Error('이 영상에서 자막을 가져오지 못했습니다. 설교 원고나 자막 글을 아래 칸에 붙여 넣고 다시 눌러주세요.');
-  }
-  if (본문.length > 60000) 본문 = 본문.slice(0, 60000);
-
-  var prompt =
-    '아래는 한인 교회 청년부 주일 설교의 자막입니다. 설교를 듣지 못한 청년이 읽고 은혜를 나눌 수 있도록 정리해 주세요.\n\n' +
-    '영상 제목: ' + (정보.title || '(없음)') + '\n\n' +
-    '--- 자막 시작 ---\n' + 본문 + '\n--- 자막 끝 ---\n\n' +
-    '아래 JSON 으로만 답하세요.\n' +
-    '{\n' +
-    '  "title": "설교 제목 (자막에서 찾되, 없으면 내용을 보고 지어 주세요)",\n' +
-    '  "preacher": "설교자 이름 (모르면 빈 문자열)",\n' +
-    '  "passage": "설교 본문 성경 구절 (모르면 빈 문자열)",\n' +
-    '  "points": ["핵심 대지 3가지", "...", "..."],\n' +
-    '  "messages": ["주요 메시지 3~5줄. 한 줄에 한 문장씩", "..."],\n' +
-    '  "apply": ["삶에 적용할 점 2~3가지. 한 줄에 한 문장씩", "..."],\n' +
-    '  "short3": ["오늘 설교를 3줄로 요약. 정확히 3줄", "...", "..."]\n' +
-    '}\n\n' +
-    '· points 는 정확히 3개로, 설교자가 나눈 흐름을 따라 짧은 문장으로 적어 주세요.\n' +
-    '· messages 는 3개에서 5개 사이로, 청년들이 삶에 새길 만한 문장으로 적어 주세요.\n' +
-    '· apply 는 2개에서 3개로, "이번 주 나는 ~합니다" 처럼 구체적인 행동으로 적어 주세요.\n' +
-    '· short3 은 정확히 3줄로, 설교를 못 본 사람도 핵심을 알 수 있게 압축해 주세요.\n' +
-    '· 자막이 잘못 받아 적힌 부분은 문맥으로 바로잡아 읽되, 설교에 없는 내용을 지어내지 마세요.';
-
-  var d = AIJSON_(prompt, { system: 묵상_지침, temperature: 0.4, maxTokens: 2000 });
-  var item = {
-    id: videoId,
-    title: String((d && d.title) || 정보.title || '설교').trim().slice(0, 150),
-    date: 정보.date || ymd_(new Date()),
-    preacher: String((d && d.preacher) || '').trim().slice(0, 40),
-    passage: String((d && d.passage) || '').trim().slice(0, 80),
-    points: ((d && d.points) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
-    messages: ((d && d.messages) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 6),
-    apply: ((d && d.apply) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4),
-    short3: ((d && d.short3) || []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 3),
-    at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')
-  };
-  설교저장_(item);
-  return { ok: true, item: item };
+  var prep = sermonMakePrep_(token, videoId, manualText);
+  return sermonMakeDone_(prep, 설교AI바로_(prep));
 }
 
 function 설교저장_(item) {
@@ -14970,55 +14979,14 @@ function 설교요약글파싱_(text) {
  * text : 설교 원고 · 자막 글 (있으면 이것을 먼저 씁니다)
  */
 function sermonGeminiSummary(key, link, text) {
-  if (!isAdmin_(key)) throw new Error('관리자만 사용할 수 있습니다.');
-  AI확인_();
-
-  var 본문 = String(text || '').trim();
-  var videoId = 유튜브영상ID추출_(link);
-  var 제목 = '';
-  var 출처 = '붙여넣은 글';
-
-  if (!본문) {
-    if (!String(link || '').trim()) throw new Error('유튜브 주소를 넣거나 설교 원고를 붙여넣어 주세요.');
-    if (!videoId) throw new Error('유튜브 주소나 영상 ID를 정확히 넣어주세요.');
-    try { 본문 = 자막가져오기_(videoId); } catch (e) { 본문 = ''; }
-    출처 = '유튜브 자막';
+  var prep = sermonGeminiSummaryPrep_(key, link, text);
+  var r = sermonGeminiSummaryDone_(prep, 설교AI바로_(prep), 0);
+  if (r.retryPrompt) {                                  // 형식이 어긋나면 한 번 더 시킵니다
+    var p2 = Object.assign({}, prep, { prompt: r.retryPrompt });
+    var r2 = sermonGeminiSummaryDone_(prep, 설교AI바로_(p2), 1);
+    delete r2.retryPrompt; return r2;
   }
-  if (videoId) {
-    try { 유튜브영상들_().forEach(function (v) { if (v.id === videoId) 제목 = v.title; }); } catch (e) {}
-  }
-  if (본문.length < 200) {
-    throw new Error(출처 === '유튜브 자막'
-      ? '이 영상에서 자막을 가져오지 못했습니다. 설교 원고나 자막 글(200자 이상)을 붙여넣고 다시 눌러주세요.'
-      : '붙여넣은 글이 너무 짧습니다. 200자 이상 붙여넣어 주세요.');
-  }
-  if (본문.length > 60000) 본문 = 본문.slice(0, 60000);
-
-  var prompt =
-    '아래는 한인 교회 청년부 주일 설교의 ' + (출처 === '유튜브 자막' ? '자막' : '원고(또는 녹취)') + '입니다. 정해진 형식으로 요약해 주세요.\n\n' +
-    (제목 ? '영상 제목: ' + 제목 + '\n\n' : '') +
-    '--- 시작 ---\n' + 본문 + '\n--- 끝 ---';
-
-  var out = '';
-  for (var tries = 0; tries < 2; tries++) {          // 형식이 어긋나면 한 번 더 시킵니다
-    var p2 = tries === 0 ? prompt : prompt + '\n\n※ 이전 답이 형식에 맞지 않았습니다. 핵심 대지는 정확히 3개, 주요 메시지는 3~5줄로, 지정한 항목 이름 그대로 다시 써 주세요.';
-    try {
-      out = String(AI_(p2, { system: 설교요약_지침, temperature: 0.3, maxTokens: 3000 }) || '');
-    } catch (e) {
-      var msg = String((e && e.message) || e || '');
-      if (/429|quota|RESOURCE_EXHAUSTED|rate/i.test(msg)) throw new Error('Gemini 사용량이 잠시 많습니다. 1분쯤 뒤에 다시 눌러주세요.');
-      if (/[가-힣]/.test(msg)) throw e;                 // 이미 한국어로 된 안내는 그대로
-      throw new Error('Gemini 요약에 실패했습니다. 잠시 후 다시 시도해주세요.');
-    }
-    out = out.replace(/^\s*```[a-z]*\s*/i, '').replace(/\s*```\s*$/, '').replace(/\*\*/g, '').trim();
-    if (설교요약형식맞나_(out)) break;
-  }
-  if (!out) throw new Error('Gemini가 응답하지 않았습니다. 다시 눌러주세요.');
-  if (!설교요약형식맞나_(out)) {
-    // 형식이 완벽하지 않아도 관리자가 화면에서 고칠 수 있으니 결과는 그대로 넘깁니다
-    return { ok: true, text: out, videoId: videoId, source: 출처, formatWarning: true };
-  }
-  return { ok: true, text: out, videoId: videoId, source: 출처 };
+  return r;
 }
 
 /** 관리자가 확인 · 수정한 요약 글을 저장합니다 (설교자 · 본문 · 핵심 대지 · 주요 메시지는 글에서 읽어 함께 채웁니다) */
@@ -15071,7 +15039,7 @@ function 설교요약돌기() {
   var 있는것 = {};
   rows_(SHEET_설교).forEach(function (r) { var id = String(r[SM_ID] || '').trim(); if (id) 있는것[id] = 1; });
 
-  var 만든것 = [];
+  var 만든것 = [], 영상으로 = [];
   var 영상들;
   try { 영상들 = 유튜브영상들_(); } catch (e) { return { ok: false, error: e.message }; }
 
@@ -15081,7 +15049,7 @@ function 설교요약돌기() {
     if (!설교같나_(v.title)) continue;
     var 본문 = '';
     try { 본문 = 자막가져오기_(v.id); } catch (e) { 본문 = ''; }
-    if (본문.length < 200) continue;
+    if (본문.length < 200) { if (영상으로.length < 1) 영상으로.push({ id: v.id, title: v.title, date: v.date }); continue; }   // 자막이 없으면 server.js 가 영상으로 이어서 (허브 v5)
     try {
       var 결과 = 설교하나만들기_(v, 본문);
       만든것.push(결과.title);
@@ -15097,7 +15065,7 @@ function 설교요약돌기() {
       });
     } catch (e) {}
   }
-  return { ok: true, made: 만든것.length };
+  return { ok: true, made: 만든것.length, needVideo: 만든것.length ? [] : 영상으로 };
 }
 
 /** 제목만 보고 설교 영상인지 어림잡습니다 (찬양 · 광고 영상은 건너뜁니다) */

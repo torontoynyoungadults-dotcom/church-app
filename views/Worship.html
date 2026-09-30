@@ -579,6 +579,38 @@
   .sttools select { flex: 1 1 150px; font-size: 15.5px; padding: 9px 30px 9px 12px; }
   .sttools .rangesel { font-weight: 750; }
   .sttools .hlsel { max-width: none; width: 100%; }
+  /* ---------- 기기별 배치 (허브 v5) ----------
+     📱 아이폰 · 작은 폰 : 한 줄 카드 (여백을 줄여 내용을 넓게)
+     📲 태블릿 세로      : 가운데 한 단 — 악보 · 콘티를 위아래로 (조금 더 넓게)
+     🖥 태블릿 가로 · 컴퓨터 : 왼쪽에 붙어 다니는 옆 막대(메뉴 · 날짜 목록) + 오른쪽 넓은 내용 */
+  .whside { display: contents; }
+  @media (max-width: 600px) {
+    body .panel { margin: 0 8px 10px !important; padding: 17px 14px !important; }
+    .weeks { padding: 0 8px 10px; gap: 6px; }
+    .wk { width: 62px; }
+    .wkcal { margin-right: 8px; }
+  }
+  @media (min-width: 700px) and (max-width: 1023px), (min-width: 700px) and (max-width: 1179px) and (orientation: portrait) {
+    body .shell { max-width: 800px; }
+  }
+  @media (min-width: 1180px), (min-width: 1024px) and (orientation: landscape) {
+    body .shell { max-width: 1280px; padding: 0 16px; }
+    #app:not([style*="none"]) { display: grid !important; grid-template-columns: 300px minmax(0, 1fr); gap: 0 14px; align-items: start; }
+    .whside { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 12px; max-height: calc(100vh - 24px); min-height: 0; }
+    .whside .tabs { order: -1; display: grid !important; grid-template-columns: 1fr 1fr; gap: 4px !important; margin: 0 !important; overflow: visible; }
+    .whside .tabs button { width: 100%; margin: 0 !important; }
+    .whside .wkbar { display: grid; grid-template-columns: 1fr 52px; grid-template-rows: auto minmax(0, 1fr); gap: 8px; min-height: 0; flex: 1 1 auto; }
+    .whside .wkbar .weeks { grid-column: 1 / -1; grid-row: 2; flex-direction: column; overflow-x: hidden; overflow-y: auto; padding: 2px 2px 10px; gap: 6px; max-height: 60vh; scrollbar-width: thin; }
+    .whside .wktoday { grid-column: 1; grid-row: 1; width: auto; margin: 0; flex-direction: row; gap: 8px; min-height: 46px; }
+    .whside .wkcal { grid-column: 2; grid-row: 1; margin: 0; min-height: 46px; }
+    .whside .wk { width: 100%; display: grid; grid-template-columns: 58px 1fr auto; align-items: center; text-align: left; gap: 8px; padding: 9px 12px; }
+    .whside .wk .mo { justify-self: start; padding: 1px 7px; border-radius: 6px; }
+    .whside .wk .dy { margin: 0; font-size: 19px; }
+    .whside .wk .st { margin: 0; }
+    #body { min-width: 0; }
+    #body > .panel { margin-left: 0 !important; margin-right: 0 !important; }
+    .pvstart { top: 12px; }
+  }
   .wkbar { display: flex; align-items: stretch; gap: 0; }
   .wkbar .weeks { flex: 1; min-width: 0; padding-right: 6px; }
   .wkcal { flex: none; width: 52px; margin: 0 12px 12px 0; border-radius: var(--r-lg); border: 1px solid var(--hair-night); background: var(--night-2); color: var(--night-ink); cursor: pointer; display: flex; align-items: center; justify-content: center; }
@@ -1043,6 +1075,7 @@ body .pe .fc,
   </div>
 
   <div id="app" style="display:none;">
+    <aside class="whside" aria-label="날짜 · 메뉴">
     <div class="wkbar"><div class="weeks" id="weeks"></div>
       <button type="button" class="wktoday" id="wkToday" onclick="goUpcoming()" aria-label="오늘 · 다음 주일 예배로 돌아가기" title="다음 주일 예배로 바로 가기">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg>
@@ -1052,6 +1085,7 @@ body .pe .fc,
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8.5 3.5v3M15.5 3.5v3"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg>
       </button></div>
     <div class="tabs" id="tabs"></div>
+    </aside>
     <div id="body"></div>
   </div>
 
@@ -1146,6 +1180,7 @@ function start(d) {
   W = d.week;
   renderWeeks(); renderTabs(); render();
   offlineInit();
+  prefetchAround(DATE);
   try { mountTimerBar(); } catch (e) { /* 타이머 막대가 없어도 허브는 그대로 */ }
 }
 
@@ -1205,7 +1240,7 @@ function offlineWarm() {
             YNOff.precacheSheets(ids).then(function () { setTimeout(done, 250); }, function () { done(); });
           };
           if (CACHE[date]) { YNOff.store('getWorshipWeek', [TOKEN, date], CACHE[date]); use(CACHE[date]); return; }
-          callServer('getWorshipWeek', [TOKEN, date], function (w) { CACHE[w.date] = w; use(w); }, function () { done(); });
+          loadWeek(date).then(use, function () { done(); });
         });
       });
     }, Promise.resolve());
@@ -1272,12 +1307,75 @@ function goWeek(date) {
   ensureWeek(date);
   renderWeeks();
   window.scrollTo(0, 0);
-  if (CACHE[date]) { W = CACHE[date]; render(); return; }
-  el('body').innerHTML = '<div class="panel"><i class="skel line" style="width:55%;"></i>' +
-    '<i class="skel line" style="width:80%;"></i><i class="skel line" style="width:40%;"></i></div>';
-  callServer('getWorshipWeek', [TOKEN, date], function (w) { CACHE[w.date] = w; if (DATE === w.date) { W = w; render(); } }, function (e) {
-      el('body').innerHTML = '<div class="panel"><p class="empty">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>';
+  var gen = ++GO_GEN;
+  if (CACHE[date]) {
+    // 받아 둔 주: 누른 날짜 표시가 먼저 그려진 다음 프레임에 내용을 갈아끼웁니다 (누르는 순간 멈칫하지 않게)
+    W = weekHit(date);
+    nextFrame(function () { if (gen === GO_GEN && DATE === date) { render(); prefetchAround(date); } });
+    return;
+  }
+  el('body').innerHTML = weekSkeleton();
+  loadWeek(date).then(function (w) { if (gen === GO_GEN && DATE === w.date) { W = w; render(); prefetchAround(date); } }, function (e) {
+    if (gen === GO_GEN && DATE === date) el('body').innerHTML = '<div class="panel"><p class="empty">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>';
+  });
+}
+
+/* ---------- 날짜 바꾸기 성능 (허브 v5) ----------
+   · CACHE 는 가장 최근에 본 주 WEEK_MAX 개만 기억합니다 (오래 켜 둔 아이패드에서 메모리가 계속 늘지 않게) — 지금 보는 주는 지우지 않음
+   · 같은 주를 동시에 두 번 부르지 않습니다 (미리 받기 · 누르기가 겹쳐도 요청 하나)
+   · 한 주를 보면 한가한 때 앞 · 뒤 주를 미리 받아 둡니다 → 옆 주로 넘기면 서버를 기다리지 않고 바로 그림
+   · 내용이 오기 전에는 실제 화면 모양의 뼈대를 곧바로 보여 줍니다 */
+var GO_GEN = 0, WEEK_MAX = 14, CACHE_AT = {}, INFLIGHT = {};
+function nextFrame(f) { if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(f, 0); }); else setTimeout(f, 16); }
+function idle(f, ms) { if (window.requestIdleCallback) requestIdleCallback(f, { timeout: ms || 1500 }); else setTimeout(f, 200); }
+function weekHit(date) { CACHE_AT[date] = Date.now(); return CACHE[date]; }
+function pruneWeeks() {
+  var keys = Object.keys(CACHE); if (keys.length <= WEEK_MAX) return;
+  keys.sort(function (a, b) { return (CACHE_AT[a] || 0) - (CACHE_AT[b] || 0); });
+  for (var i = 0; i < keys.length - WEEK_MAX; i++) { if (keys[i] === DATE) continue; delete CACHE[keys[i]]; delete CACHE_AT[keys[i]]; }
+}
+function loadWeek(date) {
+  if (CACHE[date]) return Promise.resolve(weekHit(date));
+  if (INFLIGHT[date]) return INFLIGHT[date];
+  return (INFLIGHT[date] = new Promise(function (res, rej) {
+    callServer('getWorshipWeek', [TOKEN, date], function (w) {
+      delete INFLIGHT[date];
+      if (!CACHE[w.date]) CACHE[w.date] = w;                     // 그 사이 저장해서 더 새 것이 있으면 그대로 둠
+      CACHE_AT[w.date] = Date.now(); if (w.date !== date) { CACHE[date] = CACHE[w.date]; CACHE_AT[date] = Date.now(); }
+      pruneWeeks(); res(CACHE[w.date]);
+    }, function (e) { delete INFLIGHT[date]; rej(e || new Error('불러오지 못했습니다.')); });
+  }));
+}
+/** 지금 주의 바로 앞 · 뒤 주(주차 줄 순서)를 한가한 때 받아 둡니다 — 데이터 절약 모드 · 오프라인이면 하지 않음 */
+function prefetchAround(date) {
+  warmPractice();
+  try {
+    if (!D || navigator.onLine === false || (navigator.connection && navigator.connection.saveData)) return;
+    var ws = (D.weeks || []).map(function (w) { return w.date; }), i = ws.indexOf(date);
+    if (i < 0) return;
+    [ws[i + 1], ws[i - 1]].filter(function (k) { return k && !CACHE[k] && !INFLIGHT[k]; }).forEach(function (k, n) {
+      setTimeout(function () { idle(function () { if (!CACHE[k]) loadWeek(k).catch(function () { /* 미리 받기는 덤 */ }); }); }, 600 + n * 500);
     });
+  } catch (e) { /* 미리 받기는 덤 */ }
+}
+/** 세션 / 연습 시작을 빠르게 — 이 주에 악보가 있으면 한가한 때 첫 악보 파일과 PDF 도구를 미리 받아 둡니다 (화면에는 손대지 않음) */
+function warmPractice() {
+  try {
+    if (W && !window.YNPractice && document.readyState !== 'complete') { window.addEventListener('load', function () { setTimeout(warmPractice, 300); }, { once: true }); return; }   // 연습 도구 스크립트(defer)가 아직이면 다 불러진 뒤에
+    if (!W || !window.YNPractice || !YNPractice.warm || navigator.onLine === false) return;
+    var files = (W.sheets || []).concat(W.finalSheets || []);
+    if (!files.length) return;
+    idle(function () { try { YNPractice.warm(files.slice(0, 2).map(function (f) { return f.id; })); } catch (e) { /* 덤 */ } }, 3000);
+  } catch (e) { /* 덤 */ }
+}
+/** 한 주 화면 모양의 뼈대 — 날짜 · 연습 시작 · 말씀 · 편성 줄 */
+function weekSkeleton() {
+  var row = function (w) { return '<i class="skel line" style="width:' + w + '%;"></i>'; };
+  return '<div class="wh-skel" aria-busy="true" aria-label="불러오는 중">' +
+    '<div class="panel"><i class="skel big" style="width:100%;"></i></div>' +
+    '<div class="panel">' + row(35) + row(70) + row(55) + '</div>' +
+    '<div class="panel">' + row(30) + row(85) + row(60) + '</div>' +
+    '<div class="panel">' + row(25) + [90, 82, 88, 76, 84, 70].map(row).join('') + '</div></div>';
 }
 
 /** 서버가 돌려준 한 주로 화면을 바로 갈아끼웁니다 (다시 불러오지 않습니다) */
@@ -1321,10 +1419,27 @@ function renderWeeks() {
         (w.off ? '<span class="dot"></span>' : '') + '</div>' +
       '</button>';
   }).join('');
-  var on = el('weeks').querySelector('.wk.on');
-  if (on && on.scrollIntoView) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  centerWeek();
   var tb = el('wkToday');
   if (tb) { var here = String(DATE) === upcomingKey(); tb.classList.toggle('here', here); tb.setAttribute('aria-pressed', here ? 'true' : 'false'); }
+}
+
+/** 고른 주를 주차 줄 가운데로 — 다음 프레임에 한 번만 (예전 scrollIntoView 는 화면 전체 배치를 그 자리에서 다시 계산하게 해 날짜를 바꿀 때마다 멈칫했습니다) */
+var CW_RAF = 0;
+function centerWeek() {
+  if (CW_RAF) return;
+  var go = function () {
+    CW_RAF = 0;
+    var box = el('weeks'), on = box && box.querySelector('.wk.on');
+    if (!on) return;
+    if (box.scrollHeight > box.clientHeight + 4 && box.scrollWidth <= box.clientWidth + 4) {      // 넓은 화면: 세로 목록(옆 막대)
+      box.scrollTop = Math.max(0, on.offsetTop - box.offsetTop - (box.clientHeight - on.offsetHeight) / 2);
+      return;
+    }
+    var left = on.offsetLeft - box.offsetLeft - (box.clientWidth - on.offsetWidth) / 2;
+    box.scrollLeft = Math.max(0, left);
+  };
+  CW_RAF = window.requestAnimationFrame ? requestAnimationFrame(go) : setTimeout(go, 16);
 }
 
 /** 다음 주일 예배의 키 — 서버가 준 값이 (화면을 오래 켜 둬서) 지났으면 오늘 이후 첫 일요일로 다시 계산 */
@@ -1520,10 +1635,11 @@ function autoRecStart() {
 function goSession(key) {
   DATE = key; openPos = ''; songEdit = null; BULK = {};
   window.scrollTo(0, 0);
-  if (CACHE[key]) { W = CACHE[key]; render(); return; }
-  el('body').innerHTML = '<div class="panel"><i class="skel line" style="width:55%;"></i><i class="skel line" style="width:80%;"></i></div>';
-  callServer('getWorshipWeek', [TOKEN, key], function (w) { CACHE[w.date] = w; if (DATE === w.date) { W = w; render(); } },
-    function (e) { el('body').innerHTML = '<div class="panel"><p class="empty">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>'; });
+  var gen = ++GO_GEN;
+  if (CACHE[key]) { W = weekHit(key); render(); return; }
+  el('body').innerHTML = weekSkeleton();
+  loadWeek(key).then(function (w) { if (gen === GO_GEN && DATE === w.date) { W = w; render(); } },
+    function (e) { if (gen === GO_GEN) el('body').innerHTML = '<div class="panel"><p class="empty">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>'; });
 }
 
 /** 이름 → 얼굴 (교적 사진이 있으면 사진, 없으면 첫 글자) */

@@ -10,6 +10,7 @@ const MULTI = [{ id: 'FILEID_MULTI0001', name: 'Sunday All Songs.pdf' }];
   const port = await S.start(0), base = 'http://127.0.0.1:' + port;
   const br = await L.launch();
   const ctx = await br.newContext({ viewport: { width: 1280, height: 800 }, hasTouch: true });
+  await ctx.addInitScript(() => { try { if (localStorage.getItem('yn.pv.spread') === null) localStorage.setItem('yn.pv.spread', '0'); } catch (e) {} });   // 허브 v5: 태블릿 가로는 기본 두 쪽 — 이 시험은 한 쪽 넘기기를 봅니다
   const page = await ctx.newPage(); const errs = [];
   page.on('pageerror', (e) => errs.push('pageerror: ' + e.message)); page.on('console', (m) => { if (m.type() === 'error' && !/favicon|Failed to load resource|bad HTTP response code|youtube|fonts\.g/i.test(m.text())) errs.push('console: ' + m.text()); });
   await page.goto(base + '/h.html?t=tokA'); await page.evaluate(([sheets, songs]) => { window.__pv = OPEN({ sheets, songs }); }, [MULTI, SONGS]);
@@ -69,7 +70,7 @@ const MULTI = [{ id: 'FILEID_MULTI0001', name: 'Sunday All Songs.pdf' }];
   let g = await geo();
   check('도크가 위 가운데 (가로 중앙 ±2px, 악보 영역 맨 위 12px 이내)', Math.abs(g.x + g.w / 2 - g.vw / 2) <= 2 && g.y - g.mainTop <= 12, g);
   check('높이 36 ~ 44px · 한 줄(row) · 알약 모양', g.h >= 36 && g.h <= 44.5 && g.dir === 'row' && g.radius >= 20, g);
-  check('배경 블러 (backdrop-filter: blur)', /blur/.test(g.blur || ''), g.blur);
+  check('흐림 없이 거의 불투명한 어두운 유리 (허브 v5 — 필기 · 스크롤 성능)', (g.blur || 'none') === 'none' && await page.evaluate(() => { const c = getComputedStyle(document.querySelector('.pv-tools')).backgroundColor.match(/[\d.]+/g).map(Number); return c.length < 4 || c[3] >= 0.9; }), g.blur);
   check('화면의 5% 미만만 차지 (95% 이상이 악보)', g.w * g.h < g.vw * g.vh * 0.05, { area: (g.w * g.h) / (g.vw * g.vh) });
   check('도구 아이콘 · ⋯ · ▴ 는 보이고 색 · 굵기(보조 옵션)는 접혀 있음', g.tool && g.more && g.hide && !g.col, g);
   check('접기 알약은 도크가 열려 있는 동안 숨김', !g.pill, g);

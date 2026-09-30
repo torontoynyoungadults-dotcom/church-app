@@ -2887,8 +2887,8 @@ function attendBadge(m) {
   if (m.rate === null || m.rate === undefined) return '';
   var c = m.rate >= 80 ? 'var(--good)' : m.rate >= 60 ? 'var(--mid)' : 'var(--low)';
   var bg = m.rate >= 80 ? '#E3F2EA' : m.rate >= 60 ? '#FBEADF' : '#FBE9E6';
-  return '<span class="ratebadge ' + (m.rate >= 80 ? 'hi' : m.rate >= 60 ? 'mid' : 'low') + '">' +
-    m.rate + '% · ' + m.present + '/' + m.totalMeetings + '</span>';
+  return '<span class="ratebadge ' + (m.rate >= 80 ? 'hi' : m.rate >= 60 ? 'mid' : 'low') + '" title="셀모임 출석률 (출석한 모임 / 전체 모임)">' +
+    '셀 출석 ' + m.rate + '% (' + m.present + '/' + m.totalMeetings + '회)</span>';
 }
 
 function refresh(d) { cells = d; renderAdmin(); }
@@ -5557,7 +5557,9 @@ function drawWord() {
 var TV_LIST = null, tvEditing = '', tvDraft = null, TV_BUSY = false;
 var QT_SHEET = null, QT_ROWS = null;
 
+var TV_AUTO = null;   // 매일 자동 묵상 (허브 v5)
 function loadTodayVerse() {
+  callServer('getDevotionAuto', [KEY], function (r) { TV_AUTO = r; drawTodayVerse(); }, function () { TV_AUTO = null; });
   callServer('listTodayVerses', [KEY], function (r) { TV_LIST = r; drawTodayVerse(); loadQTSheet(); },
     function (e) { var b = el('todayVerseBox'); if (b) b.innerHTML = '<p class="msg err">' + esc(e.message || e) + '</p>'; });
 }
@@ -5622,6 +5624,10 @@ function drawTodayVerse() {
         '<div class="addrow"><input type="text" id="qtSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." style="flex:1;">' +
         '<button class="btn accent" onclick="qtSheetSave()">연결</button></div>') +
     '<p class="msg" id="qtSheetMsg"></p></div>' +
+    '<div class="noteBox" style="margin-bottom:12px;"><div class="noteRow" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">' +
+      '<span><b>매일 자동 묵상</b><br><small>그날 확정한 말씀이 없으면 새벽 4:30에 본문(QT 시트 → 온라인 성경 읽기표 → 추천 구절, 개역한글)을 정하고 AI 가이드까지 만들어 둡니다.</small></span>' +
+      '<label style="display:flex;align-items:center;gap:6px;white-space:nowrap;"><input type="checkbox" id="tvAuto"' + (TV_AUTO && TV_AUTO.on ? ' checked' : '') + (TV_AUTO ? '' : ' disabled') + ' onchange="tvAutoSet(this.checked)"> 켜기</label></div>' +
+      (TV_AUTO && !TV_AUTO.ai ? '<p class="hint" style="margin:6px 0 0;">AI 가 꺼져 있어 자동 묵상도 쉬고 있습니다.</p>' : '') + '</div>' +
     '<div class="two">' +
       '<div class="f"><label>날짜</label><input type="date" id="tvDate" value="' + esc(d.date) + '"></div>' +
       '<div class="f"><label>구절 표기</label><input type="text" id="tvVerse" value="' + esc(tvDraft.verse || '') + '" placeholder="예) 요한복음 3:16"></div>' +
@@ -5629,6 +5635,7 @@ function drawTodayVerse() {
     '<div class="f"><label>본문 텍스트</label><textarea id="tvText" style="min-height:110px;" placeholder="본문을 그대로 붙여넣어 주세요.">' + esc(tvDraft.text || '') + '</textarea></div>' +
     '<div class="addrow">' +
       '<button class="btn" style="flex:1;" onclick="tvFetchQT()" ' + (TV_BUSY ? 'disabled' : '') + '>' + (TV_BUSY ? '가져오는 중…' : '시트에서 이 날짜 본문 가져오기') + '</button>' +
+      '<button class="btn" style="flex:1;" id="tvOnlineBtn" onclick="tvFetchOnline()" ' + (TV_BUSY ? 'disabled' : '') + '>' + (TV_BUSY ? '가져오는 중…' : '🌐 온라인 성경 읽기표에서 가져오기') + '</button>' +
       '<button class="btn" style="flex:1;" onclick="tvMakeAi()" ' + (TV_BUSY ? 'disabled' : '') + '>' + (TV_BUSY ? '만드는 중…' : 'AI로 해설·질문·적용·기도 만들기') + '</button>' +
     '</div>' +
     (QT_ROWS && QT_ROWS.length
@@ -5680,6 +5687,24 @@ function tvFetchQT() {
     drawTodayVerse();
     say('tvMsg', r.aiError ? ('본문은 가져왔지만 AI 는 실패했습니다: ' + (r.aiError)) : '본문과 AI 묵상 자료를 가져왔습니다. 확인하고 저장해주세요.', r.aiError ? 'err' : 'ok');
   }, function (e) { TV_BUSY = false; drawTodayVerse(); say('tvMsg', e.message || e, 'err'); });
+}
+
+/** 온라인 성경 읽기표(그날의 읽기) → 개역한글 본문 + AI 묵상 자료 (허브 v5) — 미리 채우기만, 저장은 확인 후 */
+function tvFetchOnline() {
+  if (TV_BUSY) return;
+  var date = el('tvDate').value;
+  if (!date) return say('tvMsg', '날짜를 먼저 골라주세요.', 'err');
+  TV_BUSY = true; drawTodayVerse(); say('tvMsg', '온라인에서 그날 본문을 찾고 AI 가이드를 만드는 중…');
+  callServer('adminFetchOnlineQT', [KEY, date], function (r) {
+    TV_BUSY = false;
+    tvDraft = { __date: date, verse: r.verse, text: r.text, explain: r.explain, questions: r.questions, apply: r.apply, prayer: r.prayer };
+    drawTodayVerse();
+    say('tvMsg', (r.aiError ? '본문은 가져왔지만 AI 는 실패했습니다: ' + r.aiError : '본문(' + (r.from || '온라인') + ', 개역한글)과 AI 묵상 자료를 채웠습니다. 확인하고 저장해주세요.'), r.aiError ? 'err' : 'ok');
+  }, function (e) { TV_BUSY = false; drawTodayVerse(); say('tvMsg', e.message || e, 'err'); });
+}
+function tvAutoSet(on) {
+  callServer('setDevotionAuto', [KEY, !!on], function (r) { TV_AUTO = { on: r.setting === '켜기', ai: TV_AUTO ? TV_AUTO.ai : true }; drawTodayVerse(); say('tvMsg', on ? '매일 자동 묵상을 켰습니다.' : '매일 자동 묵상을 껐습니다.', 'ok'); },
+    function (e) { say('tvMsg', e.message || e, 'err'); drawTodayVerse(); });
 }
 
 function tvMakeAi() {
@@ -5867,10 +5892,10 @@ function clearSermonConfirm() {
 }
 
 function makeSermonSummary(id) {
-  say('sermonMsg', 'AI가 요약 만드는 중… 자막 길이에 따라 10~30초 걸립니다.');
-  callServer('sermonMake', [KEY, id, ''], function () {
+  say('sermonMsg', 'AI가 요약 만드는 중… 자막 길이에 따라 10~30초, 자막이 없는 영상은 AI 가 영상을 직접 보고 요약해서 1~3분 걸립니다.');
+  callServer('sermonMake', [KEY, id, ''], function (r) {
     loadSermonAdmin();
-    say('sermonMsg', '요약을 만들었습니다.', 'ok');
+    say('sermonMsg', '요약을 만들었습니다.' + (r && /영상/.test(r.source || '') ? ' (자막이 없어 AI 가 영상을 보고 요약했습니다)' : ''), 'ok');
   }, function (e) { say('sermonMsg', e.message || e, 'err'); });
 }
 

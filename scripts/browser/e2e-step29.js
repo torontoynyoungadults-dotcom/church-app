@@ -6,7 +6,7 @@ const L = require('./e2e-lib'); const { check, sleep } = L;
 const S = require('./e2e-server');
 const SONGS = [{ title: 'Amazing Grace', key: 'G', bpm: 120, form: 'V1-C', team: 'T' }, { title: 'Second Song', key: 'Bb', bpm: 90, form: 'Intro-V-C', team: '' }];
 const MULTI = [{ id: 'FILEID_MULTI0001', name: 'Sunday All Songs.pdf' }];
-const INIT = `(() => {
+const INIT = `(() => { try { if (localStorage.getItem('yn.pv.spread') === null) localStorage.setItem('yn.pv.spread', '0'); } catch (e) {}   /* 허브 v5: 태블릿 가로는 기본 두 쪽 — 이 시험은 한 쪽 넘기기를 봅니다 */
   window.__said = [];
   const V = (name, lang, local) => ({ name, lang, localService: !!local, default: false, voiceURI: name });
   const voices = [V('Samantha', 'en-US', 1), V('Daniel', 'en-GB', 1), V('Yuna', 'ko-KR', 1), V('Microsoft InJoon Online (Natural) - Korean (Korea)', 'ko-KR')];

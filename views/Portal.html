@@ -397,9 +397,20 @@
   .asview b { color: #fff; }
   .asview span { flex: 1; }
   .asview button { flex: none; }
+  /* 다른 분 화면 보기 (허브 v5) — 그분 화면과 1:1 로 같게: 보기 전용 표시는 화면 흐름 밖(떠 있는 띠)에만 두고, 타일 · 버튼 모양은 바꾸지 않습니다 */
   .tile.ro { cursor: not-allowed; }
-  .tile.as { box-shadow: 0 0 0 2px #7C5CD6, var(--sh-2); }
-  .tile.ro:after { content: "보기 전용"; font-size: 11px; font-weight: 800; color: var(--ink-4); }
+  .asfloat {
+    position: fixed; z-index: 2600; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+    width: min(640px, calc(100vw - 24px)); display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px;
+    background: rgba(42, 31, 69, .97); border: 1px solid #7C5CD6; border-radius: 16px; color: #EDE6FF;
+    font-size: 14px; font-weight: 700; line-height: 1.5; box-shadow: 0 14px 40px rgba(0,0,0,.5);
+  }
+  .asfloat b { color: #fff; }
+  .asfloat span { flex: 1; min-width: 0; }
+  .asfloat button { flex: none; }
+  .asfloat.hide { display: none; }
+  .astoast { position: fixed; z-index: 2601; left: 50%; bottom: 84px; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px;
+    background: rgba(20,20,27,.95); color: #fff; font-size: 13.5px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.45); pointer-events: none; }
 
   /* 내 정보 관리 */
   .mebtn {
@@ -1948,21 +1959,22 @@ function renderNfHome(h) {
 /** 커미티 — 새가족 "화면 보기". 새가족이 보는 첫 화면을 같은 함수로 그리고, 눌러서 바뀌는 것은 모두 잠급니다 */
 function renderNfView(res) {
   var h = res.home || {};
+  VIEW_NF = h;
   el('entering').style.display = 'none';
   el('main').style.display = 'none';
   el('lock').style.display = 'block';
   lockPanels('nfHome');
-  var pb = document.querySelector('#lock .prebtns'); if (pb) pb.style.display = 'none';
-  el('nfHome').innerHTML =
-    '<div class="asview nfasview"><span><b>' + esc(res.viewAs || h.name || '') + '</b> 새가족이 실제로 보는 화면입니다 — <b>보기 전용</b> (누르거나 저장할 수 없습니다)</span>' +
-    '<button class="btn mini" onclick="viewAs(\'\')">내 화면으로</button></div>' +
-    '<div class="nfro" inert>' + nfHomeHtml(h, true) + '</div>';
+  // 새가족이 로그인했을 때(renderNfHome)와 똑같이 그립니다 — 위쪽 버튼줄 · 로그아웃 줄까지. 누르기는 asGuard 가 막습니다 (허브 v5)
+  var pb = document.querySelector('#lock .prebtns'); if (pb) { pb.style.display = ''; var nfb = pb.querySelector('.nf'); if (nfb) nfb.style.display = 'none'; }
+  el('nfHome').innerHTML = nfHomeHtml(h, false);
   nfFillBoxes(h);
+  asFloat('<b>' + esc(res.viewAs || h.name || '') + '</b> 새가족이 실제로 보는 화면 — <b>보기 전용</b>');
   try { renderPush(); } catch (e) {}
 }
 
 /** "내 화면으로" — 새가족 화면을 닫고 원래 포털로 */
 function leaveNfView() {
+  VIEW_NF = null; asFloat('');
   el('lock').style.display = 'none';
   lockPanels('gbox');
   el('main').style.display = 'block';
@@ -2020,8 +2032,8 @@ function renderCellApp(res) {
   if (!box) return;
   if (!res) { box.innerHTML = ''; return; }
   var ca = res.cellApp || {};
-  var ro = !!VIEW;                      // 다른 분 화면 보기 — 그분에게 보이는 그대로 그리되 눌리지 않게
-  box.innerHTML = (ca.state === 'open' || ca.state === 'locked' ? cellAppBtn(ca, ro) : '') + (res.myCell ? myCellHtml(res.myCell) : '');
+  var ro = !!VIEW;                      // 다른 분 화면 보기 — 그분에게 보이는 그대로 그리되 눌리지 않게 (inert — 모양은 같음)
+  box.innerHTML = (ca.state === 'open' || ca.state === 'locked' ? cellAppBtn(ca, false) : '') + (res.myCell ? myCellHtml(res.myCell) : '');
   if (ro) box.setAttribute('inert', ''); else box.removeAttribute('inert');
 }
 
@@ -2045,13 +2057,14 @@ function toggleTodos(boxId) {
   if (box) { var h = box.querySelector('.todoacc-h'); if (h) cur = h.getAttribute('aria-expanded') === 'true'; }
   TODO_OPEN = !cur;
   try { sessionStorage.setItem('ynTodoOpen', TODO_OPEN ? '1' : '0'); } catch (e) {}
-  renderTodos((boxId === 'todoBoxNf' ? NF_HOME : SELF) || { todos: TODOS }, boxId);
+  renderTodos((boxId === 'todoBoxNf' ? (VIEW_NF || NF_HOME) : (VIEW && VIEW !== 'preview' && VIEW_RES ? VIEW_RES : SELF)) || { todos: TODOS }, boxId);
 }
 
 function renderTodos(res, boxId) {
   var box = el(boxId || 'todoBox');
   if (!box) return;
-  var list = (res && res.todos) || [];
+  var gone = VIEW ? {} : todoGoneMap();
+  var list = ((res && res.todos) || []).filter(function (t) { return !(t.hideable && gone[t.id]); });
   TODOS = list;
   if (!list.length) { box.innerHTML = ''; if (!VIEW) 뱃지맞추기_(0); return; }
 
@@ -2064,7 +2077,8 @@ function renderTodos(res, boxId) {
   if (!VIEW) 뱃지맞추기_(list.length);
   var open = todoOpenNow(급한);
   var idArg = "'" + (boxId || 'todoBox') + "'";
-  var title = (boxId === 'todoBoxNf' && NF_HOME && NF_HOME.portalCfg && NF_HOME.portalCfg.todosTitle) || '알림';
+  var nfh = VIEW_NF || NF_HOME;
+  var title = (boxId === 'todoBoxNf' && nfh && nfh.portalCfg && nfh.portalCfg.todosTitle) || '알림';
 
   box.innerHTML =
     '<div class="todo todoacc' + (open ? ' open' : '') + '">' +
@@ -2076,7 +2090,7 @@ function renderTodos(res, boxId) {
       '</button>' +
       (open
         ? '<div class="todoacc-b">' + show.map(todoItem).join('') +
-          (sorted.length > 4 ? '<button type="button" class="todomore" onclick="TODO_ALL=!TODO_ALL;renderTodos(' + (boxId === 'todoBoxNf' ? 'NF_HOME' : 'SELF') + ',' + idArg + ')">' +
+          (sorted.length > 4 ? '<button type="button" class="todomore" onclick="TODO_ALL=!TODO_ALL;renderTodos(' + (boxId === 'todoBoxNf' ? '(VIEW_NF||NF_HOME)' : '(VIEW_RES||SELF)') + ',' + idArg + ')">' +
             (TODO_ALL ? '접기' : '전체 ' + sorted.length + '개 보기') + '</button>' : '') + '</div>'
         : '') +
     '</div>';
@@ -2085,7 +2099,7 @@ function renderTodos(res, boxId) {
 function todoItem(t) {
   // 회의에서 맡은 일 — 여기서 바로 "다 했어요" 를 누를 수 있습니다
   var meetId = (t.kind === 'meet' && t.id.indexOf('meet-') === 0) ? t.id.slice(5) : '';
-  var ro = !!VIEW;             // 다른 분 화면 보기 — 그분의 알림을 그대로 보여 주되 눌러서 바꾸는 동작은 막습니다
+  var ro = false;              // 다른 분 화면 보기도 그분 화면과 같은 모양으로 그립니다 — 눌러서 바꾸는 동작은 asGuard 가 막습니다 (허브 v5)
   var inner =
     (meetId && !ro
       ? '<button class="tick" title="다 했어요" onclick="doneMeetTask(event,\'' + jsq(meetId) + '\')"></button>'
@@ -2154,13 +2168,21 @@ function dropNotice(ev, id) {
 function hideTodoItem(ev, id) {
   ev.preventDefault(); ev.stopPropagation();
   var box = el('todoBox');
+  todoGone(id);
   TODOS = TODOS.filter(function (t) { return t.id !== id; });
-  if (SELF) SELF.todos = TODOS;
+  if (SELF) { SELF.todos = TODOS; saveProfileCache(SELF); }          // 저장해 둔 첫 화면에도 반영 — 다시 열 때 치운 알림이 잠깐 다시 뜨지 않게 (허브 v5)
   if (NF_HOME) NF_HOME.todos = TODOS;
   renderTodos({ todos: TODOS }, box && box.innerHTML ? 'todoBox' : 'todoBoxNf');
   callServer('hideTodo', [caToken(), id], null, null);
   return false;
 }
+/* 치운 알림을 이 기기에도 7일 기억합니다 — 서버 응답이 늦거나(저장 전) 오래된 첫 화면을 다시 그릴 때도 되살아나지 않게 */
+var TODO_GONE_KEY = 'ynTodoGone';
+function todoGoneMap() {
+  try { var m = JSON.parse(localStorage.getItem(TODO_GONE_KEY) || '{}') || {}, now = Date.now(), out = {};
+    Object.keys(m).forEach(function (k) { if (now - m[k] < 7 * 86400000) out[k] = m[k]; }); return out; } catch (e) { return {}; }
+}
+function todoGone(id) { try { var m = todoGoneMap(); m[id] = Date.now(); localStorage.setItem(TODO_GONE_KEY, JSON.stringify(m)); } catch (e) {} }
 
 /* ---------- 신청서 ---------- */
 
@@ -2471,6 +2493,11 @@ function renderPush() {
   if (!b) return;
   var P = window.YNPush;
   // 로그인 전 · 남의 화면 보기 · 지원하지 않는 브라우저에서는 벨을 숨깁니다
+  if (VIEW && VIEW !== 'preview' && P) {                                  // 그분 화면과 같은 자리 · 같은 모양의 벨 (이 기기 상태 기준 — 허브 v5). 켜고 끄기는 막음
+    var vs = P.state(); closeBell();
+    if (vs === 'unsupported') { b.style.display = 'none'; return; }
+    bellSet(vs === 'denied' ? 'denied' : 'off', '알림', '다른 분 화면에서는 알림 설정을 바꿀 수 없습니다.', null); return;
+  }
   if (VIEW || !caToken() || !P) { b.style.display = 'none'; closeBell(); return; }
   var st = P.state();
   if (st === 'unsupported') { b.style.display = 'none'; closeBell(); return; }
@@ -2722,7 +2749,7 @@ function doLogout() {
   window.scrollTo(0, 0);
 }
 
-var SELF = null, VIEW = '', VIEW_NOLINK = false;          // 내 자료 · 지금 보고 있는 다른 사람 (커미티)
+var SELF = null, VIEW = '', VIEW_NOLINK = false, VIEW_RES = null;          // 내 자료 · 지금 보고 있는 다른 사람 (커미티)
 
 function onIn(res, fromCache) {
   clearTimeout(_bootT);
@@ -2753,6 +2780,7 @@ function followDeepLink() {
 
 /** 받은 자료로 첫 화면을 그립니다 (내 화면이든, 커미티가 보는 다른 사람 화면이든) */
 function paint(res) {
+  VIEW_RES = VIEW ? res : null;
   ME = res.me; MENUS = res.menus || []; ROLES = res.roles || []; ADMIN = res.admin || [];
   BADGES = res.badges || {};
   HAS_CAL = !!res.hasCalendar;
@@ -2776,10 +2804,10 @@ function paint(res) {
   editing = false;
   renderProfile();                                                            // 다른 분 화면에서도 그분의 "내 정보 관리"를 보기 전용으로
   el('meBtn').style.display = '';
-  if (el('notesBtn')) el('notesBtn').style.display = VIEW ? 'none' : '';      // 내 노트는 내 계정 것이라 다른 분 화면에서는 숨김
-  var ai = document.querySelector('.aibtns'); if (ai) ai.classList.toggle('solo', !!VIEW);
+  if (el('notesBtn')) el('notesBtn').style.display = '';                     // 그분 화면에도 "내 노트"가 보이므로 같게 (누르기는 asGuard 가 막음)
+  var ai = document.querySelector('.aibtns'); if (ai) ai.classList.remove('solo');
   var qs = document.querySelector('.qsearch');
-  if (qs) qs.style.display = (VIEW || !CAL_COM) ? 'none' : '';
+  if (qs) qs.style.display = !CAL_COM ? 'none' : '';
   renderAdmin();
   el('calWrap').style.display = HAS_CAL ? 'block' : 'none';
   if (HAS_CAL) { if (CAL_OPEN) loadCal(); loadPeek(); }
@@ -2985,19 +3013,54 @@ function qsCloseModal() {
 
 /* ---------- 커미티 — 다른 사람 화면으로 보기 ---------- */
 
-var AS_KIND = 'member', VT = null, VIEW_KIND = '', NEWCOMER = null;
+var AS_KIND = 'member', VT = null, VIEW_KIND = '', NEWCOMER = null, VIEW_NF = null;
+
+/** 보기 전용 안내 — 화면 아래에 떠 있는 띠 (그분 화면의 배치를 밀어내지 않음). html 이 비면 없앱니다 */
+function asFloat(html) {
+  var f = el('asFloat');
+  if (!html) { if (f) f.remove(); return; }
+  if (!f) { f = document.createElement('div'); f.id = 'asFloat'; f.className = 'asfloat'; f.setAttribute('role', 'status'); document.body.appendChild(f); }
+  f.innerHTML = '<span>' + html + '</span><button class="btn mini" onclick="viewAs(\'\')">내 화면으로</button>';
+}
+/* 다른 분 화면에서 누르기 막기 (허브 v5) — 버튼 모양을 바꾸지 않고(그분 화면과 같게) 누르는 순간 막습니다.
+   · 허용: 떠 있는 띠, 알림 펼치기 · 전체 보기(화면만 바뀜), 그분으로 여는 메뉴 타일(전화번호가 있을 때)
+   · 나머지(저장 · 신청 · 알림 치우기 · 입력)는 막고 "보기 전용" 안내 */
+var AS_TOAST_T = 0;
+function asToast(t) {
+  var x = el('asToast');
+  if (!x) { x = document.createElement('div'); x.id = 'asToast'; x.className = 'astoast'; document.body.appendChild(x); }
+  x.textContent = t; x.style.display = '';
+  clearTimeout(AS_TOAST_T); AS_TOAST_T = setTimeout(function () { x.style.display = 'none'; }, 1800);
+}
+function asAllowed(t) {
+  if (!t || !t.closest) return false;
+  if (t.closest('#asFloat')) return true;
+  if (t.closest('#meBtn, .pvback, .todoacc-h, .todomore, #calWrap button, #calWrap .pk-row, #bellBtn')) return true;     // 화면만 바뀌는 단추 (내 정보 보기 · 알림 펼치기 · 달력 넘기기)
+  var a = t.closest('a.tile[href]');
+  if (a && VIEW_KIND !== 'newcomer' && !VIEW_NOLINK && !a.classList.contains('form') && a.getAttribute('href') && a.getAttribute('href') !== '#') return true;
+  return false;
+}
+function asGuard(e) {
+  if (!VIEW || VIEW === 'preview') return;
+  var t = e.target;
+  if (!t || !t.closest || !(t.closest('#main') || t.closest('#lock'))) return;
+  if (asAllowed(t)) return;
+  if (e.type === 'keydown' && !/^(Enter| |Spacebar)$/.test(e.key)) { if (t.closest('input,textarea,select,[contenteditable]')) { e.preventDefault(); e.stopPropagation(); } return; }
+  e.preventDefault(); e.stopPropagation();
+  if (e.type === 'click') asToast('다른 분 화면은 보기 전용입니다');
+}
+['click', 'submit', 'keydown', 'beforeinput', 'change'].forEach(function (k) { document.addEventListener(k, asGuard, true); });
 
 function renderAs() {
   var box = el('asBox');
   if (VIEW) {
-    var nfv = VIEW_KIND === 'newcomer';
-    box.innerHTML = '<div class="asview"><span><b>' + esc(VIEW) + '</b>' + (nfv ? ' 새가족' : '님') + '이 보는 화면입니다.' +
-      (nfv ? ' 새가족은 포털에 들어오지 않으므로 <b>보기 전용</b>입니다.' :
-       VIEW_NOLINK ? ' 교적에 전화번호가 없어 메뉴는 열 수 없습니다.'
-                   : ' 메뉴를 누르면 <b>' + esc(VIEW) + '님으로</b> 열립니다 — 거기서 한 일은 그분 이름으로 남습니다.') + '</span>' +
-      '<button class="btn mini" onclick="viewAs(\'\')">내 화면으로</button></div>';
+    box.innerHTML = '';                 // 화면 흐름 안에는 아무것도 넣지 않습니다 (그분 화면과 1:1) — 안내는 떠 있는 띠로
+    asFloat(VIEW_KIND === 'newcomer'
+      ? '<b>' + esc(VIEW) + '</b> 새가족이 보는 화면 — <b>보기 전용</b>'
+      : '<b>' + esc(VIEW) + '</b>님이 보는 화면 — ' + (VIEW_NOLINK ? '<b>보기 전용</b> (교적에 전화번호가 없어 메뉴는 열 수 없습니다)' : '메뉴를 누르면 <b>' + esc(VIEW) + '님으로</b> 열립니다'));
     return;
   }
+  asFloat('');
   var ppl = (SELF && SELF.people) || [];
   if (!ppl.length) { box.innerHTML = ''; return; }
   box.innerHTML =
@@ -3065,7 +3128,7 @@ function viewAs(name, kind) {
     var wasNf = VIEW_KIND === 'newcomer';
     VIEW = ''; VIEW_KIND = ''; NEWCOMER = null; CAL_CACHE = {}; FORMS = (SELF && SELF.forms && SELF.forms.list) || [];
     if (wasNf) leaveNfView();
-    paint(SELF); window.scrollTo(0, 0); return;
+    paint(SELF); freshMain(); window.scrollTo(0, 0); return;
   }
   var nf = kind === 'newcomer';
   var box = el('asBox');
@@ -3074,9 +3137,13 @@ function viewAs(name, kind) {
   callServer(nf ? 'portalViewAsNewcomer' : 'portalViewAs', [TOKEN, name], function (res) {
     VIEW = name; VIEW_KIND = nf ? 'newcomer' : ''; NEWCOMER = res.newcomer || null; VIEW_NOLINK = !!res.noLink;
     if (nf && res.home) { renderNfView(res); window.scrollTo(0, 0); return; }     // 새가족이 실제로 보는 화면 그대로
-    paint(res); window.scrollTo(0, 0);
+    paint(res); freshMain(); window.scrollTo(0, 0);
   }, function (e) { var m = el('asMsg'); if (m) m.textContent = e.message || '불러오지 못했습니다.'; });
 }
+
+/** 사람을 바꿔 그린 뒤 첫 화면을 한 번 새로 칠합니다 — 바뀌지 않은 글(인사말 등)이 예전 화면의 그리기 상태(글자 번짐)를 그대로 쓰지 않게 해서
+    그분이 직접 로그인했을 때와 화소까지 같게 (허브 v5) */
+function freshMain() { var m = el('main'); if (!m || m.style.display === 'none') return; m.style.display = 'none'; void m.offsetHeight; m.style.display = 'block'; }
 
 function roTap() { alert('교적에 전화번호가 없는 분이라 메뉴를 그분으로 열 수 없습니다. "내 화면으로" 를 눌러 돌아가세요.'); }
 
@@ -3252,7 +3319,7 @@ function tileBadge(key) {
 /** 신청서 타일 — 열려 있는 신청서를 Teva Apps 격자 안에서 바로 엽니다 */
 function formTileHtml(f) {
   var done = !!f.submitted;
-  var ro = !!VIEW;
+  var ro = false;              // 다른 분 화면도 같은 모양 — 누르기는 asGuard 가 막습니다 (허브 v5)
   var note = done ? '신청 완료' : (f.open ? (f.closeAt ? '~' + f.closeAt : '신청 받는 중') : (f.why || '닫힘'));
   return '<a class="tile form' + (done ? ' done' : '') + (f.open ? '' : ' shut') + (ro ? ' ro' : '') + '" href="#" ' +
     (ro ? 'onclick="roTap();return false;"' : 'onclick="openFormPage(\'' + jsq(f.id) + '\');return false;"') +
@@ -3478,10 +3545,8 @@ function renderProfile() {
       '🔒 표시된 칸은 커미티만 바꿀 수 있습니다. 바뀐 내용이 있으면 커미티에 말씀해 주세요.</p>';
   // 다른 분 화면 보기 — 그분의 "내 정보 관리"를 그대로 보여 주되 수정 · 사진 · 신청은 막습니다
   var pf = el('profile');
-  if (VIEW) {
-    pf.setAttribute('inert', '');
-    pf.insertAdjacentHTML('afterbegin', '<p class="viewnote"><b>' + esc(ME.name) + '</b>님의 내 정보 화면 — 보기 전용입니다.</p>');
-  } else pf.removeAttribute('inert');
+  if (VIEW) pf.setAttribute('inert', '');                          // 모양은 그분 화면 그대로, 누르기만 막음 (허브 v5)
+  else pf.removeAttribute('inert');
 }
 
 /* ---------- 헌금봉투번호 신청 ---------- */

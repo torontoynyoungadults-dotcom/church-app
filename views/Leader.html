@@ -713,8 +713,8 @@ function selectHtml(id, options, current) {
 function attendBadge(m) {
   if (m.rate === null || m.rate === undefined) return '';
   var lv = m.rate >= 80 ? 'hi' : m.rate >= 60 ? 'mid' : 'low';
-  return '<span class="ratebadge ' + lv + '">' +
-    m.rate + '% · ' + m.present + '/' + m.totalMeetings + '</span>';
+  return '<span class="ratebadge ' + lv + '" title="셀모임 출석률 (출석한 모임 / 전체 모임)">' +
+    '셀 출석 ' + m.rate + '% (' + m.present + '/' + m.totalMeetings + '회)</span>';
 }
 
 var directoryData = [];
