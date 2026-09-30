@@ -203,6 +203,15 @@ async function main() {
     eq(view.menus.map((m) => m.key), real.menus.map((m) => m.key), '같은 메뉴 (주소에는 as= 표시만 더함)');
     ok(!view.people && view.token === '', '표와 사람 목록은 보내지 않음');
   }
+  /* ---------------------------------------------------------------- F */
+  section('F. 서버 파일 문법 — 워커(별도 스레드)까지 (Render 시작 실패 방지)');
+  {
+    const cp = require('child_process'), fsx = require('fs'), pth = require('path');
+    const root = pth.join(__dirname, '..');
+    const files = ['server.js'].concat(fsx.readdirSync(pth.join(root, 'lib')).filter((f) => /\.js$/.test(f)).map((f) => 'lib/' + f), fsx.readdirSync(pth.join(root, 'logic')).filter((f) => /\.js$/.test(f)).map((f) => 'logic/' + f));
+    const bad = files.filter((f) => cp.spawnSync(process.execPath, ['--check', pth.join(root, f)]).status !== 0);
+    eq(bad, [], '모든 서버 파일이 문법 오류 없이 읽힘 (' + files.length + '개)');
+  }
   process.exit(T.summary() ? 0 : 1);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
