@@ -105,7 +105,7 @@ const SHOT = process.env.SHOT_DIR || '/tmp';
   // 타일 — 하위 메뉴를 포털에 펼치지 않고 그 페이지로 바로 (탭은 페이지 안에)
   const tt = await page.evaluate(() => Array.from(document.querySelectorAll('#menus .tile')).map((t) => t.getAttribute('data-key') || t.className.split(' ')[1]));
   check('셀모임 · 사역팀 타일이 있고 "지출환급신청서" 타일은 따로 없음', tt.indexOf('leader') !== -1 && tt.indexOf('team') !== -1 && tt.indexOf('expense') === -1, tt);
-  check('타일 이름이 새 이름(셀모임 · 사역팀 · 일반 신청서 관리)', await page.evaluate(() => { const t = (k) => { const e = document.querySelector('#menus .tile.' + k + ' .tt'); return e ? e.textContent : ''; }; return t('leader') === '셀모임' && t('team') === '사역팀' && t('forms') === '일반 신청서 관리'; }));
+  check('타일 이름이 새 이름(셀모임 · 사역팀 · 각종 Form 관리)', await page.evaluate(() => { const t = (k) => { const e = document.querySelector('#menus .tile.' + k + ' .tt'); return e ? e.textContent : ''; }; return t('leader') === '셀모임' && t('team') === '사역팀' && t('forms') === '각종 Form 관리'; }));
   check('타일은 펼침 패널 없이 그 페이지로 바로 가는 링크', await page.evaluate(() => { const l = document.querySelector('#menus .tile.leader'), t = document.querySelector('#menus .tile.team'); return l.tagName === 'A' && /page=leader/.test(l.getAttribute('href')) && t.tagName === 'A' && /page=team/.test(t.getAttribute('href')) && getComputedStyle(document.getElementById('subPanel')).display === 'none' && !document.querySelector('#menus .tile[aria-expanded]'); }));
 
   // 셀모임 페이지 — 위쪽 탭 (셀 보고서 | 셀원 정보 | 대리 제출)
@@ -314,7 +314,7 @@ const SHOT = process.env.SHOT_DIR || '/tmp';
   await page.goto(BASE + '/?page=worship&key=ADM');
   check('허브가 열림', await L.waitTrue(page, () => window.W && window.D && window.D.positions && window.D.positions.length > 0, null, 10000));
   check('팀원 관리 버튼 · 탭 · 함수가 없음', await page.evaluate(() => !document.getElementById('mgbar') && !document.querySelector('.mgbtn') && typeof window.teamTab === 'undefined' && typeof window.loadTeamMgr === 'undefined' && !Array.from(document.querySelectorAll('#tabs button')).some((b) => /팀원/.test(b.textContent))));
-  check('다른 탭(예배콘티 · 공지 · 스케줄 · 행사 · 통계 · 아카이브)은 그대로', await page.evaluate(() => Array.from(document.querySelectorAll('#tabs button')).map((b) => b.textContent.trim()).join(',') === '예배콘티,공지사항,스케줄표,행사,통계,아카이브'));
+  check('다른 탭(예배콘티 · 공지 · 스케줄 · 행사 · 통계 · 아카이브)은 그대로', await page.evaluate(() => Array.from(document.querySelectorAll('#tabs button')).map((b) => b.textContent.trim()).join(',') === '예배콘티,공지사항,스케줄표,행사,통계,아카이브,장비 · 수리'));
   check('허브 오류 없음', errs.length === 0, errs);
   await ctx.close();
 

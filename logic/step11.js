@@ -277,7 +277,7 @@ function resetNewcomerPortalConfig(token) {
      leader → 셀모임        (셀 보고서 · 셀원 정보 · 대리 제출)
      team   → 사역팀        (팀 보고서 · 팀원 관리 · 지출환급신청 [바로 가기])
      budget → 수련회 · 선교 예산/정산
-     forms  → 일반 신청서 관리
+     forms  → 각종 Form 관리
    지출환급신청은 사역팀 안으로 들어갑니다 — 사역팀 메뉴가 없는 분(지출 공개로 들어온 분)에게는 예전처럼 따로 보입니다.
    ============================================================ */
 
@@ -297,7 +297,7 @@ function 메뉴묶기11_(목록) {
     out = 목록.filter(function (it) { return it.key !== 'expense'; });     // 사역팀 페이지의 탭으로 들어갔습니다
   }
   if (by.budget) { by.budget.title = '수련회 · 선교 예산/정산'; by.budget.desc = '예산 · 거래 · 정산 · 엑셀 · PDF'; }
-  if (by.forms) { by.forms.title = '일반 신청서 관리'; by.forms.desc = '수련회 · 티셔츠 · 인원조사 만들기'; }
+  if (by.forms) { by.forms.title = '각종 Form 관리'; by.forms.desc = '신청서 · 설문조사 · 인원조사 만들기'; }
   return out;
 }
 

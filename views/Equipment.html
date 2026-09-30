@@ -213,6 +213,10 @@
   body.eq-lock { overflow: hidden; }
   .eq-hide { display: none !important; }
   @media (prefers-reduced-motion: reduce) { .eq-skel { animation: none; } #toast { transition: none; } }
+  /* v6 — 찬양방송팀 허브 안에 띄울 때(embed=1): 머리말 · 꼬리말 없이 */
+  html.eq-embed .shell > header, html.eq-embed .shell > footer, html.eq-embed .yntheme { display: none !important; }
+  html.eq-embed body { background: transparent !important; }
+  html.eq-embed .shell { padding-top: 6px; }
 </style>
 </head>
 <body>
@@ -241,6 +245,7 @@
 <!--#include Theme-->
 <script>
 var P = window.__PREFILL__ || {};
+try { if (/[?&]embed=1\b/.test(location.search) && window.top !== window) document.documentElement.classList.add('eq-embed'); } catch (e) {}
 var TOKEN = P.t || P.key || '';
 var S = null;                       // equipmentInit 결과
 var TAB = 'check';                  // check | tix | items

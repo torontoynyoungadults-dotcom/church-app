@@ -39,7 +39,7 @@ const run = (fn) => global.__runtime.run((api) => fn(api)).result;
   await sleep(700);
   { const w0 = await page.evaluate(() => document.querySelector('.pv-pdf').getBoundingClientRect().width);
     const h0 = await page.evaluate(() => document.querySelector('.pv-tools').getBoundingClientRect().height);
-    await page.click('.pv-toolsbtn'); await sleep(500);
+    await page.click('.pv-tools [data-a="dockhide"]'); await sleep(500);          // v6 — 떠 있는 도구 창의 ▴ 로 접고, 접힌 알약(✏️ 도구)으로 폅니다
     check('도구 막대가 접힘 (숨김 · 버튼 상태 · 저장)', await page.evaluate(() => getComputedStyle(document.querySelector('.pv-tools')).display === 'none' && document.querySelector('.pv-toolsbtn').getAttribute('aria-pressed') === 'false' && localStorage.getItem('yn.pv.tools') === '0'), h0);
     check('접으면 악보가 같거나 더 크게 그려짐', (await page.evaluate(() => document.querySelector('.pv-pdf').getBoundingClientRect().width)) >= w0 - 1);
     await page.click('.pv-toolsbtn'); await sleep(400);

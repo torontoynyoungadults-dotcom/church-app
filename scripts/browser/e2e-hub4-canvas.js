@@ -50,9 +50,12 @@ function eq(a, b, m) { const A = JSON.stringify(a), B = JSON.stringify(b); ok(A 
   // 다시 이동해 두고
   await drag(400, 400, 450, 430); it = await items(); const moved = it[0];
 
-  console.log('■ 톡 치면: 선택 해제 + 새 글자 입력칸');
+  console.log('■ 톡 치면: 선택 해제 + 선택·이동 도구로 (v6 — 다 쓰고 다른 곳을 톡)');
   await tap(600, 300);
-  s = await st(); ok(s.ed === true && !s.sel, '빈 곳을 톡 → 선택은 풀리고 새 글자 입력칸');
+  s = await st(); ok(s.ed === false && !s.sel && s.tool === 'select', '빈 곳을 톡 → 선택은 풀리고 선택·이동 도구 (새 입력칸 없음)');
+  await pg.evaluate(() => A.setTool('text'));                   // 다시 쓰려면 글자 도구를 고름
+  await tap(600, 300);
+  s = await st(); ok(s.ed === true, '글자 도구를 다시 고르고 톡 → 새 글자 입력칸');
   await pg.keyboard.type('Two'); await pg.keyboard.press('Enter');
   it = await items(); eq(it.length, 2, '글자 2개'); ok((await st()).sel.id === it[1].id, '새 글자가 선택됨');
   ok(Math.abs(it[0].x - moved.x) < 1e-6, '첫 글자는 그대로');
@@ -99,7 +102,10 @@ function eq(a, b, m) { const A = JSON.stringify(a), B = JSON.stringify(b); ok(A 
   const sy2 = (await items()).find((q) => q.t === 'sym');
   ok(Math.abs(sy2.x - (sy.x + 60 / 800)) < 0.003 && Math.abs(sy2.y - (sy.y + 40 / 600)) < 0.003, '선택된 기호를 눌러 끌면 이동');
   await tap(500, 500);
-  const syms = (await items()).filter((q) => q.t === 'sym'); eq(syms.length, 2, '떨어진 곳을 누르면 새 기호가 놓임 (연속 찍기 유지)');
+  eq([(await items()).filter((q) => q.t === 'sym').length, (await st()).tool], [1, 'select'], 'v6: 놓은 뒤 떨어진 곳을 톡 → 새 기호 대신 선택·이동 도구');
+  await pg.evaluate(() => { A.setTool('sym'); A.setSymbol('sharp'); });          // 또 놓으려면 기호 도구를 다시 고름
+  await tap(500, 500);
+  const syms = (await items()).filter((q) => q.t === 'sym'); eq(syms.length, 2, '기호 도구를 다시 고르면 새 기호가 놓임');
   ok((await st()).sel.id === syms.find((q) => q.id !== sy.id).id, '새 기호가 선택됨');
   const before2 = (await items()).length;
   await pg.evaluate(() => { A.setSymbol('cresc'); });

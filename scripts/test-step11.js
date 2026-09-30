@@ -5,7 +5,7 @@
  *  B. HTML 이메일 템플릿 (머리말 · 카드 · 버튼 · 꼬리말 · 안내 상자 · 이스케이프)
  *  C. 알림 미리보기 API (notificationPreview) — 권한 · 종류 · 저장 전 안내 문구 · 보내지 않음
  *  D. 실제 발송 — 푸시는 짧고 이메일은 스타일 HTML 이며 안내 문구는 이메일에만
- *  E. 포털 메뉴 재편 — 셀모임 / 사역팀(하위 메뉴 · 지출환급신청) / 일반 신청서 관리 / 수련회·선교 예산·정산
+ *  E. 포털 메뉴 재편 — 셀모임 / 사역팀(하위 메뉴 · 지출환급신청) / 각종 Form 관리 / 수련회·선교 예산·정산
  *  F. 커미티 관리 카드 — 설교 · 말씀 / 알림 · 이메일이 독립, 앱 기능 관리는 그대로 권한을 따름
  *  G. 새가족 포털 편집 — 기본값(예전 화면과 같음) · 정리 · 권한 · newcomerHome 반영 · 미리보기
  *  I. 내 노트 — QT · 묵상 노트(source 'qt') 저장 · 종류 유지 · 목록 구분 · 설교 노트는 그대로
@@ -143,7 +143,7 @@ function main() {
     ok(/page=leader/.test(byKey.leader.url) && /page=team/.test(byKey.team.url), '셀모임 · 사역팀 타일 주소는 그대로');
     eq(byKey.team.title, '사역팀', '사역 보고서 → 사역팀');
     ok(!byKey.expense, '지출환급신청서 타일은 사역팀 페이지의 탭으로 들어감 (따로 안 보임)');
-    eq(byKey.forms.title, '일반 신청서 관리', '신청서 관리 → 일반 신청서 관리');
+    eq(byKey.forms.title, '각종 Form 관리', '신청서 관리 → 각종 Form 관리');
     ok(byKey.forms.url.indexOf('page=forms') !== -1, '주소(권한 · 경로)는 그대로');
     ok(byKey.newfamily && byKey.worship && byKey.mission, '다른 메뉴는 그대로');
     ok(!/Youth Archive|아카이브/.test(JSON.stringify(me.menus)), '옛 이름이 남지 않음');

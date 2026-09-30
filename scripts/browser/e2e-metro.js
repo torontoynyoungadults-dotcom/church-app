@@ -90,90 +90,25 @@ const INIT = `(() => {
   await pa.click('[data-role="toggle"]'); await sleep(200);
   check('멈춤', !(await running(pa)));
 
-  console.log('· 두 역할 (페이지 컨트롤 · 클릭 컨트롤) 이 독립');
-  await openTab(pa, 'together'); await openTab(pc, 'together'); await openTab(pb, 'together');
-  check('"함께" 탭에 두 역할과 동기화 스위치', await pa.evaluate(() => /페이지 컨트롤/.test(document.body.innerText) && /클릭 컨트롤/.test(document.body.innerText) && !!document.querySelector('[data-a="manual"]')));
+  /* v6 — 메트로놈 따라가기(클릭 컨트롤)는 없앴습니다: 메트로놈은 기기마다 따로, 따라가기는 페이지만 */
+  console.log('· v6 메트로놈은 기기마다 따로 · 따라가기는 페이지만');
+  await openTab(pa, 'together'); await openTab(pb, 'together');
+  check('"함께" 탭: 페이지 컨트롤 · 페이지 따라가기만 (클릭 컨트롤 · 메트로놈 따라가기 없음)', await pa.evaluate(() => /페이지 컨트롤/.test(document.body.innerText) && !/클릭 컨트롤/.test(document.querySelector('.pv-panes').innerText) && !document.querySelector('[data-a="cclaim"]') && !document.querySelector('[data-a="followm"]') && !!document.querySelector('[data-a="follow"]')));
+  check('위 막대에 클릭 컨트롤 · 메트로놈 따라가기 칩이 보이지 않음', await pa.evaluate(() => { const c = document.querySelector('.pv-click'), m = document.querySelector('.pv-followm'); return (!c || c.style.display === 'none') && (!m || m.style.display === 'none'); }));
   await pa.click('button[data-a="claim"]');
   check('A 가 페이지 컨트롤 (칩)', await L.waitTrue(pa, () => /내가 페이지 컨트롤/.test(document.querySelector('.pv-lead').textContent)));
-  check('C 화면에 클릭 컨트롤 자리는 아직 비어 있음', await L.waitTrue(pc, () => /클릭 컨트롤 없음/.test(document.querySelector('.pv-click').textContent)));
-  await pc.click('button[data-a="cclaim"]');
-  check('C 가 클릭 컨트롤 (칩)', await L.waitTrue(pc, () => /내가 클릭 컨트롤/.test(document.querySelector('.pv-click').textContent)));
-  check('A 화면: 페이지 컨트롤은 나, 클릭 컨트롤은 Carol', await L.waitTrue(pa, () => /내가 페이지 컨트롤/.test(document.querySelector('.pv-lead').textContent) && /Carol/.test(document.querySelector('.pv-click').textContent)));
-  check('B 화면: 두 사람이 따로 표시', await L.waitTrue(pb, () => /Alice/.test(document.querySelector('.pv-lead').textContent) && /Carol/.test(document.querySelector('.pv-click').textContent)));
-  check('B(팀원)에게는 컨트롤을 맡는 버튼이 없음', await pb.evaluate(() => !document.querySelector('[data-a="claim"]') && !document.querySelector('[data-a="cclaim"]')));
-  check('C 는 페이지를 넘길 수 없음 (페이지 컨트롤이 아님)', await (async () => { await pc.click('[data-a="next"]'); await sleep(500); return (await txt(pa, '.pv-pg')) === '1 / 3'; })());
-  await pc.click('[data-a="prev"]').catch(() => {});
-
-  console.log('· 클릭 컨트롤(Carol)이 시작 → 모두의 메트로놈이 같은 박에');
+  await pa.click('[data-a="next"]');
+  check('페이지 따라가기는 그대로 — B 도 2쪽', await L.waitTrue(pb, () => document.querySelector('.pv-pg').textContent === '2 / 3', null, 3000));
   await openTab(pa, 'metro'); await openTab(pb, 'metro'); await openTab(pc, 'metro');
-  check('B: 클릭 컨트롤 안내가 보이고 조작이 잠김', await pb.evaluate(() => /Carol/.test(document.querySelector('[data-role="syncnote"]').textContent) && document.querySelector('[data-role="toggle"]').disabled && document.querySelector('[data-role="bpm"]').disabled && document.querySelector('[data-beat="1"]').disabled));
-  check('C: 내가 클릭 컨트롤 안내', await pc.evaluate(() => /내가 클릭 컨트롤/.test(document.querySelector('[data-role="syncnote"]').textContent)));
-  await pc.fill('[data-role="bpm"]', '100'); await pc.dispatchEvent('[data-role="bpm"]', 'change');
-  check('C 가 바꾼 BPM 100 이 A · B 화면에도', await L.waitTrue(pa, () => document.querySelector('[data-role="bpm"]').value === '100', null, 3000) && await L.waitTrue(pb, () => document.querySelector('[data-role="bpm"]').value === '100', null, 3000));
-  await pc.click('[data-beat="3"]');
-  check('C 가 4박에 > 를 붙이면 B 에도 반영', await L.waitTrue(pb, () => document.querySelector('[data-beat="3"]').classList.contains('acc'), null, 3000));
-  await pa.evaluate(() => { window.__osc.length = 0; }); await pb.evaluate(() => { window.__osc.length = 0; }); await pc.evaluate(() => { window.__osc.length = 0; });
-  await pc.click('[data-role="toggle"]');
-  check('C 시작 → A · B · C 모두 "멈춤" 표시 (모두 돌아감)', await L.waitTrue(pa, () => /멈춤/.test(document.querySelector('[data-role="toggle"]').textContent), null, 4000) && await L.waitTrue(pb, () => /멈춤/.test(document.querySelector('[data-role="toggle"]').textContent), null, 4000) && await L.waitTrue(pc, () => /멈춤/.test(document.querySelector('[data-role="toggle"]').textContent), null, 4000));
-  await sleep(3800);
-  const wa = await wallBeats(pa), wb = await wallBeats(pb), wc = await wallBeats(pc);
-  check('세 기기 모두 자기 오디오로 딸깍을 냄 (각 5번 이상)', wa.length >= 5 && wb.length >= 5 && wc.length >= 5, [wa.length, wb.length, wc.length]);
-  { const n = Math.min(wa.length, wb.length, wc.length, 5); const off = (x, y) => Math.max.apply(null, Array.from({ length: n }, (_, i) => Math.abs(x[i].w - y[i].w)));
-    const dAB = off(wa, wb), dAC = off(wa, wc);
-    check('박이 기기 사이에서 겹침 (차이 60ms 이하)', dAB < 60 && dAC < 60, [Math.round(dAB), Math.round(dAC)]);
-    check('간격은 0.6초 (100 BPM)', wa.every((b, i) => i === 0 || Math.abs(b.w - wa[i - 1].w - 600) < 12), wa.map((b, i) => i ? Math.round(b.w - wa[i - 1].w) : 0));
-    check('강세(> 1 · 4박)가 B 소리에도 반영', (() => { const hi = wb.filter((b, i) => i % 4 === 0 || i % 4 === 3).map((b) => b.f), lo = wb.filter((b, i) => i % 4 === 1 || i % 4 === 2).map((b) => b.f); return Math.min.apply(null, hi) > Math.max.apply(null, lo); })()); }
-  await pc.fill('[data-role="bpm"]', '120'); await pc.dispatchEvent('[data-role="bpm"]', 'change'); await sleep(1500);
-  check('진행 중 BPM 을 바꾸면 모두 새 템포로 (A: 120)', await pa.evaluate(() => document.querySelector('[data-role="bpm"]').value === '120') && await running(pa));
-  { await pb.evaluate(() => { window.__osc.length = 0; }); await sleep(2600); const w = await wallBeats(pb); check('B 의 간격이 0.5초로 바뀜', w.length >= 4 && w.every((b, i) => i === 0 || Math.abs(b.w - w[i - 1].w - 500) < 12), w.map((b, i) => i ? Math.round(b.w - w[i - 1].w) : 0)); }
-  console.log('· 팀원 B 는 직접 못 바꿈 (잠김)');
-  await pb.evaluate(() => { document.querySelector('[data-role="toggle"]').click(); });
-  await sleep(300); check('B 가 눌러도 멈추지 않음 (잠김)', await running(pb));
-
-  console.log('· 늦게 들어온 사람 (D) 도 박에 맞춰 합류');
-  const Dd = await mk('tokB'); const pd = Dd.page;
-  await L.waitTrue(pd, () => document.querySelector('.pv-pg') && /1 \//.test(document.querySelector('.pv-pg').textContent), null, 8000);
-  await L.waitTrue(pd, () => /실시간/.test(document.querySelector('.pv-conn').textContent), null, 6000);
-  await pd.click('.pv-tabbtn[data-tab="metro"]'); await sleep(400);
-  await pd.mouse.click(300, 300);                                   // 소리 허용 (사용자 조작)
-  check('D: 들어오자마자 (눌러서 소리 켠 뒤) 돌아감', await L.waitTrue(pd, () => /멈춤/.test(document.querySelector('[data-role="toggle"]').textContent), null, 5000));
-  await sleep(2200);
-  { const wd = await wallBeats(pd), wc2 = await wallBeats(pc);
-    const near = wd.slice(-3).map((b) => Math.min.apply(null, wc2.map((c) => Math.abs(c.w - b.w))));
-    check('D 의 박이 C 의 박과 겹침 (60ms 이하)', near.length >= 2 && near.every((x) => x < 60), near.map(Math.round)); }
-
-  console.log('· 동기화 끄기 (수동)');
-  await openTab(pb, 'together');
-  await pb.click('.pv-syncsec .pv-switch');
-  check('B 칩: 동기화 꺼짐', await L.waitTrue(pb, () => /동기화 꺼짐/.test(document.querySelector('.pv-follow').textContent)));
-  await openTab(pb, 'metro');
-  check('B: 조작 잠김이 풀림', await pb.evaluate(() => !document.querySelector('[data-role="toggle"]').disabled && !document.querySelector('[data-role="bpm"]').disabled));
-  await pb.click('[data-role="toggle"]'); await sleep(400);
-  check('B 가 직접 멈출 수 있음 (혼자)', !(await running(pb)));
-  check('그래도 C 와 A 는 계속 돌아감', await running(pc) && await running(pa));
-  await pb.fill('[data-role="bpm"]', '80'); await pb.dispatchEvent('[data-role="bpm"]', 'change'); await sleep(300);
-  check('B 만 80 BPM (A · C 는 그대로 120)', await pa.evaluate(() => document.querySelector('[data-role="bpm"]').value) === '120' && await pc.evaluate(() => document.querySelector('[data-role="bpm"]').value) === '120');
-  await pc.fill('[data-role="bpm"]', '140'); await pc.dispatchEvent('[data-role="bpm"]', 'change'); await sleep(1300);
-  check('C 가 BPM 을 바꿔도 B 는 무시', await pb.evaluate(() => document.querySelector('[data-role="bpm"]').value) === '80');
-  check('A(동기화 켬)는 140 으로 따라감', await pa.evaluate(() => document.querySelector('[data-role="bpm"]').value) === '140');
-  await pb.click('[data-role="toggle"]'); await sleep(300);
-  await pc.click('[data-role="toggle"]'); await sleep(900);                                  // C 가 멈춤
-  check('C 가 멈춰도 (혼자 돌리는) B 는 계속', await running(pb));
-  check('A 는 C 를 따라 멈춤', !(await running(pa)));
-  await pb.click('[data-role="toggle"]'); await sleep(200);
-  console.log('· 동기화 끄기 — 페이지 넘김도 무시');
-  await pa.click('[data-a="next"]'); await sleep(700);
-  check('A 가 넘기면 (동기화 켠) 사람들은 따라가지만 B 는 그대로 1쪽', await pb.evaluate(() => document.querySelector('.pv-pg').textContent) === '1 / 3');
-  check('B 칩에 동기화 꺼짐 표시가 유지', /동기화 꺼짐/.test(await txt(pb, '.pv-follow')));
-  await pb.click('.pv-follow');
-  check('칩을 눌러 동기화를 다시 켜면 바로 컨트롤 화면(2쪽)으로', await L.waitTrue(pb, () => document.querySelector('.pv-pg').textContent === '2 / 3', null, 3000));
-  check('메트로놈도 지금 팀 상태(정지 · 140)로 맞춤', await pb.evaluate(() => document.querySelector('[data-role="bpm"]').value === '140') && !(await running(pb)));
-  check('동기화 켜기: 다시 잠김', await L.waitTrue(pb, () => document.querySelector('[data-role="toggle"]').disabled, null, 2000));
+  check('B 의 메트로놈 조작이 잠기지 않음', await pb.evaluate(() => !document.querySelector('[data-role="toggle"]').disabled && !document.querySelector('[data-role="bpm"]').disabled));
+  await pa.fill('[data-role="bpm"]', '100'); await pa.dispatchEvent('[data-role="bpm"]', 'change'); await sleep(900);
+  check('A 가 BPM 100 으로 바꿔도 B · C 는 그대로', await pb.evaluate(() => document.querySelector('[data-role="bpm"]').value) !== '100' && await pc.evaluate(() => document.querySelector('[data-role="bpm"]').value) !== '100');
+  await pa.click('[data-role="toggle"]'); await sleep(1200);
+  check('A 가 시작해도 B · C 는 멈춘 채 (각자)', await running(pa) && !(await running(pb)) && !(await running(pc)));
+  await pb.click('[data-role="toggle"]'); await sleep(600);
+  check('B 도 혼자 시작 · 멈춤 가능', await running(pb));
+  await pb.click('[data-role="toggle"]'); await pa.click('[data-role="toggle"]'); await sleep(400);
   check('잔여 오류 없음', noErr(), [A.errs, B.errs, C.errs]);
-
-  console.log('· 클릭 컨트롤을 내려놓으면 (동기화 켠 사람도) 다시 자유');
-  await openTab(pc, 'together'); await pc.click('button[data-a="crelease"]');
-  check('B 화면: 클릭 컨트롤 없음 → 조작 가능', await L.waitTrue(pb, () => !document.querySelector('[data-role="toggle"]').disabled && /클릭 컨트롤 없음/.test(document.querySelector('.pv-click').textContent), null, 3000));
 
   console.log('· 송폼 라벨 (박스 없이 V · C · P · B · Int 글자만)');
   const alphaAt = (pg, fx, fy) => pg.evaluate(([x, y]) => { const c = document.querySelector('.pv-anno'), d = c.getContext('2d').getImageData(Math.round(x * c.width), Math.round(y * c.height), 1, 1).data; return d[3]; }, [fx, fy]);

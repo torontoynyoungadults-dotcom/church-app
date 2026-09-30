@@ -1417,7 +1417,7 @@ header .homelink img { display: block; }
    ============================================================ */
 (function () {
   var BASE = [25, 25, 25];     // 배경 사진의 대략적인 밝기 (밝은 화면이면 아래 바탕밝기_ 가 바꿉니다)
-  function 바탕밝기_() { BASE = document.documentElement.getAttribute('data-theme') === 'light' ? [242, 239, 234] : [25, 25, 25]; }
+  function 바탕밝기_() { BASE = document.documentElement.getAttribute('data-theme') === 'light' ? [243, 244, 246] : [25, 25, 25]; }
   바탕밝기_();
   var 진하게 = '#141414';
   var 밝게 = '#FFFFFF';
@@ -1632,7 +1632,20 @@ header .homelink img { display: block; }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', 시작);
   else 시작();
-  window.YNContrast = { scan: function () { 바탕밝기_(); 훑기(); } };
+  /** v6 — 밝은/어두운 화면을 바꿀 때: 화면 전체를 지금 바로(한 번에) 훑습니다 — 색이 조금씩 바뀌어 보이지 않게 */
+  function 지금전체() {
+    if (!document.body) return;
+    바탕밝기_();
+    if (대기) { clearTimeout(대기); try { if (window.cancelIdleCallback) window.cancelIdleCallback(대기); } catch (e) {} 대기 = null; }
+    줄 = []; 전체 = false;
+    var 칸 = 칸들(document.body);
+    일 = null;
+    if (감시) { try { 감시.disconnect(); } catch (e) {} }
+    바탕기억 = window.WeakMap ? new WeakMap() : null;
+    try { for (var i = 0; i < 칸.length; i++) { try { if (칸[i].isConnected) 한번(칸[i]); } catch (e) {} } }
+    finally { if (감시) { try { 감시.takeRecords(); 감시.observe(document.body, 감시설정); } catch (e) {} } }
+  }
+  window.YNContrast = { scan: function () { 바탕밝기_(); 훑기(); }, now: 지금전체 };
 })();
 </script>
 <style>
@@ -1723,73 +1736,132 @@ if (typeof window.aiPolish !== 'function') window.aiPolish = YNAI.polish;
      가독성 지킴이(위 스크립트)가 자동으로 진한 글씨로 바꿉니다 — 모든 화면을 하나하나 다시 칠하지 않아도 됩니다.
    · 세션 / 연습(악보) 화면은 무대 조명 아래에서도 눈부시지 않도록 늘 어두운 화면을 씁니다.
    --------------------------------------------------------- */
-html[data-theme="light"] { color-scheme: light; }
-html[data-theme="light"] body { background: #EFEBE5; color: #1A1917; }
+/* ---- v6 밝은 화면 — 깔끔한 흰 카드 · 선명한 글씨 (예전 베이지 · 사진 바탕 대신) ----
+   토큰: 바탕 #F3F4F6 · 카드 흰색 · 글씨 #0F172A / #334155 / #64748B · 선 rgba(15,23,42,.09) · 강조 주황(글씨용 #C2410C) */
+html[data-theme="light"] {
+  color-scheme: light;
+  --lt-bg: #F3F4F6; --lt-card: #FFFFFF; --lt-card-2: #F8FAFC; --lt-sunk: #EEF0F3;
+  --lt-ink: #0F172A; --lt-ink-2: #334155; --lt-ink-3: #64748B; --lt-ink-4: #94A3B8;
+  --lt-line: rgba(15,23,42,.09); --lt-line-2: rgba(15,23,42,.16);
+  --lt-or: #EA580C; --lt-or-ink: #C2410C; --lt-or-soft: rgba(234,88,12,.10);
+  --lt-sh-1: 0 1px 2px rgba(15,23,42,.05);
+  --lt-sh-2: 0 1px 2px rgba(15,23,42,.04), 0 6px 20px rgba(15,23,42,.06);
+  --lt-ring: 0 0 0 3px rgba(234,88,12,.18);
+}
+html[data-theme="light"] body { background: var(--lt-bg); color: var(--lt-ink); }
 html[data-theme="light"] body::before {
-  background: radial-gradient(900px 520px at 90% -10%, rgba(var(--tone-rgb, 210,81,31), .16), transparent 60%),
-              radial-gradient(700px 520px at -10% 110%, rgba(108, 79, 211, .10), transparent 60%),
-              linear-gradient(rgba(248,246,242,.90), rgba(240,236,230,.94)), url('/bulletin/bg.jpg') center top / cover no-repeat;
+  background: radial-gradient(1100px 420px at 50% -120px, rgba(var(--tone-rgb, 234,88,12), .10), transparent 70%), var(--lt-bg);
 }
 html[data-theme="light"] body .shell, html[data-theme="light"] body .shell *,
 html[data-theme="light"] body .yc-sheet, html[data-theme="light"] body .yc-sheet * {
-  --ink-1: #1A1917; --ink-2: #35322D; --ink-3: #5A554E; --ink-4: #7C766E;
-  --night-ink: #1A1917; --night-sub: #5A554E; --hair: rgba(26,25,23,.13); --hair-2: rgba(26,25,23,.21); --hair-night: rgba(26,25,23,.14);
+  --ink-1: #0F172A; --ink-2: #334155; --ink-3: #64748B; --ink-4: #94A3B8;
+  --night-ink: #0F172A; --night-sub: #64748B; --hair: rgba(15,23,42,.09); --hair-2: rgba(15,23,42,.16); --hair-night: rgba(15,23,42,.10);
+  --night-2: #FFFFFF; --night-3: #F1F5F9;
 }
-html[data-theme="light"] header .meta, html[data-theme="light"] header .sub { color: #5A554E !important; }
-html[data-theme="light"] body .panel {
-  background: rgba(255,255,255,.66) !important; border: 1px solid rgba(255,255,255,.75) !important; color: #1A1917 !important;
-  box-shadow: 0 10px 30px rgba(60,40,20,.10), inset 0 1px 0 rgba(255,255,255,.8) !important;
+html[data-theme="light"] header h1 { color: var(--lt-ink) !important; }
+html[data-theme="light"] header .meta, html[data-theme="light"] header .sub { color: var(--lt-ink-3) !important; }
+html[data-theme="light"] header img { filter: invert(1) brightness(.2); }
+
+/* 카드 — 흰 바탕 · 가는 선 · 옅은 그림자 (흐림 없이 또렷하게) */
+html[data-theme="light"] body .panel, html[data-theme="light"] body .panel.dark, html[data-theme="light"] body .hero {
+  background: var(--lt-card) !important; border: 1px solid var(--lt-line) !important; color: var(--lt-ink) !important;
+  box-shadow: var(--lt-sh-2) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html[data-theme="light"] body .hero {
+  background: linear-gradient(180deg, rgba(var(--tone-rgb, 234,88,12), .07), rgba(255,255,255,0) 70%), var(--lt-card) !important;
 }
 html[data-theme="light"] body .card, html[data-theme="light"] body .nfcard, html[data-theme="light"] body .mcard, html[data-theme="light"] body .dcard,
 html[data-theme="light"] body .mrow, html[data-theme="light"] body .song, html[data-theme="light"] body .fileitem, html[data-theme="light"] body .msrow,
 html[data-theme="light"] body .stat, html[data-theme="light"] body .notice, html[data-theme="light"] body .banner, html[data-theme="light"] body .callout,
-html[data-theme="light"] body .mmdet, html[data-theme="light"] body .tile, html[data-theme="light"] body .lr, html[data-theme="light"] body .noteBox {
-  background: rgba(255,255,255,.72) !important; border-color: rgba(26,25,23,.10) !important; color: #1A1917 !important; box-shadow: 0 2px 10px rgba(60,40,20,.06) !important;
+html[data-theme="light"] body .mmdet, html[data-theme="light"] body .lr, html[data-theme="light"] body .noteBox, html[data-theme="light"] body .acard {
+  background: var(--lt-card-2) !important; border-color: var(--lt-line) !important; color: var(--lt-ink) !important; box-shadow: none !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
+html[data-theme="light"] body .panel .panel, html[data-theme="light"] body .panel .card { background: var(--lt-card-2) !important; box-shadow: none !important; }
+html[data-theme="light"] body .tile, html[data-theme="light"] body #dash .tile, html[data-theme="light"] body .bulbtn {
+  background: var(--lt-card) !important; border: 1px solid var(--lt-line) !important; color: var(--lt-ink) !important; box-shadow: var(--lt-sh-1) !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html[data-theme="light"] body .tile .td, html[data-theme="light"] body .tile small { color: var(--lt-ink-3) !important; }
+html[data-theme="light"] body #dash .tiles.adm .tile { background: var(--lt-card) !important; }
+/* 포털 타일 아이콘 — 밝은 바탕에서는 진한 색으로 (어두운 화면용 옅은 색이 흰 바탕에 묻히지 않게) */
+html[data-theme="light"] #dash .tile.leader { --mc: #C2410C; --mc-soft: rgba(194,65,12,.10); }
+html[data-theme="light"] #dash .tile.team { --mc: #15803D; --mc-soft: rgba(21,128,61,.10); }
+html[data-theme="light"] #dash .tile.expense, html[data-theme="light"] #dash .tile.budget, html[data-theme="light"] #dash .tile.acct { --mc: #A16207; --mc-soft: rgba(161,98,7,.11); }
+html[data-theme="light"] #dash .tile.newfamily { --mc: #0E7490; --mc-soft: rgba(14,116,144,.10); }
+html[data-theme="light"] #dash .tile.mission { --mc: #047857; --mc-soft: rgba(4,120,87,.10); }
+html[data-theme="light"] #dash .tile.worship, html[data-theme="light"] #dash .tile.minutes { --mc: #6D28D9; --mc-soft: rgba(109,40,217,.10); }
+html[data-theme="light"] #dash .tile.equipment { --mc: #C2410C; --mc-soft: rgba(194,65,12,.10); }
+html[data-theme="light"] #dash .tile.bulletin { --mc: #EA580C; --mc-soft: rgba(234,88,12,.10); }
+html[data-theme="light"] #dash .tile.bulletinEdit { --mc: #92400E; --mc-soft: rgba(146,64,14,.10); }
+html[data-theme="light"] #dash .tile.forms { --mc: #0369A1; --mc-soft: rgba(3,105,161,.10); }
+html[data-theme="light"] #dash .tile.cellapp { --mc: #DC2626; --mc-soft: rgba(220,38,38,.09); }
+
+/* 입력칸 */
 html[data-theme="light"] body input:not([type=checkbox]):not([type=radio]):not([type=range]),
 html[data-theme="light"] body select, html[data-theme="light"] body textarea {
-  background-color: rgba(255,255,255,.9) !important; border-color: rgba(26,25,23,.18) !important; color: #1A1917 !important;
+  background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; color: var(--lt-ink) !important; box-shadow: var(--lt-sh-1) !important;
 }
-html[data-theme="light"] body input::placeholder, html[data-theme="light"] body textarea::placeholder { color: #8A847C !important; }
+html[data-theme="light"] body input:not([type=checkbox]):not([type=radio]):not([type=range]):focus,
+html[data-theme="light"] body select:focus, html[data-theme="light"] body textarea:focus { border-color: var(--lt-or) !important; box-shadow: var(--lt-ring) !important; outline: none !important; }
+html[data-theme="light"] body input::placeholder, html[data-theme="light"] body textarea::placeholder { color: var(--lt-ink-4) !important; }
+html[data-theme="light"] body .shell label, html[data-theme="light"] body .shell .f > label, html[data-theme="light"] body .shell .ef > label { color: var(--lt-ink-2) !important; }
+html[data-theme="light"] body .shell .hint, html[data-theme="light"] body .shell .muted, html[data-theme="light"] body .shell small { color: var(--lt-ink-3); }
+
+/* 버튼 — 흰 바탕 버튼 · 주 버튼은 주황 */
 html[data-theme="light"] body .btn:not(.accent):not(.danger):not(.primary):not(.ghost),
-html[data-theme="light"] body .pgtabs button, html[data-theme="light"] body .pgtabs a, html[data-theme="light"] body .ttabs button,
-html[data-theme="light"] body .tabs button, html[data-theme="light"] body .seg button, html[data-theme="light"] body .shell button:not([class]) {
-  background: rgba(255,255,255,.78) !important; border-color: rgba(26,25,23,.14) !important; color: #2A2723 !important;
+html[data-theme="light"] body .shell button:not([class]) {
+  background: #FFFFFF !important; border: 1px solid var(--lt-line-2) !important; color: #1E293B !important; box-shadow: var(--lt-sh-1) !important;
 }
-html[data-theme="light"] body .pgtabs button.on, html[data-theme="light"] body .pgtabs a.on, html[data-theme="light"] body .tabs button.on,
+html[data-theme="light"] body .btn:not(.accent):not(.danger):not(.primary):not(.ghost):hover { background: #F8FAFC !important; }
+html[data-theme="light"] body .btn.accent, html[data-theme="light"] body .btn.primary { background: var(--lt-or) !important; border-color: var(--lt-or) !important; color: #fff !important; box-shadow: 0 1px 2px rgba(234,88,12,.25), 0 4px 12px rgba(234,88,12,.18) !important; }
+html[data-theme="light"] body .btn.ghost { background: transparent !important; color: var(--lt-ink-2) !important; border-color: var(--lt-line-2) !important; }
+html[data-theme="light"] body .btn.danger { background: #FFFFFF !important; color: #B91C1C !important; border-color: rgba(185,28,28,.30) !important; }
+
+/* 탭 — 회색 트랙 위 흰 알약 (iOS 세그먼트처럼) */
+html[data-theme="light"] body .tabs, html[data-theme="light"] body .pgtabs, html[data-theme="light"] body .ttabs, html[data-theme="light"] body .seg {
+  background: var(--lt-sunk) !important; border: 1px solid transparent !important; box-shadow: none !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html[data-theme="light"] body .tabs button, html[data-theme="light"] body .pgtabs button, html[data-theme="light"] body .pgtabs a,
+html[data-theme="light"] body .ttabs button, html[data-theme="light"] body .seg button {
+  background: transparent !important; border: 1px solid transparent !important; color: var(--lt-ink-2) !important; box-shadow: none !important;
+}
+html[data-theme="light"] body .tabs button.on, html[data-theme="light"] body .pgtabs button.on, html[data-theme="light"] body .pgtabs a.on,
 html[data-theme="light"] body .ttabs button.on, html[data-theme="light"] body .seg button.on {
-  background: linear-gradient(135deg, var(--tone), var(--accent, var(--tone))) !important; color: #fff !important; border-color: transparent !important;
+  background: #FFFFFF !important; color: var(--lt-ink) !important; border-color: var(--lt-line) !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 2px 6px rgba(15,23,42,.06) !important; font-weight: 800;
 }
-html[data-theme="light"] body .btn.danger { background: rgba(255,255,255,.85) !important; color: #A82F16 !important; border-color: rgba(168,47,22,.35) !important; }
-html[data-theme="light"] body .chip { color: var(--tone) !important; }
-html[data-theme="light"] body .panel a:not(.btn):not(.tile) { color: #B4431A; }
-html[data-theme="light"] .ynfoot, html[data-theme="light"] footer { color: #5A554E !important; }
-html[data-theme="light"] .ynfoot a { color: #35322D !important; }
-html[data-theme="light"] .ynbell, html[data-theme="light"] .ynrefresh, html[data-theme="light"] .yntheme { background: rgba(255,255,255,.85); border-color: rgba(26,25,23,.14); color: #2A2723; }
-html[data-theme="light"] .skel { background: linear-gradient(90deg, rgba(26,25,23,.06) 25%, rgba(26,25,23,.12) 37%, rgba(26,25,23,.06) 63%) !important; background-size: 400% 100% !important; }
-html[data-theme="light"] body .mrole { background: rgba(46,154,75,.14) !important; color: #1D6B3A !important; }
+
+/* 작은 것들 */
+html[data-theme="light"] body .chip { color: var(--tone) !important; color: color-mix(in srgb, var(--tone) 80%, #000) !important; }
+html[data-theme="light"] body .panel a:not(.btn):not(.tile):not(.subrow):not(.ac-hit) { color: var(--lt-or-ink); }
+html[data-theme="light"] .ynfoot, html[data-theme="light"] footer { color: var(--lt-ink-3) !important; }
+html[data-theme="light"] .ynfoot a { color: var(--lt-ink-2) !important; }
+html[data-theme="light"] body .ynfoot .cw, html[data-theme="light"] body .ynfoot .cp { color: var(--lt-ink-3) !important; }
+html[data-theme="light"] .ynbell, html[data-theme="light"] .ynrefresh, html[data-theme="light"] .yntheme {
+  background: #FFFFFF; border-color: var(--lt-line-2); color: #1E293B; box-shadow: var(--lt-sh-1);
+}
+html[data-theme="light"] .skel { background: linear-gradient(90deg, #EEF0F3 25%, #E2E8F0 37%, #EEF0F3 63%) !important; background-size: 400% 100% !important; }
+html[data-theme="light"] body .mrole { background: rgba(21,128,61,.10) !important; color: #166534 !important; }
 html[data-theme="light"] body .ratebadge.hi, html[data-theme="light"] body .ratebadge.mid, html[data-theme="light"] body .ratebadge.low { color: #fff !important; }
-html[data-theme="light"] body .mmchev { background: rgba(26,25,23,.07); color: #35322D; }
+html[data-theme="light"] body .mmchev { background: var(--lt-sunk); color: var(--lt-ink-2); }
+html[data-theme="light"] body .qsearch input { background: #FFFFFF !important; }
+html[data-theme="light"] body hr { border-color: var(--lt-line) !important; }
+
 /* 찬양 허브 — 주차 줄 · 콘티 */
-html[data-theme="light"] body .wk { background: rgba(255,255,255,.75) !important; border-color: rgba(26,25,23,.12) !important; }
-html[data-theme="light"] body .wk.on { background: linear-gradient(135deg, var(--tone), var(--accent, var(--tone))) !important; }
-html[data-theme="light"] body .pvstart { background: rgba(255,255,255,.93) !important; border-color: rgba(26,25,23,.12) !important; }
-html[data-theme="light"] body .asfloat { background: rgba(245,240,255,.97); color: #2A1F45; border-color: #9B84E0; }
-html[data-theme="light"] body .asfloat b { color: #1A1030; }
-
-html[data-theme="light"] body .tabs { background: rgba(255,255,255,.6) !important; border-color: rgba(26,25,23,.10) !important; }
-html[data-theme="light"] body .tabs button { background: transparent !important; border: none !important; }
-html[data-theme="light"] body .wkcal, html[data-theme="light"] body .wktoday { background: rgba(255,255,255,.8) !important; border-color: rgba(26,25,23,.14) !important; color: #2A2723 !important; }
+html[data-theme="light"] body .wk { background: #FFFFFF !important; border: 1px solid var(--lt-line) !important; box-shadow: var(--lt-sh-1) !important; }
+html[data-theme="light"] body .wk.on { background: var(--tone) !important; border-color: transparent !important; box-shadow: 0 4px 14px rgba(var(--tone-rgb, 234,88,12), .30) !important; }
+html[data-theme="light"] body .pvstart { background: #FFFFFF !important; border-color: var(--lt-line) !important; }
+html[data-theme="light"] body .wkcal, html[data-theme="light"] body .wktoday { background: #FFFFFF !important; border-color: var(--lt-line-2) !important; color: #1E293B !important; }
 html[data-theme="light"] body .wktoday.here { border-color: var(--tone) !important; color: var(--tone) !important; }
-html[data-theme="light"] header img { filter: invert(1) brightness(.35); }
-html[data-theme="light"] body .ynfoot .cw, html[data-theme="light"] body .ynfoot .cp { color: #5A554E !important; }
-
-html[data-theme="light"] body .panel.dark, html[data-theme="light"] body .hero {
-  background: radial-gradient(130% 100% at 0% 0%, rgba(var(--tone-rgb, 210,81,31), .14) 0%, rgba(var(--tone-rgb, 210,81,31), 0) 62%), rgba(255,255,255,.7) !important;
-  border-color: rgba(255,255,255,.8) !important; color: #1A1917 !important; box-shadow: 0 10px 30px rgba(60,40,20,.10) !important;
+html[data-theme="light"] body .asfloat { background: #FFFFFF; color: #1E1B4B; border-color: #A78BFA; box-shadow: 0 8px 28px rgba(15,23,42,.14); }
+html[data-theme="light"] body .asfloat b { color: #1E1B4B; }
+/* 찬양 허브 안의 도구 칸(가사 · 악보 자르기 · 송폼 만들기)은 어두운 유리 변수를 쓰므로 밝은 화면에서는 변수만 밝게 */
+html[data-theme="light"] body :is(.ht, .lyp, .fb) {
+  --g-bg: #FFFFFF; --g-bg2: #F1F5F9; --g-solid: #FFFFFF; --g-line: rgba(15,23,42,.10); --g-line2: rgba(15,23,42,.18);
+  --g-ink: #0F172A; --g-sub: #475569; --g-dim: #64748B; --g-a2: #C2410C;
 }
-html[data-theme="light"] body .bulbtn { background: rgba(255,255,255,.75) !important; border-color: rgba(26,25,23,.12) !important; color: #1A1917 !important; }
-html[data-theme="light"] body .qsearch input { background: rgba(255,255,255,.95) !important; }
 
 /* 세션 / 연습 · 통계 팝업은 밝은 화면에서도 어두운 유리 그대로 (입력칸도) */
 html[data-theme="light"] body :is(.pv, .yg, .fp) input:not([type=checkbox]):not([type=radio]):not([type=range]),
@@ -1807,8 +1879,13 @@ html[data-theme="light"] body :is(.pv, .yg, .fp) select, html[data-theme="light"
 .yntheme svg { width: 19px; height: 19px; }
 .yntheme:active { transform: scale(.9) rotate(-20deg); }
 .yntheme:focus-visible, .ynrefresh:focus-visible { outline: 2px solid var(--tone); outline-offset: 2px; }
-html.yn-theming, html.yn-theming * { transition: background-color .25s, border-color .25s, color .2s !important; }
-@media (prefers-reduced-motion: reduce) { html.yn-theming, html.yn-theming * { transition: none !important; } }
+/* v6 — 전환은 "한 번에": 칸마다 따로 색이 바뀌며 번지던 transition 을 끄고,
+   되는 브라우저는 화면 전체를 한 장으로 바꿔 끼우는 View Transition(단추 자리에서 원이 퍼지는 모양)으로 */
+html.yn-notrans, html.yn-notrans *, html.yn-notrans *::before, html.yn-notrans *::after { transition: none !important; animation-duration: 0s !important; animation-delay: 0s !important; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { animation: yn-reveal .42s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes yn-reveal { from { clip-path: circle(0 at var(--yn-x, 30px) var(--yn-y, 30px)); } to { clip-path: circle(var(--yn-r, 150vmax) at var(--yn-x, 30px) var(--yn-y, 30px)); } }
+@media (prefers-reduced-motion: reduce) { ::view-transition-new(root) { animation: none; } }
 </style>
 <script>
 /* 허브 v5 — ☀️ / 🌙 밝은 · 어두운 글래스모피즘 전환 (이 기기에 기억) */
@@ -1824,25 +1901,47 @@ html.yn-theming, html.yn-theming * { transition: background-color .25s, border-c
     b.setAttribute('aria-pressed', light ? 'true' : 'false');
   }
   function meta(light) { var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', light ? '#EFEBE5' : '#1C1C1C'); }
-  function set(t) {
-    var light = t === 'light', root = document.documentElement;
-    root.classList.add('yn-theming');
+  /* 색을 한 번에 바꿉니다 — transition 을 잠깐 끄고, 글씨색 보정(가독성 지킴이)도 같은 순간에 끝냅니다 (예전: 한가할 때 조금씩 → 색이 번지듯 바뀜) */
+  function apply(light) {
+    var root = document.documentElement;
+    root.classList.add('yn-notrans');
     if (light) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
-    try { localStorage.setItem('ynTheme', light ? 'light' : 'dark'); } catch (e) {}
     meta(light);
     Array.prototype.forEach.call(document.querySelectorAll('.yntheme'), paintBtn);
-    try { if (window.YNContrast) window.YNContrast.scan(); } catch (e) {}
-    setTimeout(function () { root.classList.remove('yn-theming'); }, 320);
-    try { window.dispatchEvent(new CustomEvent('yn-theme', { detail: { theme: light ? 'light' : 'dark' } })); } catch (e) {}
+    try { if (window.YNContrast && window.YNContrast.now) window.YNContrast.now(); else if (window.YNContrast) window.YNContrast.scan(); } catch (e) {}
   }
-  window.YNTheme = { get: now, set: set, toggle: function () { set(now() === 'light' ? 'dark' : 'light'); } };
+  function done() {
+    var root = document.documentElement;
+    requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.remove('yn-notrans'); }); });
+  }
+  function set(t, from) {
+    var light = t === 'light', root = document.documentElement;
+    try { localStorage.setItem('ynTheme', light ? 'light' : 'dark'); } catch (e) {}
+    var reduce = false; try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (document.startViewTransition && !reduce && !document.hidden) {
+      var x = 30, y = 30;
+      try { var r = from && from.getBoundingClientRect ? from.getBoundingClientRect() : null; if (r) { x = r.left + r.width / 2; y = r.top + r.height / 2; } } catch (e) {}
+      root.style.setProperty('--yn-x', x + 'px'); root.style.setProperty('--yn-y', y + 'px');
+      root.style.setProperty('--yn-r', Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 'px');
+      try {
+        var vt = document.startViewTransition(function () { apply(light); });
+        vt.finished.then(done, done);
+        fire(light);
+        return vt.updateCallbackDone.catch(function () {});           // 새 색이 모두 입혀진 순간 (시험 · 다른 코드가 기다릴 수 있게)
+      } catch (e) { apply(light); done(); }
+    } else { apply(light); done(); }
+    fire(light);
+    return Promise.resolve();
+  }
+  function fire(light) { try { window.dispatchEvent(new CustomEvent('yn-theme', { detail: { theme: light ? 'light' : 'dark' } })); } catch (e) {} }
+  window.YNTheme = { get: now, set: set, toggle: function (from) { return set(now() === 'light' ? 'dark' : 'light', from); } };
   function mount() {
     meta(now() === 'light');
     Array.prototype.forEach.call(document.querySelectorAll('body > .shell > header, body > header'), function (h) {
       if (h.querySelector('.yntheme')) return;
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'yntheme';
-      b.addEventListener('click', function () { window.YNTheme.toggle(); });
+      b.addEventListener('click', function () { window.YNTheme.toggle(b); });
       paintBtn(b); h.appendChild(b);
     });
   }

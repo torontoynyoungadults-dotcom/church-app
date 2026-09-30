@@ -435,6 +435,10 @@
     '.yt-sync[data-s=poll] i{background:var(--yt-warn);box-shadow:0 0 0 3px rgba(255,192,77,.18)}' +
     '.yt-sync[data-s=offline] i,.yt-sync[data-s=denied] i{background:var(--yt-bad);box-shadow:0 0 0 3px rgba(255,122,122,.18)}' +
     '.yt-exp{display:inline-flex}.yt-ph .yt-sync{font-size:13px}.yt-ph .yt-sync b{display:inline}' +
+    '.yt-minb{display:inline-flex}' +
+    '.yt-mini .yt-seg,.yt-mini .yt-ser,.yt-mini .yt-sync b,.yt-mini .yt-exp{display:none!important}' +
+    '.yt-mini .yt-chips{grid-template-columns:minmax(0,1fr)}.yt-mini .yt-chip{padding:3px 8px}.yt-mini .yt-s{display:none}.yt-mini .yt-v{font-size:17px}' +
+    '.yt-hub.yt-mini{left:auto;right:max(10px,env(safe-area-inset-right,0px));transform:none;width:auto;min-width:0}' +
     '.yt-toast{position:absolute;left:8px;right:8px;top:calc(100% + 6px);padding:8px 12px;border-radius:12px;background:rgba(60,18,18,.96);border:1px solid rgba(255,122,122,.6);color:#ffdada;font-size:13px;font-weight:700;z-index:2}' +
     '.yt-toast[hidden]{display:none}' +
     '.sr-only-yt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}' +
@@ -504,6 +508,7 @@
         '<div class="yt-chip yt-ser idle" data-k="ser">' + svg('book') + '<div class="yt-tx"><span class="yt-l">설교까지</span><b class="yt-v" role="timer" aria-label="설교 시작까지 남은 시간">--:--</b><span class="yt-s">&nbsp;</span></div></div>' +
       '</div>' +
       '<div class="yt-side"><span class="yt-sync" data-s="connecting" role="status" aria-live="polite"><i></i><b>연결 중</b></span>' +
+        '<button type="button" class="yt-ib yt-minb" data-a="mini" aria-pressed="false" aria-label="작게 보기" title="작게 보기 (예배 경과만) / 크게 보기"><svg class="yt-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button>' +
         '<button type="button" class="yt-ib yt-exp" data-a="expand" aria-haspopup="dialog" aria-expanded="false" aria-label="방송 모드 열기" title="방송 모드 (큰 글씨)">' + svg('expand') + '</button></div>' +
       '<div class="yt-toast" role="alert" hidden></div>';
     var host = opts.host;
@@ -589,7 +594,17 @@
       if (a === 'toggle') cmd(v && v.total.running ? 'pause' : 'start');
       else if (a === 'segnext') cmd('segNext');
       else if (a === 'expand') openPanel();
+      else if (a === 'mini') setMini(!bar.classList.contains('yt-mini'), true);
     });
+    /* v6 — 작게 보기: 예배 경과 하나만 남기고 나머지는 접습니다 (자리를 덜 차지하게). 이 기기에 기억 */
+    function setMini(on, save) {
+      bar.classList.toggle('yt-mini', !!on);
+      var b = bar.querySelector('[data-a=mini]');
+      if (b) { b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.setAttribute('aria-label', on ? '크게 보기' : '작게 보기');
+        b.innerHTML = on ? '<svg class="yt-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>' : '<svg class="yt-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>'; }
+      if (save) { try { root.localStorage.setItem('yn.yt.mini.' + variant, on ? '1' : '0'); } catch (e) {} }
+    }
+    try { if (root.localStorage.getItem('yn.yt.mini.' + variant) === '1') setMini(true, false); } catch (e) {}
 
     function openPanel() {
       if (panel || !ctl) return;
@@ -623,7 +638,8 @@
     tickT = setInterval(loop, 250);
 
     return {
-      el: bar, get controller() { return ctl; }, render: render, refresh: attach,
+      el: bar, get controller() { return ctl; }, render: render, refresh: attach, setMini: setMini,
+      miniSaved: function () { try { return root.localStorage.getItem('yn.yt.mini.' + variant); } catch (e) { return null; } },
       openPanel: openPanel, closePanel: function () { if (panel) panel.close(); },
       destroy: function () {
         if (dead) return; dead = true; clearInterval(tickT);

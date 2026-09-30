@@ -180,7 +180,7 @@ function 설교영상저장_(prep, out) {
      ② 연결해 둔 QT 구글 시트에 그 날짜 줄이 있으면 → 그 본문
      ③ 온라인 성구 일과표(LectServe — 매일 성경 읽기표, JSON) 의 그날 신약 · 구약 읽기 → 개역한글 본문(getBible, 저작권 만료 · 공개)
      ④ 그래도 없으면 → 날짜별 추천 구절(오늘의구절_) + 개역한글 본문
-   본문 텍스트는 개역한글(공개 번역)만 가져옵니다 — 개역개정은 저작권이 있어 가져오지 않습니다.
+   본문 텍스트는 v6 부터 개역개정 + NIV (logic/bible6.js — 개역개정을 못 받으면 개역한글).
    AI 는 해설 · 질문 · 적용 · 기도만 만들고, 본문을 베껴 쓰지 않습니다(묵상_지침). */
 
 var 성경책_ = [
@@ -258,10 +258,16 @@ function 오늘묵상본문찾기_(date) {
   try { var qt = 시트QT가져오기_(date); if (qt && qt.verse && qt.text) return { verse: qt.verse, text: qt.text, from: 'QT 시트' }; } catch (e) { /* 시트가 없거나 그 날짜 줄이 없음 */ }
   var refs = [];
   try { refs = 일과표본문들_(date); } catch (e) { refs = []; }
+  // v6 — 본문은 개역개정 + NIV (logic/bible6.js). 개역개정을 못 받으면 개역한글로 대신합니다
+  var 본문 = function (ref) {
+    var v = 성경본문가져오기_(ref);
+    if (!v || !v.ko) return null;
+    return { verse: v.ref, text: 묵상본문합치기_(v), tr: v.ko.translation + (v.en ? ' · NIV' : '') };
+  };
   for (var i = 0; i < refs.length; i++) {
-    try { var b = 개역한글본문_(구절풀기_(refs[i])); if (b) return { verse: b.verse, text: b.text, from: '온라인 성경 읽기표 (' + refs[i] + ')' }; } catch (e) {}
+    try { var b = 본문(refs[i]); if (b) return { verse: b.verse, text: b.text, from: '온라인 성경 읽기표 (' + refs[i] + ') · ' + b.tr }; } catch (e) {}
   }
-  try { var c = 개역한글본문_(구절풀기_(오늘의구절_())); if (c) return { verse: c.verse, text: c.text, from: '추천 구절' }; } catch (e) {}
+  try { var c = 본문(오늘의구절_()); if (c) return { verse: c.verse, text: c.text, from: '추천 구절 · ' + c.tr }; } catch (e) {}
   return null;
 }
 

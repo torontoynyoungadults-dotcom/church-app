@@ -1,5 +1,5 @@
 /**
- * Step 2.11 — 따라가기 두 스위치(페이지 · 메트로놈) 4가지 조합 · 저장 · 서버 동기화 · 큐 버튼(키 업 · 기도)
+ * Step 2.11 (v6 고침) — 따라가기(페이지만 · 메트로놈 따라가기 없앰) · 저장 · 서버 동기화 · 큐 버튼(키 업 · 기도)
  * 진짜 브라우저 3개(Alice 인도자 · Carol 인도자 · Bob 팀원)로 시험합니다.
  */
 const L = require('./e2e-lib'); const { check, sleep } = L;
@@ -39,68 +39,34 @@ const INIT = `(() => {
   const st = (p) => p.evaluate(() => ({ f: window.__pv.P.follow(), m: window.__pv.P.followMetro(), manual: window.__pv.P.manual(), ls: [localStorage.getItem('yn.pv.fpage'), localStorage.getItem('yn.pv.fmetro')] }));
   const sw = async (p, which, on) => { await openTab(p, 'together'); const sel = '.pv-follows input[data-a="' + which + '"]'; const cur = await p.evaluate((s) => document.querySelector(s).checked, sel); if (cur !== on) { await p.click(sel + ' + span'); } await sleep(250); };
 
-  console.log('· 준비: A = 페이지 컨트롤, C = 클릭 컨트롤, B = 따라가는 사람');
+  /* v6 — 메트로놈 따라가기는 없앴습니다. 따라가기 = 페이지 하나 (메트로놈은 기기마다 따로) */
+  console.log('· 준비: A = 페이지 컨트롤, B = 따라가는 사람');
   await openTab(pa, 'together'); await pa.click('button[data-a="claim"]'); await L.waitTrue(pa, () => /내가 페이지 컨트롤/.test(document.querySelector('.pv-lead').textContent));
-  await openTab(pc, 'together'); await pc.click('button[data-a="cclaim"]'); await L.waitTrue(pc, () => /내가 클릭 컨트롤/.test(document.querySelector('.pv-click').textContent));
-  await openTab(pb, 'metro'); await openTab(pc, 'metro'); await openTab(pa, 'metro'); await openTab(pb, 'together');
-  check('"함께" 탭에 두 스위치가 따로 있음 (페이지 컨트롤 따라가기 · 메트로놈 컨트롤 따라가기)', await pb.evaluate(() => /페이지 컨트롤 따라가기/.test(document.body.innerText) && /메트로놈 컨트롤 따라가기/.test(document.body.innerText) && !!document.querySelector('.pv-follows input[data-a="follow"]') && !!document.querySelector('.pv-follows input[data-a="followm"]')));
-  check('기본은 둘 다 켜짐', await pb.evaluate(() => window.__pv.P.follow() && window.__pv.P.followMetro()));
-  check('페이지 칩 · 메트로놈 칩이 따로 보임', await pb.evaluate(() => { const a = document.querySelector('.pv-follow'), b = document.querySelector('.pv-followm'); return !!a && !!b && a.offsetParent !== null && b.offsetParent !== null && /따라가는 중/.test(a.textContent) && /메트로놈 따라감/.test(b.textContent); }));
-
-  console.log('· ① 둘 다 켬 — 쪽도 메트로놈도 따라감');
-  await openTab(pc, 'metro'); await setBpm(pc, 120); await sleep(400);
-  await pa.click('[data-a="next"]'); check('B 가 A 를 따라 2쪽', await L.waitTrue(pb, () => document.querySelector('.pv-pg').textContent === '2 / 3', null, 3000));
-  await pc.click('[data-role="toggle"]'); check('B 메트로놈이 C 를 따라 시작', await L.waitTrue(pb, () => /멈춤/.test(document.querySelector('[data-role="toggle"]').textContent), null, 4000));
-  check('B 메트로놈 조작은 잠김 (클릭 컨트롤이 있으므로)', await pb.evaluate(() => document.querySelector('[data-role="toggle"]').disabled));
-
-  console.log('· ② 페이지 끔 / 메트로놈 켬');
+  await openTab(pb, 'together');
+  check('"함께" 탭에 페이지 따라가기 스위치 하나 (메트로놈 따라가기 없음)', await pb.evaluate(() => !!document.querySelector('.pv-follows input[data-a="follow"]') && !document.querySelector('.pv-follows input[data-a="followm"]') && /페이지 컨트롤 따라가기/.test(document.body.innerText)));
+  check('기본은 페이지 따라가기 켜짐 · 메트로놈 따라가기는 늘 꺼짐', await pb.evaluate(() => window.__pv.P.follow() && window.__pv.P.followMetro() === false));
+  console.log('· ① 켬 — 쪽을 따라감');
+  await pa.click('[data-a="next"]');
+  check('A 가 넘기면 B 도 2쪽', await L.waitTrue(pb, () => document.querySelector('.pv-pg').textContent === '2 / 3', null, 3000));
+  console.log('· ② 끔 — 그대로');
   await sw(pb, 'follow', false);
-  { const s = await st(pb); check('상태: 페이지 꺼짐 · 메트로놈 켜짐 (동기화 전체 꺼짐은 아님)', s.f === false && s.m === true && s.manual === false, s); }
-  await pa.click('[data-a="next"]'); await sleep(800);
-  check('A 가 3쪽으로 넘겨도 B 는 2쪽 그대로', await pg(pb) === '2 / 3', await pg(pb));
-  check('B 페이지 칩: 따라가기 꺼짐 · 컨트롤 3쪽', /꺼짐 · 컨트롤 3쪽/.test(await txt(pb, '.pv-follow')), await txt(pb, '.pv-follow'));
-  await openTab(pb, 'metro'); await setBpm(pc, 140); await sleep(1400);
-  check('그래도 메트로놈은 C 를 따라 140', await bpmOf(pb) === '140', await bpmOf(pb));
-  await pc.click('[data-role="toggle"]'); check('C 가 멈추면 B 도 멈춤', await L.waitTrue(pb, () => /시작/.test(document.querySelector('[data-role="toggle"]').textContent), null, 3000));
-  await pc.click('[data-role="toggle"]'); check('C 가 다시 시작하면 B 도 시작', await L.waitTrue(pb, () => /멈춤/.test(document.querySelector('[data-role="toggle"]').textContent), null, 4000));
-
-  console.log('· ③ 페이지 켬 / 메트로놈 끔');
+  await pa.click('[data-a="next"]'); await sleep(900);
+  check('끈 B 는 그대로 2쪽', (await pg(pb)) === '2 / 3');
+  check('B 칩: 따라가기 꺼짐 · 컨트롤 3쪽', /꺼짐/.test(await txt(pb, '.pv-follow')) && /3쪽/.test(await txt(pb, '.pv-follow')), await txt(pb, '.pv-follow'));
+  console.log('· ③ 다시 켬 — 바로 컨트롤 화면으로');
   await sw(pb, 'follow', true);
-  check('페이지를 켜면 컨트롤이 있는 3쪽으로 바로 이동', await L.waitTrue(pb, () => document.querySelector('.pv-pg').textContent === '3 / 3', null, 3000));
-  await sw(pb, 'followm', false);
-  { const s = await st(pb); check('상태: 페이지 켜짐 · 메트로놈 꺼짐', s.f === true && s.m === false && s.manual === false, s); }
+  check('다시 켜면 A 의 쪽(3쪽)으로', await L.waitTrue(pb, () => document.querySelector('.pv-pg').textContent === '3 / 3', null, 3000));
   await openTab(pb, 'metro');
-  check('B 메트로놈 조작이 풀림 (잠금 없음)', await pb.evaluate(() => !document.querySelector('[data-role="toggle"]').disabled && !document.querySelector('[data-role="bpm"]').disabled));
-  await pb.click('[data-role="toggle"]'); await sleep(500);
-  check('B 가 직접 멈출 수 있음 (혼자) — C 는 계속 돌아감', !(await running(pb)) && await running(pc));
-  await setBpm(pb, 90); await sleep(300); await setBpm(pc, 110); await sleep(1300);
-  check('C 가 BPM 을 바꿔도 B 는 내 값(90)', await bpmOf(pb) === '90', await bpmOf(pb));
-  check('B 의 조작은 팀에 안 나감 (C 는 110)', await bpmOf(pc) === '110' && await bpmOf(pa) === '110');
-  await pa.click('[data-a="prev"]'); check('페이지는 계속 따라감 (A 가 2쪽으로)', await L.waitTrue(pb, () => document.querySelector('.pv-pg').textContent === '2 / 3', null, 3000));
-  check('B 메트로놈 칩: 따라가기 꺼짐', /꺼짐/.test(await txt(pb, '.pv-followm')), await txt(pb, '.pv-followm'));
-
-  console.log('· ④ 둘 다 끔');
-  await sw(pb, 'follow', false);
-  { const s = await st(pb); check('상태: 둘 다 꺼짐 = 동기화 전체 꺼짐과 같음', s.f === false && s.m === false && s.manual === true, s); }
-  check('페이지 칩이 "동기화 꺼짐" 으로 바뀜', /동기화 꺼짐/.test(await txt(pb, '.pv-follow')), await txt(pb, '.pv-follow'));
-  await pa.click('[data-a="next"]'); await sleep(700);
-  check('A 가 넘겨도 B 는 2쪽', await pg(pb) === '2 / 3');
-  await setBpm(pc, 130); await sleep(1200);
-  check('C 가 바꿔도 B 는 90', await bpmOf(pb) === '90');
-  await pb.click('.pv-follow');
-  { const s = await st(pb); check('칩을 누르면 둘 다 켜짐(기존 동작 그대로)', s.f === true && s.m === true, s); }
-  check('켜면 바로 팀 상태로 (3쪽 · 130 BPM)', await L.waitTrue(pb, () => document.querySelector('.pv-pg').textContent === '3 / 3' && document.querySelector('[data-role="bpm"]').value === '130', null, 4000));
-
+  check('B 메트로놈은 잠기지 않음 (각자)', await pb.evaluate(() => !document.querySelector('[data-role="toggle"]').disabled));
   console.log('· 저장 — 이 기기 · 새로고침 · 다른 기기(서버)');
-  await sw(pb, 'follow', false); await sw(pb, 'followm', true);
-  { const s = await st(pb); check('이 기기에 저장됨 (localStorage)', s.ls[0] === '0' && s.ls[1] === '1', s.ls); }
+  await sw(pb, 'follow', false);
+  { const s = await st(pb); check('이 기기에 저장됨 (localStorage)', s.ls[0] === '0', s.ls); }
   await sleep(900);
-  check('접속자 목록(A 화면)에 "B 는 페이지 따로"', await L.waitTrue(pa, () => { const t = document.body.innerText; return /페이지 따로/.test(t); }, null, 2500) || (await openTab(pa, 'together'), await L.waitTrue(pa, () => /페이지 따로/.test(document.body.innerText), null, 2500)));
+  check('접속자 목록(A 화면)에 "B 는 페이지 따로"', await L.waitTrue(pa, () => /페이지 따로/.test(document.body.innerText), null, 2500) || (await openTab(pa, 'together'), await L.waitTrue(pa, () => /페이지 따로/.test(document.body.innerText), null, 2500)));
   await pb.goto(base + '/h.html?t=tokB'); await pb.click('#go'); await L.waitTrue(pb, () => document.querySelector('.pv-pg') && /실시간/.test(document.querySelector('.pv-conn').textContent), null, 8000);
-  { const s = await st(pb); check('새로고침 후에도 유지 (페이지 꺼짐 · 메트로놈 켜짐)', s.f === false && s.m === true, s); }
+  { const s = await st(pb); check('새로고침 후에도 유지 (페이지 꺼짐)', s.f === false, s); }
   const Dx = await mk('tokB'); const pd = Dx.page; await L.waitTrue(pd, () => document.querySelector('.pv-pg') && /실시간/.test(document.querySelector('.pv-conn').textContent), null, 8000);
-  check('다른 기기(저장 비어 있음)도 서버에 저장된 상태를 불러옴', await L.waitTrue(pd, () => window.__pv.P.follow() === false && window.__pv.P.followMetro() === true, null, 5000), await st(pd));
-  check('예전 저장값(manual=1)은 둘 다 끔으로 옮겨짐', await (async () => { const c2 = await br.newContext({ viewport: { width: 1280, height: 800 } }); await c2.addInitScript(INIT); await c2.addInitScript("try{localStorage.setItem('yn.pv.manual','1')}catch(e){}"); const p2 = await c2.newPage(); await p2.goto(base + '/h.html?t=tokD'); await p2.click('#go'); await L.waitTrue(p2, () => document.querySelector('.pv-pg'), null, 8000); const r = await st(p2); await c2.close(); return r.f === false && r.m === false; })());
+  check('다른 기기(저장 비어 있음)도 서버에 저장된 상태를 불러옴', await L.waitTrue(pd, () => window.__pv.P.follow() === false, null, 5000), await st(pd));
 
   console.log('· 큐 버튼 (키 업 · 기도)');
   await openTab(pa, 'metro'); await pa.evaluate(() => window.__pv.P.showTab('metro'));
@@ -116,10 +82,8 @@ const INIT = `(() => {
     check('송폼 순서 · 콜아웃 큐 버튼과 같은 화면', v.player && v.cues, v); }
   check('미니 메트로놈에도 BPM 이 표시됨', /^\d+$/.test(await pa.evaluate(() => document.querySelector('.pv-mini-in').value)));
   check('콜아웃 버튼 8개 (키 업 · 기도 포함)', await pa.evaluate(() => document.querySelectorAll('.pv-fcues [data-cue]').length === 8 && !!document.querySelector('.pv-fcues [data-cue="keyup"]') && !!document.querySelector('.pv-fcues [data-cue="prayer"]')));
-  check('C 가 클릭 컨트롤이라 A 의 미니 메트로놈은 잠김 + 안내 문구', await pa.evaluate(() => document.querySelector('.pv-mini-go').disabled && /클릭 컨트롤/.test(document.querySelector('.pv-mini-note').textContent)));
-  await pa.evaluate(() => window.__pv.P.setFollowMetro(false)); await sleep(300);
-  check('메트로놈 따라가기를 끄면 미니 메트로놈 잠금이 풀림', await pa.evaluate(() => !document.querySelector('.pv-mini-go').disabled && !document.querySelector('.pv-mini-in').disabled));
-  if (await running(pa)) { await pa.click('.pv-mini-go'); await sleep(400); check('따라가던 메트로놈을 미니 ■ 로 내 것만 멈출 수 있음 (클릭 컨트롤 C 는 계속)', !(await running(pa)) && await running(pc)); }
+  check('A 의 미니 메트로놈은 잠기지 않음 (메트로놈은 기기마다 따로)', await pa.evaluate(() => !document.querySelector('.pv-mini-go').disabled && !document.querySelector('.pv-mini-in').disabled));
+  if (await running(pa)) { await pa.click('.pv-mini-go'); await sleep(400); }
   await pa.click('.pv-mini-go'); await sleep(500);
   check('미니 ▶ 를 누르면 실제로 시작 (메트로놈 탭과 같은 상태)', await pa.evaluate(() => document.querySelector('.pv-mini-go').textContent === '■') && await running(pa));
   check('미니 박 표시가 박마다 움직임', await L.waitTrue(pa, () => !!document.querySelector('.pv-mini-dots i.on'), null, 2500));

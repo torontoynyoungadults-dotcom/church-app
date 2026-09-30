@@ -142,7 +142,7 @@ async function main() {
     eq(run((api) => api.오늘묵상자동돌기(addDays(TODAY, 2))).skipped, 'exists', '관리자가 먼저 확정한 날은 그대로');
     lectFail = true;
     const r3 = run((api) => api.오늘묵상자동돌기(addDays(TODAY, 3)));
-    eq([r3.ok, r3.from], [true, '추천 구절'], '읽기표가 안 되면 추천 구절 + 개역한글');
+    eq([r3.ok, /^추천 구절/.test(r3.from)], [true, true], '읽기표가 안 되면 추천 구절 (v6: 개역개정 + NIV, 못 받으면 개역한글)');
     lectFail = false;
     const pv = run((api) => api.adminFetchOnlineQT('ADM', addDays(TODAY, 4)));
     eq([pv.verse, pv.explain.length, !!pv.text], ['야고보서 4장', 2, true], '관리 화면 "온라인에서 가져오기" 미리 보기');

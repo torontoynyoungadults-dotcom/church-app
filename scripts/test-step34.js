@@ -513,19 +513,17 @@ function main() {
   {
     const menuKeys = (name) => call('포털메뉴_', call('포털역할_', name), tok(name)).map((x) => x.key);
     const eqTile = (name) => call('포털메뉴_', call('포털역할_', name), tok(name)).find((x) => x.key === 'equipment');
-    ok(eqTile('정일반'), '팀원(정일반)의 포털에 장비 타일');
-    ok(eqTile('윤팀장') && eqTile('김커미티') && eqTile('이예배'), '팀장 · 커미티 · 위원회 범위(예배영성부)에도 타일');
+    // v6 — 장비 · 수리 요청은 찬양방송팀 허브 안 탭으로 옮김: 허브가 있는 분은 Teva Apps 타일 없음, 개인 허용만 받은 분만 타일
+    ok(!eqTile('정일반') && menuKeys('정일반').indexOf('worship') !== -1, '팀원(정일반) — 허브 타일만 (장비는 허브 안 탭)');
+    ok(!eqTile('윤팀장') && !eqTile('김커미티'), '팀장 · 커미티도 허브 안에서');
     ok(!eqTile('노셀장'), '팀원이 아닌 분(노셀장)에게는 타일 없음');
     ok(!eqTile('한차단'), '개인 차단(한차단)이면 커미티여도 타일 없음');
     ok(!eqTile('최셀장'), '팀원이어도 개인 차단이면 타일 없음');
-    ok(eqTile('강허용'), '개인 허용(강허용)이면 팀원이 아니어도 타일 (메뉴항목_ 이 더함)');
+    ok(eqTile('강허용') && menuKeys('강허용').indexOf('worship') === -1, '개인 허용(강허용)이면 허브가 없으니 타일로 (메뉴항목_ 이 더함)');
     ok(!eqTile('오범위'), '회계 위원회 범위(오범위)에는 타일 없음');
-    const tile = eqTile('정일반');
+    const tile = eqTile('강허용');
     eq([tile.title, tile.desc], ['장비 점검 · 수리 요청', '체크리스트 · 사진 첨부 수리 요청'], '타일 이름 · 설명');
     ok(/\?page=equipment&t=/.test(tile.url), '타일 주소 ?page=equipment&t=…');
-    ok(menuKeys('정일반').indexOf('worship') !== -1 && menuKeys('정일반').indexOf('equipment') === menuKeys('정일반').indexOf('worship') + 1, '찬양방송팀 허브 타일 바로 다음에 놓임');
-    // 프로필 전체에도
-    ok(call('getMyProfile', T정).menus.some((m) => m.key === 'equipment'), 'getMyProfile 에 실림');
 
     // 관리 카드 (Teva Apps 관리)
     const adminCards = (name) => call('포털관리메뉴_', call('포털역할_', name), tok(name));

@@ -64,7 +64,7 @@ const INIT = (noWake) => `(() => {
 
   /* ============================================================ 2. 무음 모드 오디오 + 메트로놈 빠른 버튼 (컴퓨터) */
   console.log('2. 메트로놈 · 콜아웃 (위 도크 맨 앞) · 무음 모드 오디오 (컴퓨터 화면)   [Step 2.15: 예전 떠 있던 빠른 버튼은 도크 맨 앞 라이브 컨트롤로 옮겨짐]');
-  check('도크 맨 앞에 메트로놈 · 콜아웃 라이브 컨트롤이 있음', await ev(pa, () => { const t = document.querySelector('.pv-tools'), l = t && t.querySelector('.pv-live'); return !!l && t.firstChild === l && getComputedStyle(l).display !== 'none' && !!l.querySelector('.pv-lv-go') && !!l.querySelector('.pv-lv-tts'); }));
+  check('v6: 메트로놈 · 콜아웃 라이브 컨트롤은 떠 있는 메트로놈 창에 (도구 도크와 따로 옮김)', await ev(pa, () => { const m = document.querySelector('.pv-metro'), l = m && m.querySelector('.pv-live'); return !!l && getComputedStyle(m).display !== 'none' && !!l.querySelector('.pv-lv-go') && !document.querySelector('.pv-tools .pv-live'); }));
   check('도크가 보일 때는 예전 떠 있는 빠른 버튼을 감춤 (같은 기능이 두 곳에 겹치지 않게)', await ev(pa, () => { const m = document.querySelector('.pv-mq'); return !m || getComputedStyle(m).display === 'none'; }));
   check('버튼이 화면 안에 보이고 (스크롤 없이) 다른 것에 가려지지 않음', await ev(pa, () => { const b = document.querySelector('.pv-lv-go').getBoundingClientRect(), x = b.x + b.width / 2, y = b.y + b.height / 2; const t = document.elementFromPoint(x, y); return b.width > 30 && b.height > 30 && b.top >= 0 && b.bottom <= innerHeight && b.right <= innerWidth && !!t && !!t.closest('.pv-live'); }));
   check('BPM 표시 (곡 BPM 120)', await ev(pa, () => document.querySelector('.pv-lv-bpm b').textContent === '120'), await ev(pa, () => document.querySelector('.pv-lv-bpm b').textContent));
@@ -118,7 +118,7 @@ const INIT = (noWake) => `(() => {
   for (let i = 0; i < 4; i++) { await pa.click('.pv-tabbtn[data-tab="metro"]'); await pa.click('.pv-tabbtn[data-tab="together"]'); }
   await sleep(800);
   check('패널 탭을 8번 바꿔도 다시 그리지 않음', (await mainRenders(pa)) === r3a, [r3a, await mainRenders(pa)]);
-  { const a0 = await mainRenders(pa); await pa.click('.pv-toolsbtn'); await pa.click('.pv-toolsbtn'); await pa.click('.pv-toolsbtn'); await pa.click('.pv-toolsbtn'); await sleep(900);
+  { const a0 = await mainRenders(pa); for (let k = 0; k < 2; k++) { await pa.click('.pv-tools [data-a="dockhide"]'); await sleep(120); await pa.click('.pv-toolsbtn'); await sleep(120); } await sleep(900);   // v6 — ▴ 로 접고 알약으로 폄
     const a1 = await mainRenders(pa); check('도구 막대를 4번 접고 펴도 그리기는 아주 적음 (최대 3번: 본 화면 1 + 앞뒤 미리 그리기 2)', a1 - a0 <= 3, [a0, a1]); }
   { const a0 = await mainRenders(pa);
     await ev(pa, () => { const st = document.querySelector('.pv-stage'); for (let i = 0; i < 8; i++) st.dispatchEvent(new WheelEvent('wheel', { ctrlKey: true, deltaY: -40, bubbles: true, cancelable: true })); });

@@ -165,7 +165,7 @@ const secOf = (t) => { const p = String(t).replace(/^[+−-]/, '').split(':').ma
     await sleep(700);
     check(who + ': 세션 화면에 타이머 막대가 있고 보임', await visible(h.page, '.pv .yt-viewer'));
     check(who + ': 화면에 보이는 막대는 하나뿐 (허브 막대는 숨김 — 겹쳐 보이지 않음)', await h.page.evaluate(() => Array.from(document.querySelectorAll('.yt-bar')).filter((b) => { const r = b.getBoundingClientRect(); return getComputedStyle(b).display !== 'none' && r.width > 0 && r.height > 0; }).length === 1));
-    check(who + ': 막대가 헤더 바로 아래 · 악보 영역은 그 아래에서 시작 (안 가림)', await h.page.evaluate(() => { const top = document.querySelector('.pv-top').getBoundingClientRect(), bar = document.querySelector('.pv .yt-viewer').getBoundingClientRect(), main = document.querySelector('.pv-main').getBoundingClientRect(); return Math.abs(bar.top - top.bottom) <= 1 && main.top >= bar.bottom - 1 && main.bottom <= innerHeight + 1; }));
+    check(who + ': v6 떠 있는 타이머 창 — 악보 칸 안(위 막대 아래)에 뜨고 손잡이 · 작게 보기 단추가 있음', await h.page.evaluate(() => { const top = document.querySelector('.pv-top').getBoundingClientRect(), bar = document.querySelector('.pv .yt-viewer').getBoundingClientRect(), main = document.querySelector('.pv-main').getBoundingClientRect(); return bar.top >= top.bottom - 1 && bar.bottom <= main.bottom + 1 && getComputedStyle(document.querySelector('.pv .yt-viewer')).position === 'absolute' && !!document.querySelector('.pv .yt-viewer .pv-grip') && !!document.querySelector('.pv .yt-viewer [data-a="mini"]'); }));
     check(who + ': 세션 막대도 같은 숫자 (허브 막대와)', await (async () => { const a = secOf(await txt(h.page, '.pv .yt-viewer .yt-total .yt-v')); const b = secOf(await total(h.page === pa ? pr : pa)); return Math.abs(a - b) <= 2; })());
     check(who + ': 세션 화면에 실시간 연결(자기 연습 소켓)도 정상 — 막대와 별개로 동작', await h.page.evaluate(() => window.YNPractice.current().P.rt().state) === 'online');
   }
@@ -180,11 +180,11 @@ const secOf = (t) => { const p = String(t).replace(/^[+−-]/, '').split(':').ma
   check('방송 모드의 Esc 가 세션 화면을 닫지 않음', await L.waitTrue(pa, () => !document.querySelector('.yt-panel') && !!document.querySelector('.pv'), null, 1500));
   // 전체 화면
   await pa.click('.pv-fsbtn'); await sleep(500);
-  check('전체 화면(악보만 크게)에서도 막대가 그대로 보임', await pa.evaluate(() => document.querySelector('.pv').classList.contains('pv-fs')) && await visible(pa, '.pv .yt-viewer') && await pa.evaluate(() => document.querySelector('.pv .yt-viewer').getBoundingClientRect().top <= 1));
-  check('전체 화면: 악보 영역이 막대 아래에서 시작', await pa.evaluate(() => document.querySelector('.pv-main').getBoundingClientRect().top >= document.querySelector('.pv .yt-viewer').getBoundingClientRect().bottom - 1));
+  check('전체 화면(악보만 크게)에서도 타이머 창이 그대로 보임 (화면 안)', await pa.evaluate(() => document.querySelector('.pv').classList.contains('pv-fs')) && await visible(pa, '.pv .yt-viewer') && await pa.evaluate(() => { const r = document.querySelector('.pv .yt-viewer').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 1; }));
+  check('전체 화면: 악보 영역이 화면 맨 위부터 (타이머는 떠 있음)', await pa.evaluate(() => document.querySelector('.pv-main').getBoundingClientRect().top <= 1));
   await shot(pa, '05-viewer-fullscreen');
   await pa.evaluate(() => { const p = document.querySelector('.pv'); p.classList.add('pv-fsbar-on'); }); await sleep(400);
-  check('전체 화면 메뉴(위에서 내려오는 줄)가 막대 아래로 내려옴 (막대를 가리지 않음)', await pa.evaluate(() => { const f = document.querySelector('.pv-fsbar').getBoundingClientRect(), b = document.querySelector('.pv .yt-viewer').getBoundingClientRect(); return f.top >= b.bottom - 2; }), await pa.evaluate(() => [document.querySelector('.pv-fsbar').getBoundingClientRect().top, document.querySelector('.pv .yt-viewer').getBoundingClientRect().bottom]));
+  check('전체 화면 메뉴(위에서 내려오는 줄)는 맨 위에 (타이머 창은 떠 있어 겹치지 않게 옮길 수 있음)', await pa.evaluate(() => document.querySelector('.pv-fsbar').getBoundingClientRect().top <= 1));
   await shot(pa, '06-viewer-fullscreen-menu');
   await pa.click('.pv-fsbar [data-a=fs]'); await sleep(300);
   check('전체 화면을 나가면 다시 헤더 아래', await pa.evaluate(() => !document.querySelector('.pv').classList.contains('pv-fs') && document.querySelector('.pv .yt-viewer').getBoundingClientRect().top >= document.querySelector('.pv-top').getBoundingClientRect().bottom - 1));
@@ -241,7 +241,7 @@ const secOf = (t) => { const p = String(t).replace(/^[+−-]/, '').split(':').ma
   await PL.page.evaluate(() => openPractice(''));
   await L.waitTrue(PL.page, () => document.querySelector('.pv .yt-viewer') && /\/ \d+/.test((document.querySelector('.pv-pg') || {}).textContent || ''), null, 10000); await sleep(600);
   const pv = await PL.page.evaluate(() => { const b = document.querySelector('.pv .yt-viewer').getBoundingClientRect(); return { h: Math.round(b.height), right: Math.round(b.right), over: document.querySelector('.pv .yt-viewer').scrollWidth > document.querySelector('.pv .yt-viewer').clientWidth, page: document.scrollingElement.scrollWidth > innerWidth, mainBottom: Math.round(document.querySelector('.pv-main').getBoundingClientRect().bottom) }; });
-  check('폰 세션 화면: 막대가 폭 안 · 낮음 (≤ 48px) · 악보 영역이 화면 밖으로 밀리지 않음', pv.right <= 390 && !pv.over && !pv.page && pv.h <= 48 && pv.mainBottom <= 844, pv);
+  check('폰 세션 화면: 타이머 창이 폭 안 · 낮음 (≤ 56px, 처음엔 작게) · 악보 영역이 화면 밖으로 밀리지 않음', pv.right <= 390 && !pv.over && !pv.page && pv.h <= 56 && pv.mainBottom <= 844, pv);
   await shot(PL.page, '10-viewer-phone');
   await PL.ctx.close(); await PR.ctx.close();
 

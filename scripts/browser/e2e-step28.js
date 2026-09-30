@@ -27,7 +27,7 @@ const fake = global.__fake;
   check('허브가 열림', await L.waitTrue(page, () => window.W && window.D && document.querySelector('#lyHost'), null, 10000));
 
   console.log('· 문구 · 배치');
-  check('"세션 / 연습 시작" 버튼 (연습 모드 문구 없음)', await page.evaluate(() => /세션 \/ 연습 시작/.test(document.body.innerText) && !/연습 모드/.test(document.body.innerText)));
+  check('"세션 / 연습 시작" 버튼 (연습 모드 문구 없음)', await page.evaluate(() => /라이브 악보 시작/.test(document.body.innerText) && !/연습 모드/.test(document.body.innerText)));
   check('가사 패널이 페이지 맨 아래 (방송팀 요청 · 녹음 · 결단찬양보다 뒤) — Step 2.15', await page.evaluate(() => { const ly = document.querySelector('#lyPanel'), md = document.querySelector('.mdbox'); const ps = Array.from(document.querySelectorAll('#body > .panel, #body > .mdbox')); return !!ly && ps[ps.length - 1] === ly && (!md || !!(md.compareDocumentPosition(ly) & Node.DOCUMENT_POSITION_FOLLOWING)); }));
 
   console.log('· 링크 자동걸기');

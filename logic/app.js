@@ -1017,7 +1017,7 @@ function doGet(e) {
   if (page === 'forms') {
     var fpre = { t: p.t || '', key: isAdmin_(p.key) ? (설정값_('관리자키') || '') : '' };
     try { if (fpre.t || fpre.key) fpre.init = formAdminInit(fpre.key || fpre.t); } catch (e) { fpre.err = e.message || ''; }
-    return render_('Forms', '일반 신청서 관리', fpre, 'admin');
+    return render_('Forms', '각종 Form 관리', fpre, 'admin');
   }
 
   if (page === 'team') {
@@ -7350,8 +7350,11 @@ function 포털메뉴_(r, token) {
         url: base + '?page=budget&t=' + encodeURIComponent(token), note: '' });
     }
   } catch (e) {}
-  // Teva Apps — 이름 · 하위 메뉴 정리 (셀모임 / 사역팀 / 일반 신청서 관리). key 는 그대로라 권한 · 순서가 유지됩니다 (logic/step11.js)
+  // Teva Apps — 이름 · 하위 메뉴 정리 (셀모임 / 사역팀 / 각종 Form 관리). key 는 그대로라 권한 · 순서가 유지됩니다 (logic/step11.js)
   목록 = 메뉴묶기11_(목록);
+  // v6 — 장비 · 수리 요청은 찬양방송팀 허브 안(아카이브 다음 "장비 · 수리" 탭)으로 옮겼습니다.
+  //      허브가 있는 분에게는 Teva Apps 타일을 빼고, 허브가 없는데 개인 허용만 받은 분에게만 타일을 남깁니다 (페이지 · 알림 링크는 그대로)
+  if (목록.some(function (m) { return m.key === 'worship'; })) 목록 = 목록.filter(function (m) { return m.key !== 'equipment'; });
   return 메뉴순서적용_(목록, 'portal');
 }
 
@@ -7504,7 +7507,7 @@ function getMenuOrder(token) {
   var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'equip', 'dir', 'word', 'push', 'app'];
   var titleOf = {
     album: '포토 앨범', leader: '셀모임 (셀 보고서 · 셀원 정보 · 대리 제출)', team: '사역팀 (팀 보고서 · 팀원 관리 · 지출환급신청)',
-    newfamily: '새가족 관리', worship: '찬양방송팀 허브', equipment: '장비 점검 · 수리 요청', mission: '선교팀 관리', forms: '일반 신청서 관리',
+    newfamily: '새가족 관리', worship: '찬양방송팀 허브', equipment: '장비 점검 · 수리 요청', mission: '선교팀 관리', forms: '각종 Form 관리',
     budget: '수련회 · 선교 예산/정산',
     minutes: '회의록 · 할 일', bulletinEdit: '주보 편집', acct: '회계 관리',
     cell: '셀 관리', nf: '새가족 관리', tr: '제자훈련 관리', mis: '선교팀 관리', equip: '장비 · 수리 요청', dir: '교적 관리',
@@ -11426,7 +11429,10 @@ function 신청서풀기_(r) {
     resultsShare: body.resultsShare === 'owner' ? 'owner' : 'team',
     inviteOnly: !!body.inviteOnly,
     descHtml: String(body.descHtml || ''),    // Step 6 — 굵게 · 주황 강조가 든 안내글 (없으면 '' → 예전처럼 desc 글만)
-    shares: Array.isArray(body.shares) ? body.shares : []   // Step 7 — 결과를 공유받은 팀 · 셀 · 개인 (logic/forms3.js)
+    shares: Array.isArray(body.shares) ? body.shares : [],  // Step 7 — 결과를 공유받은 팀 · 셀 · 개인 (logic/forms3.js)
+    kind: body.kind === 'survey' ? 'survey' : 'form',        // v6 — 설문 · 투표 (logic/survey6.js)
+    audience: Array.isArray(body.audience) ? body.audience : [],
+    survey: body.kind === 'survey' ? (body.survey || { anonymous: false, results: 'after', allowAdd: false }) : null
   };
 }
 
@@ -11555,13 +11561,15 @@ function myForms(token) {
     if (f.inviteOnly) return;                              // 초대 링크로만 들어갈 수 있어 목록엔 안 보입니다
     if (f.target === '교인' && who.kind !== 'member') return;
     if (f.target === '새가족' && who.kind !== 'newcomer') return;
+    if (!폼대상인가6_(f, who)) return;                     // v6 — 대상(팀 · 셀 · 역할 · 사람)을 정한 신청서 · 설문은 대상에게만
     var mine = 내답_(f.id, who.name, who.email);
     if (f.status === '마감' && !mine) return;              // 마감된 건 낸 사람에게만 보입니다
     out.push({
       id: f.id, title: f.title, desc: f.desc, open: 신청받는중_(f),
       why: 신청마감사유_(f), closeAt: f.closeAt, editable: f.editable,
       submitted: mine ? { at: mine.at, edited: mine.edited } : null,
-      count: f.showCount ? 유효답행들3_(f.id).length : null
+      count: f.showCount ? 유효답행들3_(f.id).length : null,
+      kind: f.kind, anonymous: !!(f.survey && f.survey.anonymous)          // v6
     });
   });
   return { list: out };
@@ -11575,10 +11583,12 @@ function formOpen(token, id) {
   if (f.status === '준비중' || f.status === '보관') throw new Error('아직 열리지 않은 신청서입니다.');
   if (f.target === '교인' && who.kind !== 'member') throw new Error('교적에 등록된 분만 신청할 수 있습니다.');
   if (f.target === '새가족' && who.kind !== 'newcomer') throw new Error('새가족만 신청할 수 있는 신청서입니다.');
+  if (!폼대상인가6_(f, who)) throw new Error('이 ' + (f.kind === 'survey' ? '설문 · 투표' : '신청서') + '의 대상이 아닙니다.');   // v6
   var mine = 내답_(f.id, who.name, who.email);
   var full = f.limit > 0 && 유효답행들3_(f.id).length >= f.limit && !mine;      // Step 7: 취소된 신청은 정원에 세지 않음
   return {
-    form: { id: f.id, title: f.title, desc: f.desc, descHtml: f.descHtml, questions: f.questions, closeAt: f.closeAt, editable: f.editable },
+    form: { id: f.id, title: f.title, desc: f.desc, descHtml: f.descHtml, questions: f.questions, closeAt: f.closeAt, editable: f.editable,
+      kind: f.kind, survey: f.survey, showCount: f.showCount, count: f.showCount ? 유효답행들3_(f.id).length : null },   // v6 — 설문 · 투표
     open: 신청받는중_(f) && !full,
     why: full ? ('신청 인원(' + f.limit + '명)이 다 찼습니다.') : 신청마감사유_(f),
     me: { name: who.name, email: who.email, phone: who.phone, cell: who.cell, gender: who.gender },
@@ -11641,8 +11651,10 @@ function submitForm(token, id, answers) {
   if (!신청받는중_(f)) throw new Error(신청마감사유_(f) || '지금은 신청을 받지 않습니다.');
   if (f.target === '교인' && who.kind !== 'member') throw new Error('교적에 등록된 분만 신청할 수 있습니다.');
   if (f.target === '새가족' && who.kind !== 'newcomer') throw new Error('새가족만 신청할 수 있는 신청서입니다.');
+  if (!폼대상인가6_(f, who)) throw new Error('이 ' + (f.kind === 'survey' ? '설문 · 투표' : '신청서') + '의 대상이 아닙니다.');   // v6
 
   answers = answers || {};
+  f = 선택지더하기6_(f, answers, who.name);                 // v6 — 투표: 참여자가 더한 선택지 저장 (허용하지 않으면 없는 선택지 거절)
   var mine = 내답_(f.id, who.name, who.email);
   if (mine && !f.editable) throw new Error('이미 신청하셨습니다. 고치시려면 담당자에게 말씀해주세요.');
   if (!mine && f.limit > 0 && 유효답행들3_(f.id).length >= f.limit) throw new Error('신청 인원(' + f.limit + '명)이 다 찼습니다.');   // Step 7: 취소 제외
@@ -11775,7 +11787,8 @@ function formAdminInit(token) {
         at: f.at, openAt: f.openAt, closeAt: f.closeAt, target: f.target, limit: f.limit,
         count: rows.length, live: 신청받는중_(f), why: 신청마감사유_(f), qn: (f.questions || []).length,
         full: !!(f.limit && rows.length >= f.limit),
-        canResults: 신청서결과볼수있나_(who, f) };
+        canResults: 신청서결과볼수있나_(who, f),
+        kind: f.kind, audience: f.audience, anonymous: !!(f.survey && f.survey.anonymous) };   // v6
     })
     .sort(function (a, b) { return (b.at || '').localeCompare(a.at || ''); });
   return {
@@ -11885,6 +11898,9 @@ function formSave(token, data) {
     inviteOnly: !!data.inviteOnly,
     shares: old ? (old.shares || []) : []                        // Step 7: 공유 범위는 formShareSave 로만 바꿉니다 (고치기 화면에서 저장해도 그대로)
   };
+  var 대상6 = 폼대상정리6_(data, who, old);                     // v6 — 종류(신청서 · 설문) · 대상 · 설문 설정 (logic/survey6.js)
+  if (대상6.kind === 'survey') { body.kind = 'survey'; body.survey = 대상6.survey; }
+  if (대상6.audience.length) body.audience = 대상6.audience;
   var status = 신청서상태.indexOf(String(data.status)) !== -1 ? String(data.status) : (old ? old.status : '준비중');
   var team = String(data.team || '').trim().slice(0, 40);
   if (team && !who.committee && who.teams.indexOf(team) === -1) team = who.teams[0] || '';
@@ -11949,8 +11965,12 @@ function formResults(token, id) {
   // Step 6: 객관식 · 복수선택 · 숫자 · 별점 집계는 logic/forms2.js 의 결과집계2_ 가 합니다.
   //         (옛 답 모양은 같은 결과, 기타(직접 입력)는 한 줄로 묶고, 유형을 바꾼 뒤의 다른 모양의 답에도 멈추지 않음)
   var stats = 결과집계2_(f, rows.filter(function (a) { return a.status !== '취소'; }));   // Step 7: 취소된 신청은 집계에서 뺍니다 (표에는 남음)
+  var 현황6 = 참여현황6_(f, rows);                               // v6 — 대상 중 참여 · 아직
+  var 익명6 = !!(f.survey && f.survey.anonymous);
+  if (익명6) { rows = 익명행들6_(rows); stats.forEach(function (s) { (s.others || []).forEach(function (o) { o.name = '익명'; }); }); }
 
-  return { form: { id: f.id, title: f.title, questions: f.questions, status: f.status, limit: f.limit },
+  return { form: { id: f.id, title: f.title, questions: f.questions, status: f.status, limit: f.limit, kind: f.kind, survey: f.survey, audience: f.audience },
+    participation: 현황6, anonymous: 익명6,
     rows: rows, stats: stats, count: rows.length,
     counts: 상태집계3_(rows), active: rows.filter(function (a) { return a.status !== '취소'; }).length,   // Step 7
     canEdit: 신청서만질수있나_(who, f), answerStatuses: 신청상태3_ };
@@ -11975,6 +11995,7 @@ function formExport(token, id) {
   var f = 신청서찾기_(id);
   if (!f || !신청서결과볼수있나_(who, f)) throw new Error('권한이 없습니다.');
   var rows = 답행들_(f.id).sort(function (a, b) { return (a.at || '').localeCompare(b.at || ''); });
+  if (f.survey && f.survey.anonymous) rows = 익명행들6_(rows);       // v6 — 익명 설문은 엑셀에도 이름 · 연락처 없이
   var qs = (f.questions || []).filter(function (q) { return q.type !== 'section'; });
 
   var H = ['이름', '연락처', '이메일', '성별', '셀', '제출시각'].concat(qs.map(function (q) { return q.label; })).concat(['상태']);   // Step 7: 맨 끝에 상태
@@ -12453,8 +12474,8 @@ function 포털뱃지_(todos) {
     else if (id.indexOf('meet-') === 0) add('minutes');
     else if (id.indexOf('due-') === 0) { add('mission'); add('team'); }
     else if (id.indexOf('cellapp-in-') === 0) add('a-cells');
-    else if (id.indexOf('equip-approve-') === 0) { add('equipment'); add('a-equip'); }     // Step 34 — 승인 대기 수리 요청
-    else if (id.indexOf('equip-work-') === 0) add('equipment');
+    else if (id.indexOf('equip-approve-') === 0) { add('equipment'); add('worship'); add('a-equip'); }     // Step 34 — 승인 대기 수리 요청 (v6: 장비는 허브 안이라 허브 타일에도)
+    else if (id.indexOf('equip-work-') === 0) { add('equipment'); add('worship'); }
   });
   return b;
 }
@@ -12962,7 +12983,7 @@ function deleteFormTemplate(token, id) {
 function formTemplatesAll(token) {
   var mine = [];
   try { 신청서관리자_(token); mine = 내본보기들_(); } catch (e) {}
-  return { builtin: formTemplates(), mine: mine };
+  return { builtin: formTemplates(), mine: mine, surveys: 설문본보기6_() };   // v6 — 설문 · 투표 본보기
 }
 
 /** 신청서를 열 때 알리기 */

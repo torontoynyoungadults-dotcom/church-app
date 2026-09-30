@@ -459,7 +459,7 @@ function hasStudy(b) {
 }
 function hasNews(b) {
   var n = b.news || {};
-  return (n.announcements || []).some(function (a) { return a.title || a.body; }) || newsEvents(b).length || hasNewFamily(b) || (n.prayers || []).some(function (x) { return x; });
+  return (n.announcements || []).some(function (a) { return a.title || a.body; }) || !!String(b.cleanup || '').trim() || newsEvents(b).length || hasNewFamily(b) || (n.prayers || []).some(function (x) { return x; });
 }
 /* 사용자 페이지 (셀모임 교제 · 목회칼럼 · 직접 만든 페이지) — 주보 JSON 의 pages 배열. 없으면 예전 주보 그대로 */
 var PAGE_KIND = { fellowship: '셀모임 교제', column: '목회칼럼', custom: '직접 만든 페이지' };
@@ -518,7 +518,6 @@ function renderBulletin(b, idp) {
       return '<div class="orow"><div class="l">' + (o.stand ? '<span class="dot"></span>' : '') + esc(o.label) + '</div><div class="v">' + esc(v) + '</div></div>';
     }).join('') +
     (order.some(function (o) { return o.stand; }) ? '<div class="stand"><span class="dot"></span>일어서서</div>' : '') +
-    (b.cleanup ? '<div class="cleanup"><span class="cb">예배 후 뒷정리</span><b>' + esc(b.cleanup) + '</b></div>' : '') +
     '</div></section>';
 
   /* 2. 성경 본문 */
@@ -567,8 +566,10 @@ function renderBulletin(b, idp) {
 
   /* 4. 소식 · 광고 */
   if (on('news')) {
-    var n = b.news;
+    var n = b.news || {};
     var anns = (n.announcements || []).filter(function (a) { return a.title || a.body; });
+    // v6 — 예배 후 뒷정리는 예배 순서 아래가 아니라 광고의 맨 마지막(새가족 소식 바로 앞)에 번호를 이어서 보여 줍니다
+    if (String(b.cleanup || '').trim()) anns = anns.concat([{ title: '예배 후 뒷정리', body: '이번 주 담당: ' + String(b.cleanup).trim(), qr: 'none', _cleanup: true }]);
     var prs = (n.prayers || []).filter(function (x) { return String(x).trim(); });
     h += '<section class="sheet" id="' + idp + 'news"><div class="shead"><div class="eyebrow">ANNOUNCEMENT</div><h2><span class="ko">청년부 소식 · 광고</span></h2></div><div class="card">' +
       anns.map(function (a, i) {
@@ -1131,7 +1132,8 @@ function paneWorship() {
       '<button class="b" onclick="autoFill()">↻ 자동 불러오기</button></div>' +
     '<p class="msg" id="autoMsg"></p></div>' +
     '<div class="ecard"><h3>예배 후 뒷정리 <span class="tag">자동 · 뒷정리 스케줄</span></h3>' +
-      inp(B.cleanup, 'B.cleanup=this.value', '예: 홍길동 셀') + '</div>';
+      inp(B.cleanup, 'B.cleanup=this.value', '예: 홍길동 셀') +
+      '<p style="font-size:12.5px;color:var(--ink-3);margin:8px 0 0;">주보에서는 <b>청년부 소식 · 광고</b>의 마지막 광고(새가족 소식 바로 앞)로 나갑니다.</p></div>';
 }
 
 function addOrder(key, label) {
@@ -1191,19 +1193,54 @@ function paneBible() {
   var b = B.bible || (B.bible = { title: '', ref: '', text: '' });
   return '<div class="ecard"><h3>성경 본문 <span class="s">비워두면 주보에서 이 쪽이 빠집니다</span></h3>' +
     '<div class="two"><div class="ef"><label>설교 제목</label>' + inp(b.title, 'B.bible.title=this.value', '예: 베드로 (1) 부르시는 주님') + '</div>' +
-    '<div class="ef"><label>본문</label>' + inp(b.ref, 'B.bible.ref=this.value', '예: 누가복음 5:1-11') + '</div></div>' +
+    '<div class="ef"><label>본문</label>' + inp(b.ref, 'B.bible.ref=this.value;bibleRefChanged()', '예: 누가복음 5:1-11') + '</div></div>' +
     '<div class="ef"><label>영어 제목 <span style="font-weight:400;color:var(--ink-3);">(선택 — 설교 제목 아래에 작게 나옵니다. 본문 구절의 영어 이름은 저절로 붙습니다)</span></label>' + inp(b.titleEn, 'B.bible.titleEn=this.value', '예: The Lord Who Calls') + '</div>' +
     '<div class="rowbtns" style="margin-bottom:12px;"><button class="b" onclick="copySermon()">설교말씀 · 성경교독 칸에서 가져오기</button>' +
+      '<button class="b or" id="bibleFetchBtn" onclick="fetchBible(true)"' + (b.ref ? '' : ' disabled') + '>📖 본문 자동으로 채우기 (개역개정 + NIV)</button>' +
       (b.ref ? '<a class="b" style="text-decoration:none;" target="_blank" rel="noopener" href="' + esc(korUrl(b.ref)) + '">개역개정 본문 열기 ↗</a>' +
         '<a class="b" style="text-decoration:none;" target="_blank" rel="noopener" href="' + esc(gatewayUrl(b.ref, 'NIV')) + '">NIV 본문 열기 ↗</a>' : '') + '</div>' +
     '<div class="ef"><label>개역개정</label>' + ta(b.text, 'B.bible.text=this.value', '1 무리가 몰려와서…\n2 호숫가에 배 두 척이…', 12) + '</div>' +
     '<div class="ef"><label>NIV <span style="font-weight:400;color:var(--ink-3);">(선택 — 넣으면 절마다 한글 아래에 영어가 나옵니다)</span></label>' +
       ta(b.textEn, 'B.bible.textEn=this.value', '1 One day as Jesus was standing by the Lake of Gennesaret…\n2 He saw at the water’s edge two boats…', 10) +
-    '<p class="hint">한 줄에 한 절씩, 맨 앞에 절 번호를 써 주세요. 같은 번호끼리 짝지어 한글 → 영어 순으로 보여줍니다.<br>' +
-    '개역개정 · NIV 는 저작권이 있어 자동으로 가져올 수 없습니다. 위의 “본문 열기” 버튼으로 열어 복사해 붙여 넣어 주세요.</p></div></div>';
+    '<p class="msg" id="bibleMsg"></p>' +
+    '<p class="hint">본문 구절을 적으면 개역개정 · NIV 본문이 <b>자동으로</b> 채워집니다 (비어 있을 때만 — 이미 적은 것은 “본문 자동으로 채우기” 를 눌러야 바꿉니다).<br>' +
+    '한 줄에 한 절씩, 맨 앞에 절 번호. 같은 번호끼리 짝지어 한글 → 영어 순으로 보여줍니다. 자동으로 못 가져오면 “본문 열기” 로 열어 붙여 넣어 주세요.</p></div></div>';
+}
+/* v6 — 개역개정 + NIV 본문 자동 채우기 (서버 logic/bible6.js 가 대한성서공회 · BibleGateway 에서 가져옴) */
+var BIBLE_T = 0, BIBLE_BUSY = '';
+function bibleRefChanged() {
+  var btn = el('bibleFetchBtn'); if (btn) btn.disabled = !String(B.bible.ref || '').trim();
+  clearTimeout(BIBLE_T);
+  if (String(B.bible.text || '').trim() || String(B.bible.textEn || '').trim()) return;   // 이미 적은 본문은 건드리지 않음
+  BIBLE_T = setTimeout(function () { fetchBible(false); }, 700);
+}
+function fetchBible(force) {
+  var ref = String(B.bible.ref || '').trim(), msg = el('bibleMsg');
+  if (!ref || BIBLE_BUSY === ref) return;
+  if (force && (String(B.bible.text || '').trim() || String(B.bible.textEn || '').trim()) && !confirm('지금 적혀 있는 본문을 “' + ref + '” 개역개정 · NIV 로 바꿀까요?')) return;
+  BIBLE_BUSY = ref;
+  if (msg) { msg.className = 'msg'; msg.textContent = '“' + ref + '” 본문을 가져오는 중…'; }
+  callServer('bulletinFetchBible', [TOKEN, ref], function (v) {
+    BIBLE_BUSY = '';
+    if (String(B.bible.ref || '').trim() !== ref) return;           // 그 사이 구절을 바꿨으면 버림
+    if (!force && (String(B.bible.text || '').trim() || String(B.bible.textEn || '').trim())) return;
+    if (v.ko) B.bible.text = v.ko.text;
+    if (v.en) B.bible.textEn = v.en.text;
+    markDirty();
+    // 입력 중인 칸의 커서를 빼앗지 않게 화면 전체를 다시 그리지 않고 두 칸만 바꿉니다
+    var tk = document.querySelector('textarea[oninput^="B.bible.text="]'), te = document.querySelector('textarea[oninput^="B.bible.textEn="]');
+    if (tk && v.ko) tk.value = v.ko.text;
+    if (te && v.en) te.value = v.en.text;
+    if (!tk && !te) paintPane();
+    var m2 = el('bibleMsg');
+    if (m2) { m2.className = 'msg ' + (v.warn ? 'err' : 'ok'); m2.textContent = '채웠습니다: ' + [v.ko && v.ko.translation, v.en && 'NIV'].filter(Boolean).join(' · ') + (v.warn ? ' — ' + v.warn : ''); }
+  }, function (e) {
+    BIBLE_BUSY = '';
+    var m2 = el('bibleMsg'); if (m2) { m2.className = 'msg err'; m2.textContent = e.message || String(e); }
+  });
 }
 /* 한글 책 이름 → 영어 (BibleGateway 주소용) */
-var BOOK_CODES = ['gen','exo','lev','num','deu','jos','jdg','rut','1sa','2sa','1ki','2ki','1ch','2ch','ezr','neh','est','job','psa','pro','ecc','sng','isa','lam','jer','ezk','dan','hos','jol','amo','oba','jon','mic','nam','hab','zep','hag','zec','mal','mat','mrk','luk','jhn','act','rom','1co','2co','gal','eph','php','col','1th','2th','1ti','2ti','tit','phm','heb','jas','1pe','2pe','1jn','2jn','3jn','jud','rev'];
+var BOOK_CODES = ['gen','exo','lev','num','deu','jos','jdg','rut','1sa','2sa','1ki','2ki','1ch','2ch','ezr','neh','est','job','psa','pro','ecc','sng','isa','jer','lam','ezk','dan','hos','jol','amo','oba','jon','mic','nam','hab','zep','hag','zec','mal','mat','mrk','luk','jhn','act','rom','1co','2co','gal','eph','php','col','1th','2th','1ti','2ti','tit','phm','heb','jas','1pe','2pe','1jn','2jn','3jn','jud','rev'];
 /** 대한성서공회 개역개정 본문 주소 */
 function korUrl(ref) {
   var q = String(ref || '').trim();

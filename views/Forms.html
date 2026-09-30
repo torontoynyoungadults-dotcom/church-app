@@ -279,13 +279,32 @@ body .fcard:hover,
   body input:disabled, body select:disabled, body textarea:disabled {
     color: #CFC9C1 !important; opacity: 1 !important;
   }
+  /* v6 — 설문 · 투표 */
+  .fx-badge.sv { background: rgba(139,92,246,.24); color: #E0D5FF; border-color: rgba(167,139,250,.6); }
+  .fx-badge.au { background: rgba(34,197,94,.18); color: #C9F7D8; border-color: rgba(74,222,128,.5); }
+  .fx-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .fx-kind button { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--hair-2, rgba(0,0,0,.2)); background: transparent; color: inherit; cursor: pointer; font: inherit; }
+  .fx-kind button b { font-size: 15px; } .fx-kind button small { font-size: 12.5px; opacity: .75; line-height: 1.4; }
+  .fx-kind button.on { border-color: var(--tone, #D2511F); background: rgba(var(--tone-rgb, 210,81,31), .10); box-shadow: 0 0 0 3px rgba(var(--tone-rgb, 210,81,31), .12); }
+  .fx-svset { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hair, rgba(0,0,0,.1)); }
+  .fx-svset .lkchg { display: flex; gap: 9px; align-items: flex-start; margin: 0 0 10px; }
+  .fx-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 12px; background: rgba(127,127,127,.14); flex-wrap: wrap; }
+  .fx-seg label { padding: 7px 13px; border-radius: 9px; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .fx-seg label input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .fx-seg label.on { background: var(--tone, #D2511F); color: #fff; }
+  .fx-chip.all { opacity: .8; }
+  .fx-part { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; }
+  .fx-part .bar { flex: 1 1 200px; height: 10px; border-radius: 99px; background: rgba(127,127,127,.2); overflow: hidden; }
+  .fx-part .bar i { display: block; height: 100%; background: var(--tone, #D2511F); border-radius: 99px; }
+  .fx-pend { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fx-pend span { padding: 4px 10px; border-radius: 99px; background: rgba(127,127,127,.14); font-size: 13px; }
 </style>
 </head>
 <body>
 <div class="shell">
   <header>
     <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
-    <h1>일반 신청서 관리</h1>
+    <h1>각종 Form 관리</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; FORMS</p>
   </header>
   <div id="root"><div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div></div>
@@ -317,7 +336,7 @@ function typeOf(k) { var h = null; (D && D.types || []).forEach(function (t) { i
 
 function boot() {
   if (!TOKEN) {
-    el('root').innerHTML = '<div class="panel"><p class="msg err">포털에서 “일반 신청서 관리” 로 들어와 주세요.</p>' +
+    el('root').innerHTML = '<div class="panel"><p class="msg err">포털에서 “각종 Form 관리” 로 들어와 주세요.</p>' +
       '<a class="btn full" href="?page=portal">포털로 가기</a></div>';
     return;
   }
@@ -342,7 +361,9 @@ function drawList() {
   var card = function (f) {
     /* Step 7: 공유로 "결과만" 볼 수 있는 신청서는 고치기 화면 대신 바로 결과로 갑니다 */
     return '<div class="fcard" onclick="' + (f.viewOnly ? 'showResults' : 'openForm') + '(\'' + jsq(f.id) + '\')">' +
-      '<div class="fb"><div class="ft">' + esc(f.title) + (f.viewOnly ? '<span class="fx-badge">결과 보기</span>' : '') + '</div>' +
+      '<div class="fb"><div class="ft">' + esc(f.title) + (f.viewOnly ? '<span class="fx-badge">결과 보기</span>' : '') +
+        (f.kind === 'survey' ? '<span class="fx-badge sv">📊 투표' + (f.anonymous ? ' · 익명' : '') + '</span>' : '') +
+        ((f.audience || []).length ? '<span class="fx-badge au">👥 ' + esc(audLabel(f.audience)) + '</span>' : '') + '</div>' +
       '<div class="fm"><span class="st ' + esc(f.status) + '">' + esc(f.status) + '</span> &nbsp;' +
       esc(f.team || f.owner) + ' &middot; 문항 ' + f.qn + '개' +
       (f.closeAt ? ' &middot; ~' + esc(f.closeAt) : '') +
@@ -350,7 +371,7 @@ function drawList() {
       (f.full ? ' &middot; <b>정원 참</b>' : '') +
       (f.status === '받는중' && !f.live ? ' &middot; <b>' + esc(f.why) + '</b>' : '') +
       '</div></div>' +
-      '<div class="fn"><b>' + f.count + '</b><span>신청</span></div></div>';
+      '<div class="fn"><b>' + f.count + '</b><span>' + (f.kind === 'survey' ? '참여' : '신청') + '</span></div></div>';
   };
   el('root').innerHTML =
     (D.viewer ? '<div class="panel"><span class="chip">공유받은 신청서</span>' +
@@ -358,6 +379,11 @@ function drawList() {
     '<div class="panel"><span class="chip">신청서 만들기</span>' +
       '<p class="hint">본보기를 고르면 문항이 채워진 채로 열립니다. 문항은 얼마든지 고치실 수 있습니다.</p>' +
       '<div class="tpl" id="tplBox"><i class="skel line" style="width:60%;"></i></div>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">📊 설문 · 투표 만들기</span>' +
+      '<p class="hint">카카오톡 투표처럼 — 익명 · 결과 바로 보기 · 참여자가 항목 더하기 · 마감 · 아직 안 한 분께 다시 알림. ' +
+      (D.committee ? '대상은 전체 · 팀장들 · 셀장들 · 특정 팀 · 셀 · 한 사람씩 고를 수 있습니다.' : '팀장님은 <b>우리 팀</b>을 대상으로 만듭니다.') + '</p>' +
+      '<div class="tpl" id="svBox"><i class="skel line" style="width:60%;"></i></div>' +
     '</div>') +
     (live.length ? '<div class="panel flush"><div style="padding:16px 15px 4px;"><span class="chip">신청 받는 중</span></div>' +
       live.map(card).join('') + '</div>' : '') +
@@ -374,6 +400,12 @@ function drawTemplates() {
     if (!b) return;
     var list = (r.mine || []).concat(r.builtin || []);
     window.__TPL = list;
+    window.__SV = r.surveys || [];
+    var sb = el('svBox');
+    if (sb) sb.innerHTML = window.__SV.map(function (t, i) {
+      return '<button type="button" onclick="newFromSurvey(' + i + ')"><span class="i">' + t.icon + '</span><span class="n">' + esc(t.name) + '</span>' +
+        '<span class="d">' + esc(t.desc || '') + '</span></button>';
+    }).join('');
     b.innerHTML = list.map(function (t, i) {
       return '<button type="button" onclick="newFromTemplate(' + i + ')">' +
         (t.mine ? '<span class="mytag">우리 본보기</span>' : '') +
@@ -405,6 +437,92 @@ function newFromTemplate(i) {
   drawEdit();
 }
 
+/* ===================== v6 — 설문 · 투표 ===================== */
+function newFromSurvey(i) {
+  var t = (window.__SV || [])[i];
+  if (!t) return;
+  var f = JSON.parse(JSON.stringify(t.form));
+  f.id = ''; f.status = '준비중'; f.target = '교인';
+  f.questions = (f.questions || []).map(function (q, n) { return normQ(q, n); });
+  f.team = D.committee ? '' : (D.teams[0] || '');
+  f.editable = true; f.notify = false; f.showCount = true; f.limit = 0; f.openAt = ''; f.closeAt = '';
+  f.audience = D.committee ? [] : D.teams.map(function (x) { return '팀:' + x; });
+  F = f;
+  drawEdit();
+}
+/** 대상 이름 — 목록 · 칩에 */
+function audName(k) {
+  if (k.indexOf('사람:') === 0) return '👤 ' + k.slice(3);
+  if (k.indexOf('팀:') === 0) return '🎵 ' + k.slice(2);
+  if (k.indexOf('셀:') === 0) return '👥 ' + k.slice(2);
+  if (k.indexOf('선교:') === 0) return '✈️ ' + k.slice(3);
+  return '⭐ ' + k + (k === '팀장' || k === '셀장' ? '들' : '');
+}
+function audLabel(list) { list = list || []; return list.length ? list.slice(0, 2).map(function (k) { return audName(k).replace(/^\S+ /, ''); }).join(', ') + (list.length > 2 ? ' 외 ' + (list.length - 2) : '') : '모두'; }
+/** 고를 수 있는 대상 — 커미티: 역할 · 팀 · 셀 · 선교팀 · 사람 / 팀장: 우리 팀 · 우리 팀 사람 */
+function audOptions() {
+  var o = '';
+  if (D.committee) {
+    o += '<optgroup label="역할">' + ['팀장', '셀장', '커미티', '새가족팀', '회계팀'].map(function (k) { return '<option value="' + k + '">' + k + (k === '팀장' || k === '셀장' ? '들 (모든 ' + k + ')' : '') + '</option>'; }).join('') + '</optgroup>';
+    var g = {};
+    (D.targets || []).forEach(function (x) { if (/^(팀|셀|선교):/.test(x.key)) (g[x.group] = g[x.group] || []).push(x); });
+    Object.keys(g).forEach(function (k) { o += '<optgroup label="' + esc(k) + '">' + g[k].map(function (x) { return '<option value="' + esc(x.key) + '">' + esc(x.name) + ' (' + x.n + '명)</option>'; }).join('') + '</optgroup>'; });
+  } else {
+    o += '<optgroup label="우리 팀">' + D.teams.map(function (x) { return '<option value="' + esc('팀:' + x) + '">' + esc(x) + '</option>'; }).join('') + '</optgroup>';
+  }
+  if ((D.people || []).length) o += '<optgroup label="한 사람씩">' + D.people.map(function (n) { return '<option value="' + esc('사람:' + n) + '">' + esc(n) + '</option>'; }).join('') + '</optgroup>';
+  return o;
+}
+function drawAud() {
+  var b = el('audChips'); if (!b) return;
+  var a = F.audience || [];
+  b.innerHTML = a.length ? a.map(function (k, i) { return '<span class="fx-chip">' + esc(audName(k)) + '<button type="button" onclick="delAud(' + i + ')" aria-label="빼기">&times;</button></span>'; }).join('')
+    : '<span class="fx-chip all">' + (D.committee ? '🌐 모두 (대상 없음)' : '🎵 우리 팀 (저장하면 자동)') + '</span>';
+  var m = el('audN');
+  if (!a.length) { if (m) m.textContent = ''; return; }
+  if (m) m.textContent = '대상 세는 중…';
+  callServer('surveyAudience', [TOKEN, a], function (r) { var m2 = el('audN'); if (m2) m2.textContent = r.n == null ? '' : '대상 ' + r.n + '명 — 이분들에게만 포털에 보이고, 이분들만 참여할 수 있습니다.'; },
+    function (e) { var m2 = el('audN'); if (m2) { m2.className = 'msg err'; m2.textContent = e.message || String(e); } });
+}
+function addAud() {
+  var s = el('audSel'); if (!s || !s.value) return;
+  F.audience = F.audience || [];
+  if (F.audience.indexOf(s.value) === -1) F.audience.push(s.value);
+  drawAud();
+}
+function delAud(i) { F.audience.splice(i, 1); drawAud(); }
+function setKind(k) {
+  pullForm();
+  F.kind = k === 'survey' ? 'survey' : 'form';
+  if (F.kind === 'survey' && !F.survey) F.survey = { anonymous: false, results: 'after', allowAdd: false };
+  drawEdit();
+}
+/** 만들기 화면 — 종류 · 설문 설정 · 대상 */
+function surveyPanels() {
+  var sv = F.kind === 'survey', s = F.survey || {};
+  var res = s.results || 'after';
+  return '<div class="panel"><span class="chip">종류</span>' +
+      '<div class="fx-kind" role="radiogroup" aria-label="종류">' +
+        '<button type="button" role="radio" aria-checked="' + !sv + '" class="' + (sv ? '' : 'on') + '" onclick="setKind(\'form\')"><b>📝 신청서</b><small>수련회 · 주문 · 인원 조사 — 이름 · 연락처가 함께</small></button>' +
+        '<button type="button" role="radio" aria-checked="' + sv + '" class="' + (sv ? 'on' : '') + '" onclick="setKind(\'survey\')"><b>📊 설문 · 투표</b><small>익명 · 결과 공개 · 항목 추가 — 카카오톡 투표처럼</small></button>' +
+      '</div>' +
+      (sv ? '<div class="fx-svset">' +
+        '<label class="lkchg"><input type="checkbox" id="svAnon"' + (s.anonymous ? ' checked' : '') + '><span>🙈 익명으로 받기<em style="display:block;color:var(--ink-3);font-size:13px;">결과 · 엑셀에 이름 · 연락처가 나오지 않습니다 (한 사람 한 번만 참여)</em></span></label>' +
+        '<label class="lkchg"><input type="checkbox" id="svAdd"' + (s.allowAdd ? ' checked' : '') + '><span>➕ 참여자가 항목을 더할 수 있게<em style="display:block;color:var(--ink-3);font-size:13px;">고르기 문항에 "항목 추가" 칸이 생기고, 더한 항목은 모두에게 보입니다</em></span></label>' +
+        '<p class="fl" style="margin:10px 0 6px;">참여자에게 결과 보여주기</p>' +
+        '<div class="fx-seg">' + [['after', '참여한 뒤'], ['always', '언제나'], ['hidden', '만든 사람만']].map(function (o) {
+          return '<label class="' + (res === o[0] ? 'on' : '') + '"><input type="radio" name="svRes" value="' + o[0] + '"' + (res === o[0] ? ' checked' : '') + ' onchange="pullForm();drawEdit()">' + o[1] + '</label>'; }).join('') + '</div>' +
+        '<p class="hint" style="margin:8px 0 0;">다시 투표(고치기)는 아래 "낸 뒤에도 고칠 수 있게", 마감은 "닫는 날"로 정합니다.</p>' +
+      '</div>' : '') +
+    '</div>' +
+    '<div class="panel"><span class="chip">👥 누가 보고 참여하나요</span>' +
+      '<div class="fx-chips" id="audChips"></div>' +
+      '<div class="fx-addrow"><select id="audSel" style="flex:1 1 200px;" aria-label="대상 고르기"><option value="">대상 더하기…</option>' + audOptions() + '</select>' +
+        '<button type="button" class="btn mini" onclick="addAud()">+ 대상 넣기</button></div>' +
+      '<p class="msg" id="audN"></p>' +
+      '<p class="hint" style="margin:6px 0 0;">' + (D.committee ? '비워 두면 예전처럼 모두에게 보입니다. 여러 곳을 섞어 고를 수 있습니다 (예: 팀장들 + 커미티).' : '팀장님은 우리 팀과 우리 팀 사람만 고를 수 있습니다. 비워 두면 우리 팀으로 정해집니다.') + '</p>' +
+    '</div>';
+}
 function normQ(q, i) {
   var o = { id: q.id || ('q' + (i + 1) + Math.random().toString(36).slice(2, 5)), type: q.type || 'text',
     label: q.label || '', help: q.help || '', req: !!q.req, opts: q.opts || [], other: !!q.other,
@@ -501,6 +619,7 @@ function drawEdit() {
         '<input type="checkbox" id="fInvite"' + (F.inviteOnly ? ' checked' : '') + '>' +
         '<span>초대 링크로만 신청받기<em style="display:block;color:var(--ink-3);font-size:13px;">켜면 포털 목록엔 안 뜨고, "신청 받는다고 알리기"로 보낸 링크를 받은 분만 들어올 수 있습니다</em></span></label>' +
     '</div>' +
+    surveyPanels() +
     '<div class="panel"><span class="chip">신청 결과 공유 범위</span>' +
       [['team', '우리 팀 전체'], ['owner', '만든 사람 · 커미티만']].map(function (o) {
         var on = (F.resultsShare || 'team') === o[0];
@@ -567,6 +686,7 @@ function drawEdit() {
       '<p class="msg" id="tplMsg"></p>' +
     '</div>' : '');
   mountDescEditor();
+  drawAud();
   AN = [];
   drawAnChips();
   if (F.id) { drawShares(); drawShareNames(); }
@@ -642,6 +762,13 @@ function pullForm() {
   F.inviteOnly = el('fInvite') ? el('fInvite').checked : false;
   F.resultsShare = F.resultsShare === 'owner' ? 'owner' : 'team';
   F.status = el('fStatus').value;
+  if (F.kind === 'survey') {                                        // v6
+    F.survey = F.survey || {};
+    if (el('svAnon')) F.survey.anonymous = el('svAnon').checked;
+    if (el('svAdd')) F.survey.allowAdd = el('svAdd').checked;
+    var rr = document.querySelector('input[name="svRes"]:checked'); if (rr) F.survey.results = rr.value;
+  }
+  F.audience = F.audience || [];
   pullQuestions();
 }
 
@@ -1222,7 +1349,7 @@ function drawResults(r) {
       cells.slice(0, 4).map(function (c) { return '<td>' + c + '</td>'; }).join('') +
       '<td class="stc">' + stCell + '</td>' +                     // 상태는 이름 옆에 (가로로 밀지 않아도 보이게)
       cells.slice(4).map(function (c) { return '<td class="wrap">' + c + '</td>'; }).join('') +
-      (canEdit ? '<td class="dr"><button class="drop" title="이 신청 지우기" onclick="dropAnswer(\'' + jsq(a.name) + '\')">&times;</button></td>' : '') + '</tr>';
+      (canEdit && !r.anonymous ? '<td class="dr"><button class="drop" title="이 신청 지우기" onclick="dropAnswer(\'' + jsq(a.name) + '\')">&times;</button></td>' : (canEdit ? '<td></td>' : '')) + '</tr>';
   }).join('');
 
   var cnt = r.counts || {};
@@ -1253,6 +1380,7 @@ function drawResults(r) {
       '<p class="hint" style="margin-bottom:0;">신청하는 분은 포털 첫 화면에서 이 신청서를 보게 됩니다. ' +
       '<span class="lnk">' + esc(link) + '</span></p>' +
     '</div>' +
+    partPanel(r) +
     (bars ? '<div class="panel"><span class="chip">한눈에 보기</span>' + bars + '</div>' : '') +
     '<div class="panel"><span class="chip">신청한 분들</span>' + chips + bulk +
       (shown.length
@@ -1263,6 +1391,27 @@ function drawResults(r) {
         : '<p class="empty">' + (r.rows.length ? '이 상태인 분이 없습니다.' : '아직 신청한 분이 없습니다.') + '</p>') +
       '<p class="msg" id="resMsg"></p>' +
     '</div>';
+}
+
+/** v6 — 참여 현황 (대상 중 몇 명 · 아직 안 한 분 · 다시 알림) */
+function partPanel(r) {
+  var p = r.participation, f = r.form;
+  if (!p && !r.anonymous) return '';
+  var pct = p && p.total ? Math.round(p.done / p.total * 100) : 0;
+  return '<div class="panel"><span class="chip">' + (f.kind === 'survey' ? '📊 참여 현황' : '참여 현황') + '</span>' +
+    (r.anonymous ? '<p class="hint" style="margin:0 0 10px;">🙈 <b>익명</b> — 누가 무엇을 골랐는지는 만든 사람도 볼 수 없습니다.</p>' : '') +
+    (p ? '<div class="fx-part"><div class="bar"><i style="width:' + pct + '%"></i></div><b>' + p.done + ' / ' + p.total + '명</b> 참여 (' + pct + '%)</div>' +
+      (p.pendingN ? '<p class="fl" style="margin:10px 0 4px;">아직 안 한 분 ' + p.pendingN + '명</p>' +
+        (p.pending.length ? '<div class="fx-pend">' + p.pending.map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('') + '</div>' : '') +
+        (r.canEdit !== false && f.status === '받는중' ? '<div class="fx-addrow" style="margin-top:10px;"><button class="btn mini accent" onclick="remindNow(false)">🔔 아직 안 한 분께 다시 알림</button><button class="btn mini" onclick="remindNow(true)">🔔 + 이메일</button></div>' : '')
+        : '<p class="msg ok" style="margin:8px 0 0;">대상 모두 참여했습니다 🎉</p>') : '') +
+    '<p class="msg" id="remMsg"></p></div>';
+}
+function remindNow(mail) {
+  if (!R) return;
+  say('remMsg', '보내는 중…');
+  callServer('surveyRemind', [TOKEN, R.form.id, { mail: !!mail }], function (x) { say('remMsg', x.pending ? x.pending + '명께 다시 알렸습니다' + (x.mail ? ' (이메일 ' + x.mail + '명)' : '') + '.' : '모두 참여했습니다.', 'ok'); },
+    function (e) { say('remMsg', e.message || String(e), 'err'); });
 }
 
 /* ===================== Step 7 — 신청 상태 태그 ===================== */

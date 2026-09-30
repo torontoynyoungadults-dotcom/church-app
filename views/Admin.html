@@ -5625,7 +5625,7 @@ function drawTodayVerse() {
         '<button class="btn accent" onclick="qtSheetSave()">연결</button></div>') +
     '<p class="msg" id="qtSheetMsg"></p></div>' +
     '<div class="noteBox" style="margin-bottom:12px;"><div class="noteRow" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">' +
-      '<span><b>매일 자동 묵상</b><br><small>그날 확정한 말씀이 없으면 새벽 4:30에 본문(QT 시트 → 온라인 성경 읽기표 → 추천 구절, 개역한글)을 정하고 AI 가이드까지 만들어 둡니다.</small></span>' +
+      '<span><b>매일 자동 묵상</b><br><small>그날 확정한 말씀이 없으면 새벽 4:30에 본문(QT 시트 → 온라인 성경 읽기표 → 추천 구절, 개역개정 + NIV)을 정하고 AI 가이드까지 만들어 둡니다.</small></span>' +
       '<label style="display:flex;align-items:center;gap:6px;white-space:nowrap;"><input type="checkbox" id="tvAuto"' + (TV_AUTO && TV_AUTO.on ? ' checked' : '') + (TV_AUTO ? '' : ' disabled') + ' onchange="tvAutoSet(this.checked)"> 켜기</label></div>' +
       (TV_AUTO && !TV_AUTO.ai ? '<p class="hint" style="margin:6px 0 0;">AI 가 꺼져 있어 자동 묵상도 쉬고 있습니다.</p>' : '') + '</div>' +
     '<div class="two">' +
@@ -5633,6 +5633,9 @@ function drawTodayVerse() {
       '<div class="f"><label>구절 표기</label><input type="text" id="tvVerse" value="' + esc(tvDraft.verse || '') + '" placeholder="예) 요한복음 3:16"></div>' +
     '</div>' +
     '<div class="f"><label>본문 텍스트</label><textarea id="tvText" style="min-height:110px;" placeholder="본문을 그대로 붙여넣어 주세요.">' + esc(tvDraft.text || '') + '</textarea></div>' +
+    '<div class="addrow">' +
+      '<button class="btn" style="flex:1;" onclick="tvFetchBible()" ' + (TV_BUSY ? 'disabled' : '') + '>📖 구절로 본문 채우기 (개역개정 + NIV)</button>' +
+    '</div>' +
     '<div class="addrow">' +
       '<button class="btn" style="flex:1;" onclick="tvFetchQT()" ' + (TV_BUSY ? 'disabled' : '') + '>' + (TV_BUSY ? '가져오는 중…' : '시트에서 이 날짜 본문 가져오기') + '</button>' +
       '<button class="btn" style="flex:1;" id="tvOnlineBtn" onclick="tvFetchOnline()" ' + (TV_BUSY ? 'disabled' : '') + '>' + (TV_BUSY ? '가져오는 중…' : '🌐 온라인 성경 읽기표에서 가져오기') + '</button>' +
@@ -5699,7 +5702,22 @@ function tvFetchOnline() {
     TV_BUSY = false;
     tvDraft = { __date: date, verse: r.verse, text: r.text, explain: r.explain, questions: r.questions, apply: r.apply, prayer: r.prayer };
     drawTodayVerse();
-    say('tvMsg', (r.aiError ? '본문은 가져왔지만 AI 는 실패했습니다: ' + r.aiError : '본문(' + (r.from || '온라인') + ', 개역한글)과 AI 묵상 자료를 채웠습니다. 확인하고 저장해주세요.'), r.aiError ? 'err' : 'ok');
+    say('tvMsg', (r.aiError ? '본문은 가져왔지만 AI 는 실패했습니다: ' + r.aiError : '본문(' + (r.from || '온라인') + ')과 AI 묵상 자료를 채웠습니다. 확인하고 저장해주세요.'), r.aiError ? 'err' : 'ok');
+  }, function (e) { TV_BUSY = false; drawTodayVerse(); say('tvMsg', e.message || e, 'err'); });
+}
+/** v6 — 적어 둔 구절 표기로 개역개정 + NIV 본문 채우기 (logic/bible6.js) */
+function tvFetchBible() {
+  if (TV_BUSY) return;
+  if (!tvDraft) tvDraft = {};
+  tvSyncDraft();
+  var ref = String(tvDraft.verse || (el('tvVerse') || {}).value || '').trim();
+  if (!ref) return say('tvMsg', '구절 표기를 먼저 적어주세요. 예) 요한복음 3:16-21', 'err');
+  if (String(tvDraft.text || '').trim() && !confirm('본문 칸을 “' + ref + '” 개역개정 + NIV 로 바꿀까요?')) return;
+  TV_BUSY = true; drawTodayVerse(); say('tvMsg', '본문을 가져오는 중…');
+  callServer('adminFetchBible', [KEY, ref], function (r) {
+    TV_BUSY = false;
+    tvDraft.verse = r.ref || ref; tvDraft.text = r.text;
+    drawTodayVerse(); say('tvMsg', '본문을 채웠습니다 (' + r.tr + ').' + (r.warn ? ' ' + r.warn : ''), r.warn ? 'err' : 'ok');
   }, function (e) { TV_BUSY = false; drawTodayVerse(); say('tvMsg', e.message || e, 'err'); });
 }
 function tvAutoSet(on) {

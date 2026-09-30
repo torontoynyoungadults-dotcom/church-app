@@ -247,6 +247,12 @@ body .fcard:hover,
   body input:disabled, body select:disabled, body textarea:disabled {
     color: #CFC9C1 !important; opacity: 1 !important;
   }
+  /* v6 — 개역개정 + NIV 짝 */
+  .vpair p { margin: 0; line-height: 1.7; }
+  .vpair .vko { margin-top: 8px; }
+  .vpair .ven { font-size: .92em; opacity: .78; font-style: italic; }
+  .vpair .vn { display: inline-block; min-width: 1.6em; font-weight: 800; font-style: normal; color: var(--or, #F58A4B); font-size: .85em; }
+  .vpair .vtr { margin-top: 10px; font-size: 12px; opacity: .6; }
 </style>
 </head>
 <body>
@@ -284,6 +290,22 @@ function boot() {
   });
 }
 
+/** v6 — 본문 칸: 한글 줄 뒤에 "[NIV]" 와 영어 줄이 있으면 같은 절끼리 짝지어 (한글 → 영어) 보여 줍니다 */
+function versesHtml(text) {
+  var parts = String(text || '').split(/\n\s*\[NIV\]\s*\n/);
+  if (parts.length < 2) return '<p>' + esc(text).replace(/\n/g, '<br>') + '</p>';
+  var en = {}, rest = [];
+  parts[1].split('\n').forEach(function (x) { var m = /^\s*(\d+)\s+(.*)$/.exec(x); if (m) en[m[1]] = m[2]; else if (x.trim()) rest.push(x.trim()); });
+  var used = {};
+  var h = parts[0].split('\n').filter(function (x) { return x.trim(); }).map(function (ln) {
+    var m = /^\s*(\d+)\s+(.*)$/.exec(ln);
+    var e = m && en[m[1]]; if (e) used[m[1]] = 1;
+    return '<p class="vko">' + (m ? '<span class="vn">' + m[1] + '</span>' + esc(m[2]) : esc(ln)) + '</p>' + (e ? '<p class="ven">' + esc(e) + '</p>' : '');
+  }).join('');
+  Object.keys(en).forEach(function (k) { if (!used[k]) h += '<p class="ven"><span class="vn">' + k + '</span>' + esc(en[k]) + '</p>'; });
+  return '<div class="vpair">' + h + rest.map(function (x) { return '<p class="ven">' + esc(x) + '</p>'; }).join('') + '<p class="vtr">개역개정 · NIV</p></div>';
+}
+
 function draw() {
   var h = '';
 
@@ -292,7 +314,7 @@ function draw() {
     h += '<div class="panel"><span class="chip">오늘의 말씀</span>' +
       '<p class="hint" style="margin-bottom:10px;">' + esc(tf.date) + ' · 커미티가 정한 오늘의 본문입니다. 모두가 같은 말씀을 읽습니다.</p>' +
       '<div class="fixedverse"><b>' + esc(tf.verse) + '</b>' +
-      '<p>' + esc(tf.text).replace(/\n/g, '<br>') + '</p></div>';
+      versesHtml(tf.text) + '</div>';
     if (tf.explain && tf.explain.length) {
       h += '<div class="vsec"><h4>📖 쉬운 해설</h4><ul>';
       tf.explain.forEach(function (t) { h += '<li>' + esc(t) + '</li>'; });

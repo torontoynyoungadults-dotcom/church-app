@@ -39,7 +39,8 @@
     "test:step31": "node scripts/test-step31.js && node scripts/browser/e2e-step31.js && node scripts/browser/e2e-step31b.js",
     "test:step33": "node scripts/test-step33.js && node scripts/browser/e2e-step33.js",
     "test:step32": "node scripts/test-step32.js && node scripts/browser/e2e-step32.js",
-    "test:step34": "node scripts/test-step34.js && node scripts/browser/e2e-step34.js"
+    "test:step34": "node scripts/test-step34.js && node scripts/browser/e2e-step34.js",
+    "test:v6": "node scripts/test-v6.js && node scripts/browser/e2e-v6.js"
   },
   "engines": {
     "node": ">=20"

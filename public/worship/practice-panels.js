@@ -151,7 +151,9 @@
       function attach(host) {
         if (!host) return;
         if (!el) build();
-        if (host.firstChild !== el) host.insertBefore(el, host.firstChild);
+        var fl = P.el.querySelector('.pv-metro');                         // v6 — 떠 있는 메트로놈 창이 있으면 그 안에 (도구 도크와 따로 옮김)
+        if (fl) { if (el.parentNode !== fl) fl.appendChild(el); }
+        else if (host.firstChild !== el) host.insertBefore(el, host.firstChild);
         sync();
       }
       function destroy() { if (el && el.parentNode) el.parentNode.removeChild(el); el = goB = bpmB = ttsB = dot = null; }
@@ -487,9 +489,9 @@
           '<label class="pv-chk">딸깍 종류 <select data-o="sound"><option value="wood">우드</option><option value="beep">삐</option><option value="click">클릭</option><option value="mute">딸깍만 (음성 끔)</option></select></label>' +
           '<div class="pv-help" data-role="lat"></div></div>' +
         '<div class="pv-sec"><h4>팀과 함께</h4>' +
-          '<label class="pv-chk"><input type="checkbox" data-o="send"> 내가 페이지/클릭 컨트롤일 때 큐를 팀 전체에 보내기</label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="send"> 내가 페이지 컨트롤일 때 큐를 팀 전체에 보내기</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="recv"> 컨트롤이 보낸 큐 받기 (이 기기에서 소리 나게)</label>' +
-          '<p class="pv-help">딸깍 소리는 기기마다 각자 냅니다 (소리를 주고받지 않아요). 클릭 컨트롤이 정한 BPM · 박자 · 시작/멈춤만 모두에게 전달되어, 각 기기가 같은 시각에 자기 소리로 시작합니다. 큐 이름도 각 기기에서 자기 박자에 맞춰 소리 납니다.</p></div>';
+          '<p class="pv-help">딸깍 소리는 기기마다 각자 냅니다. 메트로놈(BPM · 박자 · 시작/멈춤)은 팀과 맞추지 않고 각자 조절합니다 — 페이지만 함께 넘어갑니다.</p></div>';
       var q = function (s) { return host.querySelector(s); };
       var dotsEl = q('[data-role="dots"]'), toggleB = q('[data-role="toggle"]'), msg = q('[data-role="msg"]'), bpmIn = q('[data-role="bpm"]');
       function say(t, bad) { msg.textContent = t || ''; msg.className = 'pv-msg2' + (bad ? ' bad' : ''); }
@@ -659,23 +661,16 @@
           ({ online: '● 실시간 연결됨 — ' + rt.peers.length + '명 접속 중', connecting: '○ 연결하는 중…', offline: '○ 연결이 끊겼습니다. 자동으로 다시 연결합니다.', unavailable: '○ 실시간 기능을 쓸 수 없어 혼자 보기로 동작합니다.', denied: '✕ 이 예배에 접속할 권한이 없습니다.', idle: '○ 준비 중' }[st] || st) + '</div>' +
           (rt && rt.error && !on ? '<div class="pv-help">' + h(rt.error) + '</div>' : '') + '</div>';
         if (on) {
-          html += '<div class="pv-sec pv-syncsec ' + (manual ? 'off' : 'on') + '"><h4>동기화</h4><label class="pv-switch"><input type="checkbox" data-a="manual"' + (manual ? ' checked' : '') + '><span></span><b>동기화 모두 끄기 (수동)</b></label>' +
-            '<p class="pv-help">' + (manual ? '지금은 <b>꺼져 있습니다.</b> 내 악보 화면과 메트로놈은 팀과 상관없이 따로 움직이고, 남이 넘기는 쪽 · 바꾸는 BPM · 시작/멈춤 · 큐를 모두 무시합니다. 내가 하는 조작도 팀에 보내지 않습니다. 다시 켜면 팀의 현재 화면 · 박자로 바로 맞춥니다.' : '켜 두면(기본) 페이지 컨트롤이 넘기는 쪽과 클릭 컨트롤이 정하는 BPM · 박자 · 시작/멈춤을 따라갑니다. 내 화면 · 박자만 따로 쓰고 싶을 때 "동기화 끄기"를 켜세요.') + '</p></div>';
           html += '<div class="pv-sec"><h4>접속한 사람</h4><ul class="pv-peers">' + rt.peers.map(function (p) {
             return '<li class="' + (p.lead || p.click ? 'lead' : '') + '">' + (p.lead ? '📄 ' : '') + (p.click ? '🎚 ' : '') + h(p.name) +
-              (p.lead ? ' <small>(페이지 컨트롤)</small>' : '') + (p.click ? ' <small>(클릭 컨트롤)</small>' : '') + (p.canLead && !p.lead && !p.click ? ' <small>(컨트롤 가능)</small>' : '') + (p.follow && p.follow.page === false ? ' <small class="pv-pf">· 페이지 따로</small>' : '') + (p.follow && p.follow.metro === false ? ' <small class="pv-pf">· 메트로놈 따로</small>' : '') + '</li>'; }).join('') + '</ul></div>';
+              (p.lead ? ' <small>(페이지 컨트롤)</small>' : '') + (p.click ? ' <small>(클릭 컨트롤)</small>' : '') + (p.canLead && !p.lead && !p.click ? ' <small>(컨트롤 가능)</small>' : '') + (p.follow && p.follow.page === false ? ' <small class="pv-pf">· 페이지 따로</small>' : '') + '</li>'; }).join('') + '</ul></div>';
           html += '<div class="pv-sec"><h4>📄 페이지 컨트롤</h4><p class="pv-help">' + (mine ? '지금 내가 페이지 컨트롤입니다. 내가 넘기는 악보 · 쪽 · 확대를 따라가기를 켠 사람들이 그대로 따라옵니다.' : lead ? h(lead) + ' 님이 페이지 컨트롤입니다.' : '아직 페이지 컨트롤이 없습니다.') + '</p><div class="pv-row">' +
             (P.canLead() ? (mine ? '<button class="pv-btn2" data-a="release">페이지 컨트롤 내려놓기</button>' : lead ? '<button class="pv-btn2 warn" data-a="force">페이지 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="claim">📄 내가 페이지 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div></div>';
-          html += '<div class="pv-sec"><h4>🎚 클릭 컨트롤</h4><p class="pv-help">' + (cmine ? '지금 내가 클릭 컨트롤입니다. 내가 누르는 시작 · 멈춤 · BPM · 박자 · 강세를 모두의 메트로놈이 따라옵니다. (소리는 각자 기기에서 냅니다)' : clk ? h(clk) + ' 님이 클릭 컨트롤입니다. 그분이 누르는 시작 · 멈춤 · BPM · 박자를 이 기기의 메트로놈이 따라갑니다.' : '아직 클릭 컨트롤이 없습니다. 없으면 메트로놈은 각자 자유롭게 씁니다.') + '</p><div class="pv-row">' +
-            (P.canLead() ? (cmine ? '<button class="pv-btn2" data-a="crelease">클릭 컨트롤 내려놓기</button>' : clk ? '<button class="pv-btn2 warn" data-a="cforce">클릭 컨트롤 넘겨받기</button>' : '<button class="pv-btn2 primary" data-a="cclaim">🎚 내가 클릭 컨트롤 하기</button>') : '<span class="pv-help">팀장 · 인도자만 컨트롤을 맡을 수 있습니다.</span>') + '</div>' +
-            '<p class="pv-help">페이지 컨트롤과 클릭 컨트롤은 서로 독립입니다 — 한 사람이 둘 다 맡아도 되고, 나눠 맡아도 됩니다.</p></div>';
-          html += '<div class="pv-sec pv-follows"><h4>따라가기 (각각 따로 켜고 끕니다)</h4>' +
+          html += '<div class="pv-sec pv-follows"><h4>따라가기</h4>' +
             '<label class="pv-switch"><input type="checkbox" data-a="follow"' + (fp ? ' checked' : '') + '><span></span><b>페이지 컨트롤 따라가기</b></label>' +
             '<p class="pv-help">' + (mine ? '내가 페이지 컨트롤입니다. 켜 두면 내가 넘기는 쪽이 팀에 전달되고, 끄면 팀에 보내지 않고 나 혼자 봅니다.' : fp ? (lead ? h(lead) + ' 님이 넘기는 쪽 · 악보 · 확대를 그대로 따라갑니다.' : '페이지 컨트롤이 생기면 그 화면을 따라갑니다.') : '끄면 페이지 컨트롤이 넘겨도 내 화면은 그대로입니다. 켜면 그 사람이 있는 곳으로 바로 돌아갑니다.') + '</p>' +
             (!fp && lead && !mine ? '<div class="pv-row"><button class="pv-btn2" data-a="now">컨트롤 화면으로 한 번만 가기</button></div>' : '') +
-            '<label class="pv-switch"><input type="checkbox" data-a="followm"' + (fm ? ' checked' : '') + '><span></span><b>메트로놈 컨트롤 따라가기</b></label>' +
-            '<p class="pv-help">' + (cmine ? '내가 클릭 컨트롤입니다. 켜 두면 내가 누르는 시작 · 멈춤 · BPM · 박자가 팀에 전달되고, 끄면 내 메트로놈만 따로 움직입니다.' : fm ? (clk ? h(clk) + ' 님이 정하는 BPM · 박자 · 시작/멈춤을 이 기기의 메트로놈이 따라갑니다.' : '클릭 컨트롤이 생기면 그 메트로놈을 따라갑니다.') : '끄면 클릭 컨트롤이 바꿔도 내 메트로놈은 그대로이고, BPM · 박자 · 시작/멈춤을 내가 직접 조절합니다. 켜면 팀 메트로놈에 바로 맞춥니다.') + '</p>' +
-            '<p class="pv-help pv-fstate">지금: ' + (fp && fm ? '<b>둘 다 켜짐</b> — 화면과 메트로놈 모두 팀과 같이' : fp ? '<b>페이지만 따라감</b> — 메트로놈은 내 것' : fm ? '<b>메트로놈만 따라감</b> — 악보는 내가 넘김' : '<b>둘 다 꺼짐</b> — 화면 · 메트로놈 모두 내 것') + ' · 이 설정은 기기와 내 계정에 저장됩니다.</p></div>';
+            '<p class="pv-help">메트로놈은 기기마다 따로 씁니다 (팀과 맞추지 않음).</p></div>';
           html += '<div class="pv-sec"><h4>큐(음성 안내)</h4><label class="pv-chk"><input type="checkbox" data-a="send"' + (P.sendCueOn() ? ' checked' : '') + '> 컨트롤일 때 큐를 팀에 보내기</label><label class="pv-chk"><input type="checkbox" data-a="recv"' + (P.recvCue() ? ' checked' : '') + '> 컨트롤의 큐 받기</label></div>';
         }
         host.innerHTML = html;

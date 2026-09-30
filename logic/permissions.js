@@ -45,7 +45,7 @@ function 권한카탈로그_() {
     { key: 'album',        area: '포털',        title: '포토 앨범',       enforced: false, allow: false, scope: '',   help: '교인은 기본으로 열려 있습니다' },
     { key: 'expense',      area: '포털',        title: '지출환급신청 (사역팀 안)', enforced: false, allow: false, scope: '',   help: '' },
     { key: 'mission',      area: '포털',        title: '선교팀 관리',     enforced: false, allow: false, scope: '',   help: '' },
-    { key: 'forms',        area: '포털',        title: '일반 신청서 관리', enforced: false, allow: false, scope: '',   help: '' },
+    { key: 'forms',        area: '포털',        title: '각종 Form 관리', enforced: false, allow: false, scope: '',   help: '' },
     { key: 'minutes',      area: '포털',        title: '회의록 · 할 일',  enforced: false, allow: false, scope: '',   help: '' },
     { key: 'acct',         area: '포털',        title: '회계 관리',       enforced: false, allow: false, scope: '',   help: '' },
     { key: 'admin.cell',   area: '커미티 관리', title: '셀 관리',         enforced: false, allow: false, scope: '',   help: '' },

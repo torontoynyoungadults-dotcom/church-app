@@ -178,6 +178,7 @@
   .tile.bulletin  { --mc: #E1601C; --mc-soft: rgba(225,96,28,.13); }
   .tile.bulletinEdit { --mc: #8A5A2B; --mc-soft: rgba(138,90,43,.14); }
   .tile.forms     { --mc: #2F6E93; --mc-soft: rgba(47,110,147,.13); }
+  .tile.cellapp   { --mc: #D2553A; --mc-soft: rgba(210,85,58,.13); }
   .tile.minutes   { --mc: #6C4FD3; --mc-soft: rgba(108,79,211,.14); }
   /* 커미티 칸은 어두운 바탕 — 한눈에 구분되게 */
   .tiles.adm .tile { background: var(--night-2); border-color: var(--hair-night); color: var(--night-ink); box-shadow: none; }
@@ -298,6 +299,7 @@
   #dash .tile.bulletinEdit { --mc: #D9A46C; --mc-soft: rgba(217,164,108,.16); }
   #dash .tile.minutes { --mc: #B4A2FF; --mc-soft: rgba(180,162,255,.16); }
   #dash .tile.forms        { --mc: #7FC4E8; --mc-soft: rgba(127,196,232,.16); }
+  #dash .tile.cellapp      { --mc: #FF8A66; --mc-soft: rgba(255,138,102,.17); }
 
   /* 청년부 일정 — 달력도 같은 유리 위에 */
   #calWrap .panel {
@@ -949,6 +951,26 @@ body .mcardlink,
   }
   body #lock .gbtn b, body .gbtn b { color: #1C1C1C !important; }
   body .pushcard .pi, body .acard .ai { color: #FFFFFF !important; }
+  /* v6 — 설문 · 투표 */
+  .tile.form.survey { --mc: #8B5CF6; --mc-soft: rgba(139,92,246,.14); }
+  #dash .tile.form.survey { --mc: #C4B5FD; --mc-soft: rgba(196,181,253,.16); }
+  html[data-theme="light"] #dash .tile.form.survey { --mc: #6D28D9; --mc-soft: rgba(109,40,217,.10); }
+  .svtags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .svtags span { padding: 5px 10px; border-radius: 99px; background: rgba(127,127,127,.14); font-size: 13px; font-weight: 600; }
+  .svadd { display: flex; gap: 6px; margin: 8px 0 4px; }
+  .svadd input { flex: 1; min-width: 0; }
+  .svsum { font-size: 15px; }
+  .svres h4 { margin: 0 0 10px; font-size: 15.5px; } .svres h4 small { font-weight: 600; opacity: .7; }
+  .capage .svsum, .capage .svbar, .capage .svwho { color: #1F1D1A; }
+  .capage .nfok h3, .capage .svres h4 { color: #1F1D1A !important; }
+  .svbig { font-size: 26px; font-weight: 800; margin-bottom: 8px; } .svbig small { font-size: 13px; font-weight: 600; opacity: .7; }
+  .svopt { margin: 0 0 8px; }
+  .svbar { position: relative; display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; overflow: hidden; background: rgba(127,127,127,.12); font-size: 14.5px; font-weight: 700; isolation: isolate; }
+  .svbar::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--p); background: rgba(var(--tone-rgb, 210,81,31), .22); z-index: -1; border-radius: 12px; transition: width .5s cubic-bezier(.2,.7,.2,1); }
+  .svopt.top .svbar::before { background: rgba(var(--tone-rgb, 210,81,31), .38); }
+  .svopt.me .svbar { box-shadow: inset 0 0 0 2px rgba(var(--tone-rgb, 210,81,31), .8); }
+  .svc { white-space: nowrap; font-variant-numeric: tabular-nums; opacity: .85; }
+  .svwho { margin: 4px 4px 0; font-size: 12.5px; opacity: .75; line-height: 1.5; }
 </style>
 <!--#include Theme-->
 <style>
@@ -2011,7 +2033,17 @@ function nfLogout() { forgetToken(); NF_TOKEN = ''; NF_HOME = null; PREFILL.link
 
 /* ---------- 셀 신청 및 교적확인 ---------- */
 
-var CA = null, CA_PICK = {}, CA_FROM = '';
+var CA = null, CA_PICK = {}, CA_FROM = '', CA_TILE = null;
+/** v6 — Teva Apps 타일 (셀 신청이 열려 있을 때만) */
+function cellAppTileHtml() {
+  var ca = CA_TILE;
+  if (!ca || ca.state !== 'open') return '';
+  var done = !!ca.submitted;
+  return '<a class="tile cellapp' + (done ? ' done' : '') + '" href="#" onclick="openCellApp();return false;" title="셀 신청 및 교적확인">' +
+    '<span class="ticon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2.5 19c.5-3 2.8-4.5 5.5-4.5s5 1.5 5.5 4.5"/><path d="M13.5 15c.8-.4 1.6-.5 2.5-.5 2.7 0 5 1.5 5.5 4.5"/></svg></span>' +
+    '<span class="tt">셀 신청 · 교적확인</span>' +
+    '<span class="td">' + esc(ca.year || '') + ' · ' + (done ? '신청 완료' : '신청 받는 중') + '</span></a>';
+}
 function cellAppBtn(ca, ro) {
   var ic = '<span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2.5 19c.5-3 2.7-4.7 5.5-4.7s5 1.7 5.5 4.7M12.5 15.2c1-.6 2.1-.9 3.5-.9 2.8 0 5 1.7 5.5 4.7"/></svg></span>';
   if (ca.state === 'locked') {
@@ -2033,7 +2065,11 @@ function renderCellApp(res) {
   if (!res) { box.innerHTML = ''; return; }
   var ca = res.cellApp || {};
   var ro = !!VIEW;                      // 다른 분 화면 보기 — 그분에게 보이는 그대로 그리되 눌리지 않게 (inert — 모양은 같음)
-  box.innerHTML = (ca.state === 'open' || ca.state === 'locked' ? cellAppBtn(ca, false) : '') + (res.myCell ? myCellHtml(res.myCell) : '');
+  // v6 — "셀 신청 및 교적확인" 은 Teva Apps 격자의 타일로 (셀 신청이 열렸을 때만 보임). 여기에는 "내 셀" 만 남습니다
+  var was = CA_TILE && CA_TILE.state;
+  CA_TILE = ca;
+  box.innerHTML = res.myCell ? myCellHtml(res.myCell) : '';
+  if (was !== ca.state) { try { renderMenus(); } catch (e) {} }
   if (ro) box.setAttribute('inert', ''); else box.removeAttribute('inert');
 }
 
@@ -2266,33 +2302,105 @@ function paintForm() {
 
   var body = (f.questions || []).map(fmQuestion).join('');
   var me = FM.me;
+  var sv = f.kind === 'survey', svc = f.survey || {};              // v6 — 설문 · 투표
+  var canSee = sv && svc.results !== 'hidden' && (svc.results === 'always' || !!mine);
   el('fmWrap').innerHTML =
     '<div class="capage">' +
       '<div class="cabar"><button class="pvback" onclick="closeFormPage()">&lsaquo; 돌아가기</button>' +
         '<span>' + esc(f.title) + '</span></div>' +
       ((f.desc || f.descHtml) ? '<div class="panel"><div class="fmdesc fx-rich">' + FormsCore.descToHtml(f.desc, f.descHtml) + '</div></div>' : '') +
+      (sv ? '<div class="panel svhead"><span class="chip">📊 투표</span>' +
+          '<div class="svtags">' + (svc.anonymous ? '<span>🙈 익명 — 누가 골랐는지 아무도 모릅니다</span>' : '<span>👤 ' + esc(me.name) + ' 이름으로 참여</span>') +
+            (f.closeAt ? '<span>⏰ ' + esc(f.closeAt) + ' 마감</span>' : '') +
+            (f.showCount && f.count != null ? '<span>🙋 ' + f.count + '명 참여</span>' : '') +
+            '<span>' + (svc.results === 'hidden' ? '🔒 결과는 만든 분만 봅니다' : svc.results === 'always' ? '📈 결과를 언제나 볼 수 있어요' : '📈 참여하면 결과를 볼 수 있어요') + '</span>' +
+            (svc.allowAdd ? '<span>➕ 항목을 더할 수 있어요</span>' : '') + '</div>' +
+          (canSee ? '<button class="btn full" style="margin-top:10px;" onclick="svShowResults()">📈 지금 결과 보기</button>' : '') + '</div>' :
       '<div class="panel">' +
         '<span class="chip">신청하는 분</span>' +
         '<div class="fmme">' + esc(me.name) +
           (me.cell ? ' &middot; ' + esc(me.cell) : '') +
           (me.phone ? ' &middot; ' + esc(me.phone) : '') + '</div>' +
         '<p class="hint" style="margin:6px 0 0;">교적에 있는 정보로 자동으로 들어갑니다. 바꾸시려면 내 정보 관리에서 고쳐주세요.</p>' +
-      '</div>' +
-      (mine ? '<div class="panel"><p class="msg ok" style="margin:0;">' + esc(mine.at) + ' 에 신청하셨습니다.' +
+      '</div>') +
+      (mine ? '<div class="panel"><p class="msg ok" style="margin:0;">' + esc(mine.at) + (sv ? ' 에 참여하셨습니다.' : ' 에 신청하셨습니다.') +
         (f.editable && FM.open ? ' 아래에서 고치고 다시 저장할 수 있습니다.' : '') + '</p>' +
         (mine.status ? '<p style="margin:8px 0 0;font-size:14px;">신청 상태 <span class="stt ' + esc(mine.status) + '">' + esc(mine.status) + '</span></p>' : '') + '</div>' : '') +
       (FM.open ? '' : '<div class="panel"><p class="msg err" style="margin:0;">' + esc(FM.why || '지금은 신청할 수 없습니다.') + '</p></div>') +
       '<div class="panel' + (FM.open ? '' : ' lockedform') + '">' + (body || '<p class="empty">문항이 없습니다.</p>') + '</div>' +
       (FM.open ?
         '<div class="panel">' +
-          '<button class="submit" id="fmSubmit" onclick="submitFormNow()">' + (mine ? '고친 내용 저장하기' : '신청하기') + '</button>' +
-          (mine && f.editable ? '<button class="btn danger full" style="margin-top:8px;" onclick="cancelFormNow()">신청 취소</button>' : '') +
+          '<button class="submit" id="fmSubmit" onclick="submitFormNow()">' + (sv ? (mine ? '다시 투표하기' : '투표하기') : (mine ? '고친 내용 저장하기' : '신청하기')) + '</button>' +
+          (mine && f.editable ? '<button class="btn danger full" style="margin-top:8px;" onclick="cancelFormNow()">' + (sv ? '투표 취소' : '신청 취소') + '</button>' : '') +
           '<p class="msg" id="fmMsg"></p>' +
         '</div>' : '') +
     '</div>';
   fmMountCore();
   fmBindVisibility();
   fmApplyVisibility();                                 // Step 7: 이미 낸 답 기준으로 처음 모습 맞추기
+  if (sv && svc.allowAdd && FM.open) svMountAdd();      // v6 — 참여자가 항목 더하기
+}
+
+/* ---------- v6 — 설문 · 투표: 항목 더하기 · 결과 보기 (카카오톡 투표처럼) ---------- */
+function svMountAdd() {
+  (FM.form.questions || []).forEach(function (q) {
+    if (q.type !== 'choice' && q.type !== 'checks') return;
+    var host = document.querySelector('#fmWrap .fx-mount[data-q="' + String(q.id).replace(/["\\]/g, '') + '"]'); if (!host) return;
+    var box = document.createElement('div'); box.className = 'svadd';
+    box.innerHTML = '<input type="text" maxlength="60" placeholder="+ 항목 추가" aria-label="' + esc(q.label) + ' 에 항목 추가"><button type="button" class="btn mini">더하기</button>';
+    host.parentNode.insertBefore(box, host.nextSibling);
+    var inp = box.querySelector('input');
+    var add = function () {
+      var v = String(inp.value || '').replace(/\s+/g, ' ').trim(); if (!v) return;
+      if ((q.opts || []).indexOf(v) === -1) q.opts = (q.opts || []).concat([v]);
+      var cur = FM_ANS[q.id];
+      FM_ANS[q.id] = q.type === 'checks' ? (Array.isArray(cur) ? cur : []).concat(cur && cur.indexOf && cur.indexOf(v) !== -1 ? [] : [v]) : v;
+      host.innerHTML = '';
+      FM_MOUNT[q.id] = FormsCore.mountQuestion(host, q, { value: FM_ANS[q.id], disabled: !FM.open, onChange: function (x) { FM_ANS[q.id] = x; fmApplyVisibility(); } });
+      inp.value = ''; fmApplyVisibility();
+    };
+    box.querySelector('button').onclick = add;
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  });
+}
+function svShowResults(afterVote) {
+  var id = FM && FM.form ? FM.form.id : SV_ID; SV_ID = id;
+  var w = el('fmWrap');
+  w.innerHTML = '<div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div>';
+  callServer('surveyResults', [fmToken(), id], function (r) { svPaintResults(r, afterVote); }, function (e) {
+    w.innerHTML = '<div class="capage"><div class="panel"><p class="msg ' + (afterVote ? 'ok' : 'err') + '">' + esc(afterVote ? '참여했습니다. ' : '') + esc((e && e.message) || '결과를 볼 수 없습니다.') + '</p>' +
+      '<button class="submit" onclick="afterForm()">포털로 돌아가기</button></div></div>';
+  });
+}
+var SV_ID = '';
+function svPaintResults(r, afterVote) {
+  var my = (r.mine && r.mine.answers) || {};
+  var byId = {}; (r.form.questions || []).forEach(function (q) { byId[q.id] = q; });
+  var cards = (r.stats || []).map(function (s) {
+    var q = byId[s.id] || {};
+    if (s.type === 'number') return '<div class="panel svres"><h4>' + esc(s.label) + '</h4><div class="svbig">' + s.sum + (s.unit ? ' ' + esc(s.unit) : '') + '</div><p class="hint">' + s.n + '명 합계</p></div>';
+    var tot = 0; s.items.forEach(function (x) { tot += x.n; });
+    var denom = s.type === 'checks' ? Math.max(1, r.count) : Math.max(1, tot);
+    var best = 0; s.items.forEach(function (x) { if (x.n > best) best = x.n; });
+    var mine = my[s.id], mineArr = Array.isArray(mine) ? mine : (mine != null && mine !== '' ? [String(mine)] : []);
+    var head = s.type === 'rating' ? '<div class="svbig">' + (s.n ? s.avg : '-') + ' <small>/ ' + s.scale + ' · ' + s.n + '명</small></div>' : '';
+    return '<div class="panel svres"><h4>' + esc(s.label) + (s.type === 'checks' ? ' <small>(여러 개)</small>' : '') + '</h4>' + head +
+      s.items.map(function (x) {
+        var pct = Math.round(x.n / denom * 100), me = mineArr.indexOf(x.name) !== -1 || (s.type === 'rating' && String(mine) === x.name);
+        var who = r.voters && r.voters[s.id] && r.voters[s.id][x.name];
+        return '<div class="svopt' + (x.n && x.n === best ? ' top' : '') + (me ? ' me' : '') + '">' +
+          '<div class="svbar" style="--p:' + pct + '%"><span class="svn">' + (me ? '✓ ' : '') + esc(x.name) + '</span><span class="svc">' + x.n + '명 · ' + pct + '%</span></div>' +
+          (who && who.length ? '<div class="svwho">' + who.map(esc).join(', ') + '</div>' : '') + '</div>';
+      }).join('') + '</div>';
+  }).join('');
+  el('fmWrap').innerHTML = '<div class="capage">' +
+    '<div class="cabar"><button class="pvback" onclick="afterForm()">&lsaquo; 포털</button><span>' + esc(r.form.title) + '</span></div>' +
+    (afterVote ? '<div class="panel"><div class="nfok"><div class="ic">✓</div><h3>참여했습니다</h3></div></div>' : '') +
+    '<div class="panel svsum"><b>' + r.count + '명 참여</b>' + (r.total ? ' · 대상 ' + r.total + '명' : '') + (r.anonymous ? ' · 🙈 익명' : '') + (r.open ? '' : ' · 마감') + '</div>' +
+    (cards || '<div class="panel"><p class="empty">아직 결과가 없습니다.</p></div>') +
+    (r.open ? '<div class="panel"><button class="submit" onclick="openFormPage(\'' + jsq(r.form.id) + '\')">' + (r.mine ? '다시 투표하기' : '투표하러 가기') + '</button></div>' : '') +
+    '</div>';
+  window.scrollTo(0, 0);
 }
 
 /** Step 6 — 고르기 · 여러 개 고르기 · 별점은 공용 부품(FormsCore)으로 그립니다. 진짜 라디오 · 체크 상자라서
@@ -2441,6 +2549,7 @@ function submitFormNow() {
   say('fmMsg', '보내는 중…');
   callServer('submitForm', [fmToken(), FM.form.id, fmVisibleAnswers()], function (r) {
     btn.disabled = false;
+    if (FM.form.kind === 'survey' && (FM.form.survey || {}).results !== 'hidden') { SV_ID = FM.form.id; svShowResults(true); return; }   // v6 — 투표하면 바로 결과
     el('fmWrap').innerHTML =
       '<div class="capage"><div class="panel"><div class="nfok">' +
         '<div class="ic">✓</div><h3>' + (r.edited ? '고친 내용을 저장했습니다' : '신청이 접수되었습니다') + '</h3>' +
@@ -3320,12 +3429,14 @@ function tileBadge(key) {
 function formTileHtml(f) {
   var done = !!f.submitted;
   var ro = false;              // 다른 분 화면도 같은 모양 — 누르기는 asGuard 가 막습니다 (허브 v5)
-  var note = done ? '신청 완료' : (f.open ? (f.closeAt ? '~' + f.closeAt : '신청 받는 중') : (f.why || '닫힘'));
-  return '<a class="tile form' + (done ? ' done' : '') + (f.open ? '' : ' shut') + (ro ? ' ro' : '') + '" href="#" ' +
+  var sv = f.kind === 'survey';                                   // v6 — 설문 · 투표
+  var note = done ? (sv ? '참여 완료' : '신청 완료') : (f.open ? (f.closeAt ? '~' + f.closeAt : (sv ? '투표 중' + (f.anonymous ? ' · 익명' : '') : '신청 받는 중')) : (f.why || '닫힘'));
+  return '<a class="tile form' + (sv ? ' survey' : '') + (done ? ' done' : '') + (f.open ? '' : ' shut') + (ro ? ' ro' : '') + '" href="#" ' +
     (ro ? 'onclick="roTap();return false;"' : 'onclick="openFormPage(\'' + jsq(f.id) + '\');return false;"') +
     ' title="' + esc(f.title) + '">' +
     '<span class="ticon">' + (done
       ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+      : sv ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V5M19 20v-7"/><path d="M3 20.5h18"/></svg>'
       : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h8.5L19 7v13.5H7z"/><path d="M15 3.5V7.5h4"/><path d="M10 12h6M10 15.5h6"/></svg>') + '</span>' +
     '<span class="tt">' + esc(f.title) + '</span>' +
     '<span class="td">' + esc(note) + '</span></a>';
@@ -3360,7 +3471,8 @@ function drawSubPanel() {
 /** 맡고 계신 일 + 신청서 — Teva Apps 격자 (한 줄에 3개) */
 function renderMenus() {
   var forms = FORMS || [];
-  var any = MENUS.length || forms.length;
+  var caTile = cellAppTileHtml();
+  var any = MENUS.length || forms.length || caTile;
   el('menuWrap').style.display = any ? 'block' : 'none';
   if (!any) { el('menus').innerHTML = ''; drawSubPanel(); return; }
   var tiles = MENUS.map(function (m) {
@@ -3378,7 +3490,7 @@ function renderMenus() {
       tileBadge(m.key) + tileIcon(m.key) + '<span class="tt">' + esc(title) + '</span>' +
       (m.note ? '<span class="td">' + esc(m.note) + '</span>' : '') + '</a>';
   });
-  el('menus').innerHTML = tiles.concat(forms.map(formTileHtml)).join('');
+  el('menus').innerHTML = (caTile ? [caTile] : []).concat(tiles, forms.map(formTileHtml)).join('');
   drawSubPanel();
 }
 

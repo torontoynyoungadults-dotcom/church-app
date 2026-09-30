@@ -1039,6 +1039,10 @@ body .pe .fc,
   body input:disabled, body select:disabled, body textarea:disabled {
     color: #CFC9C1 !important; opacity: 1 !important;
   }
+  /* v6 — 장비 · 수리 탭 */
+  .panel.eqhost { padding: 0; overflow: hidden; }
+  .eqhost .eqload { padding: 16px; }
+  .eqframe { display: block; width: 100%; border: 0; background: transparent; min-height: 520px; }
 </style>
 <!--#include Theme-->
 <link rel="stylesheet" href="/worship/hub.css">
@@ -1386,7 +1390,7 @@ function apply(w) {
   countUp(w);
 }
 
-var TABS = [['plan', '예배콘티'], ['notice', '공지사항'], ['sched', '스케줄표'], ['events', '행사'], ['stats', '통계'], ['archive', '아카이브']];
+var TABS = [['plan', '예배콘티'], ['notice', '공지사항'], ['sched', '스케줄표'], ['events', '행사'], ['stats', '통계'], ['archive', '아카이브'], ['equip', '장비 · 수리']];
 
 function tab(t) {
   TAB = t; openPos = ''; songEdit = null; EVEDIT = null;
@@ -1512,6 +1516,7 @@ function offMap(list) {
 }
 
 function render() {
+  if (TAB === 'equip' && EQ_FRAME && EQ_FRAME.isConnected) return;      // 장비 화면은 한 번 띄우면 그대로 (다시 그리면 처음부터 다시 불러오게 됨)
   var html = '';
   if (TAB === 'plan') html = planTab() + setTab();
   else if (TAB === 'sched') html = schedTab();
@@ -1519,12 +1524,14 @@ function render() {
   else if (TAB === 'stats') html = statsTab();
   else if (TAB === 'archive') html = archiveTab();
   else if (TAB === 'notice') html = noticeTab();
+  else if (TAB === 'equip') html = equipTab();
   // 듣고 있던 녹음은 화면을 다시 그려도 끊기지 않게 그대로 옮겨 붙입니다
   var playing = Array.prototype.filter.call(el('body').querySelectorAll('audio'), function (a) { return !a.paused; });
   el('body').innerHTML = html;
   try { mountFormBuilder(); } catch (e) { /* 송폼 만들기가 없어도 입력칸으로 저장할 수 있습니다 */ }
   try { mountContiTools(); } catch (e) { /* 검색 · 태그 도구가 없어도 콘티는 그대로 저장됩니다 */ }
   if (TAB === 'plan') mountLyricsPanel();
+  if (TAB === 'equip') mountEquip();
   playing.forEach(function (a) {
     var n = Array.prototype.filter.call(el('body').querySelectorAll('audio'), function (x) {
       return x.getAttribute('src') === a.getAttribute('src');
@@ -1532,6 +1539,36 @@ function render() {
     if (n) n.parentNode.replaceChild(a, n);
   });
 }
+
+/* ===================== 장비 · 수리 요청 (v6 — 허브 안, 아카이브 다음 탭) =====================
+   장비 화면(views/Equipment.html · logic/equipment.js)을 그대로 허브 안에 띄웁니다(embed=1 — 머리말 없이).
+   권한 · 저장 · 알림은 장비 화면이 예전과 똑같이 처리하고, 알림 링크(딥링크)도 그대로 장비 화면으로 갑니다. */
+var EQ_FRAME = null;
+function equipUrl() {
+  var q = PREFILL.key ? 'key=' + encodeURIComponent(PREFILL.key) : 't=' + encodeURIComponent(PREFILL.t || '');
+  return location.pathname + '?page=equipment&embed=1&' + q;
+}
+function equipTab() {
+  return '<div class="panel eqhost"><div class="eqload" id="eqLoad"><i class="skel line" style="width:55%"></i><i class="skel line" style="width:80%"></i></div></div>';
+}
+function mountEquip() {
+  var host = el('body').querySelector('.eqhost'); if (!host) return;
+  if (!EQ_FRAME) {
+    EQ_FRAME = document.createElement('iframe');
+    EQ_FRAME.className = 'eqframe'; EQ_FRAME.title = '장비 점검 · 수리 요청';
+    EQ_FRAME.setAttribute('allow', 'camera');
+    EQ_FRAME.addEventListener('load', function () { var l = el('eqLoad'); if (l) l.style.display = 'none'; });
+    EQ_FRAME.src = equipUrl();
+  } else { var l = el('eqLoad'); if (l) l.style.display = 'none'; }
+  host.appendChild(EQ_FRAME);
+  fitEquip();
+}
+function fitEquip() {
+  if (!EQ_FRAME || !EQ_FRAME.isConnected) return;
+  var top = EQ_FRAME.getBoundingClientRect().top + (window.scrollY || 0);
+  EQ_FRAME.style.height = Math.max(520, (window.innerHeight || 800) - Math.min(top, 220) - 16) + 'px';
+}
+window.addEventListener('resize', function () { if (TAB === 'equip') fitEquip(); });
 
 /* ===================== 예배 (주일 · 행사) ===================== */
 
@@ -1614,7 +1651,7 @@ function planTab() {
 function startBar() {
   var n = (W.sheets || []).length + (W.finalSheets || []).length;
   return '<div class="panel pvstart">' + (n
-    ? '<button type="button" class="pvgo pvstartbtn" onclick="openPractice(\'\')" title="세션 / 연습 · 필기 · 메트로놈 화면을 엽니다">▶ 세션 / 연습 시작 <small>악보 ' + n + '개 · 필기 · 메트로놈 · 함께 보기</small></button>' +
+    ? '<button type="button" class="pvgo pvstartbtn" onclick="openPractice(\'\')" title="라이브 악보 — 필기 · 메트로놈 · 함께 보기 화면을 엽니다">▶ 라이브 악보 시작 <small>악보 ' + n + '개 · 필기 · 메트로놈 · 함께 보기</small></button>' +
       '<label class="pvauto" title="켜 두면 세션을 시작할 때 드라이브 녹음 폴더에서 이 주의 연습 · 예배 녹음을 찾아 자동으로 링크합니다 (기본 켬)"><input type="checkbox" id="autoRecChk"' + (autoRecOn() ? ' checked' : '') + ' onchange="autoRecSet(this.checked)"><span>자동 녹음 링크</span></label>'
     : '<p class="fnote" style="margin:0;">악보를 올리면 여기에 <b>연주 시작</b> 버튼이 나타납니다.</p>') + '</div>';
 }
@@ -2209,7 +2246,7 @@ function pickFile(kind) { uploadKind = kind; el('filePicker').click(); }
 
 /* ---------- 세션 / 연습 시작 (Step 2) — 악보를 크게 열고 필기 · 메트로놈 · 송폼 · 음정을 씁니다 ---------- */
 function openPractice(fid) {
-  if (!window.YNPractice) { alert('세션 / 연습 화면을 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
+  if (!window.YNPractice) { alert('라이브 악보 화면을 불러오지 못했습니다. 페이지를 새로고침해 주세요.'); return; }
   var files = (W.sheets || []).concat(W.finalSheets || []);
   var songs = (W.songs || []).map(function (s) { return { s: s, kind: '콘티' }; }).concat((W.finals || []).map(function (s) { return { s: s, kind: '결단' }; })).map(function (x) {
     var s = x.s;      // seq · kind 는 연습 화면이 BPM · 송폼 · 링크를 같은 줄에 저장하고 팀에 실시간으로 나누는 데 씁니다
