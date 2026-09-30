@@ -720,12 +720,13 @@
     ytBtn.onclick = function () {
       var id = ytBtn.getAttribute('data-id'); if (!id) return;
       if (ytBox) { closeYt(); return; }
+      try { root.YNAudioShift && root.YNAudioShift.closeDialog && root.YNAudioShift.closeDialog(); } catch (e) {}          // 키 바꿔 듣기 카드가 열려 있으면 닫음 (소리가 겹치지 않게)
       ytBox = doc.createElement('div'); ytBox.className = 'pv-yt'; ytBox.setAttribute('role', 'dialog'); ytBox.setAttribute('aria-label', '유튜브 참고 영상');
       ytBox.innerHTML = '<div class="pv-yth"><b>' + h((songs[S.songIdx] || {}).title || '참고 영상') + '</b><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=' + id + '" title="유튜브에서 열기">↗</a><button type="button" aria-label="닫기">✕</button></div><div class="pv-ytbody"></div>';
       ytBox.querySelector('.pv-yth button').onclick = closeYt;
       el.appendChild(ytBox);
       var body = ytBox.querySelector('.pv-ytbody');
-      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi });        // 공식 IFrame API: 속도 · A-B 반복
+      if (root.YNYt) ytCtl = root.YNYt.open(body, { id: id, title: (songs[S.songIdx] || {}).title, ytApi: opts.ytApi, key: root.YNAudioShift && root.YNAudioShift.keyBinding ? root.YNAudioShift.keyBinding(P) : null });        // 공식 IFrame API: 속도 · A-B 반복 · 연습 키(악보 코드 · 녹음 재생에만 반영)
       else body.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1&autoplay=1" title="유튜브 참고 영상" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
     };
 
@@ -775,6 +776,21 @@
       callServer: opts.callServer, saveNow: function () { flushMine(true); if (rt && rt.online) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: 'song' }).catch(function () {}); if (rt && rt.online && S.room) rt.call('anno:save', { file: sheets[S.sheetIdx].id, scope: S.room }).catch(function () {}); },
       status: function () { return { conn: rt ? rt.state : 'unavailable', minePending: S.minePend, savedAt: S.savedAt, unsent: Object.keys(S.unsent).length }; }
     };
+    /* 연습 키 이동 (Feature 2) — 곡마다 −3 ~ +3 반음, 이 기기에만 기억(팀에 보내지 않음). 화음 탭(harmony-ui.js)이 'keyshift' 를 듣고 악보 코드를 따라 바꾸며,
+       유튜브 카드 · 키 바꿔 듣기 카드(audio-shift.js)가 같은 값을 씁니다. ensureTab: 탭을 화면에 띄우지 않고 (처음 한 번만) 만들어 둡니다. */
+    function ksName() { var s = songs[S.songIdx]; return 'ks.' + (s ? normName(s.title) : '_'); }
+    P.keyShift = function () { var v = parseInt(ls(ksName()), 10); return isFinite(v) ? clamp(v, -3, 3) : 0; };
+    P.setKeyShift = function (n) {
+      n = Math.round(+n); n = isFinite(n) ? clamp(n, -3, 3) : 0;
+      if (n === P.keyShift()) return n;
+      ls(ksName(), String(n));
+      if (n !== 0) P.ensureTab('harmony');
+      P.emit('keyshift', n, songs[S.songIdx] || null); return n;
+    };
+    P.ensureTab = function (id) { return ensureTab(id); };
+    P.closeYt = function () { closeYt(); };
+    P.openAudioShift = function (o) { return root.YNAudioShift && root.YNAudioShift.openDialog ? root.YNAudioShift.openDialog(P, o) : null; };
+    P.on('song', function () { if (P.keyShift() !== 0) P.ensureTab('harmony'); });
     S.room = opts.room || '';
     var rt = null, an = null;
 
@@ -1195,16 +1211,22 @@
     }
 
     /* ------------------------------------------------------------ 패널(탭) */
+    /** 탭을 (아직이면) 만듭니다 — 화면에 띄우지는 않음. showTab 의 "처음 열릴 때 만들기" 부분을 그대로 떼어 낸 것 */
+    function ensureTab(id) {
+      var t = P.tabs.filter(function (x) { return x.id === id; })[0]; if (!t) return null;
+      if (!t.built) {
+        var pane = panesEl.querySelector('[data-pane="' + id + '"]'); if (!pane) return null;
+        t.built = true;
+        try { t.api = t.build(pane) || {}; } catch (e) { pane.innerHTML = '<p class="pv-err">이 패널을 열지 못했습니다: ' + h(e.message) + '</p>'; if (root.console) root.console.error(e); }
+      }
+      return t.api || null;
+    }
     function showTab(id) {
       var t = P.tabs.filter(function (x) { return x.id === id; })[0]; if (!t) return;
       S.tab = id; el.classList.add('pv-sideopen'); if (S.layout === 'computer') ls('side', '1');
       Array.prototype.forEach.call(tabsEl.children, function (b) { b.classList.toggle('on', b.dataset.tab === id); b.setAttribute('aria-selected', b.dataset.tab === id ? 'true' : 'false'); });
       Array.prototype.forEach.call(panesEl.children, function (p) { p.style.display = p.dataset.pane === id ? '' : 'none'; });
-      var pane = panesEl.querySelector('[data-pane="' + id + '"]');
-      if (!t.built) {
-        t.built = true;
-        try { t.api = t.build(pane) || {}; } catch (e) { pane.innerHTML = '<p class="pv-err">이 패널을 열지 못했습니다: ' + h(e.message) + '</p>'; if (root.console) root.console.error(e); }
-      }
+      ensureTab(id);
       try { if (t.api && t.api.onShow) t.api.onShow(); } catch (e) {}
       paintRanges();
       renderSoon(260);
@@ -1439,6 +1461,7 @@
         try { an.closeEditor(); } catch (e) {}
         P.tabs.forEach(function (t) { try { t.api && t.api.destroy && t.api.destroy(); } catch (e) {} });
         try { rt && rt.close(); } catch (e) {} try { an.destroy(); } catch (e) {}
+        try { timerBar && timerBar.destroy(); } catch (e) {}
         doc.removeEventListener('keydown', onKey); doc.removeEventListener('keyup', onKeyUp); root.removeEventListener('pagehide', onBeforeUnload);
         doc.removeEventListener('pointerup', holdStop); root.removeEventListener('orientationchange', onOrient); doc.removeEventListener('fullscreenchange', onFsChange); clearTimeout(S.fsT);
         if (ro) ro.disconnect(); root.removeEventListener('resize', onResize);
@@ -1456,6 +1479,13 @@
     current = api;
     S.layer = ls('layer') === 'mine' ? 'mine' : 'team'; S.layerUser = !!ls('layer'); S.scope = ls('scope') === 'date' && S.room ? 'date' : 'song'; an.setLayer(S.layer); if (an.setFont) an.setFont(S.font); if (an.setFboxTag) an.setFboxTag(S.fboxTag);
     setCompact(calcCompact()); autoFit(); applyLayout(S.layout, false); renderTools(); buildTabs(); connect(); loadCfg(); requestWake();
+    /* 예배 타이머 막대 (Feature 1 · timer.js) — 헤더 바로 아래에 붙어 전체 화면에서도 보입니다. timer.js 가 없거나 opts.timer === false 면 아무것도 하지 않음 */
+    var timerBar = null;
+    try {
+      if (root.YNTimer && opts.timer !== false && S.room) {
+        timerBar = root.YNTimer.mountViewer(el, { token: opts.token, room: S.room, io: opts.io, getPlan: function () { return { room: S.room, songs: songs.map(function (x) { return { t: x.title }; }) }; } });
+      }
+    } catch (e) { /* 타이머 막대가 없어도 세션 화면은 그대로 */ }
     var g0 = typeof opts.song === 'number' ? opts.song : guessSong(sheets[S.sheetIdx].name, songs); if (g0 >= 0) setSong(g0, true);
     loadSheet(S.sheetIdx, 1, false);
     if (S.layout === 'computer' && ls('side') !== '0' && P.tabs.length) showTab(P.tabs[0].id);

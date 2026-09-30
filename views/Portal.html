@@ -173,6 +173,7 @@
   .tile.newfamily { --mc: #2A8C94; --mc-soft: rgba(42,140,148,.14); }
   .tile.mission   { --mc: #2E7D6B; --mc-soft: rgba(46,125,107,.14); }
   .tile.worship   { --mc: #6C4FD3; --mc-soft: rgba(108,79,211,.14); }
+  .tile.equipment { --mc: #C4620F; --mc-soft: rgba(196,98,15,.14); }
   .tile.acct      { --mc: #A8751F; --mc-soft: rgba(168,117,31,.15); }
   .tile.bulletin  { --mc: #E1601C; --mc-soft: rgba(225,96,28,.13); }
   .tile.bulletinEdit { --mc: #8A5A2B; --mc-soft: rgba(138,90,43,.14); }
@@ -202,6 +203,7 @@
     position: absolute; top: 9px; right: 9px; box-shadow: 0 2px 6px rgba(0,0,0,.35);
   }
   .tile.a-push  { --mc: #F0A3B4; --mc-soft: rgba(240,163,180,.16); }
+  .tile.a-equip { --mc: #FFA24D; --mc-soft: rgba(255,162,77,.17); }
   /* 관리 카드 — 숫자까지 한눈에, 2열 Grid 로 압축 */
   .tiles.adm { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .acard {
@@ -290,6 +292,7 @@
   #dash .tile.newfamily    { --mc: #4FC1C9; --mc-soft: rgba(79,193,201,.16); }
   #dash .tile.mission      { --mc: #5FC4A8; --mc-soft: rgba(95,196,168,.16); }
   #dash .tile.worship      { --mc: #B49BFF; --mc-soft: rgba(180,155,255,.17); }
+  #dash .tile.equipment    { --mc: #FFA24D; --mc-soft: rgba(255,162,77,.17); }
   #dash .tile.acct         { --mc: #E0B25A; --mc-soft: rgba(224,178,90,.16); }
   #dash .tile.bulletin     { --mc: #F58A4B; --mc-soft: rgba(245,138,75,.16); }
   #dash .tile.bulletinEdit { --mc: #D9A46C; --mc-soft: rgba(217,164,108,.16); }
@@ -1429,6 +1432,8 @@ var MENU_ICON = {
   bulletinEdit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   minutes: '<rect x="4.5" y="3" width="15" height="18" rx="2.4"/><path d="M8 8.5h8"/><path d="M8 12.5h8"/><path d="M8 16.5h4.5"/>',
   album: '<rect x="3" y="7" width="18" height="13" rx="2.6"/><path d="M8.2 7l1.5-2.3h4.6L15.8 7"/><circle cx="12" cy="13.6" r="3.4"/>',
+  equipment: '<path d="M14.6 6.4a4.2 4.2 0 0 0 5.3 5.3l1.6 1.6-8.2 8.2a2.1 2.1 0 0 1-3-3l8.2-8.2"/><path d="M14.6 6.4l1.9-1.9 3 3"/><path d="M4.5 9.5L9 5l1.6 1.6-4.5 4.5z"/>',
+  'a-equip': '<path d="M14.6 6.4a4.2 4.2 0 0 0 5.3 5.3l1.6 1.6-8.2 8.2a2.1 2.1 0 0 1-3-3l8.2-8.2"/><path d="M14.6 6.4l1.9-1.9 3 3"/><path d="M4.5 9.5L9 5l1.6 1.6-4.5 4.5z"/>',
   'a-ai': '<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9.5" cy="10.5" r="1.3"/><circle cx="14.5" cy="10.5" r="1.3"/><path d="M9 15c1.8 1.2 4.2 1.2 6 0"/>',
   'a-cell': '<circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9.2 5 2.2 5 5.4"/>',
   'a-nf': '<path d="M12 21V11"/><path d="M12 11c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5z"/><path d="M12 14c0-3-2.3-5-5.5-5-.2 3.1 2.2 5 5.5 5z"/>',

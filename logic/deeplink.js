@@ -32,7 +32,8 @@ var 딥링크경로_ = {
   album:    { page: 'album',     label: '포토 앨범', params: function (id) { return { id: id }; } },
   mission:  { page: 'mission',   label: '선교팀', params: function (id) { return { team: id }; } },
   cell:     { page: 'leader',    label: '셀모임 보고서', params: function (id, x) { return x ? { cell: id, date: x } : { cell: id }; } },
-  budget:   { page: 'budget',    label: '행사 예산 · 정산', params: function (id) { return { ev: id }; } }   // Step 8 — 회계 승인 알림
+  budget:   { page: 'budget',    label: '행사 예산 · 정산', params: function (id) { return { ev: id }; } },  // Step 8 — 회계 승인 알림
+  equipment: { page: 'equipment', label: '장비 수리 요청', params: function (id) { return { ticket: id }; } }   // Step 34 — 장비 수리 요청 알림
 };
 
 function 딥링크종류인가_(type) {
@@ -116,6 +117,13 @@ function 딥링크확인_(token, type, id, x) {
     var 주체 = admin ? { full: true, name: '관리자', kind: 'admin' } : 회계주체_(token);
     if (!주체 || 회계등급_(주체, evb.id).level < 1) return ro('forbidden', '이 행사의 회계 권한이 없습니다. 회계팀에 문의해주세요.');
     return { ok: true, title: evb.name };
+  }
+
+  if (type === 'equipment') {                                                        // Step 34 — 장비 수리 요청 (찬양 · 방송팀 · 커미티)
+    var eqt = 장비수리들_().filter(function (t) { return t.id === String(id).trim(); })[0];
+    if (!eqt) return ro('notfound', '수리 요청을 찾지 못했습니다. 지워졌을 수 있습니다.');
+    try { 장비권한_(token); } catch (e) { return ro('forbidden', e.message || '장비 점검 · 수리 요청을 쓸 권한이 없습니다.'); }
+    return { ok: true, title: eqt.title };
   }
 
   return ro('unknown', '알 수 없는 바로가기입니다.');

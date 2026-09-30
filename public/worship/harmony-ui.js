@@ -9,6 +9,11 @@
  *  · 손으로 고치기: 화음 음표를 위아래로 끌면 반음이 아니라 "오선 한 칸"씩 옮겨지고(조표 반영), 멜로디 음표 · 코드 글자도 고칠 수 있습니다.
  *  · 미리듣기: Web Audio(피아노 소리) 로 멜로디 + 알토 + 테너를 함께 들려주고, 소리마다 켜고 끌 수 있습니다.
  *  덧그림은 별도 캔버스(.pv-harm)라서 필기 · PDF 그림은 건드리지 않습니다. 결과는 이 기기(localStorage)에 악보 파일별로 기억합니다.
+ *
+ *  · 연습 키 이동 연동 (Feature 2): 연습 화면의 P.keyShift() (곡별 −3 ~ +3 반음, 유튜브 카드 · 키 바꿔 듣기 카드가 바꿈) = "목표 조 − 원래 조".
+ *      - 'keyshift' / 'song' 이벤트를 들으면 목표 조 = 원래 조를 n 반음 옮긴 조 로 맞추고 코드를 다시 그립니다 (화음 탭을 한 번도 안 열었어도 practice.js 의 P.ensureTab 이 이 모듈을 화면 없이 만들어 줌).
+ *      - 이 쪽이 아직 분석 전이면 (PDF 글자층 ▸ 없으면 OCR) 자동으로 한 번 분석합니다 — 쪽 · 악보마다 세션에 한 번, 화면을 막지 않음, 오프라인이면 안내만.
+ *      - 이 탭의 "목표 조" 를 손으로 바꾸면 ±3 반음 안일 때 연습 키 이동에 되돌려 반영합니다 (되먹임 고리 없음).
  */
 (function (root) {
   'use strict';
@@ -55,6 +60,17 @@
     return freshData();
   }
 
+  /* ------------------------------------------------------------ 키 이동 계산 (순수 함수 — Node 시험용으로도 내보냄) */
+  function mod12(a) { return ((a % 12) + 12) % 12; }
+  function clampShift(n) { n = Math.round(+n); return isFinite(n) ? clamp(n, -3, 3) : 0; }
+  /** H = YNHarmony.  targetFor(원래 조, n): n 반음 옮긴 목표 조의 으뜸음 이름(KEY_CHOICES, 0 이면 '' = 그대로) · shiftFor(원래 조, 목표 조): ±3 반음 안이면 그 값, 밖이면 null */
+  function keyMath(H) {
+    return {
+      targetFor: function (okey, n) { n = clampShift(n); return n && okey ? H.KEY_CHOICES[mod12(okey.tonic + n)] : ''; },
+      shiftFor: function (okey, tkey) { if (!okey || !tkey) return null; var d = H.keySemitones(okey, tkey); return Math.abs(d) <= 3 ? d : null; }
+    };
+  }
+
   /* ------------------------------------------------------------ 본체 */
   function mount(host, P) {
     if (!HC || !OM) { host.innerHTML = '<p class="pv-err">화음 도구(harmony-core.js · omr.js)를 불러오지 못했습니다. 페이지를 새로고침해 주세요.</p>'; return null; }
@@ -68,6 +84,9 @@
     box.appendChild(cv);
     var ctx = cv.getContext('2d');
     var au = { ctx: null, master: null, synth: null };
+    var KM = keyMath(HC);
+    S.autoTried = {}; S.autoRun = false; S.autoPend = false; S.reflecting = false; S.autoOn = true;
+    try { S.autoOn = root.localStorage.getItem('yn.pv.harm.auto') !== '0'; } catch (e) { /* 저장이 막힌 브라우저 */ }
 
     /* ---------- 데이터 · 모델 ---------- */
     function fid() { var f = P.file && P.file(); return f && f.id || ''; }
@@ -79,7 +98,24 @@
     }
     function toast(t, bad) { try { P.toast(t, !!bad); } catch (e) {} }
     function loadFile() {
-      S.fid = fid(); S.data = S.fid ? loadData(S.fid) : freshData(); S.undo = []; S.sel = null; stop(); computeModel(); redraw(); syncPanel();
+      S.fid = fid(); S.data = S.fid ? loadData(S.fid) : freshData(); S.undo = []; S.sel = null; stop(); linkFromP(); computeModel(); redraw(); syncPanel();
+    }
+    /* ---------- 연습 키 이동(P.keyShift) 연동 ---------- */
+    function pShift() { return P.keyShift ? clampShift(P.keyShift()) : 0; }
+    function note(t, bad) { try { P.emit('harmstat', t || '', !!bad); } catch (e) { /* 알림이 안 가도 그리기는 계속 */ } }
+    /** 이 악보 데이터에 연습 키 이동을 심음 (목표 조는 computeModel 이 원래 조에서 계산) — 연동 중이 아니고 이동도 0 이면 손댈 것이 없음 */
+    function linkFromP() { var n = pShift(); if (n === 0 && typeof S.data.tshift !== 'number') return; S.data.tshift = n; }
+    /** 손으로 목표 조를 고르면 ±3 반음 안일 때 연습 키 이동에 되돌려 반영 (고리 방지: S.reflecting 동안 'keyshift' 를 무시) */
+    function reflect(n) {
+      if (!P.setKeyShift || !P.keyShift || P.keyShift() === n) return;
+      S.reflecting = true; try { P.setKeyShift(n); } finally { S.reflecting = false; }
+    }
+    function setTargetManual(v) {
+      S.data.target = v || ''; S.statMsg = '';
+      var k = v ? HC.parseKey(v + (S.okey && S.okey.minor ? 'm' : '')) : S.okey, sm = KM.shiftFor(S.okey, k);
+      if (sm != null) { S.data.tshift = sm; reflect(sm); }
+      else { delete S.data.tshift; if (pShift() !== 0) { reflect(0); note('목표 조가 ±3 반음 밖이라 연습 키 이동은 0 으로 되돌렸습니다 (녹음 재생은 ±3 반음까지만 바꿀 수 있습니다).'); } }
+      commit();
     }
     function origKey() {
       var d = S.data, k = d.orig && d.orig !== 'auto' ? HC.parseKey(d.orig) : null;
@@ -98,7 +134,7 @@
     function sigCountOf(key) { var sg = HC.keySignature(key), n = 0, L; for (L in sg) if (sg[L]) n++; return n; }
     function usedStaff(pg, i) { var st = S.data.pages[pg].staves[i], o = S.data.use[pg + ':' + i]; return o === undefined ? !!st.melody : !!o; }
     function computeModel() {
-      var d = S.data; S.okey = origKey(); S.tkey = targetKey(S.okey); S.semis = HC.keySemitones(S.okey, S.tkey); S.flats = HC.keyUsesFlats(S.tkey);
+      var d = S.data; S.okey = origKey(); if (typeof d.tshift === 'number') d.target = KM.targetFor(S.okey, d.tshift); S.tkey = targetKey(S.okey); S.semis = HC.keySemitones(S.okey, S.tkey); S.flats = HC.keyUsesFlats(S.tkey);
       S.model = {};
       var nsig = sigCountOf(S.okey);
       Object.keys(d.pages).forEach(function (pg) {
@@ -388,9 +424,9 @@
         });
       });
     }
-    function analyze(pages, forceOcr) {
+    function analyze(pages, forceOcr, auto) {
       if (S.busy) return;
-      S.busy = true; S.undo = []; syncPanel();
+      S.busy = true; S.autoRun = !!auto; S.undo = []; syncPanel();
       var results = [], seq = Promise.resolve();
       pages.forEach(function (pg) { seq = seq.then(function () { return analyzeOne(pg, forceOcr).then(function (r) { results.push(r); commit(); }); }); });
       seq.then(function () {
@@ -403,7 +439,53 @@
         else if (cur && !cur.notes) warn = ' — 멜로디 음표를 찾지 못했습니다. "멜로디 수정"에서 음표를 직접 찍을 수 있습니다.';
         else if (cur && !cur.chords) warn = ' — 코드를 찾지 못했습니다. "코드 수정"에서 직접 넣을 수 있습니다.';
         setStat(msg + warn, !!warn); syncPanel();
-      }, function (e) { S.busy = false; setStat('분석하지 못했습니다: ' + ((e && e.message) || e), true); syncPanel(); });
+        if (S.autoRun) {                                                               // 키 이동 때문에 자동으로 돌린 분석 — 유튜브 · 재생 카드에도 결과를 알림
+          if (cur && cur.chords) note('이 쪽 코드 ' + cur.chords + '개를 ' + HC.keyName(S.okey) + ' → ' + HC.keyName(S.tkey) + ' (' + (S.semis > 0 ? '+' : '') + S.semis + ') 로 바꿔 그렸습니다. (' + (cur.src === 'text' ? 'PDF 글자층' : 'OCR') + ')');
+          else note('이 쪽에서 코드를 찾지 못해 바꿀 코드가 없습니다.' + (cur && !cur.staves ? '' : ' 화음 탭의 "코드" 모드에서 직접 넣을 수 있습니다.'), true);
+        }
+        S.autoRun = false; if (S.autoPend) { S.autoPend = false; maybeAuto(); }
+      }, function (e) {
+        S.busy = false; var m = '분석하지 못했습니다: ' + ((e && e.message) || e); setStat(m, true); syncPanel();
+        if (S.autoRun) toast('악보 코드 자동 분석: ' + m, true);
+        S.autoRun = false; if (S.autoPend) { S.autoPend = false; maybeAuto(); }
+      });
+    }
+    /** 연습 키 이동이 0 이 아닌데 이 쪽이 아직 분석 전이면 자동으로 한 번 분석 (쪽 · 악보마다 세션에 한 번). 화면을 막지 않고, 오프라인 + 글자층 없음이면 안내만 */
+    function maybeAuto() {
+      if (S.dead || !S.data || !S.autoOn || !pShift()) return;
+      var pg = P.page(), key = S.fid + ':' + pg;
+      if (S.data.pages[String(pg)] || S.autoTried[key]) return;
+      if (S.busy) { S.autoPend = true; return; }
+      S.autoTried[key] = 1;
+      var sheetNow = S.fid;
+      P.pageSize(pg).then(function () { return textLayerChords(pg).catch(function () { return null; }); }, function () { return undefined; }).then(function (tl) {
+        if (S.dead) return;
+        if (tl === undefined || sheetNow !== S.fid || pg !== P.page()) { delete S.autoTried[key]; return; }           // 악보가 아직 안 열렸거나 그 사이 쪽이 바뀜 → 'sheet' · 'page' 가 다시 부름
+        var hasText = !!(tl && tl.chords.length);
+        if (!hasText && root.navigator && root.navigator.onLine === false && typeof root.Tesseract === 'undefined') {
+          var m = '오프라인이라 글자가 없는 악보(그림 · 스캔)의 코드를 자동으로 읽지 못했습니다. 인터넷에 연결된 뒤 화음 탭의 "이 쪽 분석"을 눌러 주세요.';
+          note(m, true); toast(m, true); return;
+        }
+        if (S.busy) { S.autoPend = true; delete S.autoTried[key]; return; }
+        note(pg + '쪽 코드를 ' + (hasText ? 'PDF 글자층에서' : 'OCR 로(처음에는 도구를 내려받느라 시간이 걸립니다)') + ' 읽는 중…');
+        setStat(pg + '쪽 코드를 자동으로 읽는 중…'); analyze([pg], false, true);
+      });
+    }
+    /** 연습 키 이동 n 을 이 악보에 적용: 목표 조 = 원래 조 + n 반음 → 코드를 다시 그림 → 필요하면 자동 분석 */
+    function applyShift(n) {
+      if (S.dead || !S.data) return;
+      n = clampShift(n);
+      if (n === 0 && typeof S.data.tshift !== 'number') { note('원래 키 그대로 — 악보 코드를 바꾸지 않습니다.'); return; }        // 손으로 정한 목표 조는 건드리지 않음
+      if (S.data.tshift !== n) { S.data.tshift = n; S.statMsg = ''; commit(); } else { computeModel(); redraw(); syncPanel(); }
+      noteState(); maybeAuto();
+    }
+    /** 지금 쪽의 상태를 유튜브 · 재생 카드의 "악보:" 줄에 알림 */
+    function noteState() {
+      var n = pShift(), pg = pgKey(), pd = S.data && S.data.pages[pg];
+      if (n === 0) { note('원래 키 그대로 — 악보 코드를 바꾸지 않습니다.'); return; }
+      if (pd) { var nc = pd.chords.filter(function (c) { return c.parsed; }).length; note(nc ? '이 쪽 코드 ' + nc + '개를 ' + HC.keyName(S.okey) + ' → ' + HC.keyName(S.tkey) + ' (' + (S.semis > 0 ? '+' : '') + S.semis + ') 로 바꿔 그렸습니다.' : '이 쪽에서 읽은 코드가 없습니다.', !nc); }
+      else if (S.autoOn) { if (S.busy) note('분석이 끝나면 이 쪽 코드를 바꿔 그립니다…'); }
+      else note('이 쪽은 아직 분석하지 않았습니다. 화음 탭에서 "이 쪽 분석"을 눌러 주세요 (자동 분석이 꺼져 있습니다).', true);
     }
 
     /* ---------- 소리 ---------- */
@@ -608,7 +690,9 @@
         '<div class="hm-keys"><label>원래 조<select class="pv-sel" data-o="orig" aria-label="원래 조"></select></label><span class="hm-arrow" aria-hidden="true">➔</span><label>목표 조<select class="pv-sel" data-o="target" aria-label="목표 조"></select></label></div>' +
         '<div class="hm-semis" aria-live="polite"></div>' +
         '<div class="pv-row"><button type="button" class="pv-btn2" data-a="song-key" style="display:none"></button></div>' +
-        '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="showorig"><span></span><b>원래 코드 그대로 보기</b></label></div>' +
+        '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="showorig"><span></span><b>원래 코드 그대로 보기</b></label>' +
+        '<label class="pv-switch" style="margin-top:10px"><input type="checkbox" data-o="auto"><span></span><b>키를 바꾸면 이 쪽을 자동으로 분석</b></label>' +
+        '<p class="pv-help hm-linkhelp">유튜브 카드 · 키 바꿔 듣기 카드의 키(−3 ~ +3 반음)와 이 목표 조는 같은 값입니다. 어느 쪽을 바꿔도 다른 쪽이 따라옵니다 (±3 반음 안에서). 키를 바꿨는데 이 쪽이 아직 분석 전이면 알아서 한 번 분석합니다.</p></div>' +
       '<div class="pv-sec"><h4>③ 화음 보기 <span class="hm-legend"><span><i class="hm-dot" style="background:#FF4D4D"></i>알토</span><span><i class="hm-dot" style="background:#4D94FF"></i>테너</span></span></h4>' +
         '<div class="hm-chk"><label><input type="checkbox" data-o="alto"> 알토(빨강)</label><label><input type="checkbox" data-o="tenor"> 테너(파랑)</label><label><input type="checkbox" data-o="link"> 멜로디와 연결선</label></div>' +
         '<div class="pv-row"><button type="button" class="pv-btn2" data-a="reset-all">수정 모두 자동값으로</button></div>' +
@@ -636,7 +720,7 @@
       melody: '자동으로 찾은 멜로디 음표에 점선 동그라미가 보입니다. <b>이동</b>: 끌어서 위치 · 높이 수정 / <b>추가</b>: 오선 위를 눌러 새 음표 / <b>지우기</b>: 음표를 눌러 삭제. 고치면 화음이 다시 계산됩니다.',
       chord: '점선 상자가 코드 글자입니다. <b>고치기</b>: 상자를 누르고 악보에 적힌 그대로 고쳐 쓰기(비우면 삭제) / <b>추가</b>: 빈 곳을 눌러 새 코드 넣기.'
     };
-    function setStat(t, bad) { S.statMsg = t || ''; S.statBad = !!bad; if (statEl) { statEl.textContent = S.statMsg; statEl.className = 'hm-stat' + (bad ? ' bad' : ''); } }
+    function setStat(t, bad) { S.statMsg = t || ''; S.statBad = !!bad; if (statEl) { statEl.textContent = S.statMsg; statEl.className = 'hm-stat' + (bad ? ' bad' : ''); } if (S.autoRun) note(S.statMsg, S.statBad); }
     function fillKeys() {
       var ok = S.okey, minor = ok && ok.minor, ml = minor ? MINORS : HC.KEY_CHOICES, cur = S.data.orig;
       var opts = '<option value="auto">자동 인식' + (S.guess ? ' (' + h(HC.keyName(S.guess)) + ')' : (S.okey ? ' (' + h(HC.keyName(S.okey)) + ')' : '')) + '</option>';
@@ -657,7 +741,7 @@
       semisEl.innerHTML = S.semis === 0 ? '<i>' + h(HC.keyName(S.okey)) + '</i> 그대로 — 코드를 바꾸지 않습니다' : '<i>' + h(HC.keyName(S.okey)) + ' ➔ ' + h(HC.keyName(S.tkey)) + '</i> · ' + (S.semis > 0 ? '+' : '') + S.semis + ' 반음 (' + (S.semis > 0 ? '위로' : '아래로') + ') · 이 쪽 코드 ' + nChords + '개 변환';
       var sk = P.song && P.song() ? HC.parseKey(P.song().key) : null, tk = S.tkey;
       if (sk && S.okey && sk.tonic !== tk.tonic) { songBtn.style.display = ''; songBtn.textContent = '곡 정보의 Key (' + (P.song().key) + ') 로 맞추기'; } else songBtn.style.display = 'none';
-      host.querySelector('[data-o=showorig]').checked = !!d.show.orig;
+      host.querySelector('[data-o=showorig]').checked = !!d.show.orig; host.querySelector('[data-o=auto]').checked = !!S.autoOn;
       ['alto', 'tenor', 'link'].forEach(function (k) { host.querySelector('[data-o=' + k + ']').checked = !!d.show[k]; });
       ['m', 'a', 't'].forEach(function (k) { host.querySelector('[data-v=' + k + ']').checked = !!d.voices[k]; });
       host.querySelector('[data-o=loop]').checked = !!S.loop;
@@ -705,7 +789,7 @@
       if (sub) { var g = b.parentNode.getAttribute('data-sub'); S.sub[g] = sub; syncPanel(); return; }
       if (a === 'an-page') { S.statMsg = ''; analyze([P.page()], S.forceOcr); }
       else if (a === 'an-all') { var n = P.pages ? P.pages() : 1, ps = [], i; for (i = 1; i <= n; i++) ps.push(i); S.statMsg = ''; analyze(ps, S.forceOcr); }
-      else if (a === 'song-key') { var sk = HC.parseKey(P.song().key); if (sk) { S.data.target = HC.KEY_CHOICES.filter(function (k) { return HC.parseKey(k).tonic === sk.tonic; })[0] || ''; S.statMsg = ''; commit(); } }
+      else if (a === 'song-key') { var sk = HC.parseKey(P.song().key); if (sk) setTargetManual(HC.KEY_CHOICES.filter(function (k) { return HC.parseKey(k).tonic === sk.tonic; })[0] || ''); }
       else if (a === 'reset-all') { var oa = S.data.ov.alto, ot = S.data.ov.tenor; if (!Object.keys(oa).length && !Object.keys(ot).length) { toast('고친 화음이 없습니다.'); return; } S.data.ov = { alto: {}, tenor: {} }; pushUndo(function () { S.data.ov = { alto: oa, tenor: ot }; }); commit(); }
       else if (a === 'undo') undo();
       else if (a === 'play') play();
@@ -719,8 +803,9 @@
       if (st != null) { S.data.use[pgKey() + ':' + st] = !!t.checked; S.statMsg = ''; commit(); return; }
       if (v) { S.data.voices[v] = !!t.checked; saveSoon(); return; }
       if (!o) return;
-      if (o === 'orig') { S.data.orig = t.value; S.data.target = ''; S.statMsg = ''; commit(); }
-      else if (o === 'target') { S.data.target = t.value; commit(); }
+      if (o === 'orig') { S.data.orig = t.value; S.data.target = ''; delete S.data.tshift; S.statMsg = ''; linkFromP(); commit(); }          // 원래 조를 고치면 목표 조는 초기화 — 연습 키 이동이 있으면 새 원래 조 기준으로 다시 적용
+      else if (o === 'target') { setTargetManual(t.value); }
+      else if (o === 'auto') { S.autoOn = !!t.checked; try { root.localStorage.setItem('yn.pv.harm.auto', S.autoOn ? '1' : '0'); } catch (e) { /* 저장이 막힌 브라우저 */ } if (S.autoOn) maybeAuto(); }
       else if (o === 'showorig') { S.data.show.orig = !!t.checked; commit(); }
       else if (o === 'alto' || o === 'tenor' || o === 'link') { S.data.show[o] = !!t.checked; commit(); }
       else if (o === 'ocr') { S.forceOcr = !!t.checked; }
@@ -749,8 +834,10 @@
     }
 
     /* ---------- 연습 화면 이벤트 ---------- */
-    P.on('page', function () { if (S.dead) return; if (S.playing) stop(); S.sel = null; S.statMsg = ''; if (S.editor) closeEditor(true); redraw(); syncPanel(); });
-    P.on('sheet', function () { if (S.dead) return; if (S.fid && S.data) saveNow(); S.statMsg = ''; loadFile(); });
+    P.on('page', function () { if (S.dead) return; if (S.playing) stop(); S.sel = null; S.statMsg = ''; if (S.editor) closeEditor(true); redraw(); syncPanel(); if (pShift()) { noteState(); maybeAuto(); } });
+    P.on('sheet', function () { if (S.dead) return; if (S.fid && S.data) saveNow(); S.statMsg = ''; loadFile(); if (pShift()) { noteState(); maybeAuto(); } });
+    P.on('keyshift', function (n) { if (S.dead || S.reflecting) return; applyShift(n); });                    // 유튜브 카드 · 재생 카드가 연습 키를 바꿈
+    P.on('song', function () { if (S.dead) return; applyShift(pShift()); });                                    // 곡이 바뀌면 그 곡의 연습 키로
     P.on('close', function () { destroy(); });
     function destroy() {
       if (S.dead) return; S.dead = true; saveNow(); stop(true);
@@ -759,12 +846,12 @@
       try { if (au.ctx && au.ctx.close) au.ctx.close(); } catch (e) {}
       try { if (S.worker) S.worker.then(function (w) { return w.terminate(); }).catch(function () {}); } catch (e) {}
     }
-    loadFile();
+    loadFile(); if (pShift()) { noteState(); maybeAuto(); }
     /* 시험 · 점검용 손잡이 */
     var api = { onShow: function () { computeModel(); redraw(); syncPanel(); }, destroy: destroy, _state: S, _draw: draw, _analyze: analyze, _model: function () { return S.model; }, _setMode: setMode, _play: play, _stop: stop, _commit: commit };
     root.YNHarmonyUI._last = api;
     return api;
   }
 
-  root.YNHarmonyUI = { mount: mount };
+  root.YNHarmonyUI = { mount: mount, keyMath: keyMath, clampShift: clampShift };
 }(typeof self !== 'undefined' ? self : this));

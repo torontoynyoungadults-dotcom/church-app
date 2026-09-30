@@ -1019,10 +1019,12 @@ body .pe .fc,
 <script defer src="/worship/harmony-core.js"></script>
 <script defer src="/worship/omr.js"></script>
 <script defer src="/worship/harmony-ui.js"></script>
+<script defer src="/worship/audio-shift.js"></script>
 <script defer src="/worship/lyrics.js"></script>
 <script defer src="/worship/hubtools.js"></script>
 <script defer src="/worship/ytplayer.js"></script>
 <script defer src="/worship/rt.js"></script>
+<script defer src="/worship/timer.js"></script>
 <script defer src="/worship/anno.js"></script>
 <script defer src="/worship/practice-panels.js"></script>
 <script defer src="/worship/practice.js"></script>
@@ -1144,6 +1146,26 @@ function start(d) {
   W = d.week;
   renderWeeks(); renderTabs(); render();
   offlineInit();
+  try { mountTimerBar(); } catch (e) { /* 타이머 막대가 없어도 허브는 그대로 */ }
+}
+
+/* 예배 타이머 막대 (Feature 1 · public/worship/timer.js) — 화면 아래에 떠서 모든 탭에서 보이고, 보고 있는 예배(DATE)의 타이머를 보여줍니다 (위쪽은 "세션 / 연습 시작" 막대 자리) */
+var TMR = null;
+function mountTimerBar() {
+  if (TMR || !el('app')) return;
+  if (!window.YNTimer) {                                   // 스크립트는 defer — 아직이면 다 불러온 뒤에
+    if (document.readyState !== 'complete') window.addEventListener('load', function () { try { mountTimerBar(); } catch (e) {} }, { once: true });
+    return;
+  }
+  TMR = YNTimer.mountBar({
+    host: el('app'), variant: 'hub', token: TOKEN,
+    getRoom: function () { return DATE; },
+    getPlan: function () {
+      if (!W || W.date !== DATE) return null;
+      return { room: DATE, noPush: !!(D && D.today && String(DATE).slice(0, 10) < D.today),       // 지난 주는 보기만 (서버에 타이머를 새로 만들지 않음)
+        songs: (W.songs || []).concat(W.finals || []).map(function (s) { return { t: s.title }; }) };
+    }
+  });
 }
 
 /* ---------- 오프라인 (Step 3.2) ----------
@@ -2079,7 +2101,8 @@ function openPractice(fid) {
   });
   var api = YNPractice.open({
     token: TOKEN, room: DATE, sheets: files.map(function (f) { return { id: f.id, name: f.name }; }), songs: songs,
-    start: fid || (files[0] && files[0].id), canEdit: !!D.canEdit, callServer: callServer
+    start: fid || (files[0] && files[0].id), canEdit: !!D.canEdit, callServer: callServer,
+    recs: (W.recs || []).filter(function (r) { return r && r.play; }).map(function (r) { return { title: r.title, play: r.play, kind: r.kind, by: r.by }; })      // 키 바꿔 듣기 카드가 고를 팀 녹음 (같은 출처 /audio/…)
   });
   if (!api) return;
   try { autoRecStart(); } catch (e) { /* 자동 녹음 링크가 안 돼도 세션은 그대로 */ }

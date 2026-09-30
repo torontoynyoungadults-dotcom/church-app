@@ -1,7 +1,11 @@
 /**
  * 유튜브 참고 영상 — 공식 YouTube IFrame Player API
  * ------------------------------------------------------------
- *  · 재생 속도 0.5 / 0.75 / 1 / 1.25 배, A-B 구간 반복 (어려운 부분만 반복해서 듣기)
+ *  · 재생 속도 0.75 / 1 / 1.25 배 (YouTube 가 지원하는 단계 — 음높이는 YouTube 가 그대로 유지), A-B 구간 반복 (어려운 부분만 반복해서 듣기)
+ *    (예전부터 있던 0.5 배는 요청 범위 밖의 보조 버튼으로 흐리게 남겨 둡니다)
+ *  · 키(−3 ~ +3 반음) 줄 (Feature 2): 연습 화면의 "연습 키 이동"(P.keyShift) 을 바꿉니다 → 악보 코드가 따라 바뀜.
+ *    ※ 유튜브의 소리 자체는 다른 사이트 iframe 이라 브라우저에서 키를 바꿀 수 없습니다 — 카드 안에 그 사실을 적어 두고,
+ *       소리도 바꿔 듣고 싶으면 [키 바꿔 연습] 버튼으로 녹음 · 내 오디오 파일용 재생 카드(audio-shift.js)를 엽니다.
  *  · API 스크립트(https://www.youtube.com/iframe_api)를 처음 열 때 한 번만 불러옵니다.
  *    불러오지 못하는 환경(오프라인 · 차단)에서는 속도/반복 없이 일반 임베드로 대신 재생하고 그 사실을 알려 줍니다.
  *  · 순수 함수(fmtTime · loopStep · normLoop · RATES)는 Node 시험에서도 씁니다.
@@ -13,6 +17,8 @@
   'use strict';
 
   var RATES = [0.5, 0.75, 1, 1.25];
+  var TEMPO_RATES = [0.75, 1, 1.25];         // 요청 범위(0.75 ~ 1.25) — 화면에서 주된 속도 버튼
+  var KEY_STEPS = [-3, -2, -1, 0, 1, 2, 3];   // 키(반음)
   var MIN_LOOP = 0.5;                       // A-B 구간은 최소 0.5초
   var API_URL = 'https://www.youtube.com/iframe_api';
 
@@ -53,6 +59,14 @@
   }
 
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  var CSS = '.pv-yt{max-height:calc(100% - 92px);overflow-y:auto;overscroll-behavior:contain}.yt-kstat:empty{display:none}.yt-b.xr{opacity:.55;font-weight:700}.yt-b.xr.on{opacity:1}.yt-note{margin:0;font-size:11.5px;line-height:1.5;color:var(--g-dim,#a9a39a)}' +
+    '.yt-keys{display:flex;gap:4px;flex:1 1 220px}.yt-keys .yt-b{flex:1 1 0;min-width:0;padding:7px 0;text-align:center}' +
+    '.yt-kn{flex:1 1 100%;font-size:13px;font-weight:800;color:#ffb066}.yt-kstat{font-size:12px;color:#ffb066;min-height:1.2em}.yt-kstat.bad{color:#ffb9b9}' +
+    '.yt-warn{margin:0;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,176,102,.45);background:rgba(255,138,42,.10);font-size:12px;line-height:1.5;color:var(--g-ink,#f8f5f0)}.yt-warn b{color:#ffb066}';
+  function injectCss() {
+    if (typeof document === 'undefined' || document.getElementById('yn-yt-css')) return;
+    var s = document.createElement('style'); s.id = 'yn-yt-css'; s.textContent = CSS; (document.head || document.documentElement).appendChild(s);
+  }
 
   /**
    * open(host, { id, title, onClose, ytApi? })  → { destroy, setRate, markA, markB, clearLoop, state }
@@ -60,19 +74,42 @@
    */
   function open(host, opt) {
     opt = opt || {};
-    var id = opt.id, st = { rate: 1, a: null, b: null, player: null, ready: false, dead: false, timer: null, rates: RATES.slice(), fallback: false };
+    var id = opt.id, st = { rate: 1, a: null, b: null, player: null, ready: false, dead: false, timer: null, rates: RATES.slice(), fallback: false }, kb = opt.key || null, kOffs = [];
+    injectCss();
     host.innerHTML = '';
     var stage = el('div', 'yt-stage'), holder = el('div', 'yt-holder'); stage.appendChild(holder);
     var ctl = el('div', 'yt-ctl');
     ctl.innerHTML =
-      '<div class="yt-row yt-rates" role="group" aria-label="재생 속도"><span class="yt-lb">속도</span>' + RATES.map(function (r) { return '<button type="button" class="yt-b" data-rate="' + r + '" aria-pressed="' + (r === 1) + '">' + r + 'x</button>'; }).join('') + '</div>' +
+      '<div class="yt-row yt-rates" role="group" aria-label="재생 속도 (템포)"><span class="yt-lb">속도</span>' + RATES.map(function (r) { var ext = TEMPO_RATES.indexOf(r) < 0; return '<button type="button" class="yt-b' + (ext ? ' xr' : '') + '" data-rate="' + r + '" aria-pressed="' + (r === 1) + '"' + (ext ? ' title="0.5배는 요청 범위(0.75~1.25배) 밖의 보조 속도입니다"' : '') + '>' + r + 'x</button>'; }).join('') + '</div>' +
+      '<p class="yt-note yt-ratenote">속도는 YouTube 가 지원하는 0.75 · 1 · 1.25배만 고를 수 있고, 음높이는 YouTube 가 그대로 유지합니다.</p>' +
+      (kb ?
+        '<div class="yt-row yt-key" role="group" aria-label="키 (반음)"><span class="yt-lb">키</span><div class="yt-keys">' + KEY_STEPS.map(function (n) { return '<button type="button" class="yt-b" data-key="' + n + '" aria-pressed="false" aria-label="키 ' + (n > 0 ? '+' + n : n) + ' 반음">' + (n === 0 ? '0' : n > 0 ? '+' + n : n) + '</button>'; }).join('') + '</div><span class="yt-kn" aria-live="polite"></span></div>' +
+        '<div class="yt-kstat" role="status" aria-live="polite"></div>' +
+        '<p class="yt-warn" role="note">ⓘ <b>유튜브 영상의 소리는 브라우저에서 키를 바꿀 수 없습니다</b> (유튜브 화면은 다른 사이트라 앱이 소리를 가공할 수 없습니다). 여기서 고른 키는 <b>악보의 코드 표시</b>에 반영됩니다. 소리도 같은 키로 바꿔 연습하려면 아래 버튼으로 팀 녹음 · 내 오디오 파일을 여세요.</p>' +
+        '<div class="yt-row yt-kbtns">' + (kb.openShifter ? '<button type="button" class="yt-b on" data-k="shifter">🎧 키 바꿔 연습 (녹음 · 내 오디오 파일)</button>' : '') + (kb.startNote ? '<button type="button" class="yt-b" data-k="startnote">🎹 목표 키 시작음</button>' : '') + '</div>'
+        : '') +
       '<div class="yt-row yt-ab" role="group" aria-label="구간 반복"><span class="yt-lb">구간 반복</span>' +
         '<button type="button" class="yt-b" data-a="a">A 지정</button><button type="button" class="yt-b" data-a="b">B 지정</button><button type="button" class="yt-b ghost" data-a="clear">해제</button>' +
         '<span class="yt-abinfo" aria-live="polite">A–B 를 정하면 그 구간만 계속 반복합니다</span></div>' +
       '<div class="yt-msg" role="status"></div>';
     host.appendChild(stage); host.appendChild(ctl);
-    var msg = ctl.querySelector('.yt-msg'), abinfo = ctl.querySelector('.yt-abinfo');
+    var msg = ctl.querySelector('.yt-msg'), abinfo = ctl.querySelector('.yt-abinfo'), knEl = ctl.querySelector('.yt-kn'), kstat = ctl.querySelector('.yt-kstat');
     function say(t, bad) { msg.textContent = t || ''; msg.className = 'yt-msg' + (bad ? ' bad' : ''); }
+    /* 키 줄 (opt.key 가 있을 때만) — 값은 연습 화면의 "연습 키 이동" 하나를 함께 씁니다 */
+    function keyNow() { var n = 0; try { n = Math.round(+kb.get()) || 0; } catch (e) { /* 무시 */ } return Math.max(-3, Math.min(3, n)); }
+    function paintKey() {
+      if (!kb) return; var n = keyNow(), label = '';
+      try { label = kb.label ? kb.label(n) : (n > 0 ? '+' + n : String(n)) + ' 반음'; } catch (e) { label = String(n); }
+      [].forEach.call(ctl.querySelectorAll('[data-key]'), function (b) { var on = +b.getAttribute('data-key') === n; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      if (knEl) knEl.textContent = label;
+      var sb = ctl.querySelector('[data-k="startnote"]'); if (sb) sb.disabled = !(kb.name && kb.name());
+    }
+    function setKeyStatus(t, bad) { if (!kstat) return; kstat.textContent = t ? '악보: ' + t : ''; kstat.className = 'yt-kstat' + (bad ? ' bad' : ''); }
+    if (kb) {
+      paintKey();
+      if (kb.on) kOffs.push(kb.on(paintKey));
+      if (kb.onStatus) { kOffs.push(kb.onStatus(setKeyStatus)); var s0 = kb.status && kb.status(); if (s0 && s0.text) setKeyStatus(s0.text, s0.bad); }
+    }
     function paintRates() {
       [].forEach.call(ctl.querySelectorAll('[data-rate]'), function (b) {
         var r = +b.getAttribute('data-rate'), on = Math.abs(r - st.rate) < 1e-6;
@@ -109,6 +146,9 @@
     ctl.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
       if (b.hasAttribute('data-rate')) setRate(b.getAttribute('data-rate'));
+      else if (b.hasAttribute('data-key')) { if (kb) { try { kb.set(+b.getAttribute('data-key')); } catch (e) { /* 무시 */ } paintKey(); } }
+      else if (b.getAttribute('data-k') === 'shifter') { if (kb && kb.openShifter) kb.openShifter(); }
+      else if (b.getAttribute('data-k') === 'startnote') { var r = kb && kb.startNote ? kb.startNote(keyNow()) : null; if (r) say('목표 키 시작음 ' + (r.key || '') + ' 을 들려 드립니다.'); else say('시작음을 낼 수 없습니다 (곡의 Key 를 읽지 못했거나 소리를 켤 수 없습니다).', true); }
       else { var a = b.getAttribute('data-a'); if (a === 'a') markA(); else if (a === 'b') markB(); else if (a === 'clear') clearLoop(); }
     });
 
@@ -146,10 +186,11 @@
 
     return {
       setRate: setRate, markA: markA, markB: markB, clearLoop: clearLoop,
-      state: function () { return { rate: st.rate, a: st.a, b: st.b, ready: st.ready, fallback: st.fallback }; },
-      destroy: function () { st.dead = true; stopTimer(); try { st.player && st.player.destroy && st.player.destroy(); } catch (e) {} host.innerHTML = ''; }
+      state: function () { return { rate: st.rate, a: st.a, b: st.b, ready: st.ready, fallback: st.fallback, key: kb ? keyNow() : null }; },
+      setKeyStatus: setKeyStatus, repaintKey: paintKey,
+      destroy: function () { st.dead = true; stopTimer(); kOffs.forEach(function (f) { try { f && f(); } catch (e) { /* 무시 */ } }); kOffs = []; try { st.player && st.player.destroy && st.player.destroy(); } catch (e) {} host.innerHTML = ''; }
     };
   }
 
-  return { RATES: RATES, MIN_LOOP: MIN_LOOP, fmtTime: fmtTime, normLoop: normLoop, loopStep: loopStep, loadApi: loadApi, open: open };
+  return { RATES: RATES, TEMPO_RATES: TEMPO_RATES, KEY_STEPS: KEY_STEPS, MIN_LOOP: MIN_LOOP, fmtTime: fmtTime, normLoop: normLoop, loopStep: loopStep, loadApi: loadApi, open: open };
 }));

@@ -40,6 +40,7 @@ function 권한카탈로그_() {
     { key: 'team',         area: '포털',        title: '사역팀',          enforced: true,  allow: true,  scope: '팀', help: '범위에 사역팀 이름(쉼표로 여러 개)을 적으면 그 팀만' },
     { key: 'newfamily',    area: '포털',        title: '새가족 관리',     enforced: true,  allow: true,  scope: '',   help: '새가족 조회 · 배정 · 정착 추적' },
     { key: 'worship',      area: '포털',        title: '찬양방송팀 허브', enforced: true,  allow: true,  scope: '',   help: '콘티 · 악보 · 편성 (허용하면 고칠 수도 있습니다)' },
+    { key: 'equipment',    area: '포털',        title: '장비 점검 · 수리 요청', enforced: true,  allow: true,  scope: '',   help: '찬양 · 방송팀 점검 체크리스트와 수리 요청 (허용하면 팀원이 아니어도 쓸 수 있고, 커미티는 승인도 합니다)' },
     { key: 'bulletinEdit', area: '포털',        title: '주보 편집',       enforced: true,  allow: true,  scope: '',   help: '임시저장까지 — 게시는 주보 게시자만' },
     { key: 'album',        area: '포털',        title: '포토 앨범',       enforced: false, allow: false, scope: '',   help: '교인은 기본으로 열려 있습니다' },
     { key: 'expense',      area: '포털',        title: '지출환급신청 (사역팀 안)', enforced: false, allow: false, scope: '',   help: '' },
@@ -56,7 +57,7 @@ function 권한카탈로그_() {
 }
 
 /** 커미티 관리 화면의 칸 이름(포털관리메뉴_ 의 key) → 권한 메뉴 */
-var 관리메뉴권한키_ = { cell: 'admin.cell', nf: 'newfamily', team: 'admin.team', acct: 'acct', tr: 'admin.tr', mis: 'mission', dir: 'admin.dir', app: 'admin.app', word: 'admin.app', push: 'admin.app' };   // Step 11: 설교 · 알림은 독립 메뉴지만 예전처럼 '앱 기능 관리' 권한을 따릅니다
+var 관리메뉴권한키_ = { cell: 'admin.cell', nf: 'newfamily', team: 'admin.team', acct: 'acct', tr: 'admin.tr', mis: 'mission', dir: 'admin.dir', app: 'admin.app', word: 'admin.app', push: 'admin.app', equip: 'equipment' };   // Step 11: 설교 · 알림은 독립 메뉴지만 예전처럼 '앱 기능 관리' 권한을 따릅니다
 
 /** 예전 이름 · 별칭을 하나로 */
 function 권한키정리_(key) {
@@ -76,7 +77,7 @@ function 권한카탈로그찾기_(key) {
    ========================================================= */
 
 var 위원회기본메뉴_ = {
-  '예배영성부': ['worship', 'bulletinEdit', 'team'],
+  '예배영성부': ['worship', 'equipment', 'bulletinEdit', 'team'],
   '선교행정부': ['team'],
   '양육부': ['newfamily', 'leader', 'team'],
   '회계': ['acct', 'expense']
@@ -188,6 +189,7 @@ function 기본출처_(r, key, target, name) {
     case 'forms': 직접 = has('팀장'); break;
     case 'newfamily': 직접 = has('새가족팀'); break;
     case 'worship': 직접 = has('찬양팀'); break;
+    case 'equipment': 직접 = has('찬양팀'); break;              // 장비 점검 · 수리 요청 (logic/equipment.js) — 찬양 · 방송팀원
     case 'mission': 직접 = has('선교팀'); break;
     case 'acct': 직접 = has('회계팀'); break;
     case 'minutes': break;
@@ -273,6 +275,7 @@ function 메뉴항목_(key, r, token) {
     team: ['사역 보고서', '팀 현황 · 팀원 상태 보고', base + '?page=team&t=' + t],
     newfamily: ['새가족 관리', '4주 과정 · 셀 배정 · 정착 추적', base + '?page=newfamily&t=' + t],
     worship: ['찬양방송팀 허브', '주차별 편성 · 콘티 · 악보', base + '?page=worship&t=' + t],
+    equipment: ['장비 점검 · 수리 요청', '체크리스트 · 사진 첨부 수리 요청', base + '?page=equipment&t=' + t],
     bulletinEdit: ['주보 편집', '예배 순서 · 광고 · 스케줄', base + '?page=bulletin&edit=1&t=' + t]
   };
   var e = E[key];

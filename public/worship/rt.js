@@ -15,13 +15,13 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed'];
+  var FWD = ['peers', 'leader', 'clicker', 'metro', 'nav', 'cue', 'anno:add', 'anno:del', 'anno:clear', 'anno:live', 'anno:saved', 'cfg', 'song', 'songs:changed', 'timer'];
   var OUTBOX_MAX = 300, CALL_TIMEOUT = 8000;
 
   function create(opt) {
     opt = opt || {};
     var ioFn = opt.io || (typeof io !== 'undefined' ? io : null);
-    var S = { state: ioFn ? 'idle' : 'unavailable', me: null, leader: null, clicker: null, metro: null, peers: [], nav: null, offset: 0, socket: null, handlers: {}, outbox: [], joined: false, closed: false, lastError: '' };
+    var S = { state: ioFn ? 'idle' : 'unavailable', me: null, leader: null, clicker: null, metro: null, timer: null, peers: [], nav: null, offset: 0, socket: null, handlers: {}, outbox: [], joined: false, closed: false, lastError: '' };
 
     function emitLocal(name, a, b) { (S.handlers[name] || []).slice().forEach(function (fn) { try { fn(a, b); } catch (e) { if (typeof console !== 'undefined') console.warn('[rt:' + name + ']', e); } }); }
     function setState(s, why) { if (S.state === s && !why) return; S.state = s; S.lastError = why || ''; emitLocal('state', s, why || ''); }
@@ -29,7 +29,7 @@
     var api = {
       on: function (n, fn) { (S.handlers[n] = S.handlers[n] || []).push(fn); return api; },
       off: function (n, fn) { S.handlers[n] = (S.handlers[n] || []).filter(function (f) { return f !== fn; }); return api; },
-      get state() { return S.state; }, get me() { return S.me; }, get leader() { return S.leader; }, get clicker() { return S.clicker; }, get metro() { return S.metro; }, get peers() { return S.peers; }, get nav() { return S.nav; },
+      get state() { return S.state; }, get me() { return S.me; }, get leader() { return S.leader; }, get clicker() { return S.clicker; }, get metro() { return S.metro; }, get peers() { return S.peers; }, get nav() { return S.nav; }, get timer() { return S.timer; },
       get online() { return S.state === 'online'; }, get error() { return S.lastError; },
       /** 서버 시각 (ms) — 큐 · 박자를 여러 기기에서 맞출 때 */
       serverNow: function () { return Date.now() + S.offset; },
@@ -59,6 +59,7 @@
             if (n === 'clicker') { S.clicker = p && p.name || null; }
             if (n === 'metro') { if (p && S.metro && p.seq < S.metro.seq) return; S.metro = p || null; }
             if (n === 'nav') S.nav = p;
+            if (n === 'timer') { if (!p || (S.timer && p.sid === S.timer.sid && p.seq <= S.timer.seq)) return; S.timer = p; }   // 예배 타이머 — 더 새로운 것만
             emitLocal(n, p);
           });
         });
@@ -93,7 +94,9 @@
       releaseClick: function () { return api.call('click:release', {}); },
       /** 메트로놈 상태 보내기 (클릭 컨트롤만) — { playing, bpm, num, den, marks, count, keep } */
       sendMetro: function (st) { return api.call('metro', st || {}); },
-      close: function () { S.closed = true; try { if (S.socket) { S.socket.emit('leave', {}); S.socket.disconnect(); } } catch (e) {} S.socket = null; S.joined = false; S.me = null; S.leader = null; S.clicker = null; S.metro = null; if (S.state !== 'unavailable') setState('idle'); },
+      /** 예배 타이머 조작 보내기 (팀장 · 인도자만) — { action:'start'|'pause'|'segNext'|… } */
+      sendTimer: function (cmd) { return api.call('timer:cmd', cmd || {}); },
+      close: function () { S.closed = true; try { if (S.socket) { S.socket.emit('leave', {}); S.socket.disconnect(); } } catch (e) {} S.socket = null; S.joined = false; S.me = null; S.leader = null; S.clicker = null; S.metro = null; S.timer = null; if (S.state !== 'unavailable') setState('idle'); },
       pending: function () { return S.outbox.length; }
     };
 
@@ -107,7 +110,7 @@
     function join() {
       var sock = S.socket; if (!sock) return;
       var t0 = Date.now();
-      sock.emit('join', { token: opt.token, room: opt.room }, function (r) {
+      sock.emit('join', opt.light ? { token: opt.token, room: opt.room, light: true } : { token: opt.token, room: opt.room }, function (r) {
         if (!r || r.ok === false) {
           var denied = r && (r.code === 'auth' || r.code === 'room');
           S.joined = false;
@@ -116,10 +119,11 @@
           else if (r && r.code === 'busy') setTimeout(function () { if (S.socket === sock && sock.connected) join(); }, 5000);
           return;
         }
-        S.joined = true; S.me = r.you; S.leader = r.leader || null; S.clicker = r.clicker || null; S.metro = r.metro || null; S.peers = r.peers || []; S.nav = r.nav || null;
+        S.joined = true; S.me = r.you; S.leader = r.leader || null; S.clicker = r.clicker || null; S.metro = r.metro || null; S.peers = r.peers || []; S.nav = r.nav || null; S.timer = r.timer || null;
         if (r.serverTime) S.offset = r.serverTime + (Date.now() - t0) / 2 - Date.now();
         setState('online');
         emitLocal('joined', r);
+        if (r.timer) emitLocal('timer', r.timer);
         flush();
       });
     }

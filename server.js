@@ -9,6 +9,7 @@
  *   /healthz               서버 상태 확인
  *   /sheet/<id>            찬양 악보 파일 (연습 모드 뷰어)
  *   /socket.io/            실시간 (찬양방송팀 허브 — 리더/팔로워 · 악보 필기)
+ *   POST /api/worshipTimerGet · worshipTimerCmd   예배 타이머 — 웹소켓이 막혔을 때 쓰는 HTTP 대체 통로 (lib/realtime.js 와 같은 상태)
  */
 process.env.TZ = process.env.TZ || 'America/Toronto';   // 날짜 계산을 시트 시간대와 맞춥니다 (가장 먼저)
 
@@ -94,6 +95,25 @@ app.post('/api/sermonNoteRefine', async (req, res) => {
     res.json({ ok: false, error: (e && e.message) || String(e) });
   }
 });
+
+/**
+ * 예배 타이머 — 웹소켓이 막혔을 때 쓰는 대체 통로 (public/worship/timer.js 가 3초마다 부릅니다)
+ * 웹소켓과 같은 저장소(lib/realtime.js)를 봅니다. 조작이 들어오면 소켓 방에도 바로 알립니다. 아래 일반 /api/:fn 보다 먼저 등록해야 합니다.
+ */
+function timerRoute(kind) {
+  return (req, res) => {
+    const args = Array.isArray(req.body && req.body.args) ? req.body.args : [];
+    try {
+      res.set('Cache-Control', 'no-store');
+      res.json(rt.timerHttp(kind, args));
+    } catch (e) {
+      console.error('[worshipTimer]', kind, e && e.message);
+      res.json({ ok: false, error: (e && e.message) || '처리하지 못했습니다.' });
+    }
+  };
+}
+app.post('/api/worshipTimerGet', timerRoute('get'));
+app.post('/api/worshipTimerCmd', timerRoute('cmd'));
 
 /** 화면 → 서버 함수 */
 app.post('/api/:fn', (req, res) => {

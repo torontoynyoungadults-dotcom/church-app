@@ -13,8 +13,8 @@ var KEEP = [SHELL, PAGES, SHEETS];
 var PAGES_MAX = 30;
 var PRE = ['/offline.js', '/app.js', '/pwa-install.js', '/site.webmanifest', '/icon-192.png', '/favicon.png',
   '/socket.io/socket.io.js',
-  '/worship/formb.js', '/worship/conti.js', '/worship/wakelock.js', '/worship/metro.js', '/worship/pitch.js', '/worship/harmony-core.js', '/worship/omr.js', '/worship/harmony-ui.js', '/worship/lyrics.js', '/worship/hubtools.js',
-  '/worship/ytplayer.js', '/worship/rt.js', '/worship/anno.js', '/worship/practice-panels.js', '/worship/practice.js', '/worship/stats.js',
+  '/worship/formb.js', '/worship/conti.js', '/worship/wakelock.js', '/worship/metro.js', '/worship/pitch.js', '/worship/harmony-core.js', '/worship/omr.js', '/worship/harmony-ui.js', '/worship/audio-shift.js', '/worship/pitch-worklet.js', '/worship/lyrics.js', '/worship/hubtools.js',
+  '/worship/ytplayer.js', '/worship/rt.js', '/worship/timer.js', '/worship/anno.js', '/worship/practice-panels.js', '/worship/practice.js', '/worship/stats.js',
   '/worship/hub.css', '/vendor/pdfjs/pdf.min.js', '/vendor/pdfjs/pdf.worker.min.js'];
 
 self.addEventListener('install', function (e) {

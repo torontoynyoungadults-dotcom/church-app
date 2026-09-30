@@ -1050,6 +1050,14 @@ function doGet(e) {
     return render_('Worship', '찬양방송팀 허브', wpre, 'worship');
   }
 
+  if (page === 'equipment') {
+    // 장비 점검 · 수리 요청 (Step 34 — logic/equipment.js). 포털 표(t) · 관리자키(key) 어느 쪽으로든 들어오고, 권한은 서버가 요청마다 확인합니다
+    var eqk = isAdmin_(p.key) ? (설정값_('관리자키') || '') : '';
+    var eqpre = { t: p.t || '', key: eqk, ticket: String(p.ticket || '').slice(0, 40) };
+    try { if (eqk || p.t) eqpre.init = equipmentInit(eqk || p.t, ''); } catch (e) { eqpre.err = e.message || ''; }
+    return render_('Equipment', '장비 점검 · 수리 요청', eqpre, 'worship');
+  }
+
   if (page === 'calendar') {
     var cpre = {};
     try { cpre.cal = getOpenCalendar(''); } catch (e) { cpre.err = e.message || ''; }
@@ -7305,6 +7313,10 @@ function 포털메뉴_(r, token) {
     out.push({ key: 'worship', title: '찬양방송팀 허브', desc: '주차별 편성 · 콘티 · 악보',
       url: base + '?page=worship&t=' + encodeURIComponent(token), note: '' });
   }
+  if (has('찬양팀') || 커미티) {          // Step 34 — 장비 점검 체크리스트 · 수리 요청 (logic/equipment.js). 차단 · 위원회 범위는 아래 개인권한메뉴_ 가 적용합니다
+    out.push({ key: 'equipment', title: '장비 점검 · 수리 요청', desc: '체크리스트 · 사진 첨부 수리 요청',
+      url: base + '?page=equipment&t=' + encodeURIComponent(token), note: '' });
+  }
   if (has('선교팀') || 커미티) {
     out.push({ key: 'mission', title: '선교팀 관리', desc: '팀원 · 서류 · 항공 일정 · 제출 현황',
       url: base + '?page=mission&t=' + encodeURIComponent(token),
@@ -7429,6 +7441,11 @@ function 포털관리메뉴_(r, token) {
       ] });
   }
 
+  /* 6-2. 장비 · 수리 요청 (Step 34 — logic/equipment.js) */
+  if (커미티) {
+    try { var 장비카드 = 장비관리카드_(r, app, akey, token); if (장비카드) out.push(장비카드); } catch (e) {}
+  }
+
   /* 7. 교적 관리 */
   if (커미티) {
     var dir = st.directory || {};
@@ -7483,14 +7500,14 @@ function 메뉴순서적용_(out, kind) {
 /** 앱 기능 관리 — 메뉴 순서 화면 초기값 (지금 순서 그대로, 저장된 값이 없으면 기본 순서) */
 function getMenuOrder(token) {
   if (!isAdmin_(token) && !커미티토큰_(token)) throw new Error('커미티 · 관리자만 볼 수 있습니다.');
-  var 포털기본 = ['album', 'leader', 'team', 'newfamily', 'worship', 'mission', 'forms', 'budget', 'minutes', 'bulletinEdit', 'acct'];
-  var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'dir', 'word', 'push', 'app'];
+  var 포털기본 = ['album', 'leader', 'team', 'newfamily', 'worship', 'equipment', 'mission', 'forms', 'budget', 'minutes', 'bulletinEdit', 'acct'];
+  var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'equip', 'dir', 'word', 'push', 'app'];
   var titleOf = {
     album: '포토 앨범', leader: '셀모임 (셀 보고서 · 셀원 정보 · 대리 제출)', team: '사역팀 (팀 보고서 · 팀원 관리 · 지출환급신청)',
-    newfamily: '새가족 관리', worship: '찬양방송팀 허브', mission: '선교팀 관리', forms: '일반 신청서 관리',
+    newfamily: '새가족 관리', worship: '찬양방송팀 허브', equipment: '장비 점검 · 수리 요청', mission: '선교팀 관리', forms: '일반 신청서 관리',
     budget: '수련회 · 선교 예산/정산',
     minutes: '회의록 · 할 일', bulletinEdit: '주보 편집', acct: '회계 관리',
-    cell: '셀 관리', nf: '새가족 관리', tr: '제자훈련 관리', mis: '선교팀 관리', dir: '교적 관리',
+    cell: '셀 관리', nf: '새가족 관리', tr: '제자훈련 관리', mis: '선교팀 관리', equip: '장비 · 수리 요청', dir: '교적 관리',
     word: '설교 · 말씀 관리', push: '알림 · 이메일 관리',
     app: '⚙️ 앱 기능 관리 (메뉴 순서 · AI · 일정 · 권한)'
   };
@@ -11016,6 +11033,7 @@ function 알림종류_() {
     { key: '새가족', name: '새가족 등록', who: '새가족팀 · 커미티', help: '새가족이 등록하거나 내용을 고쳤을 때' },
     { key: '셀신청', name: '셀 신청', who: '커미티', help: '셀 신청서가 들어왔을 때' },
     { key: '콘티', name: '콘티 · 악보', who: '찬양팀', help: '콘티를 쓰거나 악보를 올리고 찬양팀에게 알릴 때' },
+    { key: '장비수리', name: '장비 수리 요청', who: '커미티 · 찬양/방송팀장 · 요청한 분', help: '장비 수리 요청이 올라오거나 승인 · 처리 상태가 바뀔 때' },
     { key: '공지', name: '커미티 직접 보내기', who: '고르는 대로', help: '관리 화면에서 손으로 보내는 알림' }
   ];
 }
@@ -12207,6 +12225,9 @@ function 내할일_(token) {
     /* --- 1-3) 콘티에서 나를 부른 @태그 (Step 13 — logic/worship5.js) --- */
     try { 콘티멘션할일_(who.name, token, hidden, today).forEach(function (t) { out.push(t); }); } catch (e) {}
 
+    /* --- 1-4) 장비 수리 요청 — 승인 대기 · 처리할 요청 · 내 요청 진행 (Step 34 — logic/equipment.js) --- */
+    try { 장비할일_(who.name, token, hidden, today, r).forEach(function (t) { out.push(t); }); } catch (e) {}
+
     /* --- 2) 셀 보고서 --- */
     if (r.cells.length) {
       var 이번주 = ymd_(이번주기준_());
@@ -12394,6 +12415,8 @@ function 포털뱃지_(todos) {
     else if (id.indexOf('meet-') === 0) add('minutes');
     else if (id.indexOf('due-') === 0) { add('mission'); add('team'); }
     else if (id.indexOf('cellapp-in-') === 0) add('a-cells');
+    else if (id.indexOf('equip-approve-') === 0) { add('equipment'); add('a-equip'); }     // Step 34 — 승인 대기 수리 요청
+    else if (id.indexOf('equip-work-') === 0) add('equipment');
   });
   return b;
 }
