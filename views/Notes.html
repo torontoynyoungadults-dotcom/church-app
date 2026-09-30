@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/notes/notes.css?v=1">
+<link rel="stylesheet" href="/notes/notes.css?v=2">
 <style>
   html, body { margin: 0; height: 100%; background: #0B0B0B; overscroll-behavior: none; }
   body { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif; }
@@ -26,7 +26,7 @@
 <div id="root"></div>
 
 <script src="/notes/notes-core.js?v=1"></script>
-<script src="/notes/editor.js?v=1"></script>
+<script src="/notes/editor.js?v=3"></script>
 <script>
 (function () {
   'use strict';
@@ -49,15 +49,18 @@
   var TAG = TOKEN ? tokenTag(TOKEN) : '';
   var store = C.createDraftStore(ls());
   var INIT = null, LIST = [], METAS = {}, QUERY = '';
+  var EDKIND = 'sermon';
+  var MODE = 'sermon';           // 'sermon' = 설교 노트(주보 필기 포함) · 'qt' = QT · 묵상 노트 (출처 칸 'qt')
+  function kindOf(n) { return n && n.source === 'qt' ? 'qt' : 'sermon'; }
   var ED = null, CURID = '', VIEW = 'list', pageEl, toastEl, toastT = 0;
 
   E.trackViewport();
 
   function lock(msg) {
-    root.innerHTML = '<div class="yn-lock"><div><img src="/logo.png" alt="Youngnak"><h2>내 설교 노트</h2><p>' + esc(msg) + '</p>' +
+    root.innerHTML = '<div class="yn-lock"><div><img src="/logo.png" alt="Youngnak"><h2>내 노트</h2><p>' + esc(msg) + '</p>' +
       '<a class="yn-btn pri" style="line-height:46px" href="' + esc(HOME) + '">포털로 가기</a></div></div>';
   }
-  if (!TOKEN) { lock('내 설교 노트는 포털에서 구글 계정으로 로그인한 뒤 들어올 수 있습니다.'); return; }
+  if (!TOKEN) { lock('내 노트는 포털에서 구글 계정으로 로그인한 뒤 들어올 수 있습니다.'); return; }
 
   /* ---------- 뼈대 ---------- */
   var ICON_BACK = '<svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg>';
@@ -66,10 +69,13 @@
     root.innerHTML =
       '<div class="yn yn-page" id="page" data-view="list">' +
       '<header class="yn-top"><button type="button" class="yn-icon" id="back" aria-label="뒤로">' + ICON_BACK + '</button>' +
-      '<h1 id="ttl">내 설교 노트</h1>' +
+      '<h1 id="ttl">내 노트</h1>' +
       '<button type="button" class="yn-icon yn-editonly" id="more" aria-label="더보기" aria-haspopup="true">' + ICON_MORE + '</button></header>' +
       '<main class="yn-main">' +
       '<section class="yn-listcol yn-listcol-x" aria-label="노트 목록">' +
+      '<div class="yn-modes" role="tablist" aria-label="노트 종류">' +
+      '<button type="button" role="tab" data-m="sermon" id="modeSermon">설교 노트</button>' +
+      '<button type="button" role="tab" data-m="qt" id="modeQt">QT · 묵상 노트</button></div>' +
       '<div class="yn-search"><input id="q" type="search" placeholder="제목 · 본문 · 설교자 · 내용 검색" autocomplete="off" aria-label="노트 검색"></div>' +
       '<div class="yn-cards" id="cards"><div class="yn-skel"></div><div class="yn-skel"></div><div class="yn-skel"></div></div>' +
       '<button type="button" class="yn-fab" id="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>새 노트</button>' +
@@ -81,6 +87,8 @@
     pageEl = document.getElementById('page');
     document.getElementById('back').addEventListener('click', onBack);
     document.getElementById('fab').addEventListener('click', function () { newNote({}); });
+    document.getElementById('modeSermon').addEventListener('click', function () { switchMode('sermon'); });
+    document.getElementById('modeQt').addEventListener('click', function () { switchMode('qt'); });
     document.getElementById('more').addEventListener('click', toggleMenu);
     document.getElementById('cards').addEventListener('click', function (e) {
       var b = e.target.closest && e.target.closest('.yn-card'); if (b) openNote(b.getAttribute('data-id'));
@@ -92,10 +100,32 @@
 
   function setView(v) {
     VIEW = v; pageEl.setAttribute('data-view', v);
-    document.getElementById('ttl').textContent = v === 'edit' && !wide() ? '노트' : '내 설교 노트';
+    document.getElementById('ttl').textContent = v === 'edit' && !wide() ? (MODE === 'qt' ? 'QT · 묵상' : '노트') : '내 노트';
   }
+  function modeUI() {
+    ['sermon', 'qt'].forEach(function (m) {
+      var b = document.getElementById(m === 'qt' ? 'modeQt' : 'modeSermon');
+      if (b) b.setAttribute('aria-selected', String(MODE === m));
+    });
+    var fab = document.getElementById('fab');
+    if (fab) fab.lastChild.textContent = MODE === 'qt' ? '새 QT 노트' : '새 노트';
+    var q = document.getElementById('q');
+    if (q) q.placeholder = MODE === 'qt' ? '제목 · 성경 본문 · 내용 검색' : '제목 · 본문 · 설교자 · 내용 검색';
+  }
+  function setMode(m) {
+    MODE = m === 'qt' ? 'qt' : 'sermon';
+    try { var s = ls(); if (s) s.setItem('ynNotesMode', MODE); } catch (e) {}
+    modeUI(); paintList(); markSel();
+  }
+  /** 위쪽 단추 — 노트 종류를 바꿉니다. 열려 있던 노트가 다른 종류면 저장하고 닫습니다 */
+  function switchMode(m) {
+    if (m === MODE) return;
+    setMode(m);
+    if (ED && EDKIND !== MODE) ED.flush(function () { closeEditor(); });
+  }
+  function todayYmd() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function urlFor(id) {
-    var u = '?page=notes' + (id ? '&id=' + encodeURIComponent(id) : '') + (P.t ? '&t=' + encodeURIComponent(P.t) : '');
+    var u = '?page=notes' + (id ? '&id=' + encodeURIComponent(id) : '') + (MODE === 'qt' ? '&mode=qt' : '') + (P.t ? '&t=' + encodeURIComponent(P.t) : '');
     try { history.replaceState(null, '', u); } catch (e) {}
   }
   function onBack() {
@@ -125,11 +155,11 @@
   /* ---------- 목록 ---------- */
   function summaryOf(snap, base) {
     var t = String(snap.body || snap.reflection || '').replace(/\s+/g, ' ').trim();
-    return { id: snap.id, date: snap.date, title: snap.title, ref: snap.ref, preacher: snap.preacher, snippet: t.slice(0, 100),
+    return { id: snap.id, date: snap.date, title: snap.title, ref: snap.ref, preacher: snap.preacher, source: snap.source || (base && base.source) || 'note', snippet: t.slice(0, 100),
       devDate: (base && base.devDate) || '', updatedAt: (base && base.updatedAt) || '', local: !!(base && base.local) };
   }
   function cardHtml(n) {
-    var badges = (n.devDate ? '<span class="yn-badge dev">🌿 묵상 연결</span>' : '') + (n.local ? '<span class="yn-badge sync">이 기기에만 · 전송 대기</span>' : '');
+    var badges = (n.source === 'qt' ? '<span class="yn-badge qt">🌿 QT</span>' : '') + (n.devDate ? '<span class="yn-badge dev">🌿 묵상 연결</span>' : '') + (n.local ? '<span class="yn-badge sync">이 기기에만 · 전송 대기</span>' : '');
     return '<button type="button" class="yn-card' + (n.id === CURID ? ' sel' : '') + '" data-id="' + esc(n.id) + '">' +
       '<div class="d">' + esc(C.fmtDate(n.date)) + badges + '</div>' +
       '<div class="t">' + esc(n.title || '(제목 없음)') + '</div>' +
@@ -142,10 +172,13 @@
   }
   function paintList() {
     var box = document.getElementById('cards'); if (!box) return;
-    var rows = LIST.filter(matches);
+    var ofMode = LIST.filter(function (n) { return kindOf(n) === MODE; });
+    var rows = ofMode.filter(matches);
     var h = '';
-    if (!LIST.length) {
-      h = '<div class="yn-empty"><b>아직 노트가 없어요</b>주일 설교를 들으며 “새 노트”로 적어보세요.<br>주보를 보면서 바로 필기할 수도 있어요.</div>';
+    if (!ofMode.length) {
+      h = MODE === 'qt'
+        ? '<div class="yn-empty"><b>아직 QT · 묵상 노트가 없어요</b>“새 노트”를 누르고 성경 책과 본문을 고른 뒤,<br>말씀 앞에서 떠오른 것을 적어보세요.</div>'
+        : '<div class="yn-empty"><b>아직 설교 노트가 없어요</b>주일 설교를 들으며 “새 노트”로 적어보세요.<br>날짜를 고르면 그 주 주보에서 제목 · 본문 · 설교자를 채워 드려요.</div>';
     } else if (!rows.length) {
       h = '<div class="yn-empty"><b>찾는 노트가 없어요</b>다른 말로 검색해보세요.</div>';
     } else {
@@ -189,6 +222,8 @@
     if (ED) { ED.destroy(); ED = null; }
     host.innerHTML = '';
     CURID = r.id || (r.note && r.note.id) || '';
+    EDKIND = kindOf(r.note);
+    if (EDKIND !== MODE) setMode(EDKIND);          // 다른 종류 노트를 열면 위쪽 단추도 그 종류로
     setView('edit'); markSel();
     ED = E.create({
       root: host, token: TOKEN, tag: TAG, store: store, mode: 'page',
@@ -228,6 +263,11 @@
   }
   function newNote(o) {
     if (ED) { ED.destroy(); ED = null; }
+    if (MODE === 'qt') {                                 // QT · 묵상 노트 — 주보와 상관없이 오늘 날짜, 본문은 직접 고릅니다
+      var qn = { id: C.newId(), date: o.date || todayYmd(), title: '', ref: '', preacher: '', body: '', reflection: '', source: 'qt', version: 0 };
+      mount({ id: qn.id, note: qn, base: 0 }, { dev: o.dev, focus: true });
+      return;
+    }
     var date = o.date || C.currentSunday();
     var meta = METAS[date] || null;                      // 그 주일의 게시된 주보 (없으면 빈 칸 — 다른 주 설교를 잘못 넣지 않습니다)
     var note = { id: C.newId(), date: date, title: '', ref: '', preacher: '', body: '', reflection: '', source: 'note', version: 0 };
@@ -307,7 +347,9 @@
       Object.keys(r.metas || {}).forEach(function (d) { METAS[d] = r.metas[d]; });
       if (r.meta) METAS[r.meta.date] = r.meta;
       cacheMetas(r.metas || {});
-      mergeDrafts(); paintList();
+      mergeDrafts();
+      var stored = ''; try { stored = (ls() && ls().getItem('ynNotesMode')) || ''; } catch (e) {}
+      setMode(P.mode === 'qt' || P.mode === 'sermon' ? P.mode : (stored === 'qt' ? 'qt' : 'sermon'));
       if (P.id) openNote(P.id);
       else if (P.isNew) newNote({ dev: P.dev, date: P.date });
       else setView('list');

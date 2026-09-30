@@ -8,6 +8,7 @@
  *  E. 포털 메뉴 재편 — 셀모임 / 사역팀(하위 메뉴 · 지출환급신청) / 일반 신청서 관리 / 수련회·선교 예산·정산
  *  F. 커미티 관리 카드 — 설교 · 말씀 / 알림 · 이메일이 독립, 앱 기능 관리는 그대로 권한을 따름
  *  G. 새가족 포털 편집 — 기본값(예전 화면과 같음) · 정리 · 권한 · newcomerHome 반영 · 미리보기
+ *  I. 내 노트 — QT · 묵상 노트(source 'qt') 저장 · 종류 유지 · 목록 구분 · 설교 노트는 그대로
  *  H. 다른 분 화면 보기 1:1 — 교인(내 정보 · 알림 · 신청서 · 셀 신청) / 새가족(실제 첫 화면 자료)
  */
 const T = require('./test-step3');
@@ -138,13 +139,10 @@ function main() {
     const me = run((api) => api.getMyProfile(커미티));
     const byKey = {}; me.menus.forEach((m) => { byKey[m.key] = m; });
     eq(byKey.leader.title, '셀모임', '셀모임 보고서 → 셀모임');
-    eq(byKey.leader.subs.map((s) => s.title), ['셀 보고서', '셀원 정보', '대리 제출'], '셀모임 하위 메뉴 3개');
-    ok(/page=leader/.test(byKey.leader.subs[0].url) && /sub=members/.test(byKey.leader.subs[1].url) && /sub=proxy/.test(byKey.leader.subs[2].url), '하위 메뉴 주소 (sub=members | proxy)');
+    ok(!byKey.leader.subs && !byKey.team.subs, 'v2: 포털에는 하위 메뉴를 따로 펼치지 않음 (타일은 페이지로 바로 — 탭은 그 페이지 안에)');
+    ok(/page=leader/.test(byKey.leader.url) && /page=team/.test(byKey.team.url), '셀모임 · 사역팀 타일 주소는 그대로');
     eq(byKey.team.title, '사역팀', '사역 보고서 → 사역팀');
-    eq(byKey.team.subs.map((s) => s.title), ['팀 보고서', '팀원 관리', '지출환급신청'], '사역팀 하위 메뉴 3개');
-    ok(/sub=members/.test(byKey.team.subs[1].url), '팀원 관리 → ?sub=members');
-    ok(/page=expense/.test(byKey.team.subs[2].url), '지출환급신청은 바로 가기(expense 페이지)');
-    ok(!byKey.expense, '지출환급신청서 타일은 사역팀 안으로 들어감 (따로 안 보임)');
+    ok(!byKey.expense, '지출환급신청서 타일은 사역팀 페이지의 탭으로 들어감 (따로 안 보임)');
     eq(byKey.forms.title, '일반 신청서 관리', '신청서 관리 → 일반 신청서 관리');
     ok(byKey.forms.url.indexOf('page=forms') !== -1, '주소(권한 · 경로)는 그대로');
     ok(byKey.newfamily && byKey.worship && byKey.mission, '다른 메뉴는 그대로');
@@ -154,7 +152,7 @@ function main() {
     const g = run((api) => api.getMyProfile(일반));
     ok(!g.menus.some((m) => m.key === 'team' || m.key === 'leader' && false), '팀장이 아닌 교인에게 사역팀 메뉴 없음');
     const ldr = run((api) => api.getMyProfile(팀장));
-    ok(ldr.menus.some((m) => m.key === 'team' && m.subs.length === 3), '팀장에게도 사역팀 + 하위 메뉴');
+    ok(ldr.menus.some((m) => m.key === 'team' && m.title === '사역팀'), '팀장에게도 사역팀 타일');
 
     const order = run((api) => api.getMenuOrder(커미티));
     ok(order.portal.some((x) => x.key === 'budget' && x.title === '수련회 · 선교 예산/정산'), '메뉴 순서 화면: 새 이름');
@@ -252,6 +250,32 @@ function main() {
     const nm = run((api) => api.portalViewAsNewcomer(커미티, '이무메일'));
     ok(nm.home && nm.home.name === '이무메일' && Array.isArray(nm.home.todos), '이메일이 없는 새가족도 오류 없이(최소 자료)');
     ok(!/YNN1\./.test(JSON.stringify(n)), '응답 어디에도 새가족 로그인 표가 없음');
+  }
+
+  section('I. 내 노트 — 설교 노트 / QT · 묵상 노트');
+  {
+    let seq = 0;
+    const mk = (o) => Object.assign({ id: 'Nq11' + (++seq).toString(36).padStart(6, '0') + 'zz', date: '2026-09-28', title: '', ref: '', preacher: '', body: '', reflection: '', source: 'note' }, o || {});
+    const sermon = mk({ title: '설교 노트 제목', ref: '요 3:16', preacher: '강산 목사', body: '설교 필기' });
+    const qtNote = mk({ source: 'qt', title: '오늘의 QT', ref: '시편 23:1-6', body: '관찰', reflection: '나의 묵상' });
+    ok(run((api) => api.sermonNoteSave(일반, sermon, 0)).ok, '설교 노트 저장');
+    const r = run((api) => api.sermonNoteSave(일반, qtNote, 0));
+    ok(r.ok && r.version === 1, 'QT · 묵상 노트 저장');
+    const g = run((api) => api.sermonNoteGet(일반, qtNote.id));
+    eq([g.source, g.ref, g.reflection, g.preacher], ['qt', '시편 23:1-6', '나의 묵상', ''], 'QT 노트: 종류(source)와 본문 · 묵상이 그대로, 설교자는 비어 있음');
+    const list = run((api) => api.sermonNotesInit(일반)).notes;
+    eq(list.filter((n) => n.source === 'qt').map((n) => n.id), [qtNote.id], '목록에서 QT 노트를 구분할 수 있음 (source)');
+    eq(list.filter((n) => n.source !== 'qt').map((n) => n.id), [sermon.id], '설교 노트는 그대로');
+    // 다시 저장해도 종류가 바뀌지 않음 (화면이 source 를 바꿔 보내도 서버가 지킴)
+    const again = run((api) => api.sermonNoteSave(일반, Object.assign({}, qtNote, { body: '관찰 수정', source: 'note' }), 1));
+    ok(again.ok && again.version === 2, '수정 저장');
+    eq(run((api) => api.sermonNoteGet(일반, qtNote.id)).source, 'qt', '수정해도 QT 종류 유지');
+    // 엉뚱한 종류는 설교 노트로
+    const odd = mk({ source: 'weird', title: 'x' });
+    run((api) => api.sermonNoteSave(일반, odd, 0));
+    eq(run((api) => api.sermonNoteGet(일반, odd.id)).source, 'note', '알 수 없는 종류는 설교 노트로');
+    // 내 것만
+    ok(!run((api) => api.sermonNotesInit(팀장)).notes.some((n) => n.id === qtNote.id), '다른 사람은 내 QT 노트를 못 봄');
   }
 
   return T.summary();

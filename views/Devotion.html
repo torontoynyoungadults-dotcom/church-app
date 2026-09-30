@@ -363,8 +363,8 @@ function loadNotes() {
 }
 function paintNotes() {
   var box = el('dnBox'); if (!box || !DN) return;
-  var h = '<div class="panel"><span class="chip">📝 내 설교 노트</span>' +
-    '<p class="hint">오늘의 묵상(' + esc(DN.verse || fmtD(DN.date)) + ')과 내 설교 노트를 연결해 두면 이곳에서 바로 다시 볼 수 있어요.</p>';
+  var h = '<div class="panel"><span class="chip">📝 내 노트</span>' +
+    '<p class="hint">오늘의 묵상(' + esc(DN.verse || fmtD(DN.date)) + ')과 내 노트를 연결해 두면 이곳에서 바로 다시 볼 수 있어요.</p>';
   if (!DN.linked.length) {
     h += '<p class="dn-empty">아직 이 묵상에 연결한 노트가 없어요.' +
       (DN.meta && DN.meta.title ? '<br>이번 주 설교: <b>' + esc(DN.meta.title) + '</b>' + (DN.meta.ref ? ' · ' + esc(DN.meta.ref) : '') : '') + '</p>';

@@ -311,9 +311,10 @@
     </div>
     <div class="teamcard" id="teamCard"></div>
 
-    <div class="ttabs">
-      <button type="button" id="tabRep" class="on" onclick="showTab('rep')">보고서</button>
-      <button type="button" id="tabMem" onclick="showTab('mem')">팀원 관리</button>
+    <div class="pgtabs" role="tablist" aria-label="사역팀">
+      <button type="button" role="tab" id="tabRep" class="on" onclick="showTab('rep')">팀 보고서</button>
+      <button type="button" role="tab" id="tabMem" onclick="showTab('mem')">팀원 관리</button>
+      <a role="tab" id="tabExp" href="?page=expense" title="지출환급신청서로 이동">지출환급신청 <span class="ext" aria-hidden="true">↗</span></a>
     </div>
 
     <!-- ===== 팀원 관리 ===== -->

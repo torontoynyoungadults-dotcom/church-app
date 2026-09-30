@@ -306,7 +306,7 @@ function sermonNoteSave(token, note, baseVersion) {
     if (남의 && 남의 !== me.name) throw new Error('노트를 저장하지 못했습니다. 새로고침 후 다시 시도해주세요.');
     var mine = 노트내것들_(me.name);
     if (mine.length >= 노트한도.notes) throw new Error('노트는 최대 ' + 노트한도.notes + '개까지 저장할 수 있습니다. 오래된 노트를 지운 뒤 다시 시도해주세요.');
-    var src = String(note.source || '') === 'live' ? 'live' : 'note';
+    var src = String(note.source || '') === 'live' ? 'live' : (String(note.source || '') === 'qt' ? 'qt' : 'note');   // 'qt' = QT · 묵상 노트 (Step 11 v2, 출처 칸 재사용)
     if (src === 'live') {
       // 주보 필기는 주일마다 하나 — 다른 기기에서 먼저 만든 것이 있으면 그것을 이어 쓰게 알립니다
       var dup = mine.filter(function (n) { return n.date === 새것.date && n.id !== id; })[0];

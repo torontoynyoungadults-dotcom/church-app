@@ -295,3 +295,26 @@ button.yn-pill { cursor: pointer; }
 }
 /* 인쇄 · 화면 밖 접근성 */
 .yn-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Step 11 v2 — 내 노트: 모드 전환(설교 노트 | QT · 묵상 노트) · 성경 책 고르기 ---------- */
+.yn-modes { display: flex; gap: 6px; padding: 0 14px 10px; }
+.yn-modes button {
+  flex: 1; min-height: 44px; border-radius: 12px; border: 1px solid var(--yn-line-2); background: var(--yn-glass-2);
+  color: #FFFFFF; font: 800 14.5px 'Noto Sans KR', sans-serif; cursor: pointer; white-space: nowrap;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); touch-action: manipulation; transition: background .15s, border-color .15s;
+}
+.yn-modes button:hover { background: rgba(255,255,255,.13); border-color: rgba(255,178,130,.9); }
+.yn-modes button[aria-selected="true"] {
+  background: linear-gradient(135deg, var(--yn-accent), var(--yn-accent-2)); border-color: rgba(255,255,255,.4);
+  box-shadow: 0 6px 16px rgba(180,70,20,.35);
+}
+.yn-modes button:before { margin-right: 5px; }
+.yn-modes button[data-m="sermon"]:before { content: "\1F4D6"; }
+.yn-modes button[data-m="qt"]:before { content: "\1F33F"; }
+.yn-chipin.book { flex: 0 1 auto; }
+.yn-chipin select {
+  border: 0; background: transparent; outline: 0; min-width: 96px; max-width: 150px; padding: 0;
+  font: 600 15px/1.2 'Noto Sans KR', sans-serif; color: #FFFFFF; -webkit-text-fill-color: #FFFFFF; color-scheme: dark;
+}
+.yn-chipin select option { color: #111; background: #fff; }
+.yn-card .yn-badge.qt { background: rgba(124,232,176,.18); color: #B8F5D3; }

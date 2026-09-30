@@ -138,8 +138,16 @@
     var pendingLink = opts.linkOnFirstSave || '';
     var lastAt = 0;
 
-    var note = Object.assign({ id: C.newId(), date: '', title: '', ref: '', preacher: '', body: '', reflection: '', source: dock ? 'live' : 'note', version: 0, devDate: '', devVerse: '' }, opts.note || {});
+    var note = Object.assign({ id: C.newId(), date: '', title: '', ref: '', preacher: '', body: '', reflection: '', source: dock ? 'live' : (opts.kind === 'qt' ? 'qt' : 'note'), version: 0, devDate: '', devVerse: '' }, opts.note || {});
     if (!C.validId(note.id)) note.id = C.newId();
+    var qt = !dock && note.source === 'qt';      // QT · 묵상 노트 — 설교 정보(설교자 · 주보 불러오기) 없이 본문 · 묵상을 직접 적습니다
+    var BOOKS = ['창세기', '출애굽기', '레위기', '민수기', '신명기', '여호수아', '사사기', '룻기', '사무엘상', '사무엘하', '열왕기상', '열왕기하', '역대상', '역대하', '에스라', '느헤미야', '에스더', '욥기', '시편', '잠언', '전도서', '아가', '이사야', '예레미야', '예레미야애가', '에스겔', '다니엘', '호세아', '요엘', '아모스', '오바댜', '요나', '미가', '나훔', '하박국', '스바냐', '학개', '스가랴', '말라기',
+      '마태복음', '마가복음', '누가복음', '요한복음', '사도행전', '로마서', '고린도전서', '고린도후서', '갈라디아서', '에베소서', '빌립보서', '골로새서', '데살로니가전서', '데살로니가후서', '디모데전서', '디모데후서', '디도서', '빌레몬서', '히브리서', '야고보서', '베드로전서', '베드로후서', '요한1서', '요한2서', '요한3서', '유다서', '요한계시록'];
+    function bookOf(ref) {                      // 긴 이름부터 맞춰 "요한1서" 가 "요한복음" 으로 잘못 잡히지 않게
+      var r = String(ref || ''), best = '';
+      BOOKS.forEach(function (b) { if (r.indexOf(b) === 0 && b.length > best.length) best = b; });
+      return best;
+    }
 
     /* ----- 화면 만들기 ----- */
     var metaHtml;
@@ -149,28 +157,32 @@
         (m.ref ? '<span>' + esc(m.ref) + '</span>' : '') + (m.preacher ? '<span>' + esc(m.preacher) + '</span>' : '') + '</div>';
     } else {
       metaHtml =
-        '<input class="yn-title" id="ynTitle" type="text" maxlength="' + L.title + '" placeholder="설교 제목" autocomplete="off" enterkeyhint="next" aria-label="설교 제목">' +
+        '<input class="yn-title" id="ynTitle" type="text" maxlength="' + L.title + '" placeholder="' + (qt ? '묵상 제목 (예: 오늘의 QT)' : '설교 제목') + '" autocomplete="off" enterkeyhint="next" aria-label="' + (qt ? '묵상 제목' : '설교 제목') + '">' +
         '<div class="yn-metarow">' +
         '<label class="yn-chipin date"><span>날짜</span><input id="ynDate" type="date" aria-label="날짜"></label>' +
-        '<label class="yn-chipin ref"><span>본문</span><input id="ynRef" type="text" maxlength="' + L.ref + '" placeholder="예) 요한복음 3:16" autocomplete="off" aria-label="성경 본문"></label>' +
-        '<label class="yn-chipin pr"><span>설교자</span><input id="ynPre" type="text" maxlength="' + L.preacher + '" placeholder="설교자" autocomplete="off" aria-label="설교자"></label>' +
-        (opts.getMeta ? '<button type="button" class="yn-mini" id="ynFill" title="그 날짜의 주보에서 제목 · 본문 · 설교자를 불러옵니다">📋 주보에서 불러오기</button>' : '') +
+        (qt
+          ? '<label class="yn-chipin book"><span>성경</span><select id="ynBook" aria-label="성경 책 고르기"><option value="">책 고르기</option>' +
+            BOOKS.map(function (b) { return '<option value="' + b + '">' + b + '</option>'; }).join('') + '</select></label>'
+          : '') +
+        '<label class="yn-chipin ref"><span>' + (qt ? '본문' : '본문') + '</span><input id="ynRef" type="text" maxlength="' + L.ref + '" placeholder="' + (qt ? '책을 고른 뒤 장:절 (예: 3:16-21)' : '예) 요한복음 3:16') + '" autocomplete="off" aria-label="성경 본문"></label>' +
+        '<label class="yn-chipin pr"' + (qt ? ' style="display:none"' : '') + '><span>설교자</span><input id="ynPre" type="text" maxlength="' + L.preacher + '" placeholder="설교자" autocomplete="off" aria-label="설교자"></label>' +
+        (!qt && opts.getMeta ? '<button type="button" class="yn-mini" id="ynFill" title="그 날짜의 주보에서 제목 · 본문 · 설교자를 불러옵니다">📋 주보에서 불러오기</button>' : '') +
         (token ? '<button type="button" class="yn-mini" id="ynLink" aria-haspopup="true"></button>' : '') +
         '</div>';
     }
     rootEl.innerHTML =
-      '<div class="yn-ed" role="group" aria-label="설교 노트">' +
+      '<div class="yn-ed' + (qt ? ' yn-qt' : '') + '" role="group" aria-label="' + (qt ? 'QT · 묵상 노트' : '설교 노트') + '">' +
       '<div class="yn-ed-head">' + metaHtml + '</div>' +
       '<div class="yn-tabrow"><div class="yn-tabs" role="tablist" aria-label="노트 종류">' +
-      '<button class="yn-tab" role="tab" id="ynTabBody" data-t="body" aria-selected="true">필기</button>' +
+      '<button class="yn-tab" role="tab" id="ynTabBody" data-t="body" aria-selected="true">' + (qt ? '본문 · 관찰' : '필기') + '</button>' +
       '<button class="yn-tab" role="tab" id="ynTabRef" data-t="reflection" aria-selected="false">묵상 · 적용</button></div>' +
       '<span class="yn-count" id="ynCount" aria-hidden="true"></span>' +
       '<span id="ynPillWrap"></span></div>' +
       '<div class="yn-area">' +
       '<textarea class="yn-ta" id="ynTaBody" aria-labelledby="ynTabBody" spellcheck="false" autocapitalize="sentences" autocomplete="off" autocorrect="off" enterkeyhint="enter" ' +
-      'placeholder="설교를 들으며 자유롭게 적어보세요.&#10;&#10;· “- ” 로 시작하면 줄을 바꿀 때 목록이 이어져요&#10;· 나중에 ✨ AI 정리로 깔끔하게 다듬을 수 있어요"></textarea>' +
+      'placeholder="' + (qt ? '본문을 읽으며 눈에 들어온 것을 적어보세요.&#10;&#10;· 누가 · 무엇을 · 왜 — 반복되는 말, 하나님에 대해 알게 된 것&#10;· “- ” 로 시작하면 목록이 이어져요' : '설교를 들으며 자유롭게 적어보세요.&#10;&#10;· “- ” 로 시작하면 줄을 바꿀 때 목록이 이어져요&#10;· 나중에 ✨ AI 정리로 깔끔하게 다듬을 수 있어요') + '"></textarea>' +
       '<textarea class="yn-ta" id="ynTaRef" aria-labelledby="ynTabRef" hidden spellcheck="false" autocomplete="off" autocorrect="off" ' +
-      'placeholder="오늘 말씀에서 마음에 남은 것, 나의 적용과 결단, 기도 제목을 적어보세요."></textarea>' +
+      'placeholder="' + (qt ? '이 말씀이 오늘 나에게 하시는 말씀은? 나의 묵상 · 적용 · 결단 · 기도를 적어보세요.' : '오늘 말씀에서 마음에 남은 것, 나의 적용과 결단, 기도 제목을 적어보세요.') + '"></textarea>' +
       '<div class="yn-bar" role="toolbar" aria-label="서식">' +
       '<button type="button" class="yn-tb" data-a="h" aria-label="제목" title="제목 (##)">' + IC.h + '</button>' +
       '<button type="button" class="yn-tb" data-a="ul" aria-label="목록" title="목록 (-)">' + IC.ul + '</button>' +
@@ -185,11 +197,11 @@
     var $ = function (id) { return rootEl.querySelector('#' + id); };
     var edEl = rootEl.querySelector('.yn-ed'), areaEl = rootEl.querySelector('.yn-area');
     var tas = { body: $('ynTaBody'), reflection: $('ynTaRef') };
-    var titleIn = $('ynTitle'), dateIn = $('ynDate'), refIn = $('ynRef'), preIn = $('ynPre');
+    var titleIn = $('ynTitle'), dateIn = $('ynDate'), refIn = $('ynRef'), preIn = $('ynPre'), bookIn = $('ynBook');
     var countEl = $('ynCount'), pillWrap = $('ynPillWrap'), barEl = rootEl.querySelector('.yn-bar');
     var aiBtn = barEl.querySelector('[data-a=ai]');
     tas.body.value = note.body; tas.reflection.value = note.reflection;
-    if (titleIn) { titleIn.value = note.title; dateIn.value = note.date; refIn.value = note.ref; preIn.value = note.preacher; }
+    if (titleIn) { titleIn.value = note.title; dateIn.value = note.date; refIn.value = note.ref; preIn.value = note.preacher; if (bookIn) bookIn.value = bookOf(note.ref); }
     if (!opts.aiOn || !token) {
       aiBtn.disabled = true;
       aiBtn.title = !token ? '로그인하면 AI 정리를 쓸 수 있습니다' : 'AI 기능이 아직 켜져 있지 않습니다';
@@ -316,6 +328,18 @@
       });
     }
     metaHandler('title', titleIn); metaHandler('ref', refIn); metaHandler('preacher', preIn);
+    if (bookIn) {
+      // 성경 책 고르기 → 본문 칸이 "요한복음 " 로 시작 (장:절은 직접). 본문을 직접 고쳐 쓰면 책 칸도 따라갑니다.
+      bookIn.addEventListener('change', function () {
+        var b = bookIn.value, cur = refIn.value, old = bookOf(cur);
+        var rest = old ? cur.slice(old.length).replace(/^\s+/, '') : '';
+        refIn.value = b ? (b + ' ' + rest).replace(/\s+$/, b && !rest ? ' ' : '') : rest;
+        refIn.dispatchEvent(new Event('input', { bubbles: true }));
+        // 선택창이 닫히며 포커스를 되가져가는 브라우저가 있어, 한 박자 뒤에 본문 칸으로 옮깁니다
+        setTimeout(function () { if (dead) return; refIn.focus(); try { var l = refIn.value.length; refIn.setSelectionRange(l, l); } catch (e) {} }, 40);
+      });
+      refIn.addEventListener('input', function () { var b = bookOf(refIn.value); if (bookIn.value !== b) bookIn.value = b; });
+    }
     if (titleIn) {
       titleIn.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); tas[tab].focus(); } });
       dateIn.addEventListener('change', function () {
@@ -469,7 +493,7 @@
       return n;
     }
     function maybeAutofill(date) {
-      if (!opts.getMeta || note.body.trim() || note.reflection.trim()) return;
+      if (qt || !opts.getMeta || note.body.trim() || note.reflection.trim()) return;
       opts.getMeta(date, function (meta) { if (meta && !dead && note.date === date) fillMeta(meta, false); });
     }
     var fillBtn = $('ynFill');
@@ -487,7 +511,7 @@
         });
       });
     });
-    if (opts.autofill && titleIn) {           // 새 노트를 만들 때 주보 정보로 미리 채움 (사용자가 고칠 수 있음)
+    if (!qt && opts.autofill && titleIn) {           // 새 노트를 만들 때 주보 정보로 미리 채움 (사용자가 고칠 수 있음)
       fillMeta(opts.autofill, false, true);
     }
     if (dock) autofilled = { title: note.title, ref: note.ref, preacher: note.preacher };

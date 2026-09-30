@@ -1068,8 +1068,8 @@ function doGet(e) {
   }
 
   if (page === 'notes') {
-    // 내 설교 노트 (Step 4) — 로그인 표(t)는 포털에서 받아 옵니다. 새 노트로 바로 열려면 new=1, 묵상에 연결하려면 dev=날짜
-    return render_('Notes', '내 설교 노트', { t: p.t || '', id: p.id || '', isNew: p['new'] ? 1 : 0, dev: p.dev || '', date: p.date || '' }, 'portal');
+    // 내 노트 = 설교 노트 + QT · 묵상 노트 (Step 4 · Step 11 v2) — 로그인 표(t)는 포털에서 받아 옵니다. 새 노트로 바로 열려면 new=1, 묵상에 연결하려면 dev=날짜
+    return render_('Notes', '내 노트', { t: p.t || '', id: p.id || '', isNew: p['new'] ? 1 : 0, dev: p.dev || '', date: p.date || '', mode: (p.mode === 'qt' || p.mode === 'sermon') ? p.mode : '' }, 'portal');
   }
 
   if (page === 'sermons') {

@@ -281,36 +281,20 @@ function resetNewcomerPortalConfig(token) {
    지출환급신청은 사역팀 안으로 들어갑니다 — 사역팀 메뉴가 없는 분(지출 공개로 들어온 분)에게는 예전처럼 따로 보입니다.
    ============================================================ */
 
-function 하위메뉴11_(key, title, desc, url) { return { key: key, title: title, desc: desc, url: url }; }
 
 function 메뉴묶기11_(목록) {
+  /* v2: 하위 메뉴는 포털에 따로 펼치지 않습니다. 타일은 그 페이지로 바로 가고,
+     셀모임 · 사역팀 페이지 안의 위쪽 탭(셀 보고서 | 셀원 정보 | 대리 제출 / 팀 보고서 | 팀원 관리 | 지출환급신청)으로 나뉩니다. */
   var by = {};
   목록.forEach(function (it) { by[it.key] = it; });
-  var base = 앱주소_() || '';
 
-  if (by.leader) {
-    var L = by.leader.url;
-    by.leader.title = '셀모임';
-    by.leader.desc = '셀 보고서 · 셀원 정보 · 대리 제출';
-    by.leader.subs = [
-      하위메뉴11_('leader-report', '셀 보고서', '주일 셀모임 출결 · 기도제목 제출', L),
-      하위메뉴11_('leader-members', '셀원 정보', '셀원 연락처 · 사역 정보', L + (L.indexOf('?') === -1 ? '?' : '&') + 'sub=members'),
-      하위메뉴11_('leader-proxy', '대리 제출', '못 나오는 주에 셀원에게 보고서 맡기기', L + (L.indexOf('?') === -1 ? '?' : '&') + 'sub=proxy')
-    ];
-  }
+  if (by.leader) { by.leader.title = '셀모임'; by.leader.desc = '셀 보고서 · 셀원 정보 · 대리 제출'; }
 
   var out = 목록;
   if (by.team) {
-    var T = by.team.url;
     by.team.title = '사역팀';
     by.team.desc = '팀 보고서 · 팀원 관리 · 지출환급신청';
-    var exUrl = (by.expense && by.expense.url) || (base + '?page=expense');
-    by.team.subs = [
-      하위메뉴11_('team-report', '팀 보고서', '팀 현황 · 팀원 상태 보고', T),
-      하위메뉴11_('team-members', '팀원 관리', '팀원 추가 · 역할 · 연락처', T + (T.indexOf('?') === -1 ? '?' : '&') + 'sub=members'),
-      하위메뉴11_('team-expense', '지출환급신청', '영수증 첨부 · 환급 신청 (바로 이동)', exUrl)
-    ];
-    out = 목록.filter(function (it) { return it.key !== 'expense'; });     // 사역팀 안으로 들어갔습니다
+    out = 목록.filter(function (it) { return it.key !== 'expense'; });     // 사역팀 페이지의 탭으로 들어갔습니다
   }
   if (by.budget) { by.budget.title = '수련회 · 선교 예산/정산'; by.budget.desc = '예산 · 거래 · 정산 · 엑셀 · PDF'; }
   if (by.forms) { by.forms.title = '일반 신청서 관리'; by.forms.desc = '수련회 · 티셔츠 · 인원조사 만들기'; }

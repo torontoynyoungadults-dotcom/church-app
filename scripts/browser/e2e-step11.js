@@ -27,7 +27,7 @@ const SHOT = process.env.SHOT_DIR || '/tmp';
     const ctx = await br.newContext({ viewport: vp || { width: 390, height: 800 }, timezoneId: 'America/Toronto', locale: 'ko-KR' });
     const page = await ctx.newPage(); const errs = [];
     page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
-    page.on('console', (m) => { if (m.type() === 'error' && !/favicon|Failed to load resource|bad HTTP response code|fonts\.g/.test(m.text())) errs.push('console: ' + m.text()); });
+    page.on('console', (m) => { if (m.type() === 'error' && !/favicon|Failed to load resource|bad HTTP response code|fonts\.g|Failed to fetch/.test(m.text())) errs.push('console: ' + m.text()); });
     if (tok) await page.addInitScript((t) => { try { sessionStorage.setItem('ynPortalToken', t); } catch (e) {} }, tok);
     page.__stubPush = !!stubPush;
     return { ctx, page, errs };
@@ -84,12 +84,15 @@ const SHOT = process.env.SHOT_DIR || '/tmp';
   const row = await page.evaluate(() => { const a = document.querySelector('#bulSerRow .pairbul').getBoundingClientRect(), b = document.querySelector('#bulSerRow .sermoncard').getBoundingClientRect(); return { sameRow: Math.abs(a.top - b.top) < 2, sameH: Math.abs(a.height - b.height) < 2, left: a.left < b.left, wA: a.width, wB: b.width, solo: document.getElementById('bulSerRow').classList.contains('solo') }; });
   check('주보 · 설교 영상이 한 줄에 나란히(같은 높이)', row.sameRow && row.sameH && row.left && !row.solo, row);
   check('두 카드 너비가 비슷함(균형)', Math.abs(row.wA - row.wB) < 6, row);
+  const hs = await page.evaluate(() => ({ pair: Array.from(document.querySelectorAll('#bulSerRow .pairbul, #bulSerRow .sermoncard')).map((x) => Math.round(x.getBoundingClientRect().height)), ai: Array.from(document.querySelectorAll('.aibtns .bulbtn.ai')).map((x) => Math.round(x.getBoundingClientRect().height)) }));
+  check('주보 · 설교 영상 카드 높이가 오늘의 묵상 · 내 노트 카드와 같은 낮은 높이(≤ 76px)', hs.pair.length === 2 && hs.ai.length === 2 && hs.pair.concat(hs.ai).every((h) => h <= 76) && new Set(hs.pair.concat(hs.ai)).size === 1, hs);
   await page.screenshot({ path: SHOT + '/step11-portal-390.png', fullPage: false });
   await page.evaluate(() => { SERMON = null; renderSermonCard(); });
   check('설교가 없으면 주보 버튼이 한 줄을 다 씀', await page.evaluate(() => document.getElementById('bulSerRow').classList.contains('solo') && document.querySelector('#bulSerRow .pairbul').getBoundingClientRect().width > 300));
   const pair = await page.evaluate(() => { const a = document.getElementById('btnDevotion').getBoundingClientRect(), b = document.getElementById('notesBtn').getBoundingClientRect(); return { top: Math.abs(a.top - b.top), h: Math.abs(a.height - b.height), w: Math.abs(a.width - b.width) }; });
+  check('"내 설교 노트" 이름이 "내 노트" 로 바뀜', await page.evaluate(() => document.querySelector('#notesBtn .bt b').textContent.trim() === '내 노트'));
   check('두 버튼 모두 글자가 화살표(›)에 닿지 않음', await page.evaluate(() => Array.from(document.querySelectorAll('.aibtns .bulbtn.ai')).every((a) => { const b = a.querySelector('.bt b'), c = a.querySelector('.ba'); const r = document.createRange(); r.selectNodeContents(b); const t = r.getBoundingClientRect(); return t.right <= c.getBoundingClientRect().left - 2 && b.scrollWidth <= b.clientWidth + 1; })));   // 모자라면 줄바꿈으로 해결
-  check('오늘의 묵상 · 내 설교 노트가 같은 줄 · 같은 크기(균형)', pair.top < 2 && pair.h < 2 && pair.w < 2, pair);
+  check('오늘의 묵상 · 내 노트가 같은 줄 · 같은 크기(균형)', pair.top < 2 && pair.h < 2 && pair.w < 2, pair);
 
   // 신청서는 카드가 아니라 Teva Apps 격자 안 타일
   await page.evaluate(() => { renderForms({ forms: { list: [{ id: 'F1', title: '시험 수련회 신청', open: true, desc: '설명', submitted: false, closeAt: '10/30' }, { id: 'F2', title: '끝난 신청', open: false, why: '마감', submitted: true }] } }); });
@@ -99,29 +102,50 @@ const SHOT = process.env.SHOT_DIR || '/tmp';
   await page.evaluate(() => { renderForms({ forms: { list: [] } }); });
   check('신청서가 없으면 타일도 없음', await page.evaluate(() => document.querySelectorAll('#menus .tile.form').length === 0));
 
-  // 하위 메뉴
+  // 타일 — 하위 메뉴를 포털에 펼치지 않고 그 페이지로 바로 (탭은 페이지 안에)
   const tt = await page.evaluate(() => Array.from(document.querySelectorAll('#menus .tile')).map((t) => t.getAttribute('data-key') || t.className.split(' ')[1]));
   check('셀모임 · 사역팀 타일이 있고 "지출환급신청서" 타일은 따로 없음', tt.indexOf('leader') !== -1 && tt.indexOf('team') !== -1 && tt.indexOf('expense') === -1, tt);
   check('타일 이름이 새 이름(셀모임 · 사역팀 · 일반 신청서 관리)', await page.evaluate(() => { const t = (k) => { const e = document.querySelector('#menus .tile.' + k + ' .tt'); return e ? e.textContent : ''; }; return t('leader') === '셀모임' && t('team') === '사역팀' && t('forms') === '일반 신청서 관리'; }));
-  await page.click('#menus .tile.leader');
-  const sp1 = await page.evaluate(() => ({ vis: getComputedStyle(document.getElementById('subPanel')).display !== 'none', rows: Array.from(document.querySelectorAll('#subPanel .subrow')).map((r) => r.querySelector('b').textContent), open: document.querySelector('#menus .tile.leader').getAttribute('aria-expanded') }));
-  check('셀모임 → 셀 보고서 · 셀원 정보 · 대리 제출', sp1.vis && JSON.stringify(sp1.rows) === JSON.stringify(['셀 보고서', '셀원 정보', '대리 제출']) && sp1.open === 'true', sp1);
-  const sp2 = await page.evaluate(() => Array.from(document.querySelectorAll('#subPanel .subrow')).map((r) => r.getAttribute('href')));
-  check('하위 메뉴 주소(sub=members · sub=proxy)', /page=leader/.test(sp2[0]) && /sub=members/.test(sp2[1]) && /sub=proxy/.test(sp2[2]), sp2);
-  await page.screenshot({ path: SHOT + '/step11-submenu.png' });
-  await page.click('#menus .tile.team');
-  const sp3 = await page.evaluate(() => ({ rows: Array.from(document.querySelectorAll('#subPanel .subrow b')).map((r) => r.textContent), exp: (Array.from(document.querySelectorAll('#subPanel .subrow')).pop() || {}).href || '', go: (Array.from(document.querySelectorAll('#subPanel .sr-go')).pop() || {}).textContent }));
-  check('사역팀 → 팀 보고서 · 팀원 관리 · 지출환급신청(바로 이동 링크)', JSON.stringify(sp3.rows) === JSON.stringify(['팀 보고서', '팀원 관리', '지출환급신청']) && /page=expense/.test(sp3.exp) && /바로 이동/.test(sp3.go), sp3);
-  await page.click('#subPanel .spx');
-  check('닫기 버튼으로 하위 메뉴가 닫힘', await page.evaluate(() => getComputedStyle(document.getElementById('subPanel')).display === 'none'));
+  check('타일은 펼침 패널 없이 그 페이지로 바로 가는 링크', await page.evaluate(() => { const l = document.querySelector('#menus .tile.leader'), t = document.querySelector('#menus .tile.team'); return l.tagName === 'A' && /page=leader/.test(l.getAttribute('href')) && t.tagName === 'A' && /page=team/.test(t.getAttribute('href')) && getComputedStyle(document.getElementById('subPanel')).display === 'none' && !document.querySelector('#menus .tile[aria-expanded]'); }));
 
-  // 하위 메뉴로 열면 해당 화면이 바로 열림
+  // 셀모임 페이지 — 위쪽 탭 (셀 보고서 | 셀원 정보 | 대리 제출)
+  await page.goto(BASE + '/?page=leader&t=' + encodeURIComponent(커미티));
+  check('셀모임 화면 제목이 "셀모임"', await L.waitTrue(page, () => document.querySelector('header h1').textContent.trim() === '셀모임' && document.getElementById('app').style.display === 'block', null, 10000));
+  const lt = await page.evaluate(() => ({ tabs: Array.from(document.querySelectorAll('#app .pgtabs button')).map((b) => b.textContent.trim()), on: (document.querySelector('#app .pgtabs button.on') || {}).textContent, rep: getComputedStyle(document.getElementById('attendanceField')).display, dpanel: getComputedStyle(document.getElementById('meetingDate')).display }));
+  check('탭바: 셀 보고서 | 셀원 정보 | 대리 제출 (처음엔 셀 보고서)', JSON.stringify(lt.tabs) === JSON.stringify(['셀 보고서', '셀원 정보', '대리 제출']) && lt.on === '셀 보고서', lt);
+  check('탭바가 새가족 관리 탭바와 같은 모양(가로 나란히 · 둥근 유리 버튼 · 46px 이상)', await page.evaluate(() => { const bs = Array.from(document.querySelectorAll('#app .pgtabs button')); const r = bs.map((b) => b.getBoundingClientRect()); return bs.length === 3 && r.every((x) => x.height >= 46 && Math.abs(x.top - r[0].top) < 2) && getComputedStyle(bs[0]).borderRadius === '12px'; }));
+  check('셀 보고서 탭: 보고서 칸들이 보이고 셀원 정보 · 대리 패널은 닫힘', await page.evaluate(() => !!document.getElementById('meetingDate').getClientRects().length && getComputedStyle(document.getElementById('dirPanel')).display === 'none' && getComputedStyle(document.getElementById('dgForm')).display === 'none' && !!document.getElementById('submitBtn').getClientRects().length));
+  await page.click('#ltb_members');
+  check('셀원 정보 탭: 셀원 목록 패널이 열리고 보고서 칸은 숨음', await L.waitTrue(page, () => document.getElementById('ltb_members').className === 'on' && getComputedStyle(document.getElementById('dirPanel')).display === 'block' && !document.getElementById('meetingDate').getClientRects().length && !document.getElementById('submitBtn').getClientRects().length, null, 4000));
+  check('주소가 ?sub=members 로 바뀜(새로고침해도 그 탭)', await page.evaluate(() => /[?&]sub=members/.test(location.search)));
+  await page.click('#ltb_proxy');
+  check('양육팀(전체 셀)은 셀을 고르기 전에는 안내 문구가 보임', await L.waitTrue(page, () => document.getElementById('ltNote').style.display === 'block' && /셀을 먼저 고르면/.test(document.getElementById('ltNote').textContent), null, 3000));
+  await page.selectOption('#cellSelect', { index: 1 });
+  check('대리 제출 탭: 대리 작성자 지정 패널이 열리고 셀원 정보는 닫힘', await L.waitTrue(page, () => document.getElementById('ltb_proxy').className === 'on' && getComputedStyle(document.getElementById('dgForm')).display === 'block' && getComputedStyle(document.getElementById('dirPanel')).display === 'none' && !document.getElementById('meetingDate').getClientRects().length, null, 4000));
+  await page.screenshot({ path: SHOT + '/step11-leader-tabs.png' });
+  await page.click('#ltb_report');
+  check('다시 셀 보고서 탭: 보고서가 돌아오고 패널은 모두 닫힘 · ?sub 없어짐', await L.waitTrue(page, () => !!document.getElementById('meetingDate').getClientRects().length && getComputedStyle(document.getElementById('dgForm')).display === 'none' && getComputedStyle(document.getElementById('dirPanel')).display === 'none' && !/sub=/.test(location.search), null, 4000));
   await page.goto(BASE + '/?page=leader&sub=members&t=' + encodeURIComponent(커미티));
-  check('셀모임 › 셀원 정보: 셀원 정보 패널이 바로 열림', await L.waitTrue(page, () => document.getElementById('dirPanel') && getComputedStyle(document.getElementById('dirPanel')).display === 'block', null, 10000));
-  check('셀모임 화면 제목이 "셀모임"', await page.evaluate(() => document.querySelector('header h1').textContent.trim() === '셀모임' || /셀모임/.test(document.title)));
+  check('셀모임 › 셀원 정보 주소로 들어오면 그 탭이 바로 열림(포털 예전 링크도 동작)', await L.waitTrue(page, () => document.getElementById('ltb_members') && document.getElementById('ltb_members').className === 'on' && getComputedStyle(document.getElementById('dirPanel')).display === 'block', null, 10000));
+  await page.goto(BASE + '/?page=leader&sub=proxy&t=' + encodeURIComponent(커미티));
+  check('셀모임 › 대리 제출 주소로 들어오면 그 탭이 바로 열림(셀 고르면 패널)', await L.waitTrue(page, () => document.getElementById('ltb_proxy') && document.getElementById('ltb_proxy').className === 'on' && !document.getElementById('meetingDate').getClientRects().length, null, 10000));
+  await page.selectOption('#cellSelect', { index: 1 });
+  check('…셀을 고르면 대리 작성자 패널이 열림', await L.waitTrue(page, () => getComputedStyle(document.getElementById('dgForm')).display === 'block', null, 4000));
+
+  // 사역팀 페이지 — 위쪽 탭 (팀 보고서 | 팀원 관리 | 지출환급신청)
+  await page.goto(BASE + '/?page=team&t=' + encodeURIComponent(커미티));
+  check('사역팀 화면 제목이 "사역팀"', await L.waitTrue(page, () => document.querySelector('header h1').textContent.trim() === '사역팀' && document.getElementById('app').style.display === 'block', null, 10000));
+  const tm = await page.evaluate(() => ({ tabs: Array.from(document.querySelectorAll('#app .pgtabs > *')).map((b) => b.textContent.replace(/[↗\s]+$/, '').trim()), exp: (document.getElementById('tabExp') || {}).getAttribute && document.getElementById('tabExp').getAttribute('href') }));
+  check('탭바: 팀 보고서 | 팀원 관리 | 지출환급신청', JSON.stringify(tm.tabs) === JSON.stringify(['팀 보고서', '팀원 관리', '지출환급신청']), tm);
+  check('세 탭 글자 크기가 같음(링크 탭도)', await page.evaluate(() => new Set(Array.from(document.querySelectorAll('#app .pgtabs > *')).map((b) => getComputedStyle(b).fontSize)).size === 1));
+  check('지출환급신청 탭은 지출환급신청서 링크(?page=expense)', /page=expense/.test(tm.exp || ''), tm);
+  await page.click('#tabMem');
+  check('팀원 관리 탭이 열리고 보고서는 숨음', await L.waitTrue(page, () => getComputedStyle(document.getElementById('paneMem')).display === 'block' && getComputedStyle(document.getElementById('paneRep')).display === 'none' && document.getElementById('tabMem').className === 'on', null, 4000));
+  await page.click('#tabRep');
+  check('팀 보고서 탭으로 돌아옴', await page.evaluate(() => getComputedStyle(document.getElementById('paneRep')).display !== 'none'));
   await page.goto(BASE + '/?page=team&sub=members&t=' + encodeURIComponent(커미티));
-  check('사역팀 › 팀원 관리: 팀원 관리 탭이 바로 열림', await L.waitTrue(page, () => document.getElementById('paneMem') && getComputedStyle(document.getElementById('paneMem')).display === 'block', null, 10000));
-  check('사역팀 화면 제목이 "사역팀"', await page.evaluate(() => document.querySelector('header h1').textContent.trim() === '사역팀'));
+  check('사역팀 › 팀원 관리 주소로 들어오면 그 탭이 바로 열림', await L.waitTrue(page, () => document.getElementById('paneMem') && getComputedStyle(document.getElementById('paneMem')).display === 'block', null, 10000));
+  await page.screenshot({ path: SHOT + '/step11-team-tabs.png' });
   check('옛 화면 오류 없음', errs.length === 0, errs);
   await ctx.close();
 
@@ -292,6 +316,62 @@ const SHOT = process.env.SHOT_DIR || '/tmp';
   check('팀원 관리 버튼 · 탭 · 함수가 없음', await page.evaluate(() => !document.getElementById('mgbar') && !document.querySelector('.mgbtn') && typeof window.teamTab === 'undefined' && typeof window.loadTeamMgr === 'undefined' && !Array.from(document.querySelectorAll('#tabs button')).some((b) => /팀원/.test(b.textContent))));
   check('다른 탭(예배콘티 · 공지 · 스케줄 · 행사 · 통계 · 아카이브)은 그대로', await page.evaluate(() => Array.from(document.querySelectorAll('#tabs button')).map((b) => b.textContent.trim()).join(',') === '예배콘티,공지사항,스케줄표,행사,통계,아카이브'));
   check('허브 오류 없음', errs.length === 0, errs);
+  await ctx.close();
+
+  /* ================= 내 노트 ================= */
+  console.log('· 내 노트 — 설교 노트 / QT · 묵상 노트');
+  ({ ctx, page, errs } = await mk({ width: 1100, height: 900 }, 일반));
+  const E2 = global.__E2E;
+  await page.goto(BASE + '/?page=notes&t=' + encodeURIComponent(일반));
+  check('제목이 "내 노트" · 모드 단추 2개(설교 노트 | QT · 묵상 노트)', await L.waitTrue(page, () => document.getElementById('ttl') && document.getElementById('ttl').textContent === '내 노트' && document.getElementById('modeSermon').textContent.trim().indexOf('설교 노트') !== -1 && document.getElementById('modeQt').textContent.trim().indexOf('QT · 묵상 노트') !== -1 && !!document.querySelector('#cards .yn-empty'), null, 10000));
+  check('처음에는 설교 노트가 선택됨', await page.evaluate(() => document.getElementById('modeSermon').getAttribute('aria-selected') === 'true' && document.getElementById('modeQt').getAttribute('aria-selected') === 'false'));
+  // 설교 노트 — 날짜를 고르면 그 주 주보에서 자동으로 채움
+  await page.click('#fab');
+  check('설교 노트 편집기: 설교자 칸 · 주보에서 불러오기가 있고 성경 책 고르기는 없음', await L.waitTrue(page, () => !!document.getElementById('ynTitle') && !!document.getElementById('ynFill') && !document.getElementById('ynBook') && document.getElementById('ynTitle').placeholder === '설교 제목', null, 5000));
+  check('처음 날짜(이번 주일)의 주보 내용이 자동으로 채워짐', await L.waitTrue(page, () => document.getElementById('ynTitle').value === '베드로 (1) 부르시는 주님' && document.getElementById('ynPre').value === '강산 목사', null, 5000));
+  await page.fill('#ynDate', E2.PREV);
+  check('날짜를 지난주로 고르면 그 주 주보(제목 · 본문 · 설교자)로 바뀜', await L.waitTrue(page, () => document.getElementById('ynTitle').value === '지난주 말씀' && document.getElementById('ynRef').value === '요한복음 1:1-5' && document.getElementById('ynPre').value === '전대혁 목사', null, 5000));
+  await page.fill('#ynTaBody', '설교 필기 시험');
+  check('설교 노트가 서버에 저장됨(source ≠ qt)', await L.waitTrue(page, () => true, null, 100) && await (async () => { for (let i = 0; i < 40; i++) { const r = run((api) => api.sermonNotesInit(일반)).notes.filter((n) => n.title === '지난주 말씀'); if (r.length) return r[0].source !== 'qt'; await sleep(250); } return false; })());
+
+  // QT · 묵상 노트 — 본문 · 묵상을 직접
+  await page.click('#modeQt');
+  check('QT 모드로 바꾸면 설교 노트는 목록에서 빠지고 안내가 QT 용으로 바뀜', await L.waitTrue(page, () => document.getElementById('modeQt').getAttribute('aria-selected') === 'true' && /QT · 묵상 노트가 없어요/.test(document.getElementById('cards').textContent) && document.getElementById('fab').textContent.indexOf('새 QT 노트') !== -1, null, 5000));
+  await page.click('#fab');
+  check('QT 편집기: 성경 책 고르기 + 본문 칸, 설교자 · 주보 불러오기는 없음', await L.waitTrue(page, () => !!document.getElementById('ynBook') && !document.getElementById('ynFill') && getComputedStyle(document.getElementById('ynPre').closest('label')).display === 'none' && document.getElementById('ynTitle').placeholder.indexOf('묵상 제목') !== -1, null, 5000));
+  check('탭 이름이 "본문 · 관찰" / "묵상 · 적용" · 날짜는 오늘', await page.evaluate(() => { const d = new Date(), t = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); return document.getElementById('ynTabBody').textContent === '본문 · 관찰' && document.getElementById('ynTabRef').textContent === '묵상 · 적용' && document.getElementById('ynDate').value === t; }));
+  check('QT 노트는 주보를 자동으로 채우지 않음(제목 · 본문 비어 있음)', await page.evaluate(() => document.getElementById('ynTitle').value === '' && document.getElementById('ynRef').value === ''));
+  await page.selectOption('#ynBook', '시편');
+  check('성경 책을 고르면 본문 칸이 "시편 " 로 시작하고 커서가 그 칸으로 옮겨감', await L.waitTrue(page, () => document.getElementById('ynRef').value === '시편 ' && document.activeElement === document.getElementById('ynRef'), null, 3000));
+  await page.keyboard.type('23:1-6');
+  const bk2 = await page.evaluate(() => ({ v: document.getElementById('ynRef').value, book: document.getElementById('ynBook').value }));
+  check('장:절을 직접 쓰면 본문이 "시편 23:1-6"', bk2.v === '시편 23:1-6' && bk2.book === '시편', bk2);
+  await page.fill('#ynRef', '요한1서 4:7-12');
+  check('본문을 직접 고쳐 쓰면 책 칸이 따라감(요한1서 ≠ 요한복음)', await page.evaluate(() => document.getElementById('ynBook').value === '요한1서'));
+  await page.fill('#ynRef', '시편 23:1-6');
+  await page.fill('#ynTitle', '오늘의 QT');
+  await page.fill('#ynTaBody', '본문에서 관찰한 것');
+  await page.click('#ynTabRef'); await page.fill('#ynTaRef', '나의 묵상과 적용');
+  await page.fill('#ynDate', E2.PREV);
+  await sleep(700);
+  check('날짜를 바꿔도 QT 노트는 주보로 덮어쓰지 않음', await page.evaluate(() => document.getElementById('ynTitle').value === '오늘의 QT' && document.getElementById('ynRef').value === '시편 23:1-6' && document.getElementById('ynPre').value === ''));
+  const qtSaved = await (async () => { for (let i = 0; i < 40; i++) { const r = run((api) => api.sermonNotesInit(일반)).notes.filter((n) => n.title === '오늘의 QT'); if (r.length) { const g = run((api) => api.sermonNoteGet(일반, r[0].id)); if (g.reflection === '나의 묵상과 적용' && g.body === '본문에서 관찰한 것') return g; } await sleep(250); } return null; })();
+  check('QT 노트가 서버에 저장됨(source=qt · 본문 · 관찰 · 묵상)', !!qtSaved && qtSaved.source === 'qt' && qtSaved.ref === '시편 23:1-6' && qtSaved.preacher === '', qtSaved);
+  await page.screenshot({ path: SHOT + '/step11-notes-qt.png' });
+  check('QT 목록에 이 노트가 🌿 QT 표시로 보임', await L.waitTrue(page, () => Array.from(document.querySelectorAll('#cards .yn-card')).some((c) => /오늘의 QT/.test(c.textContent) && !!c.querySelector('.yn-badge.qt')), null, 5000));
+  await page.click('#modeSermon');
+  check('설교 모드로 돌아가면 QT 노트는 안 보이고 설교 노트만 보임', await L.waitTrue(page, () => { const t = document.getElementById('cards').textContent; return t.indexOf('지난주 말씀') !== -1 && t.indexOf('오늘의 QT') === -1; }, null, 5000));
+  await page.click('#cards .yn-card');
+  check('설교 노트를 열면 설교 편집기(설교자 · 주보 불러오기)', await L.waitTrue(page, () => !!document.getElementById('ynFill') && !document.getElementById('ynBook') && document.getElementById('ynTitle').value === '지난주 말씀', null, 5000));
+  await page.click('#modeQt');
+  check('열려 있던 설교 노트는 저장되고 닫힘(편집기 비움)', await L.waitTrue(page, () => !document.getElementById('ynTitle') || !document.getElementById('ynTitle').offsetParent, null, 5000));
+  await page.click('#cards .yn-card');
+  check('QT 노트를 열면 성경 책 칸이 시편으로 채워져 있음', await L.waitTrue(page, () => !!document.getElementById('ynBook') && document.getElementById('ynBook').value === '시편' && document.getElementById('ynTaBody').value === '본문에서 관찰한 것', null, 5000));
+  await page.goto(BASE + '/?page=notes&t=' + encodeURIComponent(일반));
+  check('다시 들어오면 마지막에 쓰던 QT 모드가 유지됨', await L.waitTrue(page, () => document.getElementById('modeQt') && document.getElementById('modeQt').getAttribute('aria-selected') === 'true' && /오늘의 QT/.test(document.getElementById('cards').textContent), null, 8000));
+  await page.goto(BASE + '/?page=notes&mode=sermon&t=' + encodeURIComponent(일반));
+  check('?mode=sermon 주소는 설교 모드로', await L.waitTrue(page, () => document.getElementById('modeSermon') && document.getElementById('modeSermon').getAttribute('aria-selected') === 'true', null, 8000));
+  check('내 노트 화면 오류 없음', errs.length === 0, errs);
   await ctx.close();
 
   /* ================= 새가족 포털 편집 ================= */

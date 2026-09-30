@@ -1078,7 +1078,7 @@ body .mcardlink,
 </style>
 <link rel="stylesheet" href="/forms/forms.css?v=7">
 <link rel="stylesheet" href="/portal/portal-lux.css?v=9">
-<link rel="stylesheet" href="/portal/portal-step11.css?v=2">
+<link rel="stylesheet" href="/portal/portal-step11.css?v=3">
 </head>
 <body>
 <div class="shell">
@@ -1283,7 +1283,7 @@ body .mcardlink,
       </a>
       <a class="bulbtn ai notes" id="notesBtn" href="?page=notes">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h8.5L19 7v13.5H7z"/><path d="M15 3.5V7.5h4"/><path d="M10 12h6M10 15.5h6"/></svg></span>
-        <span class="bt"><b>내 설교 노트</b></span><span class="ba">›</span>
+        <span class="bt"><b>내 노트</b></span><span class="ba">›</span>
       </a>
     </div>
 
@@ -1475,6 +1475,7 @@ function keepToken(t) {
   var v = JSON.stringify({ t: t, until: Date.now() + KEEP_DAYS * 864e5 });
   try { localStorage.setItem('ynPortalKeep', v); } catch (e) {}
   try { sessionStorage.setItem('ynPortalToken', t); } catch (e) {}
+  try { if (window.YNPWA) window.YNPWA.onLogin(t); } catch (e) {}   // 설치 직후 허용받은 알림을 이 기기에 등록 (pwa-install.js)
 }
 function keptToken() {
   try { var s = sessionStorage.getItem('ynPortalToken'); if (s) return s; } catch (e) {}
@@ -2770,7 +2771,7 @@ function paint(res) {
   editing = false;
   renderProfile();                                                            // 다른 분 화면에서도 그분의 "내 정보 관리"를 보기 전용으로
   el('meBtn').style.display = '';
-  if (el('notesBtn')) el('notesBtn').style.display = VIEW ? 'none' : '';      // 내 설교 노트는 내 계정 것이라 다른 분 화면에서는 숨김
+  if (el('notesBtn')) el('notesBtn').style.display = VIEW ? 'none' : '';      // 내 노트는 내 계정 것이라 다른 분 화면에서는 숨김
   var ai = document.querySelector('.aibtns'); if (ai) ai.classList.toggle('solo', !!VIEW);
   var qs = document.querySelector('.qsearch');
   if (qs) qs.style.display = (VIEW || !CAL_COM) ? 'none' : '';

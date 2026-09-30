@@ -305,11 +305,12 @@
     var q = [];                       // 화면에 보여줄 박 (소리가 나는 때에 맞춰 깜빡임)
     var pending = [];                 // 예약해 둔 큐 {plan, cue, timeout}
     var S = {
-      click: store('gain'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), flashall: store('flashall'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first')
+      click: store('gain'), voice: store('voice'), pitch: store('pitch'), flash: store('flash'), flashall: store('flashall'), mode: store('mode'), lead: store('lead'), lang: store('lang'), gender: store('gender'), lat: store('lat'), sound: store('sound'), first: store('first'), speak: store('speak')
     };
     var cfg = {
       click: S.click == null ? 0.4 : clamp(S.click, 0, 1), voice: S.voice == null ? 1 : S.voice, mode: S.mode || 'lead', lead: S.lead || 2,
       lang: S.lang || 'en', gender: S.gender === 'female' || S.gender === 'any' ? S.gender : 'male', lat: S.lat == null ? 180 : S.lat, sound: S.sound || 'wood',
+      speak: S.speak !== false,                                  // 음성 콜아웃(TTS) 켬(기본)/끔 — 끄면 큐 이름을 소리로 말하지 않습니다 (Step 2.15)
       first: S.first !== false,                                  // 첫 박 강세 (기본 켬) — 끄면 첫 박도 다른 박과 같은 높이 · 세기
       pitch: S.pitch == null ? 0 : clamp(S.pitch, LIMITS.minPitch, LIMITS.maxPitch),   // 딸깍 음높이 (반음 단위, -12 ~ +12)
       flash: S.flash === true,                                   // 화면 전체 깜빡임 (켬/끔)
@@ -560,6 +561,10 @@
       c = resolveCue(c);
       var text = cfg.lang === 'ko' ? c.ko : c.en;
       if (!text) return { ok: false, error: '큐 이름이 비어 있습니다.' };
+      if (cfg.speak === false) {                                 // 음성 콜아웃을 꺼 둔 상태 — 소리 없이 이름만 알려줍니다 (화면 안내는 그대로)
+        notify('cue', { status: 'spoken', text: text, muted: true });
+        return { ok: true, muted: true, text: text };
+      }
       mode = mode || cfg.mode;
       var useSpeech = speechOk && cfg.sound !== 'mute';
       if (!ctx || !sched.running) {                              // 멈춰 있을 때 — 시험 삼아 바로 들려줍니다
@@ -596,6 +601,7 @@
     return {
       start: start, stop: stop, toggle: function (n) { return sched.running ? (stop(), { ok: true }) : start(n); },
       cue: cue, cancelCues: cancelCues,
+      setSpeak: function (on) { cfg.speak = !!on; store('speak', cfg.speak); if (!on) cancelCues(); else emitState(); },
       setBpm: function (b) { sched.setBpm(b); emitState(); }, setSig: function (n, d) { sched.setSig(n, d); cfg.first = !!sched.marks[0]; emitState(); },
       setClickVolume: function (v) { set('click', clamp(v, 0, 1)); applyGain(); },
       setPitch: function (st) { set('pitch', Math.round(clamp(st, LIMITS.minPitch, LIMITS.maxPitch) * 2) / 2); },

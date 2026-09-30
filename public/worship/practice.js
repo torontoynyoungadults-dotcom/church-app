@@ -176,6 +176,7 @@
     toolsBtn.onclick = function () { setTools(el.classList.contains('pv-toolshide'), true); };
     /* 태블릿 위 캡슐 도크 — 기본은 "도구 아이콘 + 되돌리기 + ⋯"만. ⋯ 를 누르면 색 · 굵기 · 글꼴 · 나만 보기가 펼쳐지고, ▴ 를 누르면 도크 전체가 작은 알약(✏️ 도구 열기)으로 접힙니다 */
     S.dockMore = ls('dockmore') === '1'; el.classList.toggle('pv-dockmore', S.dockMore);
+    S.fbadge = ls('fbadge') !== '0';                                   // 악보 맨 위 송폼 배지 (기본 켬) — Step 2.15
     function setDockMore(on, save) {
       S.dockMore = !!on; el.classList.toggle('pv-dockmore', S.dockMore); if (save) ls('dockmore', S.dockMore ? '1' : '0');
       var b = toolsEl.querySelector('[data-a="dockmore"]'); if (b) { b.setAttribute('aria-pressed', S.dockMore ? 'true' : 'false'); b.setAttribute('aria-expanded', S.dockMore ? 'true' : 'false'); }
@@ -420,7 +421,7 @@
         S.cropNow = cr || null;
         if (S.zoom === 1) {                                                        // 자동 맞춤: 글자가 있는 부분의 시작점에 스크롤을 맞춤 (여백은 위 · 옆으로 스크롤하면 보임)
           stage.scrollLeft = cr && !spreadOn() ? Math.max(0, box.offsetLeft + cr.x0 * cssW - 4) : 0;
-          stage.scrollTop = cr && !spreadOn() ? Math.max(0, box.offsetTop + cr.y0 * cssH - (dockPad() ? DOCK_PAD : 4)) : 0;      // 글자 시작점이 (도크가 열려 있으면) 도크 바로 밑에 오게
+          stage.scrollTop = cr && !spreadOn() ? Math.max(0, box.offsetTop + cr.y0 * cssH - ((dockPad() ? DOCK_PAD : 4) + badgePad())) : 0;      // 글자 시작점이 (도크가 열려 있으면) 도크 바로 밑에 오게
         }
         var done = function () { if (id === S.rid) { S.task = null; S.pcCur = pcSig(d, pg, cssW, cssH, dpr); S.drawnSig = sig; S.drawnId = id; S.drawnOk = true; S.pending = null; loading.style.display = 'none'; syncTouch(); prefetch(d, pg, id); } };
         var hit = pcGet(pcSig(d, pg, cssW, cssH, dpr));
@@ -659,8 +660,33 @@
       if (S.applying || !S.doc || S.dead) return;
       var idx = resolveSong(sheets[S.sheetIdx], S.page);
       if (idx >= 0 && idx !== S.songIdx) setSong(idx, true);
-      renderSongSel();
+      renderSongSel(); updateFormBadge();
     }
+    /* 송폼 배지 (Step 2.15) — 콘티에 송폼이 정해져 있으면 그 곡 악보의 맨 위에 "V1 – C – V2 – B – C – Out" 을 유리 알약으로 띄웁니다.
+       악보 그림(캔버스) 위의 HTML 덮개일 뿐이라 필기 좌표 · 실시간 동기화 · PNG/PDF 내보내기에는 영향이 없습니다. 쪽 안에서 스크롤해도 화면 위에 붙어 따라옵니다(sticky). */
+    var fbadge1 = doc.createElement('div'), fbadge2 = doc.createElement('div');
+    fbadge1.className = 'pv-formbadge'; fbadge2.className = 'pv-formbadge'; fbadge1.setAttribute('aria-live', 'polite');
+    box.insertBefore(fbadge1, box.firstChild);
+    var box2El = $('.pv-pagebox2'); if (box2El) box2El.insertBefore(fbadge2, box2El.firstChild);
+    function formTokens(s) {
+      var f = s && String(s.form || '').trim(); if (!f) return [];
+      try { if (root.YNForm && root.YNForm.parse) return root.YNForm.parse(f).filter(function (t) { return t && t.k; }); } catch (e) { /* 아래 간단 나누기로 */ }
+      return f.split(/\s*[-–>,\/]\s*|\s+/).filter(Boolean).map(function (k) { return { k: k }; });
+    }
+    function formBadgeHtml(idx) {
+      var s = idx >= 0 ? songs[idx] : null, t = formTokens(s); if (!t.length) return '';
+      return '<span class="pv-fb-in" role="img" aria-label="송폼 ' + h(t.map(function (x) { return x.k + (x.rep > 1 ? ' ×' + x.rep : ''); }).join(', ')) + '">' +
+        '<svg class="pv-fb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' +
+        t.map(function (x, i) { return (i ? '<b class="pv-fb-sep" aria-hidden="true">–</b>' : '') + '<span class="pv-fb-t' + (x.custom ? ' cu' : '') + '">' + h(x.k) + (x.rep > 1 ? '<sub>×' + x.rep + '</sub>' : '') + '</span>'; }).join('') + '</span>';
+    }
+    function badgeIdx(pg) { return S.fbadge !== false && S.doc && pg >= 1 && pg <= (S.pages || 1) ? resolveSong(sheets[S.sheetIdx], pg) : -1; }
+    function updateFormBadge() {
+      if (S.dead) return;
+      var h1 = formBadgeHtml(badgeIdx(S.page)); if (fbadge1.getAttribute('data-h') !== h1) { fbadge1.innerHTML = h1; fbadge1.setAttribute('data-h', h1); }
+      var h2 = spreadOn() ? formBadgeHtml(badgeIdx(S.page + 1)) : ''; if (fbadge2.getAttribute('data-h') !== h2) { fbadge2.innerHTML = h2; fbadge2.setAttribute('data-h', h2); }
+    }
+    /** 배지가 쪽 맨 위를 가리지 않게, 글자가 시작하는 곳을 배지 아래로 (컴퓨터 화면은 배지가 오른쪽 위 빈 곳에 뜨므로 그대로) */
+    function badgePad() { return (S.layout === 'computer' && !S.compact) ? 0 : (fbadge1.getAttribute('data-h') ? 30 : 0); }
     $('.pv-songsel').onchange = function () {
       var f = sheets[S.sheetIdx], m = mapOf(f), v = this.value;
       if (v === 'auto') delete m.manual[S.page]; else m.manual[S.page] = +v;
@@ -674,6 +700,7 @@
       var s = songs[S.songIdx], t = $('.pv-songinfo');
       t.textContent = s ? [s.title, s.key ? 'Key ' + s.key : '', s.bpm ? s.bpm + ' BPM' : ''].filter(Boolean).join(' · ') : '';
       setYt(s);
+      updateFormBadge();
       P.emit('song', s || null, S.songIdx);
       if (!silent) sendNav();
     }
@@ -706,6 +733,8 @@
       pdf: function () { return S.doc && S.doc.pdf || null; }, canvas: function () { return pdfCv; },
       lang: function () { return S.lang; }, setLang: function (l) { S.lang = l === 'ko' ? 'ko' : 'en'; ls('lang', S.lang); },
       cacheInfo: function () { return { pages: S.pcache.size, bytes: S.pcBytes, mine: Object.keys(S.mineCache).length }; },
+      formBadge: function () { return S.fbadge !== false; },
+      setFormBadge: function (on) { S.fbadge = !!on; ls('fbadge', on ? '1' : '0'); updateFormBadge(); },
       wake: function () { return wakeCtl ? wakeCtl.state() : { wanted: false, mode: 'none', active: false }; },
       fit: function () { return S.fit; }, fullscreen: function () { return !!S.fs; }, setFullscreen: function (b) { setFs(b); },
       layout: function () { return S.layout; }, setLayout: function (l) { applyLayout(l, true); }, hand: function () { return S.hand; },
@@ -1065,6 +1094,7 @@
         '<button type="button" class="pv-dk" data-a="dockmore" aria-pressed="' + (S.dockMore ? 'true' : 'false') + '" aria-expanded="' + (S.dockMore ? 'true' : 'false') + '" title="더 보기 — 색 · 굵기 · 글꼴" aria-label="더 보기"><span class="ic">⋯</span><span class="nm">더 보기</span></button>' +
         '<div class="pv-tg pv-pills pv-sec"><label class="pv-mineonly' + (S.layer === 'mine' ? ' on' : '') + '" title="체크하면 나에게만 보입니다. 체크하지 않으면(기본) 팀 모두의 화면에 실시간으로 나타납니다."><input type="checkbox" data-a="mineonly"' + (S.layer === 'mine' ? ' checked' : '') + '><span>나만 보기</span></label>' +
           '<button class="pv-pill scope" data-a="scope" title="필기가 어디에 붙나요? (눌러서 바꾸기)">' + (S.scope === 'date' && S.room ? '📅 이 날짜만' : '📌 곡에 계속') + '</button></div>';
+      try { P.emit('toolsrender', toolsEl); } catch (e) { /* 라이브 컨트롤이 안 붙어도 도구는 그대로 */ }
     }
     toolsEl.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b || b.disabled) return;
@@ -1121,6 +1151,7 @@
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { toolsEl.addEventListener(n, holdStop); });
     doc.addEventListener('pointerup', holdStop);
     P.on('annochange', function () { clearTimeout(S.toolT); S.toolT = setTimeout(renderTools, 60); });
+    ['songedit', 'songs', 'page', 'sheet', 'cfg'].forEach(function (n) { P.on(n, function () { updateFormBadge(); }); });
     /* 색은 도구마다 기억 (펜/글자는 같은 색, 형광펜은 따로) */
     S.curColor = YA ? YA.PALETTE[0] : '#ff5a1f';
     var origSetTool = setTool;

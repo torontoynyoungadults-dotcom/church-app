@@ -1,4 +1,4 @@
-# STEP 11 — Teva Apps 메뉴 정리 · 포털 UI/UX · 새가족 포털 편집 · 알림/이메일 미리보기 — 구현 완료
+# STEP 11 (v2) — Teva Apps 메뉴 정리 · 페이지 탭 · 포털 UI/UX · 내 노트 · 새가족 포털 편집 · 알림/이메일 미리보기 — 구현 완료
 
 > 2026-09-29. 백엔드는 GAS가 아니라 Node/Express(Render)가 GAS 스타일 코드를 실행하는 구조입니다(`lib/runtime.js`가 `logic/*.js`를 한 스코프로 합침). "GAS 코드"는 `logic/step11.js`(신규)와 `logic/app.js`/`step10.js`/`permissions.js`(수정)입니다. 이름이 `_`로 끝나는 함수는 브라우저에서 부를 수 없습니다.
 
@@ -14,13 +14,14 @@
 |---|---|
 | §1-1 찬양 허브 팀원 관리 삭제 | `Worship.html`에서 탭·버튼·스타일·JS 전부 제거. **서버 API(`worshipTeams` 등)는 그대로 둠**(되돌리기 쉽도록). |
 | §1-2 제목 | 포털 메뉴 제목 → **Teva Apps**, 관리 화면 제목 → "Teva Apps · 관리". |
-| §1-3 하위 메뉴 | `logic/step11.js` `메뉴묶기11_`: **셀모임**(셀 보고서 · 셀원 정보 `?sub=members` · 대리 제출 `?sub=proxy`), **사역팀**(팀 보고서 · 팀원 관리 `?sub=members` · 지출환급신청 → `?page=expense` 바로 이동), **수련회 · 선교 예산/정산**, **일반 신청서 관리**. 메뉴 key는 그대로라 권한·순서 저장값이 유지됨. 지출환급 타일은 사역팀 타일이 있을 때 사역팀 안으로 합쳐짐. |
+| §1-3 페이지 탭 (v2) | 포털에는 하위 메뉴를 따로 펼치지 않음 — 타일은 페이지로 바로 이동. **셀모임** 페이지 위쪽 탭 `셀 보고서 \| 셀원 정보 \| 대리 제출`(`views/Leader.html`, `leaderTab()`), **사역팀** 페이지 위쪽 탭 `팀 보고서 \| 팀원 관리 \| 지출환급신청 ↗`(`views/Team.html`; 마지막은 `?page=expense` 링크). 공통 탭바 `.pgtabs`(Theme.html)는 새가족 관리 탭바와 같은 모양(둥근 유리 버튼 · 활성은 그라데이션). 옛 주소 `?sub=members`/`?sub=proxy`는 그 탭을 바로 엽니다. 탭을 누르면 주소의 `sub`가 갱신됩니다. **수련회 · 선교 예산/정산**, **일반 신청서 관리**로 이름 변경. 메뉴 key는 그대로라 권한·순서 저장값 유지. 지출환급 타일은 사역팀 타일이 있을 때 사역팀 탭으로 합쳐짐. |
 | §1-4 옛 "관리자 청년부 부분 관리 시스템" | "옛 Admin 첫 화면(카드 대시보드)"으로 해석해 제거. `?page=admin&key=…`를 `#` 없이 열면 포털로 이동. 각 섹션은 독립 메뉴. |
 | §2-1 로고/제목 → 포털 홈 | `Theme.html` 위임 클릭 처리 + `goPortalHome()`(프로필·신청서·셀 신청 닫기). 키보드(role=link, tabindex) 지원. |
 | §2-2 푸시 배너 → 벨 | `#pushBox` 삭제. 새로고침 버튼 옆 🔔 + 팝오버(상태 · 켜기/끄기). 남의 화면 보기·미지원 브라우저에서는 숨김. **팝오버가 다시 그려질 때 "바깥 클릭"으로 닫히던 버그 수정.** |
-| §2-3 배치 | 내 할 일 → 접이식 **알림**(급한 알림이 있으면 기본 펼침). 주보 + 설교 영상 한 줄(같은 높이, 설교 없으면 주보가 전체 폭). 오늘의 묵상 + 내 설교 노트 균형(좁은 폭에서 줄바꿈으로 화살표 겹침 해결). 신청서는 Teva Apps 격자 안 타일. 청년 일정은 그대로. |
+| §2-3 배치 | 내 할 일 → 접이식 **알림**(급한 알림이 있으면 기본 펼침). 주보 + 설교 영상 한 줄, **높이 72px로 오늘의 묵상 · 내 노트 카드와 동일**(설교 영상은 48px 썸네일 + 제목 2줄, 설교 없으면 주보가 전체 폭). 오늘의 묵상 + 내 노트 균형(좁은 폭에서 줄바꿈으로 화살표 겹침 해결). 신청서는 Teva Apps 격자 안 타일. 청년 일정은 그대로. |
 | §2-4 화면 보기 1:1 | `portalViewAs`가 `포털자료_`를 그대로 사용(me·todos·forms·cellApp·myCell·badges·sermon). 새가족은 `newcomerHome` 결과 + 같은 렌더러 `nfHomeHtml`(보기 전용 `inert`). **내 정보 관리**·**알림** 포함. |
 | §2-5 새가족 포털 편집기 | 새가족 관리 › **포털 화면** 탭: 위젯 8개(환영 고정 · 안내 카드 · 셀 신청 · 내 셀 · 알림 · 신청서 · 바로가기 · 등록정보 고치기) 켜기/끄기·순서·제목·문구·링크 편집, 실제 포털을 iframe으로 실시간 미리보기, 저장/기본값. 설정은 `설정값_('새가족포털설정')` JSON 한 칸. API: `newcomerPortalAdminInit`, `saveNewcomerPortalConfig`, `resetNewcomerPortalConfig`. |
+| §2-3 내 노트 (v2) | "내 설교 노트" → **내 노트**(포털 · 노트 화면 · 묵상 화면 카드). 노트 화면 위쪽 모드 단추 **설교 노트 \| QT · 묵상 노트**(마지막 선택은 기기에 기억, `?mode=qt\|sermon`). **설교 노트**: 날짜를 고르면 그 주 게시된 주보에서 제목 · 본문 · 설교자를 자동으로 채움(직접 고친 칸은 덮어쓰지 않음, "주보에서 불러오기"로 강제 가능). **QT · 묵상 노트**: 주보 자동 채움 없음, 오늘 날짜로 시작, **성경 책 고르기 + 장:절 직접 입력**(본문을 직접 고치면 책 칸이 따라감), 탭 이름 "본문 · 관찰 / 묵상 · 적용". 저장은 기존 `설교노트` 시트의 **`출처` 칸을 재사용**(`note` 설교 · `live` 주보 필기 · `qt` 묵상) — **새 열 없음**, 기존 노트는 모두 설교 노트로 보임. 서버는 수정 저장 시 종류를 바꾸지 않음. |
 | §3 셀 신청 UI | 객관식 글자 흰색·대비 4.5:1 이상, 테두리·hover·active·선택(주황 + ✓) 상태, 터치 48px. **헌금봉투 신청 버튼**: 라벨 전체가 클릭 영역(투명 input z-index), 48px 이상, 켜짐/꺼짐·비활성(점선 회색) 구분. |
 | §4-1 앱 기능 관리 | 탭: **메뉴 순서 · AI 설정 · 일정 관리 · 권한 관리**. |
 | §4-2 독립 메뉴 | **설교 · 말씀 관리**(`#word`), **알림 · 이메일 관리**(`#push`)를 관리 카드/권한(`admin.app`)에 독립 항목으로 추가. |
@@ -28,7 +29,7 @@
 
 ## 3. 영향받은 파일
 - 신규: `logic/step11.js`, `public/portal/portal-step11.css`, `scripts/test-step11.js`, `scripts/browser/e2e-step11.js`, `docs/STEP11.md`
-- 수정: `lib/runtime.js`(EXTRA_FILES), `logic/app.js`, `logic/step10.js`, `logic/permissions.js`, `views/Admin.html`, `Portal.html`, `Theme.html`, `Worship.html`, `Leader.html`, `Team.html`, `Forms.html`, `Budget.html`, `NewFamily.html`, `package.json`(`test:step11`), `scripts/browser/e2e-step10.js`·`e2e-step5.js`(의도된 변경 반영)
+- 수정: `lib/runtime.js`(EXTRA_FILES), `logic/app.js`, `logic/step10.js`, `logic/permissions.js`, `logic/notes.js`(source `qt` 허용 1줄), `public/notes/editor.js` · `notes.css`, `views/Admin.html`, `Portal.html`, `Theme.html`, `Worship.html`, `Leader.html`, `Team.html`, `Forms.html`, `Budget.html`, `NewFamily.html`, `Notes.html`, `Devotion.html`, `package.json`(`test:step11`), `scripts/browser/e2e-step10.js`·`e2e-step5.js`(의도된 변경 반영)
 - **시트 열 · 새 시트 없음.** 기존 API 삭제 없음.
 
 ## 4. 기존 기능이 유지되는 방법
@@ -39,12 +40,14 @@
 - `portal-step11.css`를 지우면 예전 모양(기능은 유지). 정적 파일 1시간 캐시 → `?v=2`.
 
 ## 5. 검증
-- 신규 `npm run test:step11` — 서버 107 + 브라우저 106 통과.
+- 신규 `npm run test:step11` — 서버 113 + 브라우저 143 통과 (탭바 · 카드 높이 · 내 노트 모드 포함).
 - 회귀(전부 통과): step1 160 · step2 103 · step3 198 · step4 134 · step6 99 · step7 111 · step8 97 · step9 82 · step10 100 · step28 · step29 · step210 · step211 · step212 · step214 · silent, 브라우저 e2e 전체.
-- 이번 작업 중 발견·수정: 벨 팝오버 "켜기" 클릭 직후 닫힘, 묵상/노트 버튼 화살표 겹침.
+- 이번 작업 중 발견·수정: 벨 팝오버 "켜기" 클릭 직후 닫힘, 묵상/노트 버튼 화살표 겹침, 탭 글자 크기(잘못된 font 단축 속성), 성경 책 선택 직후 포커스 이동 타이밍.
+- 용어 변경에 맞춰 옛 시험의 글자(내 설교 노트 → 내 노트, 빈 목록 안내)를 갱신.
 
 ## 6. 참고 · 아직 확인하지 못한 것
 - 시험은 가짜 구글 + 진짜 server.js + Chromium(390px · 1000px · 1280px)에서 했고 iOS Safari / 실기기 / 실제 시트로는 확인하지 못했습니다. 벨(웹 푸시)은 시험용 YNPush로 검증했고 실제 구독은 실기기 확인이 필요합니다.
-- 의도적 차이: 다른 분 화면 보기에서 빠른 검색창과 내 설교 노트 버튼은 숨김(비공개 노트 · 기존 시험 기대).
+- 대리 제출 탭은 셀장(본인 셀)만 쓸 수 있고, 양육팀(전체 셀)은 셀을 먼저 골라야 패널이 열림(안내 문구 표시).
+- 의도적 차이: 다른 분 화면 보기에서 빠른 검색창과 내 노트 버튼은 숨김(비공개 노트 · 기존 시험 기대).
 - "관리자 청년부 부분 관리 시스템"은 옛 Admin 첫 화면으로 해석했습니다. 다른 것을 뜻했다면 알려주세요.
 - 한글 표기는 임의로 정했습니다(셀모임 · 사역팀 · 수련회 · 선교 예산/정산 · 일반 신청서 관리). 원하시는 표현이 있으면 `logic/step11.js` `메뉴묶기11_` 한 곳에서 바꿉니다.

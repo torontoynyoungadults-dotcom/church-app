@@ -758,3 +758,67 @@ body.ht-lock { overflow: hidden; }
 .pv-tablet:not(.pv-compact) .pv-mq { top: 8px; }
 .pv-tablet:not(.pv-compact) .pv-mq-go { height: 44px; min-width: 54px; } .pv-tablet:not(.pv-compact) .pv-mq-bpm { height: 44px; } .pv-tablet:not(.pv-compact) .pv-mq-bpm b { line-height: 44px; }
 .pv-tablet:not(.pv-compact) .pv-sympop { top: 62px; }
+
+/* ============================================================ Step 2.15 — 콘티 정리 · 날짜 이동 · 떠 있는 시작 도크 */
+/* 날짜 줄 오른쪽 "다음 주일" 버튼 — 어느 날짜에 있든 한 번에 다가오는 주일 예배로 */
+.wktoday { flex: none; width: 60px; margin: 0 8px 12px 0; padding: 0 4px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: 1px solid rgba(var(--g-a-rgb, 255, 138, 42), .55); color: #ffb277; font-family: inherit; touch-action: manipulation;
+  background: linear-gradient(160deg, rgba(var(--g-a-rgb, 255, 138, 42), .2), rgba(var(--g-a-rgb, 255, 138, 42), .08)); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); }
+.wktoday svg { width: 21px; height: 21px; }
+.wktoday span { font-size: 10.5px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; white-space: nowrap; }
+.wktoday:active { transform: scale(.96); }
+.wktoday.here { border-color: rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .5); background: rgba(255, 255, 255, .05); }
+.wktoday:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* 세션 / 연습 시작 — 화면 위에 떠서 따라오는 유리 도크 (스크롤해도 늘 위에 있음) */
+.pvstart { position: sticky; top: 8px; z-index: 40; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px !important; border-radius: 20px !important;
+  background: rgba(18, 18, 25, .72) !important; border: 1px solid rgba(255, 255, 255, .12) !important; box-shadow: 0 12px 34px rgba(0, 0, 0, .42) !important;
+  backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); }
+.pvstart .pvstartbtn { flex: 1 1 260px; width: auto; min-height: 50px; }
+.pvauto { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 9px 13px; min-height: 44px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .06);
+  color: #f2efe9; font-size: 13.5px; font-weight: 750; cursor: pointer; user-select: none; }
+.pvauto input { margin: 0; }
+.enchip { margin-left: 8px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+
+/* ===== Step 2.15 — 도크 맨 앞 라이브 컨트롤(메트로놈 · 음성 콜아웃) · 악보 위 송폼 배지 ===== */
+.pv-live { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding-right: 10px; margin-right: 2px; border-right: 1px solid var(--g-line); }
+.pv-live button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border: 1px solid var(--g-line2); border-radius: 999px; background: rgba(255, 255, 255, .08); color: var(--g-ink);
+  font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: background .15s, transform .1s, opacity .15s; }
+.pv-live button:hover { background: rgba(255, 255, 255, .16); } .pv-live button:active { transform: scale(.96); }
+.pv-live button:focus-visible { outline: 2px solid var(--g-a2); outline-offset: 1px; }
+.pv-live .pv-ic { width: 17px; height: 17px; flex: none; }
+.pv-lv-go { width: 42px; padding: 0; border-color: transparent !important; color: #1a0f05 !important; background: linear-gradient(135deg, #ffa24f, #ff7a1c) !important; box-shadow: 0 4px 14px rgba(255, 122, 28, .35); }
+.pv-lv-go.on { background: linear-gradient(135deg, #ff6b6b, #e11d48) !important; color: #fff !important; box-shadow: 0 4px 14px rgba(225, 29, 72, .4); }
+.pv-lv-bpm { position: relative; padding: 0 16px 0 12px; font-variant-numeric: tabular-nums; }
+.pv-lv-bpm b { font-size: 17px; font-weight: 900; line-height: 1; } .pv-lv-bpm small { font-size: 10px; font-weight: 800; color: var(--g-dim); letter-spacing: .04em; }
+.pv-lv-dot { position: absolute; right: 7px; top: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--g-a); opacity: 0; }
+.pv-lv-dot.b0 { animation: pvmq0 .28s ease-out; } .pv-lv-dot.b1 { animation: pvmq1 .28s ease-out; } .pv-lv-dot.acc { background: #8ecbff; }
+.pv-lv-tts { padding: 0 13px 0 11px; }
+.pv-lv-tts small { font-size: 11.5px; font-weight: 800; letter-spacing: -.01em; }
+.pv-lv-tts[aria-pressed="true"] { background: rgba(var(--g-a-rgb), .22); border-color: rgba(var(--g-a-rgb), .65); color: #ffd2ad; }
+.pv-lv-tts.off { opacity: .7; color: var(--g-dim); }
+.pv-lv-tts:disabled { opacity: .35; cursor: not-allowed; }
+.pv-live.locked .pv-lv-go { opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .pv-lv-dot { animation: none !important; } }
+/* 도크가 보일 때는 도크 앞 묶음을 쓰고, 도크가 접혔거나(✏️ 도구 열기) 좁은 화면 · 전체 화면에서는 예전의 떠 있는 빠른 버튼을 씁니다 */
+.pv-compact .pv-live, .pv-fs .pv-live { display: none; }
+.pv:not(.pv-compact):not(.pv-toolshide):not(.pv-fs) .pv-mq { display: none !important; }
+.pv-tablet:not(.pv-compact) .pv-live button { height: 36px; }
+.pv-tablet:not(.pv-compact) .pv-lv-go { width: 40px; }
+
+/* 송폼 배지 — 악보 맨 위에 붙는 유리 알약 (쪽 안에서 스크롤해도 화면 위에 따라옴) */
+.pv-formbadge { position: sticky; top: 8px; z-index: 5; height: 0; overflow: visible; display: flex; justify-content: center; pointer-events: none; }
+.pv-formbadge:empty { display: none; }
+.pv-tablet:not(.pv-compact):not(.pv-toolshide):not(.pv-fs) .pv-formbadge { top: 58px; }
+.pv-fs .pv-formbadge { top: 34px; }
+.pv-fb-in { display: inline-flex; align-items: center; flex-wrap: nowrap; gap: 6px; max-width: calc(100% - 16px); overflow: hidden; margin-top: 4px; padding: 4px 13px 4px 10px; border-radius: 999px;
+  background: rgba(20, 20, 27, .8); border: 1px solid rgba(255, 255, 255, .24); box-shadow: 0 6px 20px rgba(0, 0, 0, .38); backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%);
+  color: var(--g-ink); font-size: 13px; font-weight: 850; letter-spacing: .01em; white-space: nowrap; line-height: 1.2; }
+.pv-fb-ic { width: 14px; height: 14px; flex: none; color: var(--g-a2); }
+.pv-fb-t { display: inline-flex; align-items: baseline; gap: 1px; } .pv-fb-t.cu { color: var(--g-a2); }
+.pv-fb-t sub { font-size: 10px; font-weight: 900; color: var(--g-a2); }
+.pv-fb-sep { opacity: .4; font-weight: 700; }
+/* 컴퓨터 화면: 떠 있는 도구 막대가 왼쪽에 길게 있으므로 배지는 오른쪽 위 빈 곳에 (여러 칸이면 줄바꿈) */
+.pv:not(.pv-tablet):not(.pv-compact) .pv-formbadge { top: 10px; justify-content: flex-end; padding-right: 14px; }
+.pv:not(.pv-tablet):not(.pv-compact) .pv-fb-in { flex-wrap: wrap; row-gap: 2px; max-width: 216px; white-space: normal; border-radius: 16px; overflow: visible; }
+.pv:not(.pv-tablet):not(.pv-compact).pv-toolshide .pv-formbadge { justify-content: center; padding-right: 0; }

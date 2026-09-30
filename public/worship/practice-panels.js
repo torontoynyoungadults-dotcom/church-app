@@ -92,6 +92,72 @@
       return api;
     }
 
+    /* ---------- 라이브 컨트롤 (Step 2.15) — 도크 맨 앞의 메트로놈 · 음성 콜아웃(TTS) 켜기/끄기 ----------
+       필기 도구 도크(태블릿 캡슐 · 컴퓨터 떠 있는 막대)의 맨 앞에 붙어서, 패널을 열지 않고도 라이브 예배 중에 바로 누릅니다.
+       메트로놈은 빠른 버튼 · 패널 · Space 와 같은 경로(P.metroKey)를 쓰므로 클릭 컨트롤 잠금 · 팀 동기화가 그대로 적용됩니다.
+       도크가 접혀 있거나 좁은 화면(서랍)에서는 이 묶음이 숨고 예전의 떠 있는 빠른 버튼이 대신 보입니다. */
+    var live = (function () {
+      var el = null, goB = null, bpmB = null, ttsB = null, dot = null;
+      function svg(p) { return '<svg class="pv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>'; }
+      var IC = {
+        play: svg('<polygon points="7 4 20 12 7 20 7 4" fill="currentColor"/>'),
+        stop: svg('<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>'),
+        vol: svg('<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>'),
+        mute: svg('<path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/>')
+      };
+      function speechOk() { return !!(root.speechSynthesis && root.SpeechSynthesisUtterance); }
+      function speakOn() {
+        var st = M ? M.state() : null;
+        if (st && st.cfg) return st.cfg.speak !== false;
+        try { return root.localStorage.getItem('yn.metro.speak') !== 'false'; } catch (e) { return true; }
+      }
+      function build() {
+        el = doc.createElement('div'); el.className = 'pv-live'; el.setAttribute('role', 'group'); el.setAttribute('aria-label', '라이브 컨트롤 — 메트로놈 · 음성 콜아웃');
+        el.innerHTML = '<button type="button" class="pv-lv-go" aria-pressed="false" title="메트로놈 시작 / 멈춤 (Space)" aria-label="메트로놈 시작">' + IC.play + '</button>' +
+          '<button type="button" class="pv-lv-bpm" title="메트로놈 패널 열기" aria-label="BPM — 메트로놈 패널 열기"><b>—</b><small>BPM</small><i class="pv-lv-dot b0"></i></button>' +
+          '<button type="button" class="pv-lv-tts" aria-pressed="true" title="음성 콜아웃 (TTS) 켜기 / 끄기" aria-label="음성 콜아웃 켜짐">' + IC.vol + '<small>콜아웃</small></button>';
+        goB = el.querySelector('.pv-lv-go'); bpmB = el.querySelector('.pv-lv-bpm'); ttsB = el.querySelector('.pv-lv-tts'); dot = el.querySelector('.pv-lv-dot');
+        el.addEventListener('click', function (e) {
+          var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
+          e.stopPropagation();                                            // 도구 막대의 다른 단추 처리기로 넘어가지 않게
+          if (b === goB) {
+            var r = P.metroKey('toggle');
+            if (r === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true);
+          } else if (b === bpmB) P.showTab('metro');
+          else if (b === ttsB) {
+            var m = metro(); if (!m) { P.toast('메트로놈 도구를 불러오지 못했습니다.', true); return; }
+            if (!speechOk()) { P.toast('이 기기는 음성 안내를 지원하지 않습니다.', true); return; }
+            var on = !(m.state().cfg.speak !== false); m.setSpeak(on);
+            P.toast(on ? '음성 콜아웃 켜짐' : '음성 콜아웃 꺼짐 — 큐 이름을 말하지 않습니다', false, 1200);
+          }
+          sync();
+        });
+      }
+      function sync() {
+        if (!el) return;
+        var st = M ? M.state() : null, s = P.song(), b = st ? Math.round(st.bpm) : (s && +s.bpm >= 30 && +s.bpm <= 300 ? Math.round(+s.bpm) : 0), run = !!(st && st.running), sp = speakOn(), ok = speechOk();
+        goB.classList.toggle('on', run); goB.setAttribute('aria-pressed', run ? 'true' : 'false'); goB.setAttribute('aria-label', run ? '메트로놈 멈춤' : '메트로놈 시작');
+        var want = run ? IC.stop : IC.play; if (goB.getAttribute('data-ic') !== (run ? 's' : 'p')) { goB.innerHTML = want; goB.setAttribute('data-ic', run ? 's' : 'p'); }
+        var bb = bpmB.querySelector('b'); if (bb.textContent !== String(b || '—')) bb.textContent = b || '—';
+        var on = ok && sp; ttsB.classList.toggle('off', !on); ttsB.disabled = !ok; ttsB.setAttribute('aria-pressed', on ? 'true' : 'false'); ttsB.setAttribute('aria-label', !ok ? '음성 콜아웃 — 이 기기에서는 쓸 수 없음' : on ? '음성 콜아웃 켜짐' : '음성 콜아웃 꺼짐');
+        var ck = on ? 'v' : 'm'; if (ttsB.getAttribute('data-ic') !== ck) { ttsB.innerHTML = (on ? IC.vol : IC.mute) + '<small>콜아웃</small>'; ttsB.setAttribute('data-ic', ck); }
+        el.classList.toggle('locked', ctl() === 'locked');
+      }
+      function beat(e) {
+        if (!dot) return;
+        dot.className = 'pv-lv-dot ' + (e && e.beat === 0 ? 'acc ' : '') + ((e && e.count || 0) % 2 ? 'b1' : 'b0');
+      }
+      /** 도구 막대가 다시 그려질 때마다(innerHTML) 맨 앞에 다시 붙입니다 */
+      function attach(host) {
+        if (!host) return;
+        if (!el) build();
+        if (host.firstChild !== el) host.insertBefore(el, host.firstChild);
+        sync();
+      }
+      function destroy() { if (el && el.parentNode) el.parentNode.removeChild(el); el = goB = bpmB = ttsB = dot = null; }
+      return { attach: attach, sync: sync, beat: beat, destroy: destroy, el: function () { return el; } };
+    }());
+
     /* ---------- 악보 화면 위 메트로놈 빠른 버튼 ----------
        패널(아래에서 올라오는 시트 · 오른쪽 칸)을 열지 않고도, 스크롤 없이 항상 보이는 자리에서 시작 · 멈춤을 누릅니다.
        악보 화면(.pv-main) 위에 떠 있는 작은 유리 버튼이고, 패널의 "메트로놈" 탭 맨 위에도 같은 시작 버튼이 고정되어 있습니다. */
@@ -100,6 +166,7 @@
       try { on = root.localStorage.getItem('yn.pv.mq') !== '0'; } catch (e) { on = true; }
       function stateNow() { return M ? M.state() : null; }
       function sync() {
+        live.sync();
         if (!el) return;
         var st = stateNow(), s = P.song(), b = st ? Math.round(st.bpm) : (s && +s.bpm >= 30 && +s.bpm <= 300 ? Math.round(+s.bpm) : 0), run = !!(st && st.running);
         el.style.display = on ? '' : 'none';
@@ -109,6 +176,7 @@
         el.classList.toggle('locked', ctl() === 'locked');
       }
       function beat(e) {
+        live.beat(e);
         if (!dot || !on) return;
         dot.className = 'pv-mq-dot ' + (e && e.beat === 0 ? 'acc ' : '') + ((e && e.count || 0) % 2 ? 'b1' : 'b0');   // 클래스를 번갈아 바꿔 깜빡임을 다시 시작 (강제 레이아웃 없음)
       }
@@ -210,13 +278,13 @@
       var m = metro(); if (!m) { P.toast('메트로놈 도구를 불러오지 못했습니다.', true); return; }
       var r = m.cue(id);
       if (!r.ok) P.toast(r.error || '큐를 재생하지 못했습니다.', true);
-      else if (!fromRemote) P.broadcastCue(id);
+      else { if (r.muted) P.toast('음성 콜아웃이 꺼져 있습니다 — "' + (r.text || '') + '"', false, 1400); if (!fromRemote) P.broadcastCue(id); }
       return r;
     }
     P.on('cue', function (c) {
       if (!P.recvCue() || P.manual() || !c || !c.label) return;
       var m = metro(); if (!m) return;
-      var r = m.cue(String(c.label)); if (r && r.ok) P.toast('컨트롤 큐: ' + (r.text || c.label), false, 1500);
+      var r = m.cue(String(c.label)); if (r && r.ok) P.toast('컨트롤 큐: ' + (r.text || c.label) + (r.muted ? ' (음성 꺼짐)' : ''), false, 1500);
     });
     P.on('metro', function (st) { remoteMetro(st); });
     /* 동기화를 다시 켜면 지금 팀 메트로놈 상태로 바로 맞춥니다 */
@@ -230,7 +298,7 @@
       var mode = ctl(); if (mode === 'locked') return;                     // 클릭 컨트롤의 BPM 을 따르는 중
       M.setBpm(b); if (mode === 'send') sendSoon({}); if (mUi) mUi.sync();
     });
-    P.on('close', function () { quick.unmount(); clearTimeout(sendT); doc.removeEventListener('pointerdown', prime, true); try { M && M.destroy(); } catch (e) {} M = null; if (flashEl && flashEl.parentNode) flashEl.parentNode.removeChild(flashEl); flashEl = null; });
+    P.on('close', function () { quick.unmount(); live.destroy(); clearTimeout(sendT); doc.removeEventListener('pointerdown', prime, true); try { M && M.destroy(); } catch (e) {} M = null; if (flashEl && flashEl.parentNode) flashEl.parentNode.removeChild(flashEl); flashEl = null; });
     ['clicker', 'conn', 'leader', 'followm', 'manual', 'song'].forEach(function (n) { P.on(n, function () { if (mUi) mUi.sync(); minis.forEach(function (x) { x.sync(); }); }); });
     /* 단축키용 — 메트로놈 탭을 한 번도 안 열었어도 ↑↓ (BPM) · Space (시작/멈춤) 이 동작합니다. 쓸 수 없으면 null */
     P.metroKey = function (act2, d) {
@@ -308,6 +376,7 @@
         '<div class="pv-sec"><h4>송폼 순서</h4><div data-role="player"></div>' +
           '<div class="pv-row"><button class="pv-btn2" data-a="prev">◀ 이전</button><button class="pv-btn2 primary" data-a="next">다음 ▶</button></div>' +
           '<label class="pv-chk"><input type="checkbox" data-o="cue" checked> 칸을 누르면 음성 큐로 알려주기 (박자가 돌고 있으면 박에 맞춰)</label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="fbadge"> 악보 맨 위에 송폼 순서 배지 보이기</label>' +
           '<label class="pv-chk pv-penrow">큐 언어 <select data-o="lang"><option value="en">English (Verse 1 …)</option><option value="ko">한국어 (1절 …)</option></select></label>' +
           '<p class="pv-help">칸을 누르면 지금 위치가 밝게 표시됩니다. 리더가 "팀에 큐 보내기"를 켜 두었다면 팀원 기기에서도 같은 큐가 들립니다. 송폼은 곡 정보의 "송폼 만들기"에서 고칩니다.</p></div>';
       /* 곡 정보 고치기 — BPM · 송폼 · 유튜브 링크. 팀장 · 인도자는 팀 전체에 (실시간), "나만 보기" 이거나 팀원이면 나에게만 저장 */
@@ -370,6 +439,7 @@
       sel.onchange = function () { P.setSong(+sel.value); };
       host.querySelector('[data-o="lang"]').value = P.lang();
       host.querySelector('[data-o="lang"]').onchange = function (e) { P.setLang(e.target.value); if (M) M.setLang(e.target.value); player.setLang(e.target.value); fcueLabels(); };
+      var fbChk = host.querySelector('[data-o="fbadge"]'); if (fbChk) { fbChk.checked = P.formBadge(); fbChk.onchange = function () { P.setFormBadge(fbChk.checked); }; }
       host.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-a]') : null; if (!b) return;
         var list = player.list(); if (!list.length) { P.toast('이 곡에는 송폼이 없습니다.', true); return; }
@@ -403,6 +473,7 @@
           '<label class="pv-rng">딸깍 음높이 <input type="range" min="-12" max="12" step="0.5" data-o="pitch"><output data-role="pitchout"></output></label>' +
           '<label class="pv-rng">음성 볼륨 <input type="range" min="0" max="1" step="0.05" data-o="voice"></label>' +
           '<p class="pv-help">볼륨 막대는 기본 크기의 0 ~ 5배입니다 (소리가 찢어지지 않게 자동으로 눌러 줍니다). 음높이는 반음 단위로 −12 ~ +12 입니다.</p>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="speak" checked> 음성 콜아웃 (TTS) 켜기 <small>(끄면 큐 이름을 소리로 말하지 않습니다 — 화면 위 도크에서도 켜고 끌 수 있어요)</small></label>' +
           '<label class="pv-chk">큐 타이밍 <select data-o="mode"><option value="lead">박자에 맞춰 미리 말하기 (추천)</option><option value="downbeat">다음 마디 첫 박에 맞춰</option><option value="now">누르는 즉시</option></select></label>' +
           '<label class="pv-chk">미리 말할 박 수 <select data-o="lead"><option value="1">1박 전</option><option value="2">2박 전</option><option value="3">3박 전</option><option value="4">4박 전</option></select></label>' +
           '<label class="pv-chk">큐 언어 <select data-o="lang"><option value="en">English</option><option value="ko">한국어</option></select></label>' +
@@ -453,7 +524,7 @@
         else if (!P.followMetro() && rt && rt.online) note.innerHTML = '⛔ <b>메트로놈 따라가기 꺼짐</b> — 이 메트로놈은 혼자 움직입니다. <button class="pv-btn2" data-a="fmon">메트로놈 따라가기 켜기</button>';
         else note.textContent = '';
         q('[data-o="first"]').checked = c.first !== false; q('[data-o="click"]').value = c.click; q('[data-o="voice"]').value = c.voice; q('[data-o="mode"]').value = c.mode; q('[data-o="lead"]').value = String(c.lead);
-        q('[data-o="lang"]').value = c.lang; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.gender || 'male';
+        q('[data-o="lang"]').value = c.lang; q('[data-o="speak"]').checked = c.speak !== false; q('[data-o="sound"]').value = c.sound; q('[data-o="gender"]').value = c.gender || 'male';
         var vi = m.voiceInfo ? m.voiceInfo(c.lang) : null;
         q('[data-role="voiceinfo"]').textContent = !st.speech ? '' : vi ? '사용 음성: ' + vi.name + (c.gender === 'male' ? (vi.male ? ' (남성)' : ' — 이 기기에서 남성 음성을 못 찾아 낮은 음높이로 대신합니다') : '') : '이 기기에서 쓸 수 있는 음성을 찾는 중입니다…';
         q('[data-role="lat"]').textContent = st.speech ? '음성 지연 보정: 약 ' + Math.round(c.lat) + 'ms (말하는 데 걸리는 시간을 기기가 스스로 재서 박자에 맞춥니다)' : '';
@@ -546,7 +617,7 @@
         else if (o === 'flash') m.setFlash(t.checked); else if (o === 'flashall') m.setFlashAll(t.checked); else if (o === 'pitch') m.setPitch(+t.value);
         else if (o === 'click') m.setClickVolume(+t.value); else if (o === 'voice') m.setVoiceVolume(+t.value); else if (o === 'mode') m.setMode(t.value);
         else if (o === 'lead') m.setLead(+t.value); else if (o === 'lang') { m.setLang(t.value); P.setLang(t.value); labels(); } else if (o === 'sound') m.setSound(t.value); else if (o === 'gender') m.setGender(t.value); else if (o === 'first') { if (t.checked !== !!m.state().marks[0]) act('mark', 0); }
-        else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked); else if (o === 'mq') quick.setOn(t.checked);
+        else if (o === 'send') P.sendCueOn(t.checked); else if (o === 'recv') P.recvCue(t.checked); else if (o === 'mq') quick.setOn(t.checked); else if (o === 'speak') m.setSpeak(t.checked);
         sync();
       });
       host.addEventListener('input', function (e) {
@@ -615,7 +686,8 @@
     } });
 
     P.on('song', function () { quick.sync(); }); ['clicker', 'conn', 'leader', 'manual', 'followm'].forEach(function (n) { P.on(n, function () { quick.sync(); }); });
-    setTimeout(function () { quick.mount(); }, 0);          // 화면 뼈대가 다 만들어진 다음에 붙입니다
+    setTimeout(function () { quick.mount(); live.attach(P.el.querySelector('.pv-tools')); }, 0);
+    P.on('toolsrender', function (host) { live.attach(host); });          // 화면 뼈대가 다 만들어진 다음에 붙입니다
     return tabs;
   }
 

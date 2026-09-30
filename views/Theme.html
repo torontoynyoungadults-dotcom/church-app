@@ -546,6 +546,26 @@ footer.ynfoot { padding: 38px 16px 40px !important; font-size: 13.5px !important
   .btn:hover { border-color: rgba(26,25,23,.26) !important; }
   .picklist button:hover { border-color: var(--tone-line) !important; }
 }
+
+/* ---------- 페이지 상단 탭바 (새가족 관리와 같은 모양) — 셀모임 · 사역팀 등 ---------- */
+.pgtabs { display: flex; gap: 6px; margin: 0 12px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.pgtabs::-webkit-scrollbar { display: none; }
+.pgtabs button, .pgtabs a {
+  flex: 1; min-width: 92px; min-height: 46px; box-sizing: border-box; text-align: center; text-decoration: none;
+  border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.07);
+  color: #F1EEE9; border-radius: 12px; padding: 10px 8px; font-weight: 800; font-size: 14.5px; font-family: inherit; line-height: 1.2;
+  cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.pgtabs button:hover, .pgtabs a:hover { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.3); }
+.pgtabs button:focus-visible, .pgtabs a:focus-visible { outline: 3px solid #FFB185; outline-offset: 2px; }
+.pgtabs button.on {
+  background: linear-gradient(135deg, var(--tone), var(--accent)) !important;
+  border-color: rgba(255,255,255,.35) !important; color: #fff !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,.28);
+}
+.pgtabs .ext { font-size: 12px; opacity: .8; }
+.pgnote { margin: 0 12px 12px; padding: 14px 16px; border-radius: 14px; border: 1px dashed rgba(255,255,255,.25); background: rgba(255,255,255,.06); color: #EDEAE5; font-size: 14px; line-height: 1.7; }
 </style>
 <style>
 /* ---------- 사진 자르기 ---------- */

@@ -96,32 +96,35 @@ header h1[data-home]:focus-visible { outline: 2px solid var(--s11-orange); outli
 }
 .ti.ro { cursor: default; }
 
-/* ---------- 4. 주보 + 설교 영상 — 한 줄에 나란히 ---------- */
+/* ---------- 4. 주보 + 설교 영상 — 한 줄에 나란히 · 오늘의 묵상/내 노트와 같은 낮은 높이(72px) ---------- */
+:root { --s11-cardh: 72px; }
 .pairrow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 16px 12px; align-items: stretch; }
 .pairrow.solo { grid-template-columns: 1fr; }
-.pairrow .bulbtn.in, .pairrow .sermoncard {
-  margin: 0 !important; height: 100%; width: 100% !important; box-sizing: border-box;
-  flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 10px; padding: 14px !important;
+.pairrow .bulbtn.in, .pairrow .sermoncard, body .aibtns .bulbtn.ai {
+  box-sizing: border-box; min-height: var(--s11-cardh); height: var(--s11-cardh); margin: 0 !important; width: 100% !important;
+  flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; padding: 12px 10px !important; position: relative;
 }
-.pairrow .bulbtn.in { position: relative; min-height: 138px; }
-.pairrow .bulbtn.in .bt { width: 100%; flex: 1; }
-.pairrow .bulbtn.in .bt b { font-size: 16.5px; }
-.pairrow .bulbtn.in .bt small { display: block; margin-top: 4px; font-size: 13px; line-height: 1.55; color: #F0D2C2; }
-.pairrow .bulbtn.in .ba { position: absolute; top: 12px; right: 14px; }
-.pairrow.solo .bulbtn.in { flex-direction: row; align-items: center; min-height: 0; }
-.pairrow.solo .bulbtn.in .bt { width: auto; }
-.pairrow.solo .bulbtn.in .ba { position: static; }
+.pairrow .bulbtn.in .bt { flex: 1; min-width: 0; width: auto; }
+.pairrow .bulbtn.in .bt b { font-size: 15px; letter-spacing: -0.02em; white-space: normal; word-break: keep-all; line-height: 1.25; }
+.pairrow .bulbtn.in .bt small { display: none; }
+.pairrow.solo .bulbtn.in .bt small { display: block; margin-top: 2px; font-size: 12.5px; color: #F0D2C2; }
+.pairrow .bulbtn.in .ba { position: static; flex: none; margin-left: 2px; font-size: 20px; line-height: 1; }
 .pairser { min-width: 0; display: flex; }
 .pairser:empty { display: none; }
-.pairrow .sermoncard .sc-thumb { width: 100%; height: auto; aspect-ratio: 16 / 9; }
-.pairrow .sermoncard .sc-b { width: 100%; }
-.pairrow .sermoncard .sc-t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pairrow .sermoncard { text-align: left; cursor: pointer; overflow: hidden; }
+.pairrow .sermoncard .sc-thumb { flex: none; width: 48px !important; height: 48px !important; aspect-ratio: auto; border-radius: 12px; overflow: hidden; position: relative; display: block; background: #000; }
+.pairrow .sermoncard .sc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pairrow .sermoncard .sc-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #fff; background: rgba(0,0,0,.32); }
+.pairrow .sermoncard .sc-b { flex: 1; min-width: 0; width: auto; display: block; }
+.pairrow .sermoncard .sc-k { display: block; font-size: 11px; letter-spacing: .04em; font-weight: 800; color: #FFB185; line-height: 1.2; }
+.pairrow .sermoncard .sc-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; word-break: keep-all; font-size: 13.5px; line-height: 1.25; font-weight: 800; color: #fff; }
+.pairrow .sermoncard .sc-d { display: none; }
 .pairrow .sermoncard .sc-go { display: none; }
 @media (max-width: 340px) { .pairrow { grid-template-columns: 1fr; } }
 
 /* ---------- 5. 오늘의 묵상 + 내 설교 노트 — 같은 크기로 균형 있게 ---------- */
 .aibtns { align-items: stretch; }
-.aibtns .bulbtn.ai { min-height: 66px; height: 100%; box-sizing: border-box; }
+
 .aibtns.solo { grid-template-columns: 1fr; }
 
 /* ---------- 6. Teva Apps — 하위 메뉴 · 신청서 타일 ---------- */

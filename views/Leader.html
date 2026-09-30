@@ -366,6 +366,11 @@ body .toggle button .k,
     font-weight: 800 !important;
     box-shadow: 0 2px 10px rgba(22,163,74,.4) !important;
   }
+
+  /* 탭: 셀 보고서 | 셀원 정보 | 대리 제출 — 셀 이름 칸은 세 탭 모두에서 보이고, 보고서 칸들은 '셀 보고서' 탭에서만 */
+  body.lt-members .lt-rep, body.lt-proxy .lt-rep { display: none !important; }
+  body.lt-report #dirToggle, body.lt-report #dgToggle,
+  body.lt-members .linkbar, body.lt-proxy .linkbar { display: none !important; }
 </style>
 <!--#include Theme-->
 </head>
@@ -392,8 +397,13 @@ body .toggle button .k,
   </div>
 
   <div id="app" style="display:none;">
+    <div class="pgtabs" role="tablist" aria-label="셀모임">
+      <button type="button" role="tab" id="ltb_report" class="on" onclick="leaderTab('report')">셀 보고서</button>
+      <button type="button" role="tab" id="ltb_members" onclick="leaderTab('members')">셀원 정보</button>
+      <button type="button" role="tab" id="ltb_proxy" onclick="leaderTab('proxy')">대리 제출</button>
+    </div>
     <div class="dgbanner" id="dgBanner"></div>
-    <div class="panel">
+    <div class="panel lt-rep">
       <div id="editBanner" class="banner" style="display:none;"></div>
 
       <div class="notice" style="margin-bottom:0 !important;">
@@ -403,12 +413,13 @@ body .toggle button .k,
       </div>
     </div>
 
-    <div class="panel">
+    <div class="pgnote" id="ltNote" style="display:none;"></div>
+    <div class="panel lt-rep">
       <span class="chip">모임 날짜<span class="req">*</span></span>
       <select id="meetingDate"></select>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="cellPanel">
       <span class="chip">셀 이름</span>
       <span id="masterTag" style="display:none;background:#1C1C1C;color:#fff;font-size:12px;
         font-weight:700;padding:4px 10px;border-radius:6px;margin-left:6px;">양육팀 · 전체 셀</span>
@@ -476,7 +487,7 @@ body .toggle button .k,
       </div>
     </div>
 
-    <div class="panel" id="attendanceField" style="display:none;">
+    <div class="panel lt-rep" id="attendanceField" style="display:none;">
       <span class="chip">출결 체크<span class="req">*</span></span>
       <p class="subnotice">불참한 셀원의 사유는 최대한 정확하게 작성 부탁드립니다.
         혹시 연락이 닿지 않은 셀원이 있다면, 주중에 꼭 개별적으로 안부를 물어봐 주세요.
@@ -490,30 +501,30 @@ body .toggle button .k,
 
     </div>
 
-    <div class="panel">
+    <div class="panel lt-rep">
       <span class="chip">본인의 컨디션 · 영적상태<span class="req">*</span></span>
       <div class="picklist" id="condRow"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel lt-rep">
       <span class="chip">셀모임 분위기<span class="req">*</span></span>
       <div class="picklist" id="moodRow"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel lt-rep">
       <div class="flrow"><span class="chip">기도제목 · 특이사항</span>
         <button type="button" class="btn mini aipolish" id="aiBtn_notes" onclick="aiPolish('notes',this,'aiMsg_notes')">&#10024; AI 편집</button></div>
       <textarea id="notes" style="min-height:104px;" placeholder="공유하고 싶으신 부분이 있다면 자유롭게 작성해 주세요.&#10;&#10;- 셀원 또는 본인의 중보기도 제목&#10;- 양육팀/목사님 심방이나 상담이 필요한 사항&#10;- 기타 셀 운영 관련 특이사항"></textarea>
       <p class="msg" id="aiMsg_notes"></p>
     </div>
 
-    <div class="panel">
+    <div class="panel lt-rep">
       <span class="chip">작성자<span class="req">*</span></span>
       <p class="hint" id="submitterHint">기본값은 셀장 이름입니다. 다른 분이 대신 작성한다면 이름을 바꿔주세요.</p>
       <input type="text" id="submitter" placeholder="작성자 이름">
     </div>
 
-    <div class="panel">
+    <div class="panel lt-rep">
       <div class="closing">
         <b>💙 수고하셨습니다! 💙</b>
         셀장님의 작은 섬김과 기록이 우리 공동체를 더 건강하게 세워갑니다.<br>
@@ -968,17 +979,52 @@ function startForm() {
   showRoomLine();
   onContextChange();
 
-  /* 포털 '셀모임' 하위 메뉴로 들어오면 해당 패널을 한 번만 바로 엽니다 (?sub=members | proxy) */
-  if (PREFILL.sub && !startForm._subDone) {
+  /* 탭 — 포털에서 ?sub=members | proxy 로 들어오면 그 탭을 한 번만 바로 엽니다 */
+  if (!startForm._subDone) {
     startForm._subDone = true;
-    try {
-      if (PREFILL.sub === 'members' && el('dirToggle').style.display !== 'none' && el('dirPanel').style.display !== 'block') toggleDirectory();
-      if (PREFILL.sub === 'proxy' && el('dgToggle').style.display !== 'none' && el('dgForm').style.display !== 'block') {
-        toggleDgForm();
-        setTimeout(function () { var f = el('dgForm'); if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
-      }
-    } catch (e) {}
+    leaderTab(PREFILL.sub === 'members' ? 'members' : (PREFILL.sub === 'proxy' ? 'proxy' : 'report'));
   }
+}
+
+/** 셀 보고서 | 셀원 정보 | 대리 제출 */
+var LT = 'report';
+function leaderTab(k, quiet) {
+  if (k !== 'members' && k !== 'proxy') k = 'report';
+  LT = k;
+  ['report', 'members', 'proxy'].forEach(function (x) {
+    var b = el('ltb_' + x); if (b) { b.className = (x === k) ? 'on' : ''; b.setAttribute('aria-selected', x === k ? 'true' : 'false'); }
+  });
+  document.body.classList.remove('lt-report', 'lt-members', 'lt-proxy');
+  document.body.classList.add('lt-' + k);
+  var note = el('ltNote'); note.style.display = 'none'; note.textContent = '';
+  try {
+    // 다른 칸은 닫고, 고른 탭의 패널만 엽니다
+    ['mailForm', 'pwForm'].forEach(function (id) { if (el(id).style.display === 'block') (id === 'mailForm' ? toggleMailForm : togglePwForm)(); });
+    if (k !== 'members' && el('dirPanel').style.display === 'block') toggleDirectory();
+    if (k !== 'proxy' && el('dgForm').style.display === 'block') toggleDgForm();
+    if (k === 'members') {
+      if (!TOKEN) { note.textContent = '셀원 정보는 셀장 비밀번호로 들어오셨을 때 볼 수 있습니다.'; note.style.display = 'block'; }
+      else if (el('dirPanel').style.display !== 'block') toggleDirectory();
+    }
+    if (k === 'proxy') {
+      var can = el('dgToggle').style.display !== 'none' || el('dgForm').style.display === 'block';
+      if (!can) {
+        note.textContent = (IS_MASTER && !currentCell())
+          ? '위 「셀 이름」 칸에서 셀을 먼저 고르면, 그 셀의 대리 작성자를 지정할 수 있습니다.'
+          : isDg(currentCell())
+          ? '지금은 다른 셀 보고서를 대신 작성하는 중입니다. 대리 작성자 지정은 그 셀의 셀장님만 할 수 있어요. 보고서는 「셀 보고서」 탭에서 작성하세요.'
+          : '대리 작성자 지정은 셀장님(본인 셀)만 할 수 있습니다. 대신 보고서를 쓰시는 분은 「셀 보고서」 탭에서 작성하세요.';
+        note.style.display = 'block';
+      } else if (el('dgForm').style.display !== 'block') toggleDgForm();
+    }
+  } catch (e) {}
+  if (quiet) return;
+  try {
+    var u = new URL(location.href);
+    if (k === 'report') u.searchParams.delete('sub'); else u.searchParams.set('sub', k);
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  } catch (e) {}
+  window.scrollTo(0, 0);
 }
 
 /* ---------- 대리 작성자 ---------- */
@@ -1018,6 +1064,7 @@ function applyCellMode() {
   el('dgToggle').style.display = (TOKEN && cell && !dg) ? 'block' : 'none';
   renderDgLine();
   if (el('dgForm').style.display === 'block') renderDgForm();
+  if (LT !== 'report') leaderTab(LT, true);   // 셀을 바꾸면 지금 탭의 화면도 그 셀에 맞춰 다시 정리
 }
 
 /** 셀장 화면 — 지금 지정된 대리 작성자 한 줄 */

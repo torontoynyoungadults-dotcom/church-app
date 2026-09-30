@@ -34,7 +34,7 @@ const SHOT = process.env.SHOT_DIR || '/tmp/claude-0/-home-claude/e5bbcb51-1505-5
   let { ctx, page, errs, calls, saveBodies } = await mk();
   await page.goto(url(tok));
   check('노트 페이지가 열림', await L.waitTrue(page, () => !!document.querySelector('#fab'), null, 8000));
-  check('노트가 없다는 안내', await L.waitTrue(page, () => /아직 노트가 없어요/.test(document.getElementById('cards').textContent), null, 5000));
+  check('노트가 없다는 안내', await L.waitTrue(page, () => /아직 (설교 )?노트가 없어요/.test(document.getElementById('cards').textContent), null, 5000));
   await page.screenshot({ path: SHOT + '/notes-list-empty.png' });
 
   console.log('· 새 노트 — 지금 주일의 주보로 미리 채움');
@@ -243,7 +243,7 @@ const SHOT = process.env.SHOT_DIR || '/tmp/claude-0/-home-claude/e5bbcb51-1505-5
   check('계속 저장해도 연결이 풀리지 않음', run((api) => api.devotionNotes(tok, '', '')).linked.length === 1);
   const dev = await mk();
   await dev.page.goto(BASE + '/?page=devotion&t=' + encodeURIComponent(tok));
-  check('묵상 화면에 “내 설교 노트” 카드', await L.waitTrue(dev.page, () => /📝 내 설교 노트/.test(document.body.textContent) && /연결한 노트가 없어요|연결 해제/.test(document.getElementById('dnBox').textContent), null, 8000));
+  check('묵상 화면에 “내 노트” 카드', await L.waitTrue(dev.page, () => /📝 내 노트/.test(document.body.textContent) && /연결한 노트가 없어요|연결 해제/.test(document.getElementById('dnBox').textContent), null, 8000));
   check('연결된 노트 내용이 묵상 화면에 보임', await dev.page.evaluate(() => /연결 뒤에 계속 쓴 글/.test(document.getElementById('dnBox').textContent)));
   await dev.page.screenshot({ path: SHOT + '/devotion-notes.png', fullPage: true });
   await dev.page.click('#dnBox button:has-text("연결 해제")');
@@ -277,7 +277,7 @@ const SHOT = process.env.SHOT_DIR || '/tmp/claude-0/-home-claude/e5bbcb51-1505-5
   const other = await mk();
   await other.page.goto(url(tokB, '&id=' + idLost));
   check('다른 사람은 열지 못함', await L.waitTrue(other.page, () => /노트를 열지 못했어요/.test(document.body.textContent), null, 6000));
-  check('다른 사람 목록은 비어 있음', await other.page.evaluate(() => { document.getElementById('tolist').click(); return true; }) && await L.waitTrue(other.page, () => /아직 노트가 없어요/.test(document.getElementById('cards').textContent), null, 4000));
+  check('다른 사람 목록은 비어 있음', await other.page.evaluate(() => { document.getElementById('tolist').click(); return true; }) && await L.waitTrue(other.page, () => /아직 (설교 )?노트가 없어요/.test(document.getElementById('cards').textContent), null, 4000));
   await other.ctx.close();
   await page.close(); await ctx.close();
 
