@@ -6,7 +6,7 @@
  *
  * ▣ 화면에서 부르는 함수
  *    worshipYoutubeSearch(token, query, pageToken)      유튜브 검색 (여러 버전 · 아티스트) — 열쇠: 서버 환경변수 YOUTUBE_API_KEY
- *    worshipScoreImageSearch(token, query, start)       구글 이미지 검색(악보) — 열쇠: GOOGLE_CSE_API_KEY(없으면 YOUTUBE_API_KEY) + GOOGLE_CSE_CX
+ *    worshipScoreImageSearch(token, query, start)       이미지 검색(악보) — 열쇠가 있는 쪽을 씁니다: BRAVE_SEARCH_API_KEY(브레이브) 우선, 없으면 GOOGLE_CSE_API_KEY(없으면 YOUTUBE_API_KEY) + GOOGLE_CSE_CX(구글)
  *    worshipImportScoreImage(token, date, kind, url, title, pageUrl)   고른 그림을 서버가 받아 악보로 저장 (uploadWorshipSheet 와 같은 길)
  *
  * ▣ @멘션 (설명 칸의 @일렉 · @피아노 · @홍길동)
@@ -49,11 +49,15 @@ function 검색오류_(status, body, what) {
   if (status === 429 || /quota|ratelimit|dailylimit|resource_exhausted/i.test(reason)) {
     return { ok: false, reason: 'quota', msg: what + ' 하루 사용량을 다 썼습니다. 내일 다시 되거나, 아래 링크로 직접 찾아주세요.' };
   }
-  if (status === 400 || /keyinvalid|api_key/i.test(reason)) {
+  var raw = String(body || '');
+  if (/does not have the access|has not been used|accessNotConfigured|SERVICE_DISABLED/i.test(raw)) {
+    return { ok: false, reason: 'denied', msg: what + ' — 이 구글 프로젝트는 해당 API 를 쓸 수 없습니다 (구글이 신규 프로젝트에 막아 둔 경우가 있습니다). BRAVE_SEARCH_API_KEY 를 설정하면 브레이브 검색으로 바꿔 쓸 수 있습니다.' };
+  }
+  if (status === 401 || status === 400 || /keyinvalid|api_key/i.test(reason)) {
     return { ok: false, reason: 'denied', msg: what + ' 열쇠가 올바르지 않습니다 (서버 환경변수를 확인해주세요).' };
   }
   if (status === 403) {
-    return { ok: false, reason: 'denied', msg: what + ' 사용 권한이 없습니다 (구글 클라우드에서 해당 API 를 켰는지 확인해주세요).' };
+    return { ok: false, reason: 'denied', msg: what + ' 사용 권한이 없습니다 (해당 서비스에서 열쇠 권한을 확인해주세요).' };
   }
   return { ok: false, reason: 'error', msg: what + '을 불러오지 못했습니다 (' + status + ').' };
 }
@@ -116,8 +120,9 @@ function worshipScoreImageSearch(token, query, start) {
   var q = 검색글정리_(query, 100);
   if (!q) throw new Error('검색어를 입력해주세요.');
   var openUrl = 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q);
-  var k = 검색열쇠_(), key = String(k.cse || '').trim(), cx = String(k.cx || '').trim();
-  if (!key || !cx) return { ok: false, reason: 'nokey', msg: '악보 이미지 검색 열쇠(GOOGLE_CSE_CX · GOOGLE_CSE_API_KEY)가 서버에 아직 설정되지 않았습니다. 아래 링크로 찾은 뒤 그림을 저장해 "직접 올리기"로 올려주세요.', openUrl: openUrl };
+  var k = 검색열쇠_(), brave = String(k.brave || '').trim(), key = String(k.cse || '').trim(), cx = String(k.cx || '').trim();
+  if (brave) return 악보이미지_브레이브_(q, start, brave, openUrl);        // 브레이브 열쇠가 있으면 그쪽 (구글 CSE 가 막힌 프로젝트 대비)
+  if (!key || !cx) return { ok: false, reason: 'nokey', msg: '악보 이미지 검색 열쇠(BRAVE_SEARCH_API_KEY, 또는 GOOGLE_CSE_CX · GOOGLE_CSE_API_KEY)가 서버에 아직 설정되지 않았습니다. 아래 링크로 찾은 뒤 그림을 저장해 "직접 올리기"로 올려주세요.', openUrl: openUrl };
   var st = Math.max(1, Math.min(91, Math.round(Number(start)) || 1));      // 구글 CSE 는 1 ~ 91 (한 번에 10장)
   var url = 'https://www.googleapis.com/customsearch/v1?searchType=image&num=10&safe=active&start=' + st +
     '&cx=' + encodeURIComponent(cx) + '&q=' + encodeURIComponent(q) + '&key=' + encodeURIComponent(key);
@@ -134,6 +139,35 @@ function worshipScoreImageSearch(token, query, start) {
   });
   var nx = data.queries && data.queries.nextPage && data.queries.nextPage[0];
   return { ok: true, items: items, next: nx && nx.startIndex ? Number(nx.startIndex) : 0, q: q, openUrl: openUrl };
+}
+
+
+/** 브레이브 이미지 검색 — 한 번에 넉넉히(60장) 받아 10장씩 잘라 보여 줍니다. 같은 검색은 1시간 동안 다시 부르지 않습니다. */
+function 악보이미지_브레이브_(q, start, key, openUrl) {
+  var st = Math.max(1, Math.min(51, Math.round(Number(start)) || 1));
+  var ck = null, all = null;
+  try {
+    ck = 'bris13:' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, q)).slice(0, 40);
+    var hit = CacheService.getScriptCache().get(ck);
+    if (hit) all = JSON.parse(hit);
+  } catch (e) { all = null; }
+  if (!all) {
+    var url = 'https://api.search.brave.com/res/v1/images/search?count=60&safesearch=strict&q=' + encodeURIComponent(q);
+    var res;
+    try { res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: { 'Accept': 'application/json', 'X-Subscription-Token': key } }); }
+    catch (e) { return { ok: false, reason: 'error', msg: '이미지 검색 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.', openUrl: openUrl }; }
+    if (res.getResponseCode() !== 200) { var er = 검색오류_(res.getResponseCode(), res.getContentText(), '이미지 검색'); er.openUrl = openUrl; return er; }
+    var data = {};
+    try { data = JSON.parse(res.getContentText()); } catch (e) { return { ok: false, reason: 'error', msg: '검색 응답을 읽지 못했습니다.', openUrl: openUrl }; }
+    all = (data.results || []).map(function (it) {
+      var pr = it.properties || {}, th = it.thumbnail || {};
+      return { url: String(pr.url || ''), thumb: String(th.src || ''), w: Number(pr.width) || 0, h: Number(pr.height) || 0, bytes: 0,
+        title: 유튜브글자풀기_(it.title || ''), page: String(it.url || ''), mime: '' };
+    }).filter(function (x) { return /^https:\/\//i.test(x.url); });
+    if (ck) { try { CacheService.getScriptCache().put(ck, JSON.stringify(all), 3600); } catch (e) {} }
+  }
+  var items = all.slice(st - 1, st - 1 + 10);
+  return { ok: true, items: items, next: (st - 1 + 10 < all.length && st + 10 <= 51) ? st + 10 : 0, q: q, openUrl: openUrl };
 }
 
 /**

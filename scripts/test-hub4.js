@@ -165,7 +165,7 @@ async function main() {
 
   section('F. 검색 — 유튜브 · 악보 이미지');
   {
-    const KEYS = ['YOUTUBE_API_KEY', 'GOOGLE_CSE_API_KEY', 'GOOGLE_CSE_CX'];
+    const KEYS = ['YOUTUBE_API_KEY', 'GOOGLE_CSE_API_KEY', 'GOOGLE_CSE_CX', 'BRAVE_SEARCH_API_KEY'];
     KEYS.forEach((k) => delete process.env[k]);
     let r = run((api) => api.worshipYoutubeSearch(ADM, '주님의 사랑 마커스'));
     ok(r.ok === false && r.reason === 'nokey' && /youtube\.com\/results\?search_query=/.test(r.openUrl), '열쇠가 없으면 안내 + 유튜브 검색 링크');
@@ -223,6 +223,42 @@ async function main() {
     ok(/searchType=image/.test(calls[calls.length - 1].a.url) && /safe=active/.test(calls[calls.length - 1].a.url) && /cx=cx-test-1/.test(calls[calls.length - 1].a.url), '구글 이미지 검색 · 안전 검색');
     ok(/key=SECRETKEY-yt-123/.test(calls[calls.length - 1].a.url) && JSON.stringify(r).indexOf('SECRETKEY') === -1, 'CSE 열쇠가 없으면 유튜브 열쇠로 대신 — 화면으로는 안 나감');
     r = run((api) => api.worshipScoreImageSearch(ADM, '악보', 500)); ok(/start=91/.test(calls[calls.length - 1].a.url), '시작 번호는 91 까지로 제한');
+
+    // ---- 구글 프로젝트가 막힌 경우 → 안내 문구, 그리고 브레이브로 대체
+    net = () => json({ error: { code: 403, message: 'This project does not have the access to Custom Search JSON API.', errors: [{ reason: 'forbidden' }], status: 'PERMISSION_DENIED' } }, 403);
+    r = run((api) => api.worshipScoreImageSearch(ADM, '막힌 프로젝트 시험', 1));
+    ok(r.ok === false && r.reason === 'denied' && /BRAVE_SEARCH_API_KEY/.test(r.msg) && r.openUrl, '프로젝트가 막혔으면 → 브레이브로 바꾸라는 안내');
+    ok(JSON.stringify(r).indexOf('SECRETKEY') === -1, '안내에도 열쇠가 없음');
+
+    process.env.BRAVE_SEARCH_API_KEY = 'SECRETKEY-brave-9';
+    const many = Array.from({ length: 25 }, (_, i) => ({ title: '악보 &amp; ' + i, url: 'https://page.example.com/' + i,
+      thumbnail: { src: 'https://t.example.com/' + i + '.jpg' }, properties: { url: i === 3 ? 'http://insecure.example.com/x.png' : 'https://img.example.com/' + i + '.png', width: 1000 + i, height: 1400 } }));
+    let bn = 0;
+    net = (op, a) => {
+      if (/api\.search\.brave\.com\/res\/v1\/images\/search/.test(a.url)) { bn++; return json({ results: many }); }
+      throw new Error('예상 못한 주소 ' + a.url);
+    };
+    r = run((api) => api.worshipScoreImageSearch(ADM, '브레이브 시험 곡 악보', 1));
+    const bc = calls[calls.length - 1].a;
+    ok(r.ok && r.items.length === 10 && r.next === 11, '브레이브: 10장씩 · 다음 쪽 시작 11 (https 아닌 그림은 뺌 → 24장)');
+    eq(r.items[0], { url: 'https://img.example.com/0.png', thumb: 'https://t.example.com/0.jpg', w: 1000, h: 1400, bytes: 0, title: '악보 & 0', page: 'https://page.example.com/0', mime: '' }, '브레이브 항목이 구글과 같은 모양');
+    ok(/safesearch=strict/.test(bc.url) && /count=60/.test(bc.url) && !/SECRETKEY/.test(bc.url), '안전 검색 · 열쇠는 주소가 아니라 머리글로');
+    eq([bc.headers && bc.headers['X-Subscription-Token'], bc.headers && bc.headers.Accept], ['SECRETKEY-brave-9', 'application/json'], '머리글에 열쇠 (서버 안에서만)');
+    ok(JSON.stringify(r).indexOf('SECRETKEY') === -1, '응답 어디에도 열쇠가 없음');
+    r = run((api) => api.worshipScoreImageSearch(ADM, '브레이브 시험 곡 악보', 11));
+    ok(r.ok && r.items.length === 10 && r.next === 21 && r.items[0].url === 'https://img.example.com/11.png', '둘째 쪽: 11번째부터');
+    r = run((api) => api.worshipScoreImageSearch(ADM, '브레이브 시험 곡 악보', 21));
+    ok(r.ok && r.items.length === 4 && r.next === 0, '마지막 쪽: 남은 4장 · 더 보기 없음');
+    eq(bn, 1, '같은 검색의 더 보기는 캐시로 — 바깥 요청 1번');
+    process.env.GOOGLE_CSE_CX = 'cx-test-1';
+    r = run((api) => api.worshipScoreImageSearch(ADM, '브레이브 우선 시험', 1));
+    ok(r.ok && /api\.search\.brave\.com/.test(calls[calls.length - 1].a.url), '구글 열쇠가 있어도 브레이브 열쇠가 있으면 브레이브 우선');
+    net = () => json({ message: 'bad token SECRETKEY-brave-9' }, 401);
+    r = run((api) => api.worshipScoreImageSearch(ADM, '브레이브 열쇠 오류 시험', 1));
+    ok(r.ok === false && r.reason === 'denied' && /열쇠/.test(r.msg) && JSON.stringify(r).indexOf('SECRETKEY') === -1, '브레이브 열쇠 오류(401) → 열쇠 안내, 열쇠 노출 없음');
+    net = () => json({}, 429);
+    r = run((api) => api.worshipScoreImageSearch(ADM, '브레이브 한도 시험', 1)); eq(r.reason, 'quota', '브레이브 사용량 초과(429) → 한도 안내');
+    delete process.env.BRAVE_SEARCH_API_KEY;
   }
 
   section('G. 이미지 가져오기 → 악보로 저장');
