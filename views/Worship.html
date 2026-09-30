@@ -1927,8 +1927,9 @@ function songForm(kind, s) {
     '<div class="f"><label>찬양 제목</label>' +
       (window.YNConti
         ? '<div class="cn-titlerow"><input type="text" id="sTitle" value="' + esc(s.title) + '" placeholder="예: 주님의 사랑">' +
-            '<button type="button" class="cn-btn" id="cnImgBtn" aria-expanded="false" aria-controls="cnImg" title="악보 이미지를 구글에서 찾아 바로 악보로 저장합니다">🎼 악보 이미지 검색</button></div>' +
-            '<div id="cnImg" data-kind="' + esc(kind) + '"></div>'
+            // 악보 이미지 검색은 지금 숨김 — 다시 켜려면 window.YN_IMG_SEARCH = true (검색 서비스 열쇠 설정 후)
+            (window.YN_IMG_SEARCH === true ? '<button type="button" class="cn-btn" id="cnImgBtn" aria-expanded="false" aria-controls="cnImg" title="악보 이미지를 찾아 바로 악보로 저장합니다">🎼 악보 이미지 검색</button>' : '') + '</div>' +
+            (window.YN_IMG_SEARCH === true ? '<div id="cnImg" data-kind="' + esc(kind) + '"></div>' : '')
         : '<input type="text" id="sTitle" value="' + esc(s.title) + '" placeholder="예: 주님의 사랑">') + '</div>' +
     '<div class="two">' +
       '<div class="f"><label>팀 · 원곡</label>' +

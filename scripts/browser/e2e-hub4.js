@@ -21,6 +21,7 @@ const PNG = require('./mkpng').mkpng(300, 400);
   const br = await L.launch();
   const ctx = await br.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage(); const errs = [];
+  await page.addInitScript(() => { window.YN_IMG_SEARCH = true; });   // 이미지 검색 단추는 기본 숨김 — 시험에서만 켬
   page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/favicon|Failed to load resource|bad HTTP response code|ERR_/.test(m.text())) errs.push('console: ' + m.text()); });
   await page.route(/(img|t)\.example\.com\//, (r) => r.fulfill({ status: 200, contentType: 'image/png', body: PNG }));
