@@ -32,6 +32,7 @@
     "test:step11": "node scripts/test-step11.js && node scripts/browser/e2e-step11.js",
     "test:step13": "node scripts/test-step13.js && node scripts/browser/e2e-step13.js",
     "test:hub4": "node scripts/test-hub4.js",
+    "test:hub4:browser": "node scripts/browser/e2e-hub4.js && node scripts/browser/e2e-hub4-canvas.js",
     "test:step31": "node scripts/test-step31.js && node scripts/browser/e2e-step31.js && node scripts/browser/e2e-step31b.js"
   },
   "engines": {

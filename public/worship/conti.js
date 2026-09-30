@@ -2,7 +2,7 @@
  * 콘티 도구 (Hub v4) — 유튜브 검색 · 악보 이미지 검색 · @세션 태그 · 카카오톡 콘티 요약
  * ------------------------------------------------------------
  *  · 순수 함수(태그 풀이 · 카톡 글 · 버전 이름)와 화면 조립(mountSongForm)이 한 파일에 있습니다 (시험은 순수 함수를 node 에서 부릅니다).
- *  · @태그 이름표 표(ALIASES)는 서버 logic/worship5.js 의 멘션별칭_ 과 같아야 합니다 — scripts/test-step13.js 가 두 곳의 풀이를 비교합니다.
+ *  · @태그 이름표 표(ALIASES)는 서버 logic/worship5.js 의 멘션별칭_ 과 같아야 합니다 — scripts/test-hub4.js 가 두 곳의 풀이를 비교합니다.
  *  · 기존 콘티 화면(Worship.html)은 그대로 두고, 이 파일이 없어도 오류 없이 예전처럼 동작합니다 (호출하는 쪽이 window.YNConti 를 확인).
  */
 (function (root, factory) {

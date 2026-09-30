@@ -263,37 +263,42 @@
     /** 다시 그리기 예약 (한 화면 프레임에 한 번으로 모읍니다). dyn=true 는 "확정된 필기는 그대로, 그리는 중인 획 · 선택 표시 · 남의 실시간 획만 바뀜" — 이때는 확정 필기를 다시 그리지 않고 저장해 둔 그림을 붙입니다 */
     function invalidate(dyn) { if (!dyn) S.dirty = true; if (S.raf || S.dead) return; S.raf = (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (f) { return setTimeout(f, 16); })(function () { S.raf = 0; redraw(); }); }
     function pageItems(layer, pg) { var out = []; S.layers[layer].forEach(function (it) { if (it.pg === pg) out.push(it); }); return out; }
-    function drawPage(c, W, H, pg, vis) {
+    function drawPage(c, W, H, pg, vis, skip) {                                   // skip: 그리지 않을 항목 번호 (손가락으로 옮기는 중인 항목 — 따로 위에 그림)
       vis = vis || S.vis;
       ['team', 'mine'].forEach(function (ly) {
         if (!vis[ly]) return;
         var list = pageItems(ly, pg);
-        list.filter(function (i) { return i.t === 'hl'; }).forEach(function (i) { drawItem(c, i, W, H); });
-        list.filter(function (i) { return i.t !== 'hl'; }).forEach(function (i) { drawItem(c, i, W, H); });
+        list.filter(function (i) { return i.t === 'hl' && i.id !== skip; }).forEach(function (i) { drawItem(c, i, W, H); });
+        list.filter(function (i) { return i.t !== 'hl' && i.id !== skip; }).forEach(function (i) { drawItem(c, i, W, H); });
       });
     }
+    /** 옮기기 · 크기 바꾸기 중인 항목 번호 (없으면 null) */
+    function movingId() { var c = S.cur; return c && (c.kind === 'move' || c.kind === 'resize') && c.item ? c.item.id : null; }
     /** 확정된 필기를 따로 그려 두는 그림 — 필기가 많은 쪽(30개↑)에서 획을 긋는 동안만 씁니다 (적은 쪽은 그냥 다시 그리는 게 더 쌉니다) */
     function baseWorth() {
       if (!S.cur && !S.live.size) return false;
       if (cv.width * cv.height > 12e6 || typeof document === 'undefined') return false;
       var n = 0; ['team', 'mine'].forEach(function (ly) { S.layers[ly].forEach(function (it) { if (it.pg === S.page) n++; }); });
-      return n >= 30;
+      return n >= (movingId() ? 8 : 30);                                            // 항목을 끌 때는 8개만 넘어도 나머지를 저장해 둔 그림으로 붙임
     }
     function buildBase() {
       try {
         var bc = S.base || (S.base = document.createElement('canvas'));
         if (bc.width !== cv.width || bc.height !== cv.height) { bc.width = cv.width; bc.height = cv.height; }
         var b = bc.getContext('2d'); b.setTransform(1, 0, 0, 1, 0, 0); b.clearRect(0, 0, bc.width, bc.height); b.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
-        drawPage(b, S.W, S.H, S.page); S.baseOk = true;
+        S.baseId = movingId(); drawPage(b, S.W, S.H, S.page, null, S.baseId); S.baseOk = true;
       } catch (e) { S.baseOk = false; }
     }
     function freeBase() { S.baseOk = false; if (S.base) { try { S.base.width = S.base.height = 0; } catch (e) { /* 무시 */ } S.base = null; } }
     function redraw() {
       if (S.dead) return;
       var dirty = S.dirty; S.dirty = false; if (dirty) S.baseOk = false;
+      if (S.baseOk && S.baseId !== movingId()) S.baseOk = false;                   // 저장해 둔 그림이 지금 옮기는 항목과 다르면 버림
       if (!dirty && !S.baseOk && baseWorth()) buildBase();
-      if (!dirty && S.baseOk) {                                                    // 획을 긋는 동안 : 확정된 필기는 저장해 둔 그림을 한 번에 붙임
+      var usedBase = !dirty && S.baseOk;
+      if (usedBase) {                                                              // 획을 긋는 동안 : 확정된 필기는 저장해 둔 그림을 한 번에 붙임
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(S.base, 0, 0); ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+        if (S.baseId && S.cur && S.cur.item) drawItem(ctx, S.cur.item, S.W, S.H);   // 옮기는 항목만 새 자리에 따로 그림
       } else {
         ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); ctx.clearRect(0, 0, S.W, S.H);
         drawPage(ctx, S.W, S.H, S.page);
@@ -318,13 +323,50 @@
     }
     /** 선택한 항목 둘레의 점선 테두리 + 모서리 점 (끌어서 옮길 수 있다는 표시) */
     function selItem() { return S.sel && S.layers[S.sel.layer] ? (S.layers[S.sel.layer].get(S.sel.id) || null) : null; }
-    function drawSel(c, it) {
-      var b = itemBox(it, S.W, S.H); if (!b) return;
-      var pad = 4, x = b.x - pad, y = b.y - pad, w = b.w + pad * 2, h = b.h + pad * 2;
-      c.save(); c.setLineDash([6, 4]); c.lineWidth = 2; c.strokeStyle = '#ff8a2a'; c.strokeRect(x, y, w, h); c.setLineDash([]);
-      c.fillStyle = '#ff8a2a'; c.strokeStyle = '#fff'; c.lineWidth = 1.5;
-      [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(function (q) { c.beginPath(); c.rect(q[0] - 4, q[1] - 4, 8, 8); c.fill(); c.stroke(); });
+    /** 선택 상자의 자리 · 손잡이 자리 (화면 가장자리에 걸려도 손잡이는 화면 안에 남게) */
+    var HANDLE_R = 11;
+    function handleGeom(it) {
+      var b = itemBox(it, S.W, S.H); if (!b) return null;
+      var pad = 5, x = b.x - pad, y = b.y - pad, w = b.w + pad * 2, h = b.h + pad * 2;
+      function cl(px, py) { return { x: clamp(px, HANDLE_R, Math.max(HANDLE_R, S.W - HANDLE_R)), y: clamp(py, HANDLE_R, Math.max(HANDLE_R, S.H - HANDLE_R)) }; }
+      return { x: x, y: y, w: w, h: h, tl: cl(x, y), tr: cl(x + w, y), br: cl(x + w, y + h), bl: cl(x, y + h) };
+    }
+    function drawHandle(c, pt, color, kind) {
+      c.save(); c.translate(pt.x, pt.y);
+      c.beginPath(); c.arc(0, 0, HANDLE_R, 0, 7); c.fillStyle = color; c.fill(); c.lineWidth = 2; c.strokeStyle = '#fff'; c.stroke();
+      c.strokeStyle = '#fff'; c.fillStyle = '#fff'; c.lineWidth = 2; c.lineCap = 'round'; c.lineJoin = 'round';
+      if (kind === 'del') { c.beginPath(); c.moveTo(-4, -4); c.lineTo(4, 4); c.moveTo(4, -4); c.lineTo(-4, 4); c.stroke(); }
+      else if (kind === 'size') { c.beginPath(); c.moveTo(-4, -4); c.lineTo(4, 4); c.moveTo(4, 4); c.lineTo(0.5, 4); c.moveTo(4, 4); c.lineTo(4, 0.5); c.moveTo(-4, -4); c.lineTo(-0.5, -4); c.moveTo(-4, -4); c.lineTo(-4, -0.5); c.stroke(); }
+      else if (kind === 'edit') { c.font = '800 13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('T', 0, 1); }
       c.restore();
+    }
+    function drawSel(c, it) {
+      var g = handleGeom(it); if (!g) return;
+      var can = canModify(S.sel.layer, it);
+      c.save();
+      c.setLineDash([6, 4]); c.lineWidth = 3.4; c.strokeStyle = 'rgba(20,20,26,.5)'; c.strokeRect(g.x, g.y, g.w, g.h);       // 어두운 밑줄 — 흰 악보 · 어두운 악보 어디서나 보임
+      c.lineWidth = 1.8; c.strokeStyle = can ? '#ff8a2a' : '#8b8b96'; c.strokeRect(g.x, g.y, g.w, g.h); c.setLineDash([]);
+      if (can) {
+        drawHandle(c, g.tr, '#e5484d', 'del'); drawHandle(c, g.br, '#ff8a2a', 'size');
+        if (it.t === 'text') drawHandle(c, g.tl, '#ff8a2a', 'edit');
+        else { c.fillStyle = '#ff8a2a'; c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.rect(g.tl.x - 4, g.tl.y - 4, 8, 8); c.fill(); c.stroke(); }
+        c.fillStyle = '#ff8a2a'; c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.rect(g.bl.x - 4, g.bl.y - 4, 8, 8); c.fill(); c.stroke();
+      }
+      c.restore();
+    }
+    /** 누른 자리가 선택 항목의 손잡이인지 ('del' 지우기 · 'size' 크기 · 'edit' 글자 고치기) — 손가락은 넉넉하게(24px) */
+    function handleAt(px, py, touch) {
+      var it = selItem(); if (!it || it.pg !== S.page || !S.vis[S.sel.layer] || !canModify(S.sel.layer, it)) return null;
+      var g = handleGeom(it); if (!g) return null;
+      var tol = touch ? 24 : 15, best = null, bd = 1e9;
+      [['del', g.tr], ['size', g.br]].concat(it.t === 'text' ? [['edit', g.tl]] : []).forEach(function (h) { var d = Math.hypot(px - h[1].x, py - h[1].y); if (d <= tol && d < bd) { bd = d; best = h[0]; } });
+      return best;
+    }
+    /** 누른 자리가 선택 항목의 몸통 안인지 (손가락은 넉넉하게) */
+    function inSelBox(px, py, touch) {
+      var it = selItem(); if (!it || it.pg !== S.page || !S.vis[S.sel.layer]) return false;
+      var g = handleGeom(it); if (!g) return false; var t = touch ? 14 : 6;
+      return px >= g.x - t && px <= g.x + g.w + t && py >= g.y - t && py <= g.y + g.h + t;
     }
 
     /* ---- 항목 추가 · 삭제 (되돌리기 기록 포함) ---- */
@@ -353,7 +395,8 @@
     }
 
     /* ---- 입력 ---- */
-    function norm(e) { var r = cv.getBoundingClientRect(); return { x: clamp((e.clientX - r.left) / (r.width || 1), 0, 1), y: clamp((e.clientY - r.top) / (r.height || 1), 0, 1) }; }
+    var rectC = null;                                                             // 손가락을 대고 있는 동안의 캔버스 자리 (움직일 때마다 배치를 다시 재지 않으려고)
+    function norm(e) { var r = (S.cur && rectC) || cv.getBoundingClientRect(); return { x: clamp((e.clientX - r.left) / (r.width || 1), 0, 1), y: clamp((e.clientY - r.top) / (r.height || 1), 0, 1) }; }
     function drawing() { return S.tool !== 'none'; }
     function notePen(e) { if (e.pointerType === 'pen') S.penT = Date.now(); }        // 애플 펜슬이 화면 위(떠 있을 때 포함)에 있는 동안 손바닥을 무시하기 위한 기록
     cv.addEventListener('pointermove', notePen); cv.addEventListener('pointerover', notePen);
@@ -364,8 +407,9 @@
       // 손가락을 "펜만 그림" 으로 막아 둔 경우의 스크롤 · 스와이프 · 핀치는 화면 쪽 터치 처리(practice.js)가 직접 합니다.
       void lockTouch;
       cv.style.touchAction = 'none'; cv.style.webkitUserSelect = 'none'; cv.style.userSelect = 'none'; cv.style.webkitTouchCallout = 'none';
-      cv.style.cursor = !drawing() ? '' : S.tool === 'select' ? 'move' : S.tool === 'eraser' ? 'cell' : S.tool === 'fbox' ? 'crosshair' : S.tool === 'text' || S.tool === 'chord' ? 'text' : 'crosshair';
+      cv.style.cursor = toolCursor();
     }
+    function toolCursor() { return !drawing() ? '' : S.tool === 'select' ? 'move' : S.tool === 'eraser' ? 'cell' : S.tool === 'fbox' ? 'crosshair' : S.tool === 'text' || S.tool === 'chord' ? 'text' : 'crosshair'; }
     function activeColor() { return S.tool === 'hl' ? S.hlColor : S.color; }
 
     function eraseAt(px, py) {
@@ -397,11 +441,37 @@
       return found;
     }
     function startMove(e, g, p, editOnTap) {
-      var was = !!(S.sel && S.sel.id === g.item.id && S.sel.layer === g.layer);
-      S.sel = { layer: g.layer, id: g.item.id };
+      var was = !!(S.sel && S.sel.id === g.item.id && S.sel.layer === g.layer), fresh = S.fresh === g.item.id;
+      S.sel = { layer: g.layer, id: g.item.id }; S.fresh = null;
       S.cur = { kind: 'move', ptr: e.pointerId, layer: g.layer, orig: g.item, item: Object.assign({}, g.item), x0: p.x, y0: p.y, px0: e.clientX, py0: e.clientY,
-        moved: false, editOnTap: !!editOnTap, wasSel: was, locked: !canModify(g.layer, g.item), warned: false };
-      invalidate(); changed();
+        moved: false, editOnTap: !!editOnTap && !fresh, wasSel: was && !fresh, locked: !canModify(g.layer, g.item), warned: false };     // 방금 만든 항목을 한 번 톡 치면: 고치기 대신 "옮기기 상태" 유지
+      cv.style.cursor = 'grabbing'; invalidate(); changed();
+    }
+    /** 선택한 항목이 있을 때 빈 곳을 눌러 끌기 — 항목이 손가락을 따라 움직입니다 (작은 글자를 정확히 집지 않아도 됨). 끌지 않고 떼면 then 을 합니다 */
+    function startRelMove(e, p, then) {
+      var it = selItem(), ly = S.sel.layer; if (!it) return false;
+      S.cur = { kind: 'move', ptr: e.pointerId, layer: ly, orig: it, item: Object.assign({}, it), x0: p.x, y0: p.y, px0: e.clientX, py0: e.clientY,
+        moved: false, editOnTap: false, wasSel: true, locked: false, warned: false, rel: true, then: then || null };
+      cv.style.cursor = 'grabbing'; invalidate(); return true;
+    }
+    /** 손잡이 누르기 — 크기(끌기) · 지우기 · 글자 고치기 (뗄 때 실행) */
+    function beginHandle(e, which, p) {
+      var it = selItem(), ly = S.sel.layer; if (!it) return;
+      var g = handleGeom(it);
+      if (which === 'size') {
+        var ox = it.x * S.W, oy = it.y * S.H;
+        S.cur = { kind: 'resize', ptr: e.pointerId, layer: ly, orig: it, item: Object.assign({}, it), ox: ox, oy: oy, d0: Math.max(12, Math.hypot(g.br.x - ox, g.br.y - oy)),
+          gx: g.br.x - p.x * S.W, gy: g.br.y - p.y * S.H, moved: false };
+        cv.style.cursor = 'nwse-resize';
+      } else S.cur = { kind: 'handle', which: which, ptr: e.pointerId, px0: e.clientX, py0: e.clientY, moved: false };
+      invalidate();
+    }
+    /** 그리던 것 · 옮기던 것을 버리고 원래 모양으로 (도구 · 쪽을 바꾸거나 두 번째 손가락이 닿았을 때) */
+    function dropCur() { var c = S.cur; S.cur = null; if (c && (c.kind === 'move' || c.kind === 'resize') && S.layers[c.layer]) S.layers[c.layer].set(c.orig.id, c.orig); rectC = null; }
+    /** 방금 만든 글자 · 기호 · 송폼 라벨을 바로 선택 상태(테두리 + 손잡이)로 — 곧바로 끌어서 옮기거나 크기를 바꿀 수 있음 */
+    function adopt(layer, it) {
+      if (!it || (S.tool !== 'text' && S.tool !== 'chord' && S.tool !== 'sym' && S.tool !== 'fbox')) return;
+      S.sel = { layer: layer, id: it.id }; S.fresh = it.id; invalidate(); changed();
     }
     /* ---- 펜 ↔ 지우개 빠른 전환 (Step 2.15) ----
        웹 페이지(사파리 포함)는 애플 펜슬의 하드웨어 "더블탭"을 받을 수 없습니다 — 그 신호는 네이티브 앱(UIPencilInteraction)에만 전달됩니다.
@@ -435,7 +505,7 @@
       if (e.pointerType === 'pen') { if (!S.sawPen) { S.sawPen = true; refreshTouch(); try { o.onPenSeen && o.onPenSeen(); } catch (x) {} } }
       else if (e.pointerType === 'touch' && (S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen) || Date.now() - S.penT < 700 || ((e.width || 0) > 40 || (e.height || 0) > 40))) return;      // 손바닥 · 손가락은 무시 (펜만 그림) — 펜이 화면 위에 있거나(700ms) 닿는 면이 넓은(손바닥) 터치는 항상 무시
       else if (e.pointerType === 'mouse' && e.button !== 0) return;
-      if (S.cur) { S.cur = null; invalidate(); return; }                                                                // 두 번째 손가락 = 그리기 취소 (확대 동작)
+      if (S.cur) { dropCur(); invalidate(); return; }                                                                   // 두 번째 손가락 = 그리기 취소 (확대 동작)
       if (e.pointerType === 'pen' && penGesture(e)) { e.preventDefault(); return; }                                    // 펜 더블탭 · 옆 버튼 = 펜 ↔ 지우개
       if (S.editor) { closeEditor(true); }
       if (S.layer === 'team' && o.teamBlocked && o.teamBlocked()) { say(o.teamBlocked(), true); return; }
@@ -445,15 +515,23 @@
       if (e.pointerType === 'pen' && S.penTap && (e.button === 5 || (e.buttons & 32)) && (S.tool === 'pen' || S.tool === 'hl')) {     // 지우개 쪽 끝: 잡고 있는 동안만 지우개
         var pe = norm(e); S.tapDown = null; S.cur = { kind: 'erase', ptr: e.pointerId, touch: false }; eraseAt(pe.x * S.W, pe.y * S.H); return;
       }
-      var p = norm(e), touch = e.pointerType === 'touch';
-      if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord' && S.sel) { S.sel = null; changed(); }
+      var p = norm(e), touch = e.pointerType === 'touch', ppx = p.x * S.W, ppy = p.y * S.H;
+      rectC = cv.getBoundingClientRect();                                                                              // 이 손가락이 떨어질 때까지 캔버스 자리를 다시 재지 않음
+      var keepSel = S.tool === 'select' || S.tool === 'text' || S.tool === 'chord' || S.tool === 'sym' || S.tool === 'fbox';
+      if (!keepSel && S.sel) { S.sel = null; S.fresh = null; changed(); }
+      if (keepSel && S.sel) { var hh = handleAt(ppx, ppy, touch); if (hh) { beginHandle(e, hh, p); return; } }              // 손잡이: 크기 · 지우기 · 고치기
+      var relOk = !!(S.sel && (S.tool === 'select' || S.tool === 'text' || S.tool === 'chord') && selItem() && canModify(S.sel.layer, selItem()));
       if (S.tool === 'select') {
-        var g = pickMovable(p.x * S.W, p.y * S.H, touch);
-        if (g) startMove(e, g, p, false); else if (S.sel) { S.sel = null; invalidate(); changed(); }
+        var g = pickMovable(ppx, ppy, touch);
+        if (g) startMove(e, g, p, false);
+        else if (relOk) startRelMove(e, p, { kind: 'deselect' });                                                       // 빈 곳을 끌면 선택한 항목이 따라옴 · 톡 치면 선택 해제
+        else if (S.sel) { S.sel = null; S.fresh = null; invalidate(); changed(); }
       } else if (S.tool === 'pen' || S.tool === 'hl') {
         S.cur = { kind: S.tool, id: newId(), ptr: e.pointerId, p: [p.x, p.y], color: activeColor(), w: S.tool === 'hl' ? S.hw : S.pw, sent: 0, fresh: true, straight: S.tool === 'hl' && S.straight, touch: touch };
         invalidate();
       } else if (S.tool === 'eraser') { S.cur = { kind: 'erase', ptr: e.pointerId, touch: touch }; eraseAt(p.x * S.W, p.y * S.H); }
+      else if (S.tool === 'sym' && S.sel && selItem() && canModify(S.sel.layer, selItem()) && inSelBox(ppx, ppy, touch)) startMove(e, { layer: S.sel.layer, item: selItem() }, p, false);   // 방금 놓은 기호를 다시 눌러 끌기
+      else if (S.tool === 'fbox' && S.sel && selItem() && canModify(S.sel.layer, selItem()) && inSelBox(ppx, ppy, touch)) startMove(e, { layer: S.sel.layer, item: selItem() }, p, false);
       else if (S.tool === 'sym') {
         var stretch = !!STRETCH[S.sym];
         S.cur = { kind: 'sym', ptr: e.pointerId, x0: p.x, y0: p.y, stretch: stretch, item: { id: newId(), t: 'sym', pg: S.page, c: S.color, x: r4(p.x), y: r4(p.y), sz: S.symSize, k: S.sym, f: textLike(S.sym) && S.font !== 'sans' ? S.font : undefined, w2: stretch ? 0.08 : undefined } };
@@ -464,6 +542,7 @@
       } else if (S.tool === 'text' || S.tool === 'chord') {
         var g2 = pickMovable(p.x * S.W, p.y * S.H, touch);
         if (g2 && g2.item.t === 'text' && canModify(g2.layer, g2.item)) startMove(e, g2, p, true);              // 글자를 누르면: 그냥 떼면 고치기 · 끌면 옮기기
+        else if (relOk) startRelMove(e, p, { kind: 'text', x: p.x, y: p.y });                                   // 선택한 글자가 있으면: 빈 곳을 끌면 따라옴 · 톡 치면 새 글자
         else S.cur = { kind: 'textpos', ptr: e.pointerId, x: p.x, y: p.y };
       }
     }
@@ -477,7 +556,16 @@
         var qm = norm(e), o0 = c.orig, it0 = c.item, dx = qm.x - c.x0, dy = qm.y - c.y0;
         if (o0.t === 'fbox') { it0.x = r4(clamp(o0.x + dx, 0, 1 - (o0.w || 0))); it0.y = r4(clamp(o0.y + dy, 0, 1 - (o0.h || 0))); }
         else { it0.x = r4(clamp(o0.x + dx, 0, 1)); it0.y = r4(clamp(o0.y + dy, 0, 1)); }
-        S.layers[c.layer].set(it0.id, it0); invalidate();                                                       // 미리보기: 옮기는 동안은 새 자리에 그려짐
+        S.layers[c.layer].set(it0.id, it0); invalidate(true);                                                   // 미리보기: 옮기는 동안은 새 자리에 그려짐 (나머지 필기는 저장해 둔 그림)
+      } else if (c.kind === 'resize') {
+        var qr = norm(e), rr = clamp(Math.hypot(qr.x * S.W + c.gx - c.ox, qr.y * S.H + c.gy - c.oy) / c.d0, 0.15, 8);
+        var rng = SZ_RANGE[c.orig.t] || SZ_RANGE.text, base0 = c.orig.sz || (c.orig.t === 'text' ? 0.025 : 0.03), nz = r4(clamp(base0 * rr, rng[0], rng[1]));
+        if (nz !== c.item.sz) {
+          c.item.sz = nz; if (c.orig.w2 != null) c.item.w2 = r4(clamp(c.orig.w2 * rr, 0.02, 0.5));
+          c.moved = true; S.layers[c.layer].set(c.item.id, c.item); invalidate(true);
+        }
+      } else if (c.kind === 'handle') {
+        if (Math.hypot(e.clientX - c.px0, e.clientY - c.py0) > 12) c.moved = true;
       } else if (c.kind === 'pen' || c.kind === 'hl') {
         for (var i = 0; i < list.length; i++) {
           var q = norm(list[i]), n = c.p.length;
@@ -501,19 +589,30 @@
     }
     function onUp(e) {
       var c = S.cur; if (!c || e.pointerId !== c.ptr) return;
-      S.cur = null;
+      S.cur = null; rectC = null; if (cv.style.cursor === 'grabbing' || cv.style.cursor === 'nwse-resize') cv.style.cursor = toolCursor();
       try { cv.releasePointerCapture(e.pointerId); } catch (x) {}
-      if (e.type === 'pointercancel') { if (c.kind === 'move') S.layers[c.layer].set(c.orig.id, c.orig); invalidate(); return; }
-      if (c.kind === 'move') {
+      if (e.type === 'pointercancel') { if (c.kind === 'move' || c.kind === 'resize') S.layers[c.layer].set(c.orig.id, c.orig); invalidate(); return; }
+      if (c.kind === 'move' || c.kind === 'resize') {
         if (!c.moved) {
           S.layers[c.layer].set(c.orig.id, c.orig);
-          if (c.editOnTap) { S.sel = null; openEditor(c.orig.x, c.orig.y, c.orig, c.layer); }
-          else if (c.wasSel && c.orig.t === 'text' && !c.locked) openEditor(c.orig.x, c.orig.y, c.orig, c.layer);       // 선택된 글자를 한 번 더 누르면 고치기
+          if (c.rel) {                                                                                                 // 빈 곳을 눌렀다 뗌
+            var th = c.then; S.sel = null; S.fresh = null;
+            if (th && th.kind === 'text') openEditor(th.x, th.y);
+          }
+          else if (c.editOnTap) { S.sel = null; openEditor(c.orig.x, c.orig.y, c.orig, c.layer); }
+          else if (c.wasSel && c.orig.t === 'text' && !c.locked && c.kind === 'move') openEditor(c.orig.x, c.orig.y, c.orig, c.layer);       // 선택된 글자를 한 번 더 누르면 고치기
           changed();
         } else {
           var after = Object.assign({}, c.item, { ts: Date.now() });
           put(c.layer, after); record({ op: 'edit', layer: c.layer, before: c.orig, after: after });
         }
+      } else if (c.kind === 'handle') {
+        if (!c.moved && e.type === 'pointerup') {
+          var hs = selItem();
+          if (c.which === 'del') api.deleteSelected();
+          else if (c.which === 'edit' && hs && hs.t === 'text') { var hl = S.sel.layer; S.sel = null; openEditor(hs.x, hs.y, hs, hl); }
+        }
+        changed();
       } else if (c.kind === 'pen' || c.kind === 'hl') {
         var p = c.p; if (p.length < 4) p = [p[0], p[1], p[0] + 0.0005, p[1]];
         if (c.straight && p.length > 4) p = p.slice(0, 2).concat(p.slice(-2));
@@ -523,8 +622,8 @@
         addLocal(S.layer, it);
       } else if (c.kind === 'fbox') {
         var fb = c.item; fb.w = 0.01; fb.h = 0.01;
-        addLocal(S.layer, fb);
-      } else if (c.kind === 'sym') { var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f; addLocal(S.layer, s); }
+        adopt(S.layer, addLocal(S.layer, fb));
+      } else if (c.kind === 'sym') { var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f; adopt(S.layer, addLocal(S.layer, s)); }
       else if (c.kind === 'textpos') { openEditor(c.x, c.y); }
       if (S.tapDown && e.pointerType === 'pen') {                                                                        // 펜으로 짧게 톡 친 것을 기억 (두 번째 톡이 오면 전환)
         var d0 = S.tapDown; S.tapDown = null;
@@ -589,7 +688,7 @@
         if (ed.szSet) after.sz = ed.sz;
         put(ed.layer, after); record({ op: 'edit', layer: ed.layer, before: before, after: after });
       } else {
-        addLocal(ed.layer, { id: newId(), t: 'text', pg: S.page, c: ed.color, x: r4(ed.x), y: r4(ed.y), sz: ed.sz, s: txt.slice(0, 200), chord: ed.chord ? 1 : undefined, f: ed.font !== 'sans' ? ed.font : undefined });
+        adopt(ed.layer, addLocal(ed.layer, { id: newId(), t: 'text', pg: S.page, c: ed.color, x: r4(ed.x), y: r4(ed.y), sz: ed.sz, s: txt.slice(0, 200), chord: ed.chord ? 1 : undefined, f: ed.font !== 'sans' ? ed.font : undefined }));
       }
     }
     /** 글자 도구로 기존 글자를 누르면 고치기 */
@@ -603,6 +702,11 @@
       }
       origUp(e);
     };
+    cv.addEventListener('pointermove', function (e) {                                                            // 마우스를 올렸을 때: 손잡이는 손가락 · 크기 화살표, 몸통은 이동 커서
+      if (S.cur || e.pointerType !== 'mouse' || !S.sel || !drawing()) return;
+      var r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, h = handleAt(px, py, false);
+      cv.style.cursor = h === 'del' ? 'pointer' : h === 'size' ? 'nwse-resize' : h === 'edit' ? 'pointer' : inSelBox(px, py, false) ? 'move' : toolCursor();
+    });
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove);
     cv.addEventListener('pointerup', function (e) { onUp(e); }); cv.addEventListener('pointercancel', function (e) { onUp(e); });
     cv.addEventListener('contextmenu', function (e) { if (drawing()) e.preventDefault(); });
@@ -623,10 +727,10 @@
         var pw = Math.round(S.W * S.dpr), ph = Math.round(S.H * S.dpr);
         if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }            // 크기가 그대로면 캔버스를 다시 만들지 않습니다 (메모리 · 깜빡임 절약)
         var sw = S.W + 'px', sh = S.H + 'px'; if (cv.style.width !== sw) cv.style.width = sw; if (cv.style.height !== sh) cv.style.height = sh;
-        invalidate();
+        rectC = null; invalidate();
       },
-      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; S.cur = null; S.sel = null; freeBase(); invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
-      setTool: function (t) { closeEditor(true); S.tool = ['none', 'pen', 'hl', 'select', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; S.cur = null; if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord') S.sel = null; changed(); refreshTouch(); invalidate(); },
+      setPage: function (n) { n = Math.max(1, n | 0); if (n === S.page) { invalidate(); return; } closeEditor(true); S.page = n; dropCur(); S.sel = null; S.fresh = null; freeBase(); invalidate(); },      // 같은 쪽을 다시 그릴 때(확대·창 크기)는 쓰던 획을 끊지 않음
+      setTool: function (t) { closeEditor(true); S.tool = ['none', 'pen', 'hl', 'select', 'text', 'chord', 'sym', 'fbox', 'eraser'].indexOf(t) >= 0 ? t : 'none'; dropCur(); if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord' && S.tool !== 'sym' && S.tool !== 'fbox') { S.sel = null; S.fresh = null; } changed(); refreshTouch(); invalidate(); },
       setColor: function (c) {
         if (!/^#[0-9a-f]{6}$/i.test(c)) return;
         if (S.tool === 'hl') S.hlColor = c; else S.color = c;
@@ -654,15 +758,15 @@
       remoteLive: function (m) { if (!m || !m.id) return; var old = S.live.get(m.id); S.live.set(m.id, { id: m.id, t: m.t, pg: m.pg, c: m.c, w: m.w, p: m.p, by: m.by, at: Date.now() }); invalidate(true); },
       undo: undo, redo: redo,
       /** 그리던 획 · 옮기던 항목을 저장하지 않고 버림 (손가락 두 개로 확대를 시작할 때) */
-      cancelCurrent: function () { var c = S.cur; if (!c) return false; S.cur = null; if (c.kind === 'move' && S.layers[c.layer]) S.layers[c.layer].set(c.orig.id, c.orig); invalidate(); return true; },
+      cancelCurrent: function () { if (!S.cur) return false; dropCur(); invalidate(); return true; },
       /** 선택한 항목 (없으면 null) — 화면 도구줄이 크기 · 글꼴 칸을 맞추는 데 씁니다 */
       selected: function () { var it = selItem(); return it ? { layer: S.sel.layer, id: it.id, t: it.t, sz: it.sz, f: it.f, c: it.c, s: it.s, chord: it.chord, canModify: canModify(S.sel.layer, it) } : null; },
       select: function (layer, id) { if (S.layers[layer] && S.layers[layer].get(id)) { S.sel = { layer: layer, id: id }; invalidate(); changed(); return true; } return false; },
-      deselect: function () { if (S.sel) { S.sel = null; invalidate(); changed(); } },
+      deselect: function () { if (S.sel) { S.sel = null; S.fresh = null; invalidate(); changed(); } },
       deleteSelected: function () {
         var it = selItem(); if (!it) return false;
         if (!canModify(S.sel.layer, it)) { say('다른 사람이 쓴 필기는 지울 수 없습니다.', true); return false; }
-        var ly = S.sel.layer, t = take(ly, it.id); S.sel = null; if (t) record({ op: 'del', layer: ly, item: t }); return !!t;
+        var ly = S.sel.layer, t = take(ly, it.id); S.sel = null; S.fresh = null; if (t) record({ op: 'del', layer: ly, item: t }); return !!t;
       },
       /** 선택 항목 고치기 — patch: { sz, f, c } 중 필요한 것만. 되돌리기 가능 · 같은 자리에서 실시간 전파 */
       editSelected: function (patch) {

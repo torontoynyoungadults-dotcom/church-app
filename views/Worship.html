@@ -1016,6 +1016,9 @@ body .pe .fc,
 <script defer src="/worship/wakelock.js"></script>
 <script defer src="/worship/metro.js"></script>
 <script defer src="/worship/pitch.js"></script>
+<script defer src="/worship/harmony-core.js"></script>
+<script defer src="/worship/omr.js"></script>
+<script defer src="/worship/harmony-ui.js"></script>
 <script defer src="/worship/lyrics.js"></script>
 <script defer src="/worship/hubtools.js"></script>
 <script defer src="/worship/ytplayer.js"></script>
@@ -2106,6 +2109,8 @@ function mountContiTools() {
     openPractice: openPractice, pickFile: pickFile
   });
 }
+/* conti.js 는 defer 라서, 응답이 아주 빠르거나 저장해 둔 화면으로 첫 화면이 먼저 그려졌다면 배지 · 카카오톡 단추가 빠집니다 — 스크립트가 다 불러진 뒤 한 번 더 그립니다 */
+document.addEventListener('DOMContentLoaded', function () { try { if (window.YNConti && typeof W !== 'undefined' && W && !songEdit && typeof render === 'function') render(); } catch (e) {} });
 function kakaoBtn() {
   if (!window.YNConti || !(W.songs || []).length) return '';
   return '<div class="cn-kakao"><button type="button" class="btn mini accent cn-kakaobtn" onclick="copyKakao()">카카오톡 콘티 요약 복사</button>' +
