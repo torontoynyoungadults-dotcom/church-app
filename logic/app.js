@@ -6346,7 +6346,10 @@ function sendWorshipNotify(token, date, what, team) {
     body: 월일_(date) + ' 예배 · ' + (isSheet ? '악보를 확인해주세요.' : '콘티를 확인해주세요.'),
     url: 앱주소_() + '?page=worship&t=' + encodeURIComponent(token), tag: '콘티-' + date, keep: true
   });
-  return { sent: r.sent || 0, mail: r.mail || 0, people: names.length, by: w.name };
+  var out = { sent: r.sent || 0, mail: r.mail || 0, people: names.length, by: w.name };
+  // Step 13 — 콘티 설명에서 @일렉 · @홍길동 처럼 부른 사람에게는 "회원님을 불렀어요" 개인 알림도 (콘티 알림일 때만)
+  if (!isSheet) { try { var mn = 콘티멘션알림_(w, date, token); out.mention = mn.people; out.mentionSent = mn.sent; } catch (e) { /* 개인 알림이 안 가도 팀 알림은 그대로 */ } }
+  return out;
 }
 
 /* ---- 녹음 — 연습 녹음 · 예배 녹음 (mp3 · m4a 올리기, 또는 구글 드라이브 링크) ----
@@ -12200,6 +12203,9 @@ function 내할일_(token) {
           tone: tone, hideable: false }));
       });
     } catch (e) {}
+
+    /* --- 1-3) 콘티에서 나를 부른 @태그 (Step 13 — logic/worship5.js) --- */
+    try { 콘티멘션할일_(who.name, token, hidden, today).forEach(function (t) { out.push(t); }); } catch (e) {}
 
     /* --- 2) 셀 보고서 --- */
     if (r.cells.length) {
