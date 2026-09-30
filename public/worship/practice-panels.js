@@ -92,6 +92,36 @@
       return api;
     }
 
+    /* ---------- v6.1 — 메트로놈 동그라미 (떠 있는 송폼 창 안) ----------
+       작은 동그라미 하나: 누르면 시작 / 멈춤, 가운데에 BPM, 박마다 테두리가 반짝(첫 박은 더 밝게). 길게 누르면 메트로놈 탭.
+       조작은 다른 메트로놈 단추와 같은 경로(P.metroKey)라 클릭 컨트롤 잠금 · 팀 동기화가 그대로입니다. */
+    function circleMetro() {
+      var el = doc.createElement('button'); el.type = 'button'; el.className = 'pv-mc'; el.setAttribute('aria-pressed', 'false');
+      el.innerHTML = '<b class="pv-mc-n">—</b><small class="pv-mc-s">▶</small>';
+      var nEl = el.querySelector('.pv-mc-n'), sEl = el.querySelector('.pv-mc-s'), pressT = 0, longed = false, bt = 0;
+      function sync() {
+        var st = M ? M.state() : null, sg = P.song(), b = st ? Math.round(st.bpm) : (sg && +sg.bpm >= 30 && +sg.bpm <= 300 ? Math.round(+sg.bpm) : 0), run = !!(st && st.running), lock = ctl() === 'locked';
+        nEl.textContent = b || '—'; sEl.textContent = run ? '■' : '▶';
+        el.classList.toggle('on', run); el.classList.toggle('locked', lock); el.setAttribute('aria-pressed', run ? 'true' : 'false');
+        el.title = (run ? '메트로놈 멈춤' : '메트로놈 시작') + (b ? ' · ' + b + ' BPM' : '') + ' (길게 누르면 메트로놈 설정)';
+        el.setAttribute('aria-label', el.title);
+      }
+      function beat(e) {
+        el.classList.remove('b', 'b0'); void el.offsetWidth; el.classList.add('b'); if (e && e.beat === 0) el.classList.add('b0');
+        clearTimeout(bt); bt = setTimeout(function () { el.classList.remove('b', 'b0'); }, 140);
+      }
+      el.addEventListener('pointerdown', function (e) { e.stopPropagation(); longed = false; clearTimeout(pressT); pressT = setTimeout(function () { longed = true; P.showTab('metro'); }, 550); });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (k) { el.addEventListener(k, function () { clearTimeout(pressT); }); });
+      el.addEventListener('click', function (e) {
+        e.stopPropagation(); if (longed) { longed = false; return; }
+        var r = P.metroKey('toggle'); if (r === null) P.toast('메트로놈 도구를 불러오지 못했습니다.', true); sync();
+      });
+      var api = { el: el, sync: sync, beat: beat, destroy: function () { var i = minis.indexOf(api); if (i >= 0) minis.splice(i, 1); } };
+      minis.push(api); sync(); P.on('song', sync); P.on('close', api.destroy);
+      return api;
+    }
+    P.metroCircle = function () { return circleMetro(); };
+
     /* ---------- 라이브 컨트롤 (Step 2.15) — 도크 맨 앞의 메트로놈 · 음성 콜아웃(TTS) 켜기/끄기 ----------
        필기 도구 도크(태블릿 캡슐 · 컴퓨터 떠 있는 막대)의 맨 앞에 붙어서, 패널을 열지 않고도 라이브 예배 중에 바로 누릅니다.
        메트로놈은 빠른 버튼 · 패널 · Space 와 같은 경로(P.metroKey)를 쓰므로 클릭 컨트롤 잠금 · 팀 동기화가 그대로 적용됩니다.
@@ -635,18 +665,44 @@
       return { onShow: function () { labels(); sync(); }, destroy: function () { mUi = null; } };
     } });
 
-    /* ------------------------------------------------------------ 음정 (시작음 확인용 가로 피아노) */
-    tabs.push({ id: 'pitch', icon: '🎹', label: '시작음', build: function (host) {
-      if (!need('시작음 피아노', root.YNPitch, host)) return;
-      var s = P.song(), pr = root.YNPitch.mount(host, { key: s && s.key || '', onError: function (t) { P.toast(t, true); } });
-      P.on('song', function (x) { if (x) pr.setKey(x.key || ''); });
-      return { destroy: function () { try { pr.destroy(); } catch (e) {} } };
-    } });
-
-    /* ------------------------------------------------------------ 화음 (코드 인식 · 키 바꾸기 · 알토/테너 덧그리기 — Step 13) */
-    tabs.push({ id: 'harmony', icon: '🎶', label: '화음', build: function (host) {
-      if (!need('화음 · 코드 변환', root.YNHarmonyUI && root.YNHarmony && root.YNOmr, host)) return;
-      var ui = root.YNHarmonyUI.mount(host, P); if (!ui) return;
+    /* ------------------------------------------------------------ 화음 · 시작음 (v6.1 — 두 탭을 하나로)
+       맨 위 "🎹 피아노 보기" → 시작음 피아노를 악보 위 떠 있는 창으로 (⋮⋮ 로 옮기기 · ✕ 로 닫기 · 자리 기억).
+       그 아래는 예전 화음 탭(코드 인식 · 키 바꾸기 · 알토/테너 — Step 13) 그대로. */
+    var piano = null;
+    function pianoWin(show) {
+      if (!root.YNPitch) { P.toast('시작음 피아노 도구를 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true); return false; }
+      if (!piano) {
+        var w = doc.createElement('div'); w.className = 'pv-piano'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', '시작음 피아노');
+        w.innerHTML = '<div class="pv-piano-h"><b>🎹 시작음 피아노</b><small class="pv-piano-k"></small><button type="button" class="pv-piano-x" aria-label="피아노 닫기" title="닫기">✕</button></div><div class="pv-piano-b"></div>';
+        w.innerHTML = '<div class="pv-pianowrap">' + w.innerHTML + '</div>';                    // ⋮⋮ 손잡이(왼쪽) 옆에 머리줄 + 건반
+        var s = P.song(), pr = root.YNPitch.mount(w.querySelector('.pv-piano-b'), { key: s && s.key || '', onError: function (x) { P.toast(x, true); } });
+        var kEl = w.querySelector('.pv-piano-k');
+        function key(x) { kEl.textContent = x && x.key ? 'Key ' + x.key : ''; }
+        key(s);
+        P.on('song', function (x) { if (x) { pr.setKey(x.key || ''); key(x); } });
+        w.querySelector('.pv-piano-x').addEventListener('click', function (e) { e.stopPropagation(); pianoWin(false); });
+        if (P.floatWin) P.floatWin('piano', w, function () { return { x: 0.5, y: 0.4 }; }); else doc.body.appendChild(w);
+        P.on('close', function () { try { pr.destroy(); } catch (e) {} });
+        piano = { el: w };
+      }
+      piano.el.classList.toggle('pv-piano-off', !show);
+      if (show && P.floatPlace) P.floatPlace('piano');
+      paintPianoBtns();
+      return true;
+    }
+    var pianoBtns = [];
+    function paintPianoBtns() { var on = !!(piano && !piano.el.classList.contains('pv-piano-off')); pianoBtns.forEach(function (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? '🎹 피아노 닫기' : '🎹 피아노 보기 (떠 있는 창)'; }); }
+    P.piano = pianoWin;
+    tabs.push({ id: 'harmony', icon: '🎶', label: '화음 · 시작음', build: function (host) {
+      var sec = doc.createElement('div'); sec.className = 'pv-sec pv-pianosec';
+      sec.innerHTML = '<h4>시작음 <small>곡의 Key · 첫 음 확인</small></h4><button type="button" class="pv-btn2 primary pv-pianobtn" aria-pressed="false"></button>' +
+        '<p class="pv-help">피아노가 악보 위 작은 창으로 뜹니다 — ⋮⋮ 를 끌어 옮기고, ✕ 로 닫습니다.</p>';
+      host.appendChild(sec);
+      var pb = sec.querySelector('.pv-pianobtn'); pianoBtns.push(pb); paintPianoBtns();
+      pb.addEventListener('click', function () { pianoWin(!(piano && !piano.el.classList.contains('pv-piano-off'))); });
+      var sub = doc.createElement('div'); sub.className = 'pv-hmhost'; host.appendChild(sub);
+      if (!need('화음 · 코드 변환', root.YNHarmonyUI && root.YNHarmony && root.YNOmr, sub)) return;
+      var ui = root.YNHarmonyUI.mount(sub, P); if (!ui) return;
       return { onShow: function () { ui.onShow(); }, destroy: function () { try { ui.destroy(); } catch (e) {} } };
     } });
 

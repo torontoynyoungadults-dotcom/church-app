@@ -116,7 +116,7 @@ function bumpBadge() {
 self.addEventListener('push', function (event) {
   var d = {};
   try { d = event.data ? event.data.json() : {}; } catch (e) { d = { body: (event.data && event.data.text()) || '' }; }
-  var title = d.title || '토론토영락교회 청년1부';
+  var title = d.title || 'TEVA';
   var opts = {
     body: d.body || '',
     icon: d.icon || '/icon-192.png',

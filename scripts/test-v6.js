@@ -238,6 +238,71 @@ async function main() {
     ok(rt.isCallable('surveyResults') && rt.isCallable('surveyRemind') && !rt.isCallable('폼대상인가6_'), '화면에서 부를 수 있는 것은 결과 · 다시 알림 · 대상 미리 보기뿐');
   }
 
+  /* ---------------------------------------------------------------- E */
+  section('E. 다른 분 화면 보기 — 알림 · 신청서까지 똑같이 (전화 없는 교인 · 이메일 없는 새가족)');
+  {
+    const env3 = newEnv((tabs) => { const r = tabs['교적'].find((x) => x[0] === '노셀장'); r[1] = ''; }, { GEMINI_API_KEY: 'k' });
+    const r3 = env3.run;
+    const T커 = r3((api) => api.포털토큰_('김커미티', PHONE(0), ''));
+    const T정 = r3((api) => api.포털토큰_('정일반', PHONE(8), ''));
+    const save = (d) => r3((api) => api.formSave('ADM', Object.assign({ status: '받는중', target: '모두', notify: false, editable: true }, d))).id;
+    const Q = [{ id: 'q1', type: 'choice', label: '어디로', req: true, opts: ['산', '바다'] }];
+    const idAll = save({ title: '모두 신청서', questions: Q });
+    const idNew = save({ title: '새가족 신청서', target: '새가족', questions: Q });
+    const idNoh = save({ title: '노셀장 투표', kind: 'survey', audience: ['사람:노셀장'], questions: Q });
+
+    // 전화번호 없는 교인 — 예전에는 알림 · 신청서가 비었음
+    const v = r3((api) => api.portalViewAs(T커, '노셀장'));
+    const vt = (v.forms && v.forms.list || []).map((f) => f.title);
+    ok(vt.indexOf('모두 신청서') !== -1 && vt.indexOf('노셀장 투표') !== -1 && vt.indexOf('새가족 신청서') === -1, '전화 없는 교인: 그분의 신청서 · 투표가 그대로 보임: ' + vt.join(','));
+    ok(Array.isArray(v.todos), '알림 목록이 있음 (' + (v.todos || []).length + '개)');
+    ok(!/VIEW6|\\u0000/.test(JSON.stringify(v)), '보기용 표는 응답에 남지 않음');
+    // 같은 사람이 직접 로그인했을 때와 똑같은 목록 (정일반 — 전화 있음)
+    const direct = r3((api) => api.myForms(T정)).list.map((f) => f.title).sort();
+    const asView = r3((api) => api.portalViewAs(T커, '정일반')).forms.list.map((f) => f.title).sort();
+    eq(asView, direct, '다른 분 화면의 신청서 목록 = 그분이 직접 보는 목록');
+
+    // 이메일 없는 새가족
+    const n = r3((api) => api.portalViewAsNewcomer(T커, '홍길동'));
+    const nt = (n.home.forms && n.home.forms.list || []).map((f) => f.title);
+    ok(nt.indexOf('새가족 신청서') !== -1 && nt.indexOf('노셀장 투표') === -1, '이메일 없는 새가족: 새가족 신청서가 보임: ' + nt.join(','));
+    ok(Array.isArray(n.home.todos), '새가족 알림 목록이 있음');
+    ok(!/token=|&t=/.test(JSON.stringify(n)), '새가족 화면에도 로그인 표 없음');
+
+    // 눌러서 열어 보기 — 그분에게 보이는 그대로, 보기 전용
+    const fo = r3((api) => api.formOpenAs(T커, '노셀장', 'member', idNoh));
+    eq([fo.form.title, fo.viewOnly, fo.viewAs], ['노셀장 투표', true, '노셀장'], '커미티가 그분 화면에서 투표를 열어 봄 (보기 전용)');
+    const fn = r3((api) => api.formOpenAs(T커, '홍길동', 'newcomer', idNew));
+    eq(fn.form.title, '새가족 신청서', '새가족 화면에서 새가족 신청서 열어 보기');
+    throws(() => r3((api) => api.formOpenAs(T커, '정일반', 'member', idNoh)), /대상이 아닙니다/, '그분이 대상이 아니면 열리지 않음 (그분과 똑같이)');
+    throws(() => r3((api) => api.formOpenAs(T정, '노셀장', 'member', idNoh)), /커미티/, '커미티가 아니면 거절');
+    const rt = require('../lib/runtime');
+    ok(rt.isCallable('formOpenAs') && !rt.isCallable('보기자료채우기6_'), '화면에서 부를 수 있는 것은 formOpenAs 뿐');
+    // 보기가 끝나면 원래대로 (다음 계산에 영향 없음)
+    eq(r3((api) => api.myForms(T정)).list.map((f) => f.title).sort(), direct, '보기 뒤에도 본인 목록은 그대로');
+  }
+
+  /* ---------------------------------------------------------------- F */
+  section('F. v6.1 — TEVA 이름 · 홈 화면 이름 · Finance · 행사 예산 탭 · 밝은 화면 색');
+  {
+    const fs = require('fs'), path = require('path'); const src = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+    const man = JSON.parse(src('public/site.webmanifest'));
+    eq([man.name, man.short_name], ['Teva', 'Teva'], '홈 화면에 추가할 때 기본 이름 = Teva (manifest)');
+    ok(/apple-mobile-web-app-title" content="Teva"/.test(src('lib/pages.js')), '아이폰 · 아이패드 홈 화면 이름도 Teva');
+    ok(/<h1 class="homelink-h1 teva"[^>]*>TEVA<small class="teva-ko">토론토영락교회 청년1부<\/small><\/h1>/.test(src('views/Portal.html')) && /YoungNak Church of Toronto &middot; Youngadults Group/.test(src('views/Portal.html')), '포털 제목: TEVA + 작은 한국어 이름 + 영어 줄 그대로');
+    ok(/--lt-or: #46BDC6/.test(src('views/Theme.html')) && /--accent: #46BDC6 !important/.test(src('views/Theme.html')), '밝은 화면 메인 색 #46BDC6');
+    ok(/html\[data-theme="light"\] \.bd \{/.test(src('public/budget/budget.css')), '행사 예산 · 정산 화면에도 밝은 화면');
+    const env4 = newEnv(() => {}, {}); const r4 = env4.run;
+    const T커 = r4((api) => api.포털토큰_('김커미티', PHONE(0), ''));
+    const prof = r4((api) => api.getMyProfile(T커));
+    const acct = (prof.admin || []).find((m) => m.key === 'acct');
+    eq(acct && acct.title, 'Finance', '"회계 관리" → Finance');
+    ok(!(prof.menus || []).some((m) => m.key === 'budget'), '커미티는 따로 "행사 예산" 타일 없이 Finance 안의 탭으로');
+    const adm = src('views/Admin.html');
+    ok(/acct: \['expense', 'entry', 'budget', 'events', 'envelope', 'summary'\]/.test(adm) && /id="st_acct_events"[^>]*>행사 예산 · 정산</.test(adm) && /page=budget&embed=1/.test(adm), 'Finance 안에 "행사 예산 · 정산" 탭 (예산 화면을 그대로 띄움)');
+    ok(/render_\('Portal', 'TEVA · 토론토영락교회 청년1부'/.test(src('logic/app.js')), '브라우저 탭 제목도 TEVA');
+  }
+
   process.exit(T.summary() ? 0 : 1);
 }
 main().catch((e) => { console.error(e); process.exit(1); });

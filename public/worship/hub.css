@@ -1113,3 +1113,75 @@ body.pv-lock > .shell, body.pv-lock > footer { content-visibility: hidden; conta
 .pv:not(.pv-compact) .pv-tools.pv-float .pv-col { width: 24px; height: 24px; }
 .pv:not(.pv-compact) .pv-tools.pv-float .pv-size { width: 32px; height: 32px; }
 .pv:not(.pv-compact) .pv-tools.pv-float .pv-pill, .pv:not(.pv-compact) .pv-tools.pv-float .pv-mineonly { min-height: 32px; height: 32px; padding: 0 11px; display: inline-flex; align-items: center; white-space: nowrap; }
+
+/* ===== v6.1 — 아이패드 세로 · 좁은 창(700~1100px): 위 막대를 한 줄로 — 확대 · 여백 · 두 쪽 · 화면 배치는 "⋯" 안으로 ===== */
+.pv .pv-morebtn, .pv .pv-morepop { display: none; }
+.pv.pv-narrow .pv-morebtn { display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; letter-spacing: .05em; }
+.pv.pv-narrow.pv-moreopen .pv-morebtn { background: var(--v6-a, #ff8a2a) !important; color: #1A0D02 !important; border-color: transparent !important; }
+.pv.pv-narrow .pv-top { gap: 6px; padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); flex-wrap: nowrap; }
+.pv.pv-narrow .pv-title { flex: 1 1 auto; min-width: 0; flex-direction: row; align-items: center; gap: 6px; }
+.pv.pv-narrow .pv-title .pv-sel { flex: 1 1 0; min-width: 64px; max-width: 200px; }
+.pv.pv-narrow .pv-songinfo { display: none !important; }
+.pv.pv-narrow .pv-ytbtn { margin-left: 0; padding: 0 10px; font-size: 0; height: 36px; }       /* ▶ 만 (글자 숨김) — 한 줄에 맞게 */
+.pv.pv-narrow .pv-ytbtn::before { content: '▶'; font-size: 14px; }
+.pv.pv-narrow .pv-top > .pv-b, .pv.pv-narrow .pv-top .pv-grp .pv-b { min-width: 36px; height: 38px; padding: 0 8px; }
+.pv.pv-narrow .pv-pg { min-width: 42px; text-align: center; }
+.pv.pv-narrow .pv-flts .pv-b { min-width: 34px; padding: 0 6px; }
+.pv.pv-narrow .pv-chips .pv-chip { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+.pv.pv-narrow.pv-moreopen .pv-morepop {
+  display: flex; flex-direction: column; align-items: stretch; gap: 10px; position: absolute; z-index: 40;
+  top: calc(max(8px, env(safe-area-inset-top)) + 50px); right: max(10px, env(safe-area-inset-right)); width: min(340px, calc(100vw - 20px));
+  padding: 12px; border-radius: 18px; background: #17171D; border: 1px solid var(--v6-line2, rgba(255,255,255,.18));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .55); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+.pv.pv-narrow .pv-morepop .pv-grp { flex-wrap: wrap; gap: 6px; }
+.pv.pv-narrow .pv-morepop .pv-b, .pv.pv-narrow .pv-morepop .pv-seg button { height: 44px; flex: 1 1 auto; }
+.pv.pv-narrow .pv-morepop .pv-layoutseg .pv-tx { display: inline; }
+
+/* ===== v6.1 — 송폼 창: 메트로놈 동그라미 · 크기 조절 모서리 ===== */
+.pv .pv-form { position: absolute; --pvfs: 1; align-items: center; }
+.pv .pv-form-b { zoom: var(--pvfs, 1); flex: 1 1 auto; }
+.pv .pv-form .pv-mc, .pv .pv-form .pv-rsz { pointer-events: auto; }
+.pv-mc {
+  flex: none; position: relative; width: 46px; height: 46px; margin: 0 8px 0 2px; padding: 0; border-radius: 50%; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; font-family: inherit; line-height: 1;
+  border: 2px solid rgba(var(--g-a-rgb, 255, 138, 42), .75); background: rgba(var(--g-a-rgb, 255, 138, 42), .14); color: var(--v6-ink, #fff);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform .08s, box-shadow .1s, background .1s;
+}
+.pv-mc .pv-mc-n { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.pv-mc .pv-mc-s { font-size: 9px; font-weight: 900; margin-top: 2px; opacity: .85; }
+.pv-mc:active { transform: scale(.94); }
+.pv-mc.on { background: linear-gradient(135deg, #ffa24f, #ff7a1c); border-color: transparent; color: #1a0f05; }
+.pv-mc.b { box-shadow: 0 0 0 4px rgba(255, 154, 60, .45); }
+.pv-mc.b0 { box-shadow: 0 0 0 6px rgba(255, 190, 110, .75), 0 0 18px rgba(255, 154, 60, .8); }
+.pv-mc.locked { opacity: .6; }
+.pv-mc:focus-visible { outline: 2px solid #ffb066; outline-offset: 3px; }
+.pv-rsz { position: absolute; right: 1px; bottom: 1px; width: 22px; height: 22px; cursor: nwse-resize; touch-action: none; border-radius: 0 0 13px 0;
+  background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, .28) 50%, rgba(255, 255, 255, .28) 58%, transparent 58%, transparent 68%, rgba(255, 255, 255, .28) 68%, rgba(255, 255, 255, .28) 76%, transparent 76%); }
+.pv .pv-form.pv-resizing { outline: 2px dashed rgba(255, 154, 60, .7); outline-offset: 2px; }
+.pv .pv-form { padding-right: 20px; }
+
+/* 송폼 탭 맨 위 미니 메트로놈 — 아이패드에서 너무 크던 것을 동그라미 한 줄로 */
+.pv-mini { grid-template-columns: auto auto 1fr; gap: 6px 10px; padding: 8px 14px 7px; }
+.pv-mini-go { width: 50px; height: 50px; border-radius: 50%; font-size: 18px; }
+.pv-mini-bpm .pv-btn2 { width: 36px; min-width: 36px; height: 36px; font-size: 17px; border-radius: 50%; }
+.pv-mini-in { width: 54px; height: 36px; font-size: 17px; }
+.pv-mini-dots { grid-column: auto; gap: 5px; align-items: center; justify-content: flex-end; }
+.pv-mini-dots i { flex: none; width: 10px; max-width: none; height: 10px; border-radius: 50%; }
+.pv-mini-note { grid-column: 1 / -1; }
+
+/* ===== v6.1 — 시작음 피아노: 떠 있는 창 (화음 · 시작음 탭에서 열기) ===== */
+.pv .pv-piano { width: min(640px, 94%); display: flex; flex-direction: row; align-items: stretch; gap: 2px; padding: 8px 10px 10px 2px; border-radius: 18px;
+  background: #15151B; border: 1px solid var(--v6-line2, rgba(255,255,255,.18)); box-shadow: 0 18px 50px rgba(0, 0, 0, .6); z-index: 12; }
+.pv .pv-piano.pv-piano-off { display: none !important; }
+.pv .pv-piano > .pv-grip { min-height: 60px; }
+.pv .pv-piano::after { content: none; }
+.pv .pv-piano-h { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.pv .pv-piano-h b { font-size: 14px; font-weight: 800; color: var(--v6-ink, #fff); }
+.pv .pv-piano-k { font-size: 12px; font-weight: 800; color: var(--v6-a, #ff9a3c); }
+.pv .pv-piano-x { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--v6-line2, rgba(255,255,255,.2)); background: rgba(255,255,255,.08); color: var(--v6-ink, #fff); font-size: 15px; cursor: pointer; font-family: inherit; }
+.pv .pv-piano-b { flex: 1 1 auto; min-width: 0; }
+.pv .pv-piano .pk-board { height: 128px; }
+.pv .pv-pianowrap { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.pv .pv-pianobtn.on { background: var(--v6-sf3, rgba(255,255,255,.16)); color: var(--v6-ink, #fff); }
+.pv .pv-pianosec { margin-bottom: 14px; }

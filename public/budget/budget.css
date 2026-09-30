@@ -189,3 +189,62 @@ html, body { margin: 0; background: #0d0d12; }
 .bd-vn b { color: var(--g-ink); }
 .bd-vitem .bd-vx { margin-top: 2px; }
 
+
+/* ============================================================
+   v6.1 — 밝은 화면 (다른 페이지의 ☀ 설정을 그대로 따름: html[data-theme="light"])
+   흰 카드 · 진한 글씨 · 강조색 #46BDC6 (글씨용 #0B6E77 · 색 칸 위 글씨 #06363B)
+   ============================================================ */
+html[data-theme="light"] { color-scheme: light; }
+html[data-theme="light"], html[data-theme="light"] body { background: #F3F4F6; }
+html[data-theme="light"] .bd {
+  --g-bg: #FFFFFF; --g-bg2: #F8FAFC; --g-solid: #FFFFFF;
+  --g-line: rgba(15,23,42,.10); --g-line2: rgba(15,23,42,.18);
+  --g-ink: #0F172A; --g-sub: #334155; --g-dim: #64748B;
+  --g-a: #46BDC6; --g-a2: #0B6E77; --g-a-rgb: 70, 189, 198; --g-ok: #15803D; --g-bad: #DC2626; --g-warn: #A16207; --g-blue: #1D4ED8;
+  --g-blur: none;
+  background: radial-gradient(900px 420px at 90% -10%, rgba(70,189,198,.14), transparent 60%), #F3F4F6;
+}
+html[data-theme="light"] .bd-top, html[data-theme="light"] .bd-card, html[data-theme="light"] .bd-ev { box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 20px rgba(15,23,42,.06); }
+html[data-theme="light"] .bd-b { background: #FFFFFF; }
+html[data-theme="light"] .bd-b:hover { background: #F1F5F9; }
+html[data-theme="light"] .bd-b.pri, html[data-theme="light"] .bd-tab.on { background: #46BDC6; color: #06363B; border-color: transparent; }
+html[data-theme="light"] .bd-b.bad { color: #B91C1C; border-color: rgba(220,38,38,.45); background: rgba(220,38,38,.06); }
+html[data-theme="light"] .bd-chip, html[data-theme="light"] .bd-tab, html[data-theme="light"] .bd-steps li, html[data-theme="light"] .bd-vitem, html[data-theme="light"] .bd-rc { background: #F8FAFC; }
+html[data-theme="light"] .bd-bar { background: #E2E8F0; }
+html[data-theme="light"] .bd-bar > i { background: linear-gradient(90deg, #7DD3DA, #46BDC6); }
+html[data-theme="light"] .bd-bar.ok > i { background: linear-gradient(90deg, #4ADE80, #16A34A); }
+html[data-theme="light"] .bd-bar.over > i { background: linear-gradient(90deg, #F87171, #DC2626); }
+html[data-theme="light"] .bd-table tr.grp td { background: #F1F5F9; }
+html[data-theme="light"] .bd input[type=text], html[data-theme="light"] .bd input[type=date], html[data-theme="light"] .bd input[type=number],
+html[data-theme="light"] .bd select, html[data-theme="light"] .bd textarea, html[data-theme="light"] .bd-vx { background: #FFFFFF; color: #0F172A; }
+html[data-theme="light"] .bd input:focus, html[data-theme="light"] .bd select:focus, html[data-theme="light"] .bd textarea:focus { border-color: #46BDC6; box-shadow: 0 0 0 3px rgba(70,189,198,.30); outline: none; }
+html[data-theme="light"] .bd-modal { background: rgba(15,23,42,.35); }
+html[data-theme="light"] .bd-sheet { background: #FFFFFF; box-shadow: 0 24px 60px rgba(15,23,42,.25); }
+html[data-theme="light"] .bd-toast { background: #0F172A; color: #FFFFFF; }
+html[data-theme="light"] .bd-toast.err { color: #FECACA; }
+html[data-theme="light"] .bd-badge.st0 { border-color: rgba(15,23,42,.25); background: #F1F5F9; }
+html[data-theme="light"] .bd-rcx { color: #B91C1C; background: rgba(220,38,38,.10); }
+html[data-theme="light"] .bd-errs { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.4); }
+html[data-theme="light"] .bd-chk input { accent-color: #46BDC6; }
+
+/* 밝은/어두운 전환 단추 (위 막대 오른쪽) */
+.bd-theme { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--g-line2); background: rgba(255,255,255,.08); color: var(--g-ink); cursor: pointer; font-size: 17px; line-height: 1; padding: 0; }
+html[data-theme="light"] .bd-theme { background: #FFFFFF; }
+
+/* v6.1 — Finance 안의 탭으로 띄울 때(embed=1): 뒤로 단추 · 큰 바탕 없이 */
+html.bd-embed .bd { min-height: 0; background: transparent !important; }
+html.bd-embed, html.bd-embed body { background: transparent !important; }
+html.bd-embed:not(.bd-inev) #btnBack { display: none; }      /* 목록에서는 뒤로(포털) 없음 — 행사 안에서는 목록으로 */
+html.bd-embed .bd-top { position: static; }
+html.bd-embed .bd-wrap { padding: 4px 2px 40px; max-width: none; }
+
+/* v6.1 — 가로(아이패드 가로 · 컴퓨터): 넓은 화면을 쓰도록 */
+@media (min-width: 1024px) and (orientation: landscape) {
+  .bd-wrap { max-width: 1400px; padding-left: 24px; padding-right: 24px; }
+  .bd-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .bd-tiles { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .bd-vlist { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+}
+/* v6.1 — 목록 위 거르기 칸(연도 · 상태 · 검색)은 한 줄에 (넓은 화면에서 칸마다 한 줄을 차지하던 것) */
+.bd-tools select { width: auto; min-width: 130px; flex: 0 1 auto; }
+.bd-tools input[type=text] { flex: 1 1 180px; width: auto; }

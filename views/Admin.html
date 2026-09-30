@@ -592,6 +592,14 @@
 .pvFoot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;}
 .pvFoot .btn{min-width:120px;}
 </style>
+<style>
+  /* v6.1 — Finance 안 행사 예산 · 정산 탭 */
+  #sub_acct_events .evbar { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+  #sub_acct_events .evbar .sub { flex: 1; margin: 0; }
+  /* v6.1 — 관리(Finance 등) 화면은 가로에서 넓게 — 표 · 목록이 한눈에 */
+  @media (min-width: 1024px) and (orientation: landscape) { .shell { max-width: 1280px !important; } }
+  #sub_acct_events .evframe { display: block; width: 100%; height: calc(100vh - 210px); min-height: 560px; border: 0; border-radius: 18px; background: transparent; }
+</style>
 <!--#include Theme-->
 <style>
 /* =========================================================
@@ -1270,14 +1278,14 @@ header h1 { color: #F26B21 !important; }
   <div id="sec_acct" class="section" style="display:none;">
     <div class="secbar">
       <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
-      <span class="sectitle">회계 관리</span>
+      <span class="sectitle">Finance</span>
       <span class="secspace"></span>
-      <a class="btn mini accent" href="#" onclick="location.href='?page=budget&key=' + encodeURIComponent(KEY); return false;">행사 예산 · 정산 ↗</a>
     </div>
     <div class="tabs subtabs scroll">
       <button type="button" id="st_acct_expense" onclick="go('acct','expense')">지출 신청</button>
       <button type="button" id="st_acct_entry" onclick="go('acct','entry')">직접 입력</button>
       <button type="button" id="st_acct_budget" onclick="go('acct','budget')">예산</button>
+      <button type="button" id="st_acct_events" onclick="go('acct','events')">행사 예산 · 정산</button>
       <button type="button" id="st_acct_envelope" onclick="go('acct','envelope')">헌금번호<i id="envDot"></i></button>
       <button type="button" id="st_acct_summary" onclick="go('acct','summary')">요약</button>
     </div>
@@ -1451,6 +1459,13 @@ header h1 { color: #F26B21 !important; }
     </div>
 
     <!-- ---- 요약 · 내보내기 ---- -->
+    <!-- ---- v6.1 행사(수련회 · 선교) 예산 · 정산 — 예전 별도 페이지를 Finance 안의 탭으로 (같은 화면을 그대로 띄움) ---- -->
+    <div id="sub_acct_events" class="subpane" style="display:none;">
+      <div class="evbar"><span class="sub">수련회 · 선교 등 행사별 예산 · 거래 · 정산 · 엑셀 · PDF</span>
+        <a class="btn mini" id="evPop" href="#" target="_blank" rel="noopener">새 창으로 ↗</a></div>
+      <iframe id="evFrame" class="evframe" title="행사 예산 · 정산" loading="lazy"></iframe>
+    </div>
+
     <div id="sub_acct_summary" class="subpane" style="display:none;">
       <div class="panel">
         <span class="chip">새 신청 알림</span>
@@ -1600,7 +1615,7 @@ var SEC_TONE = {
 var SEC_SUBS = {
   cell: ['summary', 'report', 'manage'], nf: ['status', 'track', 'staff'],
   team: ['summary', 'report', 'manage'], tr: ['check', 'status', 'manage'],
-  acct: ['expense', 'entry', 'budget', 'envelope', 'summary'],
+  acct: ['expense', 'entry', 'budget', 'events', 'envelope', 'summary'],
   app: ['menu', 'ai', 'sched', 'perm'],                 // 앱 기능 관리 — 메뉴 순서 · AI 설정 · 일정 관리 · 권한 관리
   push: ['send', 'auto', 'due', 'dev']                   // 알림 · 이메일 관리 — 독립 메뉴
 };
@@ -1610,6 +1625,23 @@ var curSub = { cell: 'summary', nf: 'status', team: 'summary', tr: 'check', acct
 var dirLoaded = false, trLoaded = false, acctLoaded = false, misLoaded = false, calLoaded = false, pushLoaded = false, aiLoaded = false, permLoaded = false, appLoaded = false, wordLoaded = false;
 
 /** 화면 전환 — 메뉴 / 각 영역 / 서브 탭 */
+/* v6.1 — Finance 안 "행사 예산 · 정산" 탭: 예산 페이지(?page=budget)를 머리말 없이(embed=1) 띄웁니다. 처음 누를 때만 불러옵니다. */
+function openEventsTab() {
+  var f = el('evFrame'); if (!f) return;
+  var u = location.pathname + '?page=budget&embed=1&key=' + encodeURIComponent(KEY);
+  el('evPop').href = location.pathname + '?page=budget&key=' + encodeURIComponent(KEY);
+  if (!f.getAttribute('src')) f.setAttribute('src', u);
+}
+try {                                                                       // Finance 에서 밝기를 바꾸면 예산 화면도 같이
+  new MutationObserver(function () {
+    var f = el('evFrame'); if (!f || !f.contentWindow || !f.getAttribute('src')) return;
+    try { f.contentWindow.postMessage({ type: 'yntheme', theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark' }, location.origin); } catch (e) {}
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+} catch (e) {}
+window.addEventListener('message', function (ev) {                       // 예산 화면에서 밝기를 바꾸면 Finance 도 같이
+  if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'yntheme') return;
+  try { if (window.YNTheme && YNTheme.set) YNTheme.set(ev.data.theme === 'light' ? 'light' : 'dark'); } catch (e) {}
+});
 function go(sec, sub, fromHistory) {
   if (SCOPE === 'acct') sec = 'acct';   // 회계팀에게는 회계 영역만 보입니다
   else if (!SEC_TONE[sec]) { backToPortal(); return; }   // 옛 관리 첫 화면은 없어졌습니다 — 메뉴는 포털(Teva Apps)에서 고릅니다
@@ -1640,6 +1672,7 @@ function go(sec, sub, fromHistory) {
   if (sec === 'dir' && !dirLoaded) { dirLoaded = true; loadDirectory(); }
   if (sec === 'tr' && !trLoaded) { trLoaded = true; loadTraining(); }
   if (sec === 'acct' && !acctLoaded) { acctLoaded = true; loadExpenses(); loadBudgets(); loadEnvelopes(); loadExpenseOpen(); }
+  if (sec === 'acct' && sub === 'events') openEventsTab();
   if (sec === 'mis' && !misLoaded) { misLoaded = true; loadMissions(); }
   if (sec === 'cal' && !calLoaded) { calLoaded = true; loadCal('sec'); }
   if (sec === 'app') {
@@ -5404,7 +5437,7 @@ function bootAll() {
 
   if (SCOPE === 'acct') {
     document.body.setAttribute('data-scope', 'acct');
-    el('main').querySelector('header h1').textContent = '회계 관리';
+    el('main').querySelector('header h1').textContent = 'Finance';
     el('main').querySelector('header .meta').textContent = '회계팀 전용  |  ACCOUNTING';
     acctLoaded = true;
     loadExpenses();
@@ -5456,7 +5489,7 @@ function doLogin() {
 }
 
 if (SCOPE === 'acct') {
-  el('lockTitle').textContent = '회계 관리';
+  el('lockTitle').textContent = 'Finance';
   el('lockHint').textContent = '회계팀 비밀번호를 입력해주세요.';
 }
 if (KEY) {

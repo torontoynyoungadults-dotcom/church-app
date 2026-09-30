@@ -12,6 +12,7 @@
       <button class="bd-b sm" id="btnBack" type="button" aria-label="뒤로">‹ 뒤로</button>
       <h1 id="topTitle">수련회 · 선교 예산/정산<small id="topSub"></small></h1>
       <span class="bd-chip" id="meChip" style="display:none;"></span>
+      <button class="bd-theme" id="btnTheme" type="button" aria-label="밝은 화면 / 어두운 화면" title="밝은 화면 / 어두운 화면"></button>
     </div>
 
     <!-- 1) 행사 목록 -->
@@ -43,6 +44,29 @@
 </div>
 <input type="file" id="fileXlsx" accept=".xlsx,.xls" style="display:none;">
 
+<script>
+/* v6.1 — 밝은/어두운 화면 (다른 페이지와 같은 ynTheme 설정) · Finance 탭 안에서 열 때(embed=1) */
+(function () {
+  var d = document.documentElement;
+  try { if (/[?&]embed=1\b/.test(location.search) && window.top !== window) d.classList.add('bd-embed'); } catch (e) {}
+  function paint() { var b = document.getElementById('btnTheme'); if (b) b.textContent = d.getAttribute('data-theme') === 'light' ? '🌙' : '☀️'; }
+  document.addEventListener('DOMContentLoaded', function () {
+    paint();
+    var b = document.getElementById('btnTheme'); if (!b) return;
+    b.addEventListener('click', function () {
+      var light = d.getAttribute('data-theme') !== 'light';
+      if (light) d.setAttribute('data-theme', 'light'); else d.removeAttribute('data-theme');
+      try { localStorage.setItem('ynTheme', light ? 'light' : 'dark'); } catch (e) {}
+      try { if (window.parent !== window) window.parent.postMessage({ type: 'yntheme', theme: light ? 'light' : 'dark' }, location.origin); } catch (e) {}
+      paint();
+    });
+  });
+  window.addEventListener('message', function (ev) {   // Finance(부모) 화면에서 밝기를 바꾸면 따라감
+    if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'yntheme') return;
+    if (ev.data.theme === 'light') d.setAttribute('data-theme', 'light'); else d.removeAttribute('data-theme'); paint();
+  });
+})();
+</script>
 <script src="/budget/xlsx-io.js"></script>
 <script src="/budget/budget.js"></script>
 </body>

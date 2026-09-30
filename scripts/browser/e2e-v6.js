@@ -211,6 +211,95 @@ const run = (fn) => global.__runtime.run((api) => fn(api)).result;
   check('E(관리) 오류 없음', errs.length === 0, errs);
   await ctx.close();
 
+  /* ================= F. 다른 분 화면 보기 — 알림 · 신청서까지 ================= */
+  console.log('· F. 다른 분 화면 보기');
+  const vid = run((api) => api.formSave(커, { title: '노셀장 확인 투표', kind: 'survey', status: '받는중', target: '교인', editable: true, audience: ['사람:노셀장'],
+    survey: { anonymous: false, results: 'after' }, questions: [{ id: 'q1', type: 'choice', label: '가능?', req: true, opts: ['예', '아니요'] }] })).id;
+  run((api) => api.formSave('ADM', { title: '새가족 환영 신청', status: '받는중', target: '새가족', notify: false, editable: true, questions: [{ id: 'q1', type: 'text', label: '한마디' }] }));
+  ({ ctx, page, errs } = await mkP(커, { width: 390, height: 900 }));
+  await page.goto(BASE + '/?page=portal');
+  await L.waitTrue(page, () => document.getElementById('main').style.display === 'block', null, 10000); await sleep(600);
+  check('포털 알림은 처음에 닫혀 있음', await page.evaluate(() => { const b = document.querySelector('.todoacc'); return !b || !b.classList.contains('open'); }));
+  await page.evaluate(() => viewAs('노셀장', 'member'));
+  check('노셀장 화면: 그분의 투표 타일이 보임', await L.waitTrue(page, () => Array.from(document.querySelectorAll('#menus .tile.form')).some((x) => /노셀장 확인 투표/.test(x.textContent)), null, 10000));
+  await page.evaluate(() => Array.from(document.querySelectorAll('#menus .tile.form')).find((x) => /노셀장 확인 투표/.test(x.textContent)).click());
+  check('눌러서 열면 그분에게 보이는 투표 — 보기 전용 (내기 단추 없음)', await L.waitTrue(page, () => { const w = document.getElementById('fmWrap'); return !!w && /가능\?/.test(w.textContent) && /보기 전용/.test(w.textContent) && !document.getElementById('fmSubmit'); }, null, 8000));
+  check('서버에는 아무것도 내지 않음', run((api) => api.formResults(커, vid)).rows.length === 0);
+  await page.screenshot({ path: SHOT + '/v6-viewas-form.png' });
+  await page.evaluate(() => viewAs('홍길동', 'newcomer'));
+  check('새가족(이메일 없음) 화면: 새가족 신청서가 보임', await L.waitTrue(page, () => /새가족 환영 신청/.test(document.getElementById('nfHome').textContent), null, 10000));
+  await page.evaluate(() => Array.from(document.querySelectorAll('#nfHome a.fmbtn')).find((x) => /새가족 환영 신청/.test(x.textContent)).click());
+  check('새가족 신청서도 열어 볼 수 있음 (보기 전용)', await L.waitTrue(page, () => { const w = document.getElementById('fmWrap'); return !!w && /한마디/.test(w.textContent) && /보기 전용/.test(w.textContent); }, null, 8000));
+  check('F 오류 없음', errs.length === 0, errs);
+  await ctx.close();
+
+  /* ================= G. v6.1 라이브 악보 — 아이패드 세로 ================= */
+  console.log('· G. 아이패드 세로 — 손가락 필기 · 한 줄 막대 · 핀치 · 쓸어 넘기기 · 송폼 창 크기 · 메트로놈 동그라미');
+  run((api) => api.uploadWorshipSheet(KEY, d, '주님의 은혜 2.pdf', pdfUrl, '콘티'));
+  ({ ctx, page, errs } = await mk({ width: 820, height: 1180 }, { hasTouch: true, isMobile: true }));
+  await openHub(page); check('세로에서 라이브 악보가 열림', await openPv(page)); await sleep(700);
+  const lay = await page.evaluate(() => { const pv = document.querySelector('.pv'), top = document.querySelector('.pv-top'); return { compact: pv.classList.contains('pv-compact'), narrow: pv.classList.contains('pv-narrow'), h: top.getBoundingClientRect().height, over: top.scrollWidth - top.clientWidth, float: document.querySelector('.pv-tools').classList.contains('pv-float') }; });
+  check('아이패드 세로는 서랍(좁은 화면)이 아니라 떠 있는 도구 창', !lay.compact && lay.narrow && lay.float, lay);
+  check('위 막대는 한 줄 · 넘치지 않음 (유튜브 단추 포함)', lay.h <= 70 && lay.over <= 2, lay);
+  check('유튜브 단추도 같은 줄', await page.evaluate(() => { const y = document.querySelector('.pv-ytbtn'); y.style.display = ''; const a = y.getBoundingClientRect(), b = document.querySelector('.pv-top [data-a="close"]').getBoundingClientRect(); return Math.abs((a.top + a.height / 2) - (b.top + b.height / 2)) < 12; }));
+  const cdp = await ctx.newCDPSession(page);
+  const tch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((q, i) => ({ x: q[0], y: q[1], id: i + 1, radiusX: 22, radiusY: 22 })) });
+  const sb = await page.evaluate(() => { const r = document.querySelector('.pv-stage').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  await page.click('.pv-tool[data-tool="pen"]'); await sleep(200);
+  const cnt = () => page.evaluate(() => YNPractice.current().P.anno().count());
+  const m0 = await cnt();
+  await tch('touchStart', [[sb.x + sb.w * 0.3, sb.y + sb.h * 0.45]]);
+  for (let i = 1; i <= 8; i++) { await tch('touchMove', [[sb.x + sb.w * (0.3 + i * 0.04), sb.y + sb.h * (0.45 + (i % 2) * 0.02)]]); await sleep(16); }
+  await tch('touchEnd', []); await sleep(400);
+  check('세로에서 손가락으로 펜 필기가 됨 (반지름 22px 손가락)', (await cnt()) === m0 + 1, { m0, m1: await cnt() });
+  // 쓸어 넘기기 — 끄는 동안 쪽이 따라옴
+  await page.click('.pv-tool[data-tool="none"]'); await sleep(200);
+  const pg0 = await page.evaluate(() => document.querySelector('.pv-pg').textContent);
+  await tch('touchStart', [[sb.x + sb.w * 0.8, sb.y + sb.h * 0.5]]);
+  for (let i = 1; i <= 6; i++) { await tch('touchMove', [[sb.x + sb.w * (0.8 - i * 0.07), sb.y + sb.h * 0.5]]); await sleep(20); }
+  const follow = await page.evaluate(() => document.querySelector('.pv-pagebox').style.transform);
+  check('쓸어 넘기는 동안 악보가 손가락을 따라 움직임', /translateX\(-\d+px\)/.test(follow), follow);
+  await tch('touchEnd', []); await sleep(700);
+  const pg1 = await page.evaluate(() => document.querySelector('.pv-pg').textContent);
+  check('놓으면 다음 쪽으로 넘어감 · 제자리로 돌아옴', pg1 !== pg0 && await page.evaluate(() => !document.querySelector('.pv-pagebox').style.transform), { pg0, pg1 });
+  // 두 손가락 확대
+  const zoomOf = () => page.evaluate(() => { const r = document.querySelector('.pv-pagebox').getBoundingClientRect(); return Math.round(r.width); });
+  const w0 = await zoomOf(); const cx = sb.x + sb.w / 2, cy = sb.y + sb.h / 2;
+  await tch('touchStart', [[cx - 40, cy], [cx + 40, cy]]);
+  for (let i = 1; i <= 6; i++) { await tch('touchMove', [[cx - 40 - i * 25, cy], [cx + 40 + i * 25, cy]]); await sleep(20); }
+  await tch('touchEnd', []); await sleep(1200);
+  const w1 = await zoomOf();
+  check('두 손가락으로 벌리면 확대됨', w1 > w0 * 1.3, { w0, w1 });
+  const dtap = async () => { for (let k = 0; k < 2; k++) { await tch('touchStart', [[cx, cy]]); await tch('touchEnd', []); await sleep(90); } await sleep(1200); };
+  await dtap();
+  const w2 = await zoomOf();
+  check('두 번 톡 → 한 쪽 맞춤으로 (사진 앱처럼)', Math.abs(w2 - w0) < 12, { w0, w2 });
+  await tch('touchStart', [[cx - 200, cy], [cx + 200, cy]]);
+  for (let i = 1; i <= 6; i++) { await tch('touchMove', [[cx - 200 + i * 28, cy], [cx + 200 - i * 28, cy]]); await sleep(20); }
+  const mid = await page.evaluate(() => document.querySelector('.pv-pagebox').style.transform);
+  await tch('touchEnd', []); await sleep(1200);
+  const w3 = await zoomOf();
+  check('오므리는 동안 작아졌다가, 놓으면 한 쪽 맞춤으로 돌아옴', /scale\(0\./.test(mid) && Math.abs(w3 - w0) < 12, { mid, w0, w3 });
+  await dtap();
+  const w4 = await zoomOf();
+  check('두 번 톡 → 2배 확대', w4 > w0 * 1.8, { w0, w4 });
+  await dtap();
+  // 송폼 창 크기 조절
+  const fr0 = await rect(page, '.pv-form'), rz = await rect(page, '.pv-form .pv-rsz');
+  check('송폼 창에 크기 조절 모서리', !!rz, rz);
+  await page.mouse.move(rz.x + rz.w / 2, rz.y + rz.h / 2); await page.mouse.down(); await page.mouse.move(rz.x + rz.w / 2 - 0, rz.y + 60, { steps: 5 }); await page.mouse.move(rz.x - 200 + 300, rz.y + 60, { steps: 5 }); await page.mouse.up(); await sleep(200);
+  const fr1 = await rect(page, '.pv-form'); const sz = await page.evaluate(() => JSON.parse(localStorage.getItem('yn.pv.size.form') || 'null'));
+  check('끌면 송폼 창 폭 · 글자 크기가 바뀌고 기억됨', sz && sz.w > 0 && sz.s > 1 && Math.abs(fr1.w - fr0.w) > 20, { fr0, fr1, sz });
+  // 메트로놈 동그라미
+  check('송폼 창에 메트로놈 동그라미 (BPM 72)', await page.evaluate(() => { const m = document.querySelector('.pv-form .pv-mc'); return !!m && /72/.test(m.textContent); }));
+  await page.click('.pv-form .pv-mc'); await sleep(700);
+  check('동그라미를 누르면 메트로놈 시작 (■ · 박마다 반짝)', await page.evaluate(() => document.querySelector('.pv-form .pv-mc').classList.contains('on')));
+  await page.click('.pv-form .pv-mc'); await sleep(200);
+  check('다시 누르면 멈춤', await page.evaluate(() => !document.querySelector('.pv-form .pv-mc').classList.contains('on')));
+  await page.screenshot({ path: SHOT + '/v61-ipad-portrait.png' });
+  check('G 오류 없음', errs.length === 0, errs);
+  await ctx.close();
+
   await br.close();
   process.exit(L.summary() ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });

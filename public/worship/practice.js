@@ -165,7 +165,9 @@
         '<div class="pv-grp pv-chips"><span class="pv-chip pv-conn" title="실시간 연결">…</span><button class="pv-chip pv-lead" data-a="tab:together" title="페이지 컨트롤 · 함께 보기"></button><button class="pv-chip pv-click" data-a="tab:together" title="클릭 컨트롤(메트로놈) · 함께 보기"></button><button class="pv-chip pv-follow" data-a="follow" title="동기화 · 따라가기 켜기/끄기"></button></div>' +
         '<button class="pv-b pv-fsbtn" data-a="fs" title="전체 화면 (악보만 크게)" aria-pressed="false">⛶</button><button class="pv-b pv-panelbtn" data-a="panel" title="패널 열기/닫기">☰</button>' +
         '<button type="button" class="pv-b pv-menubtn" aria-expanded="false" aria-controls="pvDrawer" aria-label="도구 메뉴 열기" title="도구 메뉴 열기 / 닫기"><span class="ic">🛠</span><span class="nm">메뉴</span></button>' +
+        '<button type="button" class="pv-b pv-morebtn" data-a="more" aria-expanded="false" aria-label="보기 메뉴 (확대 · 여백 · 화면 배치)" title="확대 · 여백 · 두 쪽 · 화면 배치">⋯</button>' +
       '</header>' +
+      '<div class="pv-morepop" role="group" aria-label="보기 메뉴"></div>' +
       '<div class="pv-main">' +
         '<div class="pv-tools" role="toolbar" aria-label="필기 도구"></div>' +
         '<div class="pv-stage"><div class="pv-pagebox"><canvas class="pv-pdf"></canvas><canvas class="pv-anno"></canvas></div>' +
@@ -211,7 +213,9 @@
        모든 도구(보기 · 필기 도구)를 "🛠 메뉴" 서랍 하나에 모읍니다. 서랍은 닫혀 있는 것이 기본이라 악보를 가리지 않고, 버튼 하나로 열고 닫습니다.
        화면 위 버튼을 서랍으로 "옮기기만" 하므로 (새로 만들지 않음) 필기 · 확대 · 화면 배치 · 실시간 동작은 그대로입니다. */
     var drawerEl = $('.pv-drawer'), menuBtn = $('.pv-menubtn'), holders = [];
-    function calcCompact() { var w = root.innerWidth || 1200, hh = root.innerHeight || 800; return w < (S.layout === 'tablet' ? 1100 : 900) || hh < 500; }
+    /* v6.1 — 아이패드 세로(768~1024px)는 더 이상 "좁은 화면(서랍)"이 아닙니다: 가로와 똑같이 떠 있는 도구 창을 씁니다.
+       (예전에는 서랍이 열린 채 뒤 배경막이 악보를 덮어 손가락 필기가 막혔습니다.) 폰 · 아주 좁은 창만 서랍. */
+    function calcCompact() { var w = root.innerWidth || 1200, hh = root.innerHeight || 800; return w < (S.layout === 'tablet' ? 700 : 900) || hh < 500; }
     function hold(node, slot) {                                       // 원래 자리를 표시해 두고 서랍으로 옮김
       var ph = doc.createComment('pv'); node.parentNode.insertBefore(ph, node); holders.push({ node: node, ph: ph }); slot.appendChild(node);
     }
@@ -240,7 +244,19 @@
       if (S.fitUser) return; var f = (S.compact && (root.innerWidth || 0) > (root.innerHeight || 0) && (root.innerHeight || 0) < 500) ? 'width' : 'page';   // 기본은 "한 쪽 맞춤" (Step 2.11) — 폰을 눕힌 낮은 화면만 가로 폭 맞춤
       if (f !== S.fit) { S.fit = f; S.zoom = 1; if (S.doc) renderPage(); }
     }
-    function checkCompact() { var c = calcCompact(); if (c !== !!S.compact) { setCompact(c); if (S.doc) renderSoon(40); } autoFit(); }
+    /* v6.1 — 아이패드 세로처럼 폭이 1100px 보다 좁은 (서랍이 아닌) 화면: 위 막대를 한 줄로 — 확대 · 여백 · 두 쪽 · 화면 배치는 "⋯" 안으로 */
+    var moreEl = $('.pv-morepop'), moreBtn = $('.pv-morebtn'), moreHold = [];
+    function setNarrow() {
+      var on = !S.compact && (root.innerWidth || 1200) < 1100;
+      if (on === !!S.narrow && moreHold.length === (on ? 2 : 0)) return;
+      S.narrow = on; el.classList.toggle('pv-narrow', on); setMore(false);
+      if (on) [$('.pv-zoom'), $('.pv-layoutseg')].forEach(function (n) { if (n && n.parentNode) { var ph = doc.createComment('pvm'); n.parentNode.insertBefore(ph, n); moreHold.push({ node: n, ph: ph }); moreEl.appendChild(n); } });
+      else moreHold.splice(0).forEach(function (x) { if (x.ph.parentNode) { x.ph.parentNode.insertBefore(x.node, x.ph); x.ph.remove(); } });
+    }
+    function setMore(open) { open = !!open && !!S.narrow; el.classList.toggle('pv-moreopen', open); moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+    function moreOutside(e) { if (!el.classList.contains('pv-moreopen')) return; var tg = e.target; if (tg && tg.closest && (tg.closest('.pv-morepop') || tg.closest('.pv-morebtn'))) return; setMore(false); }
+    doc.addEventListener('pointerdown', moreOutside, true);      // (닫을 때 떼기는 아래 P.on('close') 에서)
+    function checkCompact() { var c = calcCompact(); if (c !== !!S.compact) { setCompact(c); if (S.doc) renderSoon(40); } setNarrow(); autoFit(); }
     menuBtn.onclick = function () { setDrawer(!el.classList.contains('pv-drawopen')); };
     var orT = 0; function onOrient() { clearTimeout(orT); orT = setTimeout(function () { if (!S.dead) checkCompact(); }, 200); }
     root.addEventListener('orientationchange', onOrient);
@@ -567,7 +583,7 @@
       if (S.page > 1) goPage(S.page - (spreadOn() && S.page > 2 ? 2 : 1), user);
       else if (S.sheetIdx > 0) { var pi = S.sheetIdx - 1; loadSheet(pi, 9999, user); }
     }
-    function setZoom(z, user) { S.zoom = clamp(z, 0.4, 4); renderPage(); if (user) sendNav(); }
+    function setZoom(z, user) { S.zoom = clamp(z, 0.4, 5); renderPage(); if (user) sendNav(); }
     /** Ctrl+휠 · 트랙패드 핀치처럼 짧은 시간에 여러 번 오는 확대는, 화면은 CSS 로 바로 크기만 미리 보여 주고 실제 다시 그리기는 멈춘 뒤 한 번만 */
     var wz = { z: 0, t: 0 };
     function wheelZoom(factor) {
@@ -1280,7 +1296,7 @@
     /* 색은 도구마다 기억 (펜/글자는 같은 색, 형광펜은 따로) */
     S.curColor = YA ? YA.PALETTE[0] : '#ff5a1f';
     var origSetTool = setTool;
-    setTool = function (t) { origSetTool(t); S.curColor = t === 'hl' ? (S.hlSel || YA.HL_COLORS[0]) : (S.penSel || YA.PALETTE[0]); if (t === 'hl') an.setHlColor(S.curColor); else if (t !== 'none') an.setColor(S.curColor); renderTools(); if (S.compact && t !== 'none' && (root.innerWidth || 0) < 600) setDrawer(false); };
+    setTool = function (t) { origSetTool(t); S.curColor = t === 'hl' ? (S.hlSel || YA.HL_COLORS[0]) : (S.penSel || YA.PALETTE[0]); if (t === 'hl') an.setHlColor(S.curColor); else if (t !== 'none') an.setColor(S.curColor); renderTools(); if (S.compact && t !== 'none') setDrawer(false); };     // v6.1 — 도구를 고르면 서랍을 닫아 바로 악보에 쓸 수 있게
 
     function renderSymPop() {
       var pop = $('.pv-sympop'); pop.style.display = S.symOpen ? 'block' : 'none';
@@ -1374,6 +1390,7 @@
       var b = e.target.closest ? e.target.closest('[data-a],[data-layout]') : null; if (!b || toolsEl.contains(b)) return;
       if (b.dataset.layout) { applyLayout(b.dataset.layout, true); return; }
       var a = b.dataset.a;
+      if (a === 'more') { setMore(!el.classList.contains('pv-moreopen')); return; }
       if (a === 'drawer-close') setDrawer(false); else if (a === 'drawer-panel') { setDrawer(false); toggleSide(true); }
       else if (a === 'close') api.close(); else if (a === 'prev') prevPage(true); else if (a === 'next') nextPage(true);
       else if (a === 'zin') setZoom(S.zoom * 1.2, true); else if (a === 'zout') setZoom(S.zoom / 1.2, true);
@@ -1406,12 +1423,35 @@
     /** 브라우저가 악보 칸을 스스로 밀지 않게 — 한 쪽이 화면에 다 들어오면(확대 전 · 가로로 넘치지 않음) 터치 스크롤을 아예 끕니다 (아이패드 고무줄 당김 방지) */
     function syncTouch() {
       if (S.dead) return;
-      var hx = stage.scrollWidth > stage.clientWidth + 2, vy = stage.scrollHeight > stage.clientHeight + 2, free = S.zoom <= SWIPE_ZOOM && !hx;
+      var hx = stage.scrollWidth > stage.clientWidth + 2, vy = stage.scrollHeight > stage.clientHeight + 2, free = S.zoom <= SWIPE_ZOOM && (!hx || !!S.cropNow);   // v6.1 — 여백 자동 맞춤으로 종이 가장자리만 넘치는 것은 "확대"가 아님 → 쓸어 넘기기 그대로
       S.noHx = free; stage.classList.toggle('pv-tx-none', free && !vy); stage.classList.toggle('pv-tx-y', free && vy);
     }
     function tdist(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
     function tmid(a, b) { return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }
     function fingerFree() { return S.tool === 'none' || (an.fingerDraws && !an.fingerDraws()); }        // 손가락 한 개를 "쓸기 · 화면 이동"에 써도 되는가
+    /* v6.1 — 쓸어 넘기기를 사진 앱처럼: 끄는 동안 쪽이 손가락을 따라오고, 놓으면 넘어가거나 제자리로 돌아옵니다 */
+    function canFlip(dir) { return dir > 0 ? (S.page < S.pages || S.sheetIdx < sheets.length - 1) : (S.page > 1 || S.sheetIdx > 0); }
+    var dragT = 0;
+    function dragMove(x) { clearTimeout(dragT); box.style.transition = 'none'; box.style.transform = 'translateX(' + Math.round(x) + 'px)'; }
+    function dragReset(anim) {
+      clearTimeout(dragT);
+      if (!anim) { box.style.transition = ''; box.style.transform = ''; return; }
+      box.style.transition = 'transform .22s cubic-bezier(.2,.8,.2,1)'; box.style.transform = 'translateX(0)';
+      dragT = setTimeout(function () { box.style.transition = ''; box.style.transform = ''; }, 240);
+    }
+    function dragFlip(dir) { clearTimeout(dragT); box.style.transition = ''; box.style.transform = ''; slideFlip(dir); }   // 놓는 순간 넘기고 새 쪽이 옆에서 미끄러져 들어옴
+    var lastTap = null;
+    function dblTap(t) {
+      var now = Date.now();
+      if (lastTap && now - lastTap.t < 320 && Math.hypot(t.clientX - lastTap.x, t.clientY - lastTap.y) < 30) {
+        lastTap = null;
+        var br = box.getBoundingClientRect();
+        if (S.zoom > 1.05) { setZoom(1, true); return; }
+        S.anchor = { fx: clamp((t.clientX - br.left) / (br.width || 1), 0, 1), fy: clamp((t.clientY - br.top) / (br.height || 1), 0, 1), cx: t.clientX, cy: t.clientY, t: now };
+        setZoom(2, true); return;
+      }
+      lastTap = { t: now, x: t.clientX, y: t.clientY };
+    }
     /** 확대 미리보기 — 손가락이 움직이는 대로 매 이벤트마다 스타일을 바꾸지 않고, 화면 프레임마다 마지막 값 하나만 적용 */
     var pvScale = 1, pvRaf = 0, pvTx = 0, pvTy = 0, pvOrg = '50% 0';
     function applyPreview() { pvRaf = 0; box.style.transformOrigin = pvOrg; box.style.transform = (pvScale === 1 && !pvTx && !pvTy) ? '' : (pvTx || pvTy ? 'translate(' + pvTx + 'px,' + pvTy + 'px) ' : '') + 'scale(' + pvScale + ')'; }
@@ -1426,18 +1466,19 @@
        그리는 캔버스는 처음부터 touch-action:none 이고, 필기 중에는 악보 칸 전체도 잠깁니다(.pv-penlock). */
     var penT = 0, penLockT = 0;
     function penNear() { return Date.now() - penT < 700; }
-    function palmTouch(t) { return !!t && Math.max(t.radiusX || 0, t.radiusY || 0) > 30; }
+    function palmTouch(t) { return !!t && Math.max(t.radiusX || 0, t.radiusY || 0) > 44; }      // v6.1 — 아이패드 손가락(반지름 20~40)을 손바닥으로 잘못 보지 않게
     function notePenPtr(e) {
       if (e.pointerType !== 'pen') return;
       penT = Date.now(); if (!stage.classList.contains('pv-penlock')) stage.classList.add('pv-penlock');
       clearTimeout(penLockT); penLockT = setTimeout(function () { stage.classList.remove('pv-penlock'); }, 900);
     }
     ['pointerdown', 'pointermove', 'pointerover', 'pointerup'].forEach(function (n) { stage.addEventListener(n, notePenPtr, true); });
-    P.on('close', function () { clearTimeout(penLockT); });
+    P.on('close', function () { clearTimeout(penLockT); clearTimeout(dragT); doc.removeEventListener('pointerdown', moreOutside, true); });
     stage.addEventListener('touchstart', function (e) {
       if (S.dead) return;
-      var anyPalm = penNear(); for (var pi = 0; pi < e.touches.length && !anyPalm; pi++) anyPalm = palmTouch(e.touches[pi]);
-      if (anyPalm && !(T && T.pinch)) { T = { palm: true }; if (e.cancelable) e.preventDefault(); return; }      // 손바닥 · 펜슬 근처의 터치: 아무 동작도 하지 않음
+      var anyPalm = penNear(); if (e.touches.length < 2) for (var pi = 0; pi < e.touches.length && !anyPalm; pi++) anyPalm = palmTouch(e.touches[pi]);   // 두 손가락(확대 · 이동)은 펜슬이 가까울 때만 막음
+      if (anyPalm && !(T && T.pinch)) { T = { palm: true }; if (e.cancelable) e.preventDefault(); return; }
+      if (T && T.drag) dragReset(false);      // 손바닥 · 펜슬 근처의 터치: 아무 동작도 하지 않음
       if (e.touches.length >= 2) {
         if (an.cancelCurrent) an.cancelCurrent();
         var m0 = tmid(e.touches[0], e.touches[1]), br = box.getBoundingClientRect();
@@ -1445,7 +1486,7 @@
           fx: clamp((m0.x - br.left) / (br.width || 1), 0, 1), fy: clamp((m0.y - br.top) / (br.height || 1), 0, 1), zoomed: false };
         if (e.cancelable) e.preventDefault(); return;
       }
-      if (e.touches.length === 1) { var t = e.touches[0]; T = { x0: t.clientX, y0: t.clientY, lx: t.clientX, ly: t.clientY, t0: Date.now(), free: fingerFree(), moved: false, axis: null }; }
+      if (e.touches.length === 1) { var t = e.touches[0]; T = { x0: t.clientX, y0: t.clientY, lx: t.clientX, ly: t.clientY, t0: Date.now(), free: fingerFree(), moved: false, axis: null, drag: false }; }
     }, { passive: false });
     stage.addEventListener('touchmove', function (e) {
       if (!T) return;
@@ -1453,7 +1494,7 @@
       if (T.pinch) {
         if (e.touches.length < 2) return;
         var mm = tmid(e.touches[0], e.touches[1]); T.mx = mm.x; T.my = mm.y;
-        T.scale = clamp(tdist(e.touches[0], e.touches[1]) / T.d0, 0.4, 4) ; T.scale = clamp(T.z0 * T.scale, 0.4, 4) / T.z0;
+        T.scale = clamp(tdist(e.touches[0], e.touches[1]) / T.d0, 0.3, 5) ; T.scale = clamp(T.z0 * T.scale, 0.5, 5) / T.z0;      // v6.1 — 사진 앱처럼: 줄이면 잠깐 작아졌다가 놓으면 한 쪽 맞춤으로 돌아옴
         if (!T.zoomed && Math.abs(T.scale - 1) < 0.05) {                                          // 두 손가락 이동 = 화면 밀기 (스크롤) — 손가락 간격이 거의 그대로일 때
           stage.scrollLeft = T.sl0 - (mm.x - T.mx0); stage.scrollTop = T.st0 - (mm.y - T.my0); pinchPreview(1);
         } else {                                                                                   // 간격이 변하면 확대 · 축소 — 손가락 사이 지점을 중심으로, 손가락이 움직인 만큼 함께 이동
@@ -1468,7 +1509,12 @@
          가로 쓸기로 정해지면 (확대하지 않았고 가로로 밀 자리가 없을 때) 브라우저 스크롤 · 고무줄 당김을 막아 악보 쪽이 제자리에 그대로 있습니다. */
       var adx = Math.abs(t.clientX - T.x0), ady = Math.abs(t.clientY - T.y0);
       if (!T.axis && (adx > 10 || ady > 10)) T.axis = adx > 10 && ady < adx * 0.5 ? 'h' : 'v';
-      if (T.free && T.axis === 'h' && S.zoom <= SWIPE_ZOOM && S.noHx) { if (e.cancelable) e.preventDefault(); T.lx = t.clientX; T.ly = t.clientY; return; }
+      if (T.free && T.axis === 'h' && S.zoom <= SWIPE_ZOOM && S.noHx) {                            // v6.1 — 사진 앱처럼 악보가 손가락을 따라 옆으로 움직임
+        if (e.cancelable) e.preventDefault(); T.lx = t.clientX; T.ly = t.clientY;
+        var ddx = t.clientX - T.x0, edge = !canFlip(ddx < 0 ? 1 : -1);
+        T.drag = true; T.vx = (t.clientX - (T.px == null ? T.x0 : T.px)) / Math.max(1, Date.now() - (T.pt || T.t0)); T.px = t.clientX; T.pt = Date.now();
+        dragMove(edge ? ddx * 0.28 : ddx); return;
+      }
       if (T.free && S.tool !== 'none') {                                                          // 펜슬 전용 모드 — 캔버스가 브라우저의 스크롤을 막고 있으니 화면 이동은 직접
         stage.scrollLeft -= t.clientX - T.lx; stage.scrollTop -= t.clientY - T.ly; if (e.cancelable) e.preventDefault();
       }
@@ -1481,14 +1527,22 @@
         if (e.touches.length >= 2) return;
         var sc = T.scale, tt = T; T = null; pinchPreview(1);
         if (tt.zoomed && Math.abs(sc - 1) > 0.02) {
+          var nz = S.zoom * sc; if (nz < 1) nz = 1;                                               // 사진 앱처럼 — 한 쪽보다 작게 놓으면 한 쪽 맞춤으로
           S.anchor = { fx: tt.fx, fy: tt.fy, cx: tt.mx, cy: tt.my, t: Date.now() };              // 다시 그린 뒤 손가락 사이 지점이 손가락이 놓인 자리에 오도록 스크롤 맞춤
-          setZoom(S.zoom * sc, true);
+          if (Math.abs(nz - S.zoom) > 0.01) setZoom(nz, true);
         }
         return;
       }
       var me = T; if (e.touches.length) return; T = null;
-      if (e.type === 'touchcancel' || !me.free || !e.changedTouches.length) return;
+      if (e.type === 'touchcancel' || !me.free || !e.changedTouches.length) { if (me.drag) dragReset(true); return; }
       var t = e.changedTouches[0], dx = t.clientX - me.x0, dy = t.clientY - me.y0, dt = Date.now() - me.t0;
+      if (me.drag) {                                                                               // 따라 움직이던 쪽: 충분히 밀었거나 빠르게 튕겼으면 넘기고, 아니면 제자리로
+        var wv = stage.clientWidth || 800, dir = dx < 0 ? 1 : -1;
+        var go = (Math.abs(dx) > SWIPE_MIN_DX && Math.abs(dy) < Math.abs(dx) * SWIPE_MAX_SLOPE && dt < 800) || Math.abs(dx) > wv * 0.35;   // 빠르게 쓸었거나, 천천히라도 화면의 1/3 넘게 끌었으면
+        if (go && canFlip(dir)) dragFlip(dir); else dragReset(true);
+        return;
+      }
+      if (!me.moved && S.tool === 'none' && e.changedTouches.length === 1) { dblTap(t); return; }   // v6.1 — 두 번 톡 = 확대 / 한 쪽 맞춤 (사진 앱처럼)
       if (S.zoom <= SWIPE_ZOOM && Math.abs(dx) > SWIPE_MIN_DX && Math.abs(dy) < Math.abs(dx) * SWIPE_MAX_SLOPE && dt < 800) { slideFlip(dx < 0 ? 1 : -1); }
     }
     stage.addEventListener('touchend', touchDone, { passive: true });
@@ -1632,21 +1686,59 @@
       var i2 = spreadOn() ? badgeIdx(S.page + 1) : -1;
       var h2 = i2 >= 0 && i2 !== i ? '<div class="pv-form-2"><b>' + h((songs[i2] || {}).title || '') + '</b>' + formBadgeHtml(i2) + '</div>' : '';
       var html = s ? '<div class="pv-form-h"><b>' + h(s.title || '') + '</b>' + (meta ? '<small>' + h(meta) + '</small>' : '') + '</div>' + (formBadgeHtml(i) || '<span class="pv-form-none">송폼 없음</span>') + h2 : '<span class="pv-form-none">곡을 고르면 송폼이 여기에 보입니다</span>';
-      if (formEl.getAttribute('data-h') !== html) { formEl.innerHTML = GRIP + '<div class="pv-form-b">' + html + '</div>'; formEl.setAttribute('data-h', html); requestAnimationFrame(function () { flPlace('form'); }); }
+      if (formEl.getAttribute('data-h') !== html) {
+        formEl.innerHTML = GRIP + '<div class="pv-form-b">' + html + '</div><span class="pv-rsz" aria-hidden="true" title="끌어서 크기 조절 (두 번 누르면 처음 크기)"></span>'; formEl.setAttribute('data-h', html);
+        if (mcApi) formEl.insertBefore(mcApi.el, formEl.children[1]);                                  // v6.1 — 메트로놈 동그라미
+        requestAnimationFrame(function () { flPlace('form'); });
+      }
     }
     /* 메트로놈 창 — 라이브 컨트롤(▶ · BPM · 콜아웃)을 도구 도크에서 떼어 따로 띄웁니다 */
+    /* v6.1 — 송폼 창 크기 조절: 오른쪽 아래 모서리를 끌면 옆으로 = 폭(두 줄 → 한 줄), 위아래로 = 글자 크기. 이 기기에 기억 */
+    var mcApi = null;
+    function formSize() { try { var v = JSON.parse(ls('size.form') || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } }
+    function applyFormSize() {
+      var v = formSize();
+      formEl.style.width = v && v.w ? Math.round(v.w) + 'px' : ''; formEl.style.maxWidth = v && v.w ? 'none' : '';
+      formEl.style.setProperty('--pvfs', v && v.s ? String(v.s) : '1');
+    }
+    (function () {
+      var rs = null;
+      formEl.addEventListener('pointerdown', function (e) {
+        if (!e.target.closest || !e.target.closest('.pv-rsz')) return;
+        e.preventDefault(); e.stopPropagation();
+        var r = formEl.getBoundingClientRect(), v = formSize() || {};
+        rs = { id: e.pointerId, x0: e.clientX, y0: e.clientY, w0: r.width, s0: +v.s || 1 };
+        try { formEl.setPointerCapture(e.pointerId); } catch (x) {}
+        formEl.classList.add('pv-resizing');
+      });
+      formEl.addEventListener('pointermove', function (e) {
+        if (!rs || e.pointerId !== rs.id) return;
+        var A = flArea(), w = clamp(rs.w0 + (e.clientX - rs.x0), 190, Math.max(220, A.w - 8)), s = Math.round(clamp(rs.s0 * (1 + (e.clientY - rs.y0) / 260), 0.8, 1.8) * 100) / 100;
+        rs.w = w; rs.s = s; formEl.style.width = Math.round(w) + 'px'; formEl.style.maxWidth = 'none'; formEl.style.setProperty('--pvfs', String(s));
+      });
+      function end(e) {
+        if (!rs || e.pointerId !== rs.id) return;
+        var x = rs; rs = null; formEl.classList.remove('pv-resizing'); try { formEl.releasePointerCapture(e.pointerId); } catch (y) {}
+        if (x.w) { ls('size.form', JSON.stringify({ w: Math.round(x.w), s: x.s || x.s0 })); flResize(); }
+      }
+      formEl.addEventListener('pointerup', end); formEl.addEventListener('pointercancel', end);
+      formEl.addEventListener('dblclick', function (e) { if (e.target.closest && e.target.closest('.pv-rsz')) { ls('size.form', ''); applyFormSize(); flResize(); } });
+    })();
     var metroEl = doc.createElement('div'); metroEl.className = 'pv-metro'; metroEl.setAttribute('role', 'group'); metroEl.setAttribute('aria-label', '메트로놈');
     function setupFloats() {
       makeFloat('tools', toolsEl, function () { return { x: 0.5, y: 0.012 }; }, { keep: true });
       makeFloat('metro', metroEl, function () { return { x: 0.02, y: 0.985 }; });
-      makeFloat('form', formEl, function () { return S.compact ? { x: 0.98, y: 0.86 } : { x: 0.985, y: 0.012 }; });
+      makeFloat('form', formEl, function () { return S.compact ? { x: 0.98, y: 0.86 } : S.narrow ? { x: 0.985, y: 0.075 } : { x: 0.985, y: 0.012 }; });
       if (timerBar && timerBar.el) {
         makeFloat('timer', timerBar.el, function () { return S.compact ? { x: 0.02, y: 0.985 } : { x: 0.985, y: 0.985 }; });
         try { if (S.compact && timerBar.miniSaved() === null) timerBar.setMini(true, false); } catch (e) {}     // 좁은 화면은 처음에 작게 (예배 경과만)
       }
       P.on('toolsrender', function (host) { if (host && !host.querySelector(':scope > .pv-grip')) host.insertAdjacentHTML('afterbegin', GRIP); });
       if (!toolsEl.querySelector(':scope > .pv-grip')) toolsEl.insertAdjacentHTML('afterbegin', GRIP);
-      paintShows(); paintForm();
+      P.floatWin = function (k, node, def) { return makeFloat(k, node, def); };            // v6.1 — 패널이 만드는 떠 있는 창 (시작음 피아노)
+      P.floatPlace = function (k) { requestAnimationFrame(function () { flPlace(k); }); };
+      try { if (P.metroCircle) mcApi = P.metroCircle(); } catch (e) { mcApi = null; }
+      applyFormSize(); paintShows(); paintForm();
       P.on('song', paintForm); P.on('page', paintForm); P.on('sheet', paintForm);
       root.addEventListener('resize', flResize);
       if (root.ResizeObserver) { flRo = new root.ResizeObserver(flResize); flRo.observe(mainEl); }
@@ -1695,7 +1787,7 @@
     };
     current = api;
     S.layer = ls('layer') === 'mine' ? 'mine' : 'team'; S.layerUser = !!ls('layer'); S.scope = ls('scope') === 'date' && S.room ? 'date' : 'song'; an.setLayer(S.layer); if (an.setFont) an.setFont(S.font); if (an.setFboxTag) an.setFboxTag(S.fboxTag);
-    setCompact(calcCompact()); autoFit(); applyLayout(S.layout, false); renderTools(); buildTabs(); connect(); loadCfg(); requestWake();
+    setCompact(calcCompact()); setNarrow(); autoFit(); applyLayout(S.layout, false); renderTools(); buildTabs(); connect(); loadCfg(); requestWake();
     /* 예배 타이머 막대 (Feature 1 · timer.js) — 헤더 바로 아래에 붙어 전체 화면에서도 보입니다. timer.js 가 없거나 opts.timer === false 면 아무것도 하지 않음 */
     var timerBar = null;
     try {

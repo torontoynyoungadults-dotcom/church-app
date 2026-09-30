@@ -245,7 +245,7 @@
       if (barEl || !deferred) return;
       barEl = make('ynpwa-bar ynpwa-glass',
         '<img src="/icon-192.png" alt="" width="44" height="44">' +
-        '<div class="t"><b>청년1부 앱 설치</b><small>홈 화면에 추가하고 알림도 받아보세요</small></div>' +
+        '<div class="t"><b>TEVA 앱 설치</b><small>홈 화면에 추가하고 알림도 받아보세요</small></div>' +
         '<button type="button" class="ynpwa-btn" data-a="install">설치</button>' +
         '<button type="button" class="ynpwa-x" data-a="close" aria-label="닫기">&times;</button>');
       barEl.setAttribute('role', 'region');
@@ -311,7 +311,7 @@
           '<ol class="ynpwa-steps">' +
             '<li><span class="n">1</span><span class="ic">' + ICON_SHARE + '</span><span>' + (pad ? '화면 <b>위쪽</b>' : '화면 <b>아래쪽</b>') + '의 <b>공유 버튼</b>을 누르세요</span></li>' +
             '<li><span class="n">2</span><span class="ic">' + ICON_ADD + '</span><span>메뉴를 올려서 <b>“홈 화면에 추가”</b>를 선택하세요</span></li>' +
-            '<li><span class="n">3</span><span class="ic">' + ICON_BELL + '</span><span>홈 화면의 <b>청년1부</b> 아이콘으로 열면 알림을 켤 수 있어요</span></li>' +
+            '<li><span class="n">3</span><span class="ic">' + ICON_BELL + '</span><span>홈 화면의 <b>Teva</b> 아이콘으로 열면 알림을 켤 수 있어요</span></li>' +
           '</ol>' +
           '<p class="ynpwa-note">공유 버튼이 보이지 않으면 주소창 옆이나 <b>⋯</b> 메뉴 안에서 찾아보세요.</p>' +
           '<button type="button" class="ynpwa-btn" style="width:100%" data-a="ok">확인했어요</button>';

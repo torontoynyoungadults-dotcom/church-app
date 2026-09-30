@@ -1002,7 +1002,7 @@ function doGet(e) {
     } else if (isAdmin_(p.key)) {
       key = 설정값_('관리자키') || String(p.key || '');
     }
-    return render_('Admin', scope === 'acct' ? '회계 관리' : 'Teva Apps · 관리',
+    return render_('Admin', scope === 'acct' ? 'Finance' : 'Teva Apps · 관리',
       { key: key, scope: scope }, 'admin');
   }
 
@@ -1039,7 +1039,7 @@ function doGet(e) {
   if (page === 'portal') {
     var ppre = 포털입구_(p);
     try { var nfp = 새가족미리보기11_(p); if (nfp) ppre.nfPreview = nfp; } catch (e) {}    // 새가족 포털 편집 미리보기 (새가족팀 · 커미티만)
-    return render_('Portal', '토론토영락교회 청년1부', ppre, 'portal');
+    return render_('Portal', 'TEVA · 토론토영락교회 청년1부', ppre, 'portal');
   }
 
   if (page === 'worship') {
@@ -7339,13 +7339,14 @@ function 포털메뉴_(r, token) {
   }
   // 회계팀 (커미티가 아닌 분) — 커미티는 아래 커미티 칸에서 회계로 바로 갑니다
   if (has('회계팀') && !커미티) {
-    out.push({ key: 'acct', title: '회계 관리', desc: '지출 신청 · 예산 · Cheque',
+    out.push({ key: 'acct', title: 'Finance', desc: '지출 신청 · 예산 · Cheque',
       url: base + '?page=admin&scope=acct&key=' + encodeURIComponent(회계키_()), note: '' });
   }
   var 목록 = 개인권한메뉴_(r, token, out, 'portal');
   // 행사 예산 · 정산 — 회계 권한(사람별 · 행사별)이 하나라도 있거나, 회계팀 · 커미티(조회)인 분께 (logic/eventbudget.js)
   try {
-    if (r.name && 회계모듈있나_(r.name)) {
+    // v6.1 — 커미티 · 회계팀은 Finance 안의 "행사 예산 · 정산" 탭으로 들어가므로 따로 타일을 두지 않습니다 (행사별 권한만 받은 분께만 타일)
+    if (r.name && 회계모듈있나_(r.name) && !(커미티 || has('회계팀'))) {
       목록.push({ key: 'budget', title: '수련회 · 선교 예산/정산', desc: '예산 · 거래 · 정산 · 엑셀 · PDF',
         url: base + '?page=budget&t=' + encodeURIComponent(token), note: '' });
     }
@@ -7413,7 +7414,7 @@ function 포털관리메뉴_(r, token) {
   /* 4. 회계 관리 — 회계팀도 봅니다 */
   if (커미티 || 회계팀) {
     var e = st.expense || {};
-    out.push({ key: 'acct', title: '회계 관리', desc: '지출 신청 · 헌금봉투 · Cheque',
+    out.push({ key: 'acct', title: 'Finance', desc: '지출 신청 · 헌금봉투 · Cheque',
       url: app + '?page=admin&scope=acct&key=' + encodeURIComponent(회계키_()),
       stats: [
         { n: e.open || 0, l: '처리할 지출', warn: !!(e.open) },
@@ -7509,7 +7510,7 @@ function getMenuOrder(token) {
     album: '포토 앨범', leader: '셀모임 (셀 보고서 · 셀원 정보 · 대리 제출)', team: '사역팀 (팀 보고서 · 팀원 관리 · 지출환급신청)',
     newfamily: '새가족 관리', worship: '찬양방송팀 허브', equipment: '장비 점검 · 수리 요청', mission: '선교팀 관리', forms: '각종 Form 관리',
     budget: '수련회 · 선교 예산/정산',
-    minutes: '회의록 · 할 일', bulletinEdit: '주보 편집', acct: '회계 관리',
+    minutes: '회의록 · 할 일', bulletinEdit: '주보 편집', acct: 'Finance',
     cell: '셀 관리', nf: '새가족 관리', tr: '제자훈련 관리', mis: '선교팀 관리', equip: '장비 · 수리 요청', dir: '교적 관리',
     word: '설교 · 말씀 관리', push: '알림 · 이메일 관리',
     app: '⚙️ 앱 기능 관리 (메뉴 순서 · AI · 일정 · 권한)'
@@ -7982,6 +7983,7 @@ function portalViewAs(token, name) {
     hasCalendar: 달력있나_(r.roles)
   };
   out.sermon = real ? real.sermon : (function () { try { return 현재설교_(); } catch (e) { return null; } })();
+  if (!real) { try { 보기자료채우기6_(out, 보기교인6_(who, name)); } catch (e) {} }   // v6 — 전화번호가 없어 표를 못 만들어도 그분의 알림 · 신청서 · 셀 신청은 같게
   if (real) {
     out.cellApp = real.cellApp; out.myCell = real.myCell; out.forms = real.forms;
     out.todos = real.todos; out.badges = real.badges;
@@ -8243,9 +8245,9 @@ function 헌금신청메일_(me) {
       '<div style="font-size:13px;color:#2B2B2B;line-height:1.9;">' +
       헌금조건().map(function (c) { return '✅ ' + esc_(c); }).join('<br>') + '</div>') +
 
-    '<div style="text-align:center;margin-top:18px;">' + btn_(url, '회계 관리에서 발급하기', true) + '</div>' +
+    '<div style="text-align:center;margin-top:18px;">' + btn_(url, 'Finance(회계)에서 발급하기', true) + '</div>' +
     '<div style="margin-top:14px;font-size:11.5px;color:#7A756D;line-height:1.9;">' +
-      '※ 회계 관리 → 헌금번호 탭에서 번호를 입력하시면 신청하신 분께 자동으로 안내 메일이 갑니다.</div>';
+      '※ Finance(회계) → 헌금번호 탭에서 번호를 입력하시면 신청하신 분께 자동으로 안내 메일이 갑니다.</div>';
 
   MailApp.sendEmail({
     to: to,
@@ -8266,7 +8268,7 @@ function 헌금신청메일_(me) {
       '\n선교팀: ' + (선교 || '-') +
       '\n제자훈련: ' + (p.discipleship || '-') + (p.trainingRate ? ' · ' + p.trainingRate : '') +
       '\n\n[신청자 동의]\n' + 헌금조건().map(function (c) { return '- ' + c; }).join('\n') +
-      '\n\n회계 관리에서 발급해 주세요: ' + url
+      '\n\nFinance(회계)에서 발급해 주세요: ' + url
   });
 }
 
@@ -8424,7 +8426,7 @@ function 지출안내문() {
 function 회계설정_() {
   설정기본값_('회계팀이메일', '', '지출 신청 접수 알림을 받을 주소 (쉼표로 여러 개). 비우면 알림받을이메일로 갑니다');
   설정기본값_('회계담당자', '이규원 자매', '지출 신청서 안내문에 표시되는 회계팀 담당자');
-  설정기본값_('회계팀비밀번호', '0193', '회계 관리만 열 수 있는 비밀번호 (포털 → 회계 관리)');
+  설정기본값_('회계팀비밀번호', '0193', 'Finance(회계)만 열 수 있는 비밀번호 (포털 → Finance)');
   설정기본값_('아이콘:expense', '', '지출환급신청서 탭 아이콘 주소 (선택)');
   설정기본값_('아이콘:portal', '', '포털 페이지 탭 아이콘 주소 (선택)');
   설정기본값_('아이콘:mission', '', '선교팀 페이지 탭 아이콘 주소 (선택)');
@@ -11508,6 +11510,7 @@ function 신청서결과볼수있나_(who, f) {
 
 /** 신청하는 분 — 교적 교인 또는 새가족 */
 function 폼신청자_(token) {
+  if (보기대상6_ && token === 보기토큰6_) return 보기대상6_;          // v6 — 커미티의 "다른 분 화면 보기": 그분으로 계산 (logic/view6.js)
   if (String(token || '').indexOf(새가족접두) === 0) {
     var nf = 새가족본인_(token);
     return { kind: 'newcomer', name: nf.name, email: String(nf.email || ''), phone: String(nf.contact || ''),
@@ -15511,7 +15514,7 @@ function 메뉴카탈로그_() {
     { key: 'mission', area: '행정', title: '선교팀 관리', help: '계정 이름과 똑같은 선교팀 (예: "2026 니카라과 선교팀")' },
     { key: 'forms', area: '행정', title: '신청서 관리', help: '계정 이름과 같은 사역팀 담당 신청서만 만들고 고칩니다' },
     { key: 'bulletinEdit', area: '행정', title: '주보 편집', help: '임시저장까지 — 게시는 주보 게시자가 합니다' },
-    { key: 'acct', area: '행정', title: '회계 관리', help: '지출 신청 · 예산 · Cheque' }
+    { key: 'acct', area: '행정', title: 'Finance', help: '지출 신청 · 예산 · Cheque' }
   ];
 }
 

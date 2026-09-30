@@ -513,7 +513,7 @@
     function onDown(e) {
       if (!drawing() || S.dead) return;
       if (e.pointerType === 'pen') { if (!S.sawPen) { S.sawPen = true; refreshTouch(); try { o.onPenSeen && o.onPenSeen(); } catch (x) {} } }
-      else if (e.pointerType === 'touch' && (S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen) || Date.now() - S.penT < 700 || ((e.width || 0) > 40 || (e.height || 0) > 40))) return;      // 손바닥 · 손가락은 무시 (펜만 그림) — 펜이 화면 위에 있거나(700ms) 닿는 면이 넓은(손바닥) 터치는 항상 무시
+      else if (e.pointerType === 'touch' && (S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen) || Date.now() - S.penT < 700 || ((e.width || 0) > 76 || (e.height || 0) > 76))) return;      // 손바닥 · 손가락은 무시 (펜만 그림) — 펜이 화면 위에 있거나(700ms) 닿는 면이 넓은(손바닥) 터치는 항상 무시
       else if (e.pointerType === 'mouse' && e.button !== 0) return;
       if (S.cur) { dropCur(); invalidate(); return; }                                                                   // 두 번째 손가락 = 그리기 취소 (확대 동작)
       if (e.pointerType === 'pen' && penGesture(e)) { e.preventDefault(); return; }                                    // 펜 더블탭 · 옆 버튼 = 펜 ↔ 지우개

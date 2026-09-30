@@ -93,6 +93,8 @@ body::before {
   background: linear-gradient(rgba(8,8,8,.5), rgba(8,8,8,.62)), url('/bulletin/bg.jpg') center top / cover no-repeat;
 }
 .shell { max-width: 680px; margin: 0 auto; }
+/* v6.1 — 가로 화면(아이패드 가로 · 컴퓨터)에서는 조금 더 넓게 (각 페이지가 더 넓게 잡을 수 있음) */
+@media (min-width: 1024px) and (orientation: landscape) { .shell { max-width: 960px; } }
 
 /* ---------------------------------------------------------
    머리말
@@ -1737,16 +1739,17 @@ if (typeof window.aiPolish !== 'function') window.aiPolish = YNAI.polish;
    · 세션 / 연습(악보) 화면은 무대 조명 아래에서도 눈부시지 않도록 늘 어두운 화면을 씁니다.
    --------------------------------------------------------- */
 /* ---- v6 밝은 화면 — 깔끔한 흰 카드 · 선명한 글씨 (예전 베이지 · 사진 바탕 대신) ----
-   토큰: 바탕 #F3F4F6 · 카드 흰색 · 글씨 #0F172A / #334155 / #64748B · 선 rgba(15,23,42,.09) · 강조 주황(글씨용 #C2410C) */
+   토큰: 바탕 #F3F4F6 · 카드 흰색 · 글씨 #0F172A / #334155 / #64748B · 선 rgba(15,23,42,.09) · 강조 #46BDC6(v6.1 · 글씨용 #0B6E77) */
 html[data-theme="light"] {
   color-scheme: light;
   --lt-bg: #F3F4F6; --lt-card: #FFFFFF; --lt-card-2: #F8FAFC; --lt-sunk: #EEF0F3;
   --lt-ink: #0F172A; --lt-ink-2: #334155; --lt-ink-3: #64748B; --lt-ink-4: #94A3B8;
   --lt-line: rgba(15,23,42,.09); --lt-line-2: rgba(15,23,42,.16);
-  --lt-or: #EA580C; --lt-or-ink: #C2410C; --lt-or-soft: rgba(234,88,12,.10);
+  --lt-or: #46BDC6; --lt-or-ink: #0B6E77; --lt-or-soft: rgba(70,189,198,.14); --lt-on-or: #06363B;   /* v6.1 — 밝은 화면 메인 색 #46BDC6 (글씨용은 진한 청록 #0B6E77 · 색 칸 위 글씨 #06363B) */
   --lt-sh-1: 0 1px 2px rgba(15,23,42,.05);
   --lt-sh-2: 0 1px 2px rgba(15,23,42,.04), 0 6px 20px rgba(15,23,42,.06);
-  --lt-ring: 0 0 0 3px rgba(234,88,12,.18);
+  --lt-ring: 0 0 0 3px rgba(70,189,198,.32);
+  --accent: #46BDC6 !important; --tone: #46BDC6 !important; --tone-rgb: 70,189,198 !important;   /* v6.1 — 모든 페이지의 강조색이 밝은 화면에서는 #46BDC6 (관리 화면이 영역마다 넣는 색보다 우선) */
 }
 html[data-theme="light"] body { background: var(--lt-bg); color: var(--lt-ink); }
 html[data-theme="light"] body::before {
@@ -1792,7 +1795,7 @@ html[data-theme="light"] #dash .tile.newfamily { --mc: #0E7490; --mc-soft: rgba(
 html[data-theme="light"] #dash .tile.mission { --mc: #047857; --mc-soft: rgba(4,120,87,.10); }
 html[data-theme="light"] #dash .tile.worship, html[data-theme="light"] #dash .tile.minutes { --mc: #6D28D9; --mc-soft: rgba(109,40,217,.10); }
 html[data-theme="light"] #dash .tile.equipment { --mc: #C2410C; --mc-soft: rgba(194,65,12,.10); }
-html[data-theme="light"] #dash .tile.bulletin { --mc: #EA580C; --mc-soft: rgba(234,88,12,.10); }
+html[data-theme="light"] #dash .tile.bulletin { --mc: #0B6E77; --mc-soft: rgba(70,189,198,.14); }
 html[data-theme="light"] #dash .tile.bulletinEdit { --mc: #92400E; --mc-soft: rgba(146,64,14,.10); }
 html[data-theme="light"] #dash .tile.forms { --mc: #0369A1; --mc-soft: rgba(3,105,161,.10); }
 html[data-theme="light"] #dash .tile.cellapp { --mc: #DC2626; --mc-soft: rgba(220,38,38,.09); }
@@ -1814,7 +1817,7 @@ html[data-theme="light"] body .shell button:not([class]) {
   background: #FFFFFF !important; border: 1px solid var(--lt-line-2) !important; color: #1E293B !important; box-shadow: var(--lt-sh-1) !important;
 }
 html[data-theme="light"] body .btn:not(.accent):not(.danger):not(.primary):not(.ghost):hover { background: #F8FAFC !important; }
-html[data-theme="light"] body .btn.accent, html[data-theme="light"] body .btn.primary { background: var(--lt-or) !important; border-color: var(--lt-or) !important; color: #fff !important; box-shadow: 0 1px 2px rgba(234,88,12,.25), 0 4px 12px rgba(234,88,12,.18) !important; }
+html[data-theme="light"] body .btn.accent, html[data-theme="light"] body .btn.primary { background: var(--lt-or) !important; border-color: var(--lt-or) !important; color: var(--lt-on-or) !important; box-shadow: 0 1px 2px rgba(70,189,198,.30), 0 4px 12px rgba(70,189,198,.22) !important; }
 html[data-theme="light"] body .btn.ghost { background: transparent !important; color: var(--lt-ink-2) !important; border-color: var(--lt-line-2) !important; }
 html[data-theme="light"] body .btn.danger { background: #FFFFFF !important; color: #B91C1C !important; border-color: rgba(185,28,28,.30) !important; }
 
@@ -1834,7 +1837,7 @@ html[data-theme="light"] body .ttabs button.on, html[data-theme="light"] body .s
 }
 
 /* 작은 것들 */
-html[data-theme="light"] body .chip { color: var(--tone) !important; color: color-mix(in srgb, var(--tone) 80%, #000) !important; }
+html[data-theme="light"] body .chip { color: var(--lt-or-ink) !important; }
 html[data-theme="light"] body .panel a:not(.btn):not(.tile):not(.subrow):not(.ac-hit) { color: var(--lt-or-ink); }
 html[data-theme="light"] .ynfoot, html[data-theme="light"] footer { color: var(--lt-ink-3) !important; }
 html[data-theme="light"] .ynfoot a { color: var(--lt-ink-2) !important; }
@@ -1851,17 +1854,24 @@ html[data-theme="light"] body hr { border-color: var(--lt-line) !important; }
 
 /* 찬양 허브 — 주차 줄 · 콘티 */
 html[data-theme="light"] body .wk { background: #FFFFFF !important; border: 1px solid var(--lt-line) !important; box-shadow: var(--lt-sh-1) !important; }
-html[data-theme="light"] body .wk.on { background: var(--tone) !important; border-color: transparent !important; box-shadow: 0 4px 14px rgba(var(--tone-rgb, 234,88,12), .30) !important; }
+html[data-theme="light"] body .wk.on { background: var(--tone) !important; border-color: transparent !important; color: var(--lt-on-or) !important; box-shadow: 0 4px 14px rgba(var(--tone-rgb, 70,189,198), .30) !important; }
 html[data-theme="light"] body .pvstart { background: #FFFFFF !important; border-color: var(--lt-line) !important; }
 html[data-theme="light"] body .wkcal, html[data-theme="light"] body .wktoday { background: #FFFFFF !important; border-color: var(--lt-line-2) !important; color: #1E293B !important; }
-html[data-theme="light"] body .wktoday.here { border-color: var(--tone) !important; color: var(--tone) !important; }
+html[data-theme="light"] body .wktoday.here { border-color: var(--tone) !important; color: var(--lt-or-ink) !important; }
 html[data-theme="light"] body .asfloat { background: #FFFFFF; color: #1E1B4B; border-color: #A78BFA; box-shadow: 0 8px 28px rgba(15,23,42,.14); }
 html[data-theme="light"] body .asfloat b { color: #1E1B4B; }
 /* 찬양 허브 안의 도구 칸(가사 · 악보 자르기 · 송폼 만들기)은 어두운 유리 변수를 쓰므로 밝은 화면에서는 변수만 밝게 */
 html[data-theme="light"] body :is(.ht, .lyp, .fb) {
   --g-bg: #FFFFFF; --g-bg2: #F1F5F9; --g-solid: #FFFFFF; --g-line: rgba(15,23,42,.10); --g-line2: rgba(15,23,42,.18);
-  --g-ink: #0F172A; --g-sub: #475569; --g-dim: #64748B; --g-a2: #C2410C;
+  --g-ink: #0F172A; --g-sub: #475569; --g-dim: #64748B; --g-a2: #0B6E77;
 }
+
+/* v6.1 — 밝은 화면 메인 색 #46BDC6: 색으로 채운 단추 · 탭 위 글씨는 진한 청록(#06363B, 대비 5.8) — 흰 글씨는 이 색 위에서 잘 안 읽힙니다 */
+html[data-theme="light"] body :is(.btn.accent, .btn.orange, .submit, .pwsubmit, .dirbtn, #cropper .cbtns button.go, .rpc.on) {
+  color: var(--lt-on-or) !important; box-shadow: 0 1px 2px rgba(70,189,198,.30), 0 6px 16px rgba(70,189,198,.22) !important;
+}
+html[data-theme="light"] body :is(.submit, .pwsubmit, .dirbtn) { background: var(--lt-or) !important; }
+html[data-theme="light"] header:after { background: var(--lt-or); }
 
 /* 세션 / 연습 · 통계 팝업은 밝은 화면에서도 어두운 유리 그대로 (입력칸도) */
 html[data-theme="light"] body :is(.pv, .yg, .fp) input:not([type=checkbox]):not([type=radio]):not([type=range]),

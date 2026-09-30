@@ -16,8 +16,11 @@ const INIT = `(() => { window.__osc = []; window.__ctxs = []; const AC0 = window
   await L.waitTrue(page, () => document.querySelector('.pv-pg') && /1 \//.test(document.querySelector('.pv-pg').textContent), null, 8000); await sleep(600);
   const inkOf = (sel, test) => page.evaluate(([s, t]) => { const c = document.querySelector(s); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3]; if (t === 'orange' && a > 200 && r > 230 && g > 120 && g < 160 && b < 80) n++; else if (t === 'green' && a > 200 && g > 230 && r < 120) n++; else if (t === 'red' && a > 200 && r > 230 && g < 120 && b < 120) n++; else if (t === 'blue' && a > 200 && b > 240 && r < 170 && g > 180 && g < 220) n++; } return n; }, [sel, test]);
 
-  console.log('· 시작음 피아노 건반');
-  await page.click('.pv-tabbtn[data-tab="pitch"]');
+  console.log('· 시작음 피아노 건반 (v6.1 — "화음 · 시작음" 탭에서 떠 있는 창으로)');
+  check('시작음 탭은 화음 탭과 합쳐짐', await page.evaluate(() => !document.querySelector('.pv-tabbtn[data-tab="pitch"]') && /화음 · 시작음/.test(document.querySelector('.pv-tabbtn[data-tab="harmony"]').textContent)));
+  await page.click('.pv-tabbtn[data-tab="harmony"]');
+  await page.click('.pv-pianobtn');
+  check('피아노가 떠 있는 창으로 뜸 (⋮⋮ 손잡이)', await L.waitTrue(page, () => { const w = document.querySelector('.pv-piano'); return !!w && w.classList.contains('pv-float') && !w.classList.contains('pv-piano-off') && !!w.querySelector('.pv-grip') && w.offsetParent !== null; }));
   check('가로 건반이 그려짐 (흰 15 + 검은 10)', await L.waitTrue(page, () => document.querySelectorAll('.pk-w').length === 15 && document.querySelectorAll('.pk-b').length === 10));
   check('옛 음정 그리드 · 마이크 · 재생 UI 는 없음', await page.evaluate(() => !document.querySelector('.pr-grid') && !document.querySelector('.pr-keys')));
   const key0 = await page.evaluate(() => document.querySelector('.pk-startname').textContent);
@@ -38,6 +41,12 @@ const INIT = `(() => { window.__osc = []; window.__ctxs = []; const AC0 = window
   check('옥타브 올리기', await page.evaluate(() => /옥타브 4/.test(document.querySelector('.pk-octl').textContent)));
   check('오류 표시 없음', !(await page.evaluate(() => document.querySelector('.pk-info').classList.contains('bad'))));
   await page.locator('.pk-root').screenshot({ path: '/tmp/shot-pitch.png' });
+  const pg = await page.locator('.pv-piano .pv-grip').boundingBox(), pw0 = await page.locator('.pv-piano').boundingBox();
+  await page.mouse.move(pg.x + pg.width / 2, pg.y + pg.height / 2); await page.mouse.down(); await page.mouse.move(pg.x - 150, pg.y - 200, { steps: 6 }); await page.mouse.up();
+  const pw1 = await page.locator('.pv-piano').boundingBox();
+  check('피아노 창을 끌어 옮길 수 있음', Math.abs((pw1.y - pw0.y) + 200) < 40, { pw0, pw1 });
+  await page.click('.pv-piano-x');
+  check('✕ 로 피아노 창 닫기', await page.evaluate(() => document.querySelector('.pv-piano').classList.contains('pv-piano-off') && /피아노 보기/.test(document.querySelector('.pv-pianobtn').textContent)));
 
   console.log('· 가사 도구는 허브 화면으로 이동 (Step 2.8)');
   check('연습 화면에는 "가사" 탭이 없음', await page.evaluate(() => !document.querySelector('.pv-tabbtn[data-tab="lyrics"]') && !/가사/.test(document.querySelector('.pv-tabs').textContent)));
@@ -61,7 +70,15 @@ const INIT = `(() => { window.__osc = []; window.__ctxs = []; const AC0 = window
   await page.click('.pv-tabbtn[data-tab="anno"]'); await page.click('[data-layout="tablet"]'); await sleep(500);
   await page.screenshot({ path: '/tmp/shot-tablet-a.png' });
   await page.setViewportSize({ width: 1024, height: 768 }); await sleep(600);
-  check('1024px 태블릿: 도구 메뉴 버튼이 보이고 도구 막대는 서랍 안', await page.evaluate(() => getComputedStyle(document.querySelector('.pv-menubtn')).display !== 'none' && !!document.querySelector('.pv-drawer .pv-tools')));
+  // v6.1 — 아이패드 세로 · 1024px 태블릿은 서랍이 아니라 가로와 같은 떠 있는 도구 창 + 한 줄 위 막대 (확대 · 화면 배치는 ⋯ 안)
+  check('1024px 태블릿: 서랍 없이 떠 있는 도구 창 · 위 막대 한 줄', await page.evaluate(() => getComputedStyle(document.querySelector('.pv-menubtn')).display === 'none' && !document.querySelector('.pv-drawer .pv-tools') && document.querySelector('.pv-tools').classList.contains('pv-float') && document.querySelector('.pv-top').getBoundingClientRect().height <= 70 && document.querySelector('.pv-top').scrollWidth <= document.querySelector('.pv-top').clientWidth + 2));
+  check('1024px: 확대 · 화면 배치는 ⋯ 안', await page.evaluate(() => !!document.querySelector('.pv-morepop .pv-zoom') && !!document.querySelector('.pv-morepop .pv-layoutseg') && getComputedStyle(document.querySelector('.pv-morebtn')).display !== 'none'));
+  await page.click('.pv-morebtn'); await sleep(200);
+  check('⋯ 를 누르면 보기 메뉴가 열림', await page.evaluate(() => { const m = document.querySelector('.pv-morepop'); const r = m.getBoundingClientRect(); return getComputedStyle(m).display !== 'none' && r.width > 100 && r.right <= innerWidth; }));
+  await page.mouse.click(300, 500); await sleep(150);
+  check('다른 곳을 누르면 닫힘', await page.evaluate(() => !document.querySelector('.pv').classList.contains('pv-moreopen')));
+  await page.setViewportSize({ width: 600, height: 900 }); await sleep(600);
+  check('600px(폰 크기): 도구 메뉴 버튼이 보이고 도구 막대는 서랍 안', await page.evaluate(() => getComputedStyle(document.querySelector('.pv-menubtn')).display !== 'none' && !!document.querySelector('.pv-drawer .pv-tools')));
   await page.click('.pv-menubtn'); await sleep(450); await page.screenshot({ path: '/tmp/shot-tablet-drawer.png' });
   check('서랍이 열리고 필기 도구가 보임', await page.evaluate(() => { const r = document.querySelector('.pv-drawer .pv-tool').getBoundingClientRect(); return document.querySelector('.pv').classList.contains('pv-drawopen') && r.width > 0 && r.right <= innerWidth; }));
   await page.click('[data-a="drawer-panel"]'); await sleep(500); await page.screenshot({ path: '/tmp/shot-tablet-b.png' });

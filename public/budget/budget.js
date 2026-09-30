@@ -128,7 +128,7 @@
     }).join('');
   }
   function showList(fromPop) {
-    S.ev = null; $('viewEvent').style.display = 'none'; $('viewList').style.display = '';
+    S.ev = null; $('viewEvent').style.display = 'none'; $('viewList').style.display = ''; document.documentElement.classList.remove('bd-inev');
     $('topSub').textContent = ''; if (!fromPop && location.hash) history.pushState(null, '', location.pathname + location.search);
     api('budgetInit', [KEY]).then(function (i) { S.init.events = i.events; S.init.me = i.me; renderList(); }, function () {});
   }
@@ -137,7 +137,7 @@
   function openEvent(id, fromPop) {
     api('budgetGetEvent', [KEY, id]).then(function (d) {
       S.ev = d; S.tab = S.tab || 'lines';
-      $('viewList').style.display = 'none'; $('viewEvent').style.display = '';
+      $('viewList').style.display = 'none'; $('viewEvent').style.display = ''; document.documentElement.classList.add('bd-inev');
       if (!fromPop && location.hash !== '#' + id) history.pushState(null, '', location.pathname + location.search + '#' + id);
       renderEvent(); window.scrollTo(0, 0);
     }, fail);

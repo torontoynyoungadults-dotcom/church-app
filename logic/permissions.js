@@ -47,7 +47,7 @@ function 권한카탈로그_() {
     { key: 'mission',      area: '포털',        title: '선교팀 관리',     enforced: false, allow: false, scope: '',   help: '' },
     { key: 'forms',        area: '포털',        title: '각종 Form 관리', enforced: false, allow: false, scope: '',   help: '' },
     { key: 'minutes',      area: '포털',        title: '회의록 · 할 일',  enforced: false, allow: false, scope: '',   help: '' },
-    { key: 'acct',         area: '포털',        title: '회계 관리',       enforced: false, allow: false, scope: '',   help: '' },
+    { key: 'acct',         area: '포털',        title: 'Finance',        enforced: false, allow: false, scope: '',   help: '' },
     { key: 'admin.cell',   area: '커미티 관리', title: '셀 관리',         enforced: false, allow: false, scope: '',   help: '' },
     { key: 'admin.team',   area: '커미티 관리', title: '사역팀 관리',     enforced: false, allow: false, scope: '',   help: '' },
     { key: 'admin.tr',     area: '커미티 관리', title: '제자훈련 관리',   enforced: false, allow: false, scope: '',   help: '' },

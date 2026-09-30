@@ -258,6 +258,7 @@ const PUSHED = [];
   await page.goto(BASE + '/?page=portal');
   check('커미티 포털이 열림', await L.waitTrue(page, () => document.getElementById('main').style.display === 'block' && !!document.querySelector('#menus .tile'), null, 10000));
   check('v6: 승인 대기 배지는 찬양방송팀 허브 타일에 (장비는 허브 안)', await L.waitTrue(page, () => { const t = Array.from(document.querySelectorAll('#menus .tile')).find((x) => /찬양방송팀 허브/.test(x.textContent)); return !!t && !!t.querySelector('.tbadge'); }, null, 8000));
+  await page.evaluate(() => { const h = document.querySelector('#todoBox .todoacc-h'); if (h && h.getAttribute('aria-expanded') !== 'true') h.click(); });   // v6.1 — 알림은 처음에 닫혀 있음
   check('할 일에 "승인 대기 수리 요청 1건"', await L.waitTrue(page, () => /승인 대기 수리 요청 1건/.test(document.body.textContent), null, 6000));
   const adminCard = await page.evaluate(() => { const c = Array.from(document.querySelectorAll('.acard')).find((x) => /장비 · 수리 요청/.test(x.textContent)); return c ? { text: c.textContent.replace(/\s+/g, ' ').trim(), ok: /page=admin/.test(c.outerHTML) } : null; });
   check('관리 카드 "장비 · 수리 요청" (승인 대기 1)', !!adminCard && /승인 대기/.test(adminCard.text) && adminCard.ok, adminCard);

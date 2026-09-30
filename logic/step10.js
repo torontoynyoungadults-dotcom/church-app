@@ -183,7 +183,10 @@ function portalViewAsNewcomer(token, name) {
   // Step 11 — 새가족이 실제로 보는 첫 화면(newcomerHome)을 그대로 실어 보냅니다. 표(token)는 화면에 보내지 않습니다.
   var home = null;
   try { if (nf.email) home = newcomerHome(새가족토큰_(nf.email)); } catch (e) { home = null; }
-  if (!home) home = 새가족홈대체11_(nf);
+  if (!home) {
+    home = 새가족홈대체11_(nf);
+    try { var tmp = {}; 보기자료채우기6_(tmp, 보기새가족6_(nf)); home.forms = tmp.forms; home.todos = tmp.todos; if (tmp.cellApp) home.cellApp = tmp.cellApp; } catch (e) {}   // v6 — 이메일이 없는 새가족도 알림 · 신청서를 같게
+  }
   home.token = '';
   return {
     token: '', viewAs: name, viewKind: 'newcomer', noLink: true, home: home,

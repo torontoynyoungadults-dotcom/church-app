@@ -19,7 +19,8 @@ require('fs').mkdirSync(SHOT, { recursive: true });
   run((api) => api.saveWorshipSongs(KEY, d, '콘티', [1, 2, 3].map((n) => ({ title: '곡 ' + n, team: '팀', key: 'G', bpm: '72', form: 'V1-C', link: '', note: '', solo: [] }))));
   const br = await L.launch();
   const pages = (process.env.PAGES || 'portal,worship,team,admin,bulletin,forms').split(',');
-  for (const vp of [{ width: 390, height: 900, n: 'phone' }, { width: 1280, height: 860, n: 'desk' }]) {
+  const VPS = { phone: { width: 390, height: 900, n: 'phone' }, desk: { width: 1280, height: 860, n: 'desk' }, ipadL: { width: 1366, height: 1024, n: 'ipadL' } };
+  for (const vp of (process.env.VPS || 'phone,desk').split(',').map((k) => VPS[k])) {
     const ctx = await br.newContext({ viewport: { width: vp.width, height: vp.height }, locale: 'ko-KR', timezoneId: 'America/Toronto' });
     await ctx.addInitScript(([t, th]) => { try { sessionStorage.setItem('ynPortalToken', t); localStorage.setItem('ynTheme', th); } catch (e) {} }, [커, THEME]);
     const page = await ctx.newPage();
@@ -35,6 +36,8 @@ require('fs').mkdirSync(SHOT, { recursive: true });
     await go('admin', '/?page=admin&key=' + KEY + '#app');
     await go('bulletin', '/?page=bulletin&edit=1&t=' + encodeURIComponent(커));
     await go('forms', '/?page=forms&t=' + encodeURIComponent(커));
+    await go('finance', '/?page=admin&scope=acct&key=' + KEY + '#acct-events', 4500);
+    await go('budget', '/?page=budget&key=' + KEY);
     await ctx.close();
   }
   await br.close();

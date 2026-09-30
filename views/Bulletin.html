@@ -141,6 +141,19 @@
   .etop h1 { font-size: 17px; margin: 0; flex: 1; }
   .etop a.v { color: #F9B38D; font-size: 13px; text-decoration: none; font-weight: 700; }
   .ewrap { max-width: 760px; margin: 0 auto; padding: 14px 16px; }
+  .eside { display: none; }
+  /* v6.1 — 가로 화면: 편집(왼쪽) + 미리보기(오른쪽, 따라 내려옴) */
+  @media (min-width: 1180px) and (orientation: landscape) {
+    .etop .row, .ebar .row { max-width: 1440px; }
+    .ewrap { max-width: 1440px; display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 22px; align-items: start; }
+    .emain { min-width: 0; }
+    .eside { display: block; position: sticky; top: 12px; max-height: calc(100vh - 110px); overflow-y: auto; border-radius: 18px; background: #FBF9F6;
+      border: 1px solid rgba(0,0,0,.08); box-shadow: 0 10px 30px rgba(0,0,0,.18); overscroll-behavior: contain; }
+    .eside-h { position: sticky; top: 0; z-index: 2; padding: 10px 14px; font-size: 13px; font-weight: 800; color: #1F1D1A; background: rgba(251,249,246,.96); border-bottom: 1px solid rgba(0,0,0,.07); }
+    .eside-h small { font-weight: 600; color: #6E6A65; margin-left: 6px; }
+    .eside-b { padding: 0 0 16px; }
+    #eTabs button[data-t="preview"] { display: none; }
+  }
   .ecard { background: var(--ed-card); border: 1px solid var(--ed-hair); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
   .ecard h3 { margin: 0 0 12px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
   .ecard h3 .s { font-size: 12px; font-weight: 500; color: var(--ink-3); }
@@ -737,7 +750,7 @@ function statTag(st) {
 function paintEditor() {
   var sundays = INIT.sundays || [];
   var h = '<div class="editor"><div class="etop"><div class="row"><a href="' + esc(HOME) + '"><img src="/logo.png" alt=""></a><h1>주보 편집</h1>' +
-    '<a class="v" href="?page=bulletin" target="_blank" rel="noopener">주보 보기 ↗</a></div></div><div class="ewrap">' +
+    '<a class="v" href="?page=bulletin" target="_blank" rel="noopener">주보 보기 ↗</a></div></div><div class="ewrap"><div class="emain">' +
     '<div class="ecard"><div class="datebar"><div class="ef"><label>주일 날짜</label><select id="eDate" onchange="pickDate(this.value)">' +
       sundays.map(function (d) {
         var st = statusOf(d);
@@ -752,12 +765,25 @@ function paintEditor() {
       ['servants', '5 섬김이'], ['pages', '＋ 추가 페이지' + ((B.pages || []).length ? ' (' + B.pages.length + ')' : '')], ['sched', '스케줄 · 권한'], ['preview', '미리보기']
     ].map(function (t) { return '<button data-t="' + t[0] + '" class="' + (TAB === t[0] ? 'on' : '') + '" onclick="setTab(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>' +
     '<div id="ePane"></div></div>' +
+    '<aside class="eside" aria-label="주보 미리보기 (가로 화면)"><div class="eside-h">미리보기 <small>고치는 대로 바로 바뀝니다</small></div><div class="eside-b pv" id="eSide"></div></aside></div>' +
     '<div class="ebar"><div class="row"><div class="st" id="eBarSt"></div>' +
       '<button class="b" onclick="save(false)">임시저장</button>' + (INIT.canPublish ? '<button class="b or" onclick="save(true)">게시하기</button>' : '') + '</div></div></div>';
   el('root').innerHTML = h;
   paintPane();
   paintBar();
+  paintSide();
 }
+/* v6.1 — 가로 화면(아이패드 가로 · 컴퓨터): 왼쪽에서 고치고 오른쪽에서 주보 미리보기를 바로 봅니다 */
+var SIDE_T = 0;
+function sideOn() { return !!(window.matchMedia && window.matchMedia('(min-width: 1180px) and (orientation: landscape)').matches); }
+function paintSide() {
+  var s = el('eSide'); if (!s || !sideOn()) return;
+  try { s.innerHTML = renderBulletin(B, 'sp-') + ynFooter(); } catch (e) { s.innerHTML = '<p style="color:#6E6A65;font-size:13px;">미리보기를 그리지 못했습니다.</p>'; }
+}
+function sideSoon() { clearTimeout(SIDE_T); SIDE_T = setTimeout(paintSide, 350); }
+document.addEventListener('input', function (e) { if (e.target && e.target.closest && e.target.closest('.emain')) sideSoon(); }, true);
+document.addEventListener('change', function (e) { if (e.target && e.target.closest && e.target.closest('.emain')) sideSoon(); }, true);
+window.addEventListener('resize', function () { clearTimeout(SIDE_T); SIDE_T = setTimeout(paintSide, 250); });
 
 function paintBar(msg, kind) {
   var st = statusOf(B.date);
@@ -1013,7 +1039,7 @@ function buildPdf(b) {
   return ready.then(next).catch(function (e) { stage.remove(); throw e; });
 }
 
-function markDirty() { if (!DIRTY) { DIRTY = true; paintBar(); } }
+function markDirty() { if (!DIRTY) { DIRTY = true; paintBar(); } try { sideSoon(); } catch (e) {} }
 window.addEventListener('beforeunload', function (e) { if (DIRTY) { e.preventDefault(); e.returnValue = ''; } });
 
 function setTab(t) {
