@@ -1002,7 +1002,7 @@ function doGet(e) {
     } else if (isAdmin_(p.key)) {
       key = 설정값_('관리자키') || String(p.key || '');
     }
-    return render_('Admin', scope === 'acct' ? '회계 관리' : '청년1부 관리시스템',
+    return render_('Admin', scope === 'acct' ? '회계 관리' : 'Teva Apps · 관리',
       { key: key, scope: scope }, 'admin');
   }
 
@@ -1017,11 +1017,11 @@ function doGet(e) {
   if (page === 'forms') {
     var fpre = { t: p.t || '', key: isAdmin_(p.key) ? (설정값_('관리자키') || '') : '' };
     try { if (fpre.t || fpre.key) fpre.init = formAdminInit(fpre.key || fpre.t); } catch (e) { fpre.err = e.message || ''; }
-    return render_('Forms', '신청서 관리', fpre, 'admin');
+    return render_('Forms', '일반 신청서 관리', fpre, 'admin');
   }
 
   if (page === 'team') {
-    return render_('Team', '사역 보고서', { t: p.t || '' }, 'team');
+    return render_('Team', '사역팀', { t: p.t || '', sub: p.sub === 'members' ? 'members' : '' }, 'team');
   }
 
   if (page === 'expense') {
@@ -1033,11 +1033,13 @@ function doGet(e) {
     var bk = (isAdmin_(p.key) || isAcct_(p.key)) ? String(p.key || '').trim() : '';
     var bpre = { t: p.t || '', key: bk };
     try { if (bk || bpre.t) bpre.init = budgetInit(bk || bpre.t); } catch (e) { bpre.err = e.message || ''; }
-    return render_('Budget', '행사 예산 · 정산', bpre, 'acct');
+    return render_('Budget', '수련회 · 선교 예산/정산', bpre, 'acct');
   }
 
   if (page === 'portal') {
-    return render_('Portal', '토론토영락교회 청년1부', 포털입구_(p), 'portal');
+    var ppre = 포털입구_(p);
+    try { var nfp = 새가족미리보기11_(p); if (nfp) ppre.nfPreview = nfp; } catch (e) {}    // 새가족 포털 편집 미리보기 (새가족팀 · 커미티만)
+    return render_('Portal', '토론토영락교회 청년1부', ppre, 'portal');
   }
 
   if (page === 'worship') {
@@ -1092,8 +1094,9 @@ function doGet(e) {
     return render_('TeamHub', '팀 계정', { t: p.t || '' }, 'portal');
   }
 
-  return render_('Leader', '셀모임 보고서', {
-    cell: p.cell || '', date: p.date || '', action: p.action || '', t: p.t || ''
+  return render_('Leader', '셀모임', {
+    cell: p.cell || '', date: p.date || '', action: p.action || '', t: p.t || '',
+    sub: (p.sub === 'members' || p.sub === 'proxy') ? p.sub : ''      // 셀모임 하위 메뉴: 셀원 정보 · 대리 제출 (Step 11)
   }, 'leader');
 }
 
@@ -7328,10 +7331,12 @@ function 포털메뉴_(r, token) {
   // 행사 예산 · 정산 — 회계 권한(사람별 · 행사별)이 하나라도 있거나, 회계팀 · 커미티(조회)인 분께 (logic/eventbudget.js)
   try {
     if (r.name && 회계모듈있나_(r.name)) {
-      목록.push({ key: 'budget', title: '행사 예산 · 정산', desc: '예산 · 거래 · 정산 · 엑셀 · PDF',
+      목록.push({ key: 'budget', title: '수련회 · 선교 예산/정산', desc: '예산 · 거래 · 정산 · 엑셀 · PDF',
         url: base + '?page=budget&t=' + encodeURIComponent(token), note: '' });
     }
   } catch (e) {}
+  // Teva Apps — 이름 · 하위 메뉴 정리 (셀모임 / 사역팀 / 일반 신청서 관리). key 는 그대로라 권한 · 순서가 유지됩니다 (logic/step11.js)
+  목록 = 메뉴묶기11_(목록);
   return 메뉴순서적용_(목록, 'portal');
 }
 
@@ -7433,10 +7438,13 @@ function 포털관리메뉴_(r, token) {
 
   /* 8. 앱 기능 관리 — 알림 · 일정 · AI · 권한 · 메뉴 순서를 여기 하나로 모았습니다 */
   if (커미티) {
-    out.push({ key: 'app', title: '⚙️ 앱 기능 관리', desc: '메뉴 순서 · AI/설교 · 일정 · 알림 · 권한 한곳에', url: base + '#app',
+    // 설교 · 말씀 관리 / 알림 · 이메일 관리는 앱 기능 관리에서 나와 각자 독립 메뉴가 되었습니다 (Step 11)
+    out.push({ key: 'word', title: '📖 설교 · 말씀 관리', desc: '설교 · 말씀 자료 올리기 · 정리', url: base + '#word' });
+    out.push({ key: 'push', title: '🔔 알림 · 이메일 관리', desc: '푸시 · 이메일 보내기 · 자동 알림 · 미리보기', url: base + '#push',
+      stats: [{ n: 푸시행들_().length, l: '알림 켠 기기' }] });
+    out.push({ key: 'app', title: '⚙️ 앱 기능 관리', desc: '메뉴 순서 · AI 설정 · 일정 관리 · 권한 관리', url: base + '#app',
       stats: [
-        { n: (AI있나_() ? (AI켜짐_() ? '켜짐' : '꺼짐') : '없음'), l: 'AI 상태', warn: !AI켜짐_() },
-        { n: 푸시행들_().length, l: '알림 켠 기기' }
+        { n: (AI있나_() ? (AI켜짐_() ? '켜짐' : '꺼짐') : '없음'), l: 'AI 상태', warn: !AI켜짐_() }
       ] });
   }
 
@@ -7472,14 +7480,16 @@ function 메뉴순서적용_(out, kind) {
 /** 앱 기능 관리 — 메뉴 순서 화면 초기값 (지금 순서 그대로, 저장된 값이 없으면 기본 순서) */
 function getMenuOrder(token) {
   if (!isAdmin_(token) && !커미티토큰_(token)) throw new Error('커미티 · 관리자만 볼 수 있습니다.');
-  var 포털기본 = ['album', 'leader', 'team', 'expense', 'newfamily', 'worship', 'mission', 'forms', 'minutes', 'bulletinEdit', 'acct'];
-  var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'dir', 'app'];
+  var 포털기본 = ['album', 'leader', 'team', 'newfamily', 'worship', 'mission', 'forms', 'budget', 'minutes', 'bulletinEdit', 'acct'];
+  var 관리기본 = ['cell', 'nf', 'team', 'acct', 'tr', 'mis', 'dir', 'word', 'push', 'app'];
   var titleOf = {
-    album: '포토 앨범', leader: '셀모임 보고서', team: '사역 보고서 / 사역팀 관리', expense: '지출환급신청서',
-    newfamily: '새가족 관리', worship: '찬양방송팀 허브', mission: '선교팀 관리', forms: '신청서 관리',
+    album: '포토 앨범', leader: '셀모임 (셀 보고서 · 셀원 정보 · 대리 제출)', team: '사역팀 (팀 보고서 · 팀원 관리 · 지출환급신청)',
+    newfamily: '새가족 관리', worship: '찬양방송팀 허브', mission: '선교팀 관리', forms: '일반 신청서 관리',
+    budget: '수련회 · 선교 예산/정산',
     minutes: '회의록 · 할 일', bulletinEdit: '주보 편집', acct: '회계 관리',
     cell: '셀 관리', nf: '새가족 관리', tr: '제자훈련 관리', mis: '선교팀 관리', dir: '교적 관리',
-    app: '⚙️ 앱 기능 관리 (알림 · 일정 · AI · 권한)'
+    word: '설교 · 말씀 관리', push: '알림 · 이메일 관리',
+    app: '⚙️ 앱 기능 관리 (메뉴 순서 · AI · 일정 · 권한)'
   };
   function withTitles(list, fallback) {
     var have = list.length ? list : fallback;
@@ -7692,7 +7702,8 @@ function newcomerHome(token) {
     cellApp: 셀신청상태_({ kind: 'newcomer', nf: nf, email: nf.email, name: nf.name, allowed: nf.cellApp, committee: false }),
     myCell: 내셀_(nf.name),
     forms: myForms(token),
-    todos: 내할일_(token)
+    todos: 내할일_(token),
+    portalCfg: 새가족포털설정11_()        // 새가족 포털 편집 (커미티가 고친 글 · 위젯 순서) — logic/step11.js
   };
 }
 
@@ -7929,16 +7940,26 @@ function portalViewAs(token, name) {
     m.url = m.url + (m.url.indexOf('?') === -1 ? '?' : '&') + 'as=' + encodeURIComponent(name);
     return m;
   });
-  return {
+  // Step 11 — 그분이 실제로 보는 화면과 1:1 로 같게: 그분의 표로 만든 로그인 응답(포털자료_)을 그대로 씁니다
+  // (내 정보 · 알림(내 할 일) · 신청서 · 셀 신청 · 내 셀 · 설교). 표를 만들 수 없으면(전화번호 없음) 예전처럼 메뉴만.
+  var real = null;
+  if (t) { try { real = 포털자료_(t); } catch (e) { real = null; } }
+  var out = {
     token: '', viewAs: name, noLink: !t,
-    me: 내정보_(who, r),
+    me: real ? real.me : 내정보_(who, r),
     roles: r.roles,
     menus: menus,
-    admin: 포털관리메뉴_(r, token),
+    admin: 포털관리메뉴_(r, t || token),
     committee: r.roles.indexOf('커미티') !== -1,
     leader: 볼캘린더_(r.roles).리더,
     hasCalendar: 달력있나_(r.roles)
   };
+  out.sermon = real ? real.sermon : (function () { try { return 현재설교_(); } catch (e) { return null; } })();
+  if (real) {
+    out.cellApp = real.cellApp; out.myCell = real.myCell; out.forms = real.forms;
+    out.todos = real.todos; out.badges = real.badges;
+  }
+  return out;
 }
 
 function 달력있나_(roles) {
@@ -11130,9 +11151,10 @@ function 푸시보내기_(names, msg) {
   var key;
   try { key = 푸시열쇠_(); } catch (e) { return { sent: 0, failed: 0, error: e.message }; }
 
+  var short = 알림푸시문구11_(msg);      // 푸시는 짧게 — 긴 내용은 이메일 · 포털 공지에 (step11.js)
   var payload = {
-    title: String(msg.title || '토론토영락교회 청년1부').slice(0, 80),
-    body: String(msg.body || '').slice(0, 300),
+    title: String(short.title || '토론토영락교회 청년1부').slice(0, 80),
+    body: String(short.body || '').slice(0, 300),
     url: String(msg.url || (앱주소_() + '?page=portal')),
     tag: String(msg.tag || 'yn'), keep: !!msg.keep
   };
@@ -11206,7 +11228,7 @@ function notifyPreview(token, kind) {
 function 알림_(kind, names, msg) {
   try {
     if (!알림켜짐_(kind)) return { sent: 0, off: true };
-    return 푸시보내기_(names, 알림문구붙이기_(kind, msg));
+    return 푸시보내기_(names, msg);        // 안내 문구는 이메일 카드에만 — 푸시는 짧게
   } catch (e) { return { sent: 0, failed: 0, error: e.message }; }
 }
 
@@ -12464,7 +12486,12 @@ function 알림보내기_(kind, names, msg) {
     try {
       var to = 이름메일_(names);
       if (to.length) {
-        var mailMsg = 알림문구붙이기_(kind, msg);
+        var kindName = '';
+        알림종류_().forEach(function (k) { if (k.key === kind) kindName = k.name; });
+        var mailMsg = {};
+        for (var mk in msg) mailMsg[mk] = msg[mk];
+        mailMsg.note = 알림문구_(kind);       // 안내 문구는 본문과 따로 강조 상자로
+        mailMsg.label = kindName;
         MailApp.sendEmail({
           to: to.join(','), name: '토론토영락교회 청년1부',
           subject: '[청년1부] ' + (mailMsg.title || ''),
@@ -12477,15 +12504,9 @@ function 알림보내기_(kind, names, msg) {
   return r;
 }
 
+/** 이메일 본문 — 머리말 · 카드 · 버튼 · 꼬리말이 있는 HTML (logic/step11.js 의 템플릿) */
 function 알림메일본문_(msg) {
-  var url = msg.url || (앱주소_() + '?page=portal');
-  return '<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:520px;">' +
-    '<h2 style="color:#D2511F;margin:0 0 8px;">' + esc_(msg.title || '') + '</h2>' +
-    (msg.body ? '<p style="color:#333;font-size:15px;line-height:1.75;white-space:pre-wrap;margin:0 0 18px;">' +
-      esc_(msg.body) + '</p>' : '') +
-    '<a href="' + esc_(url) + '" style="display:inline-block;background:#D2511F;color:#fff;' +
-      'text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:700;">포털에서 보기</a>' +
-    '<p style="color:#999;font-size:12px;margin-top:22px;">토론토영락교회 청년1부</p></div>';
+  return 알림메일템플릿11_(msg || {});
 }
 
 /* ---- 받는 사람 분류 ---- */

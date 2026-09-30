@@ -1324,6 +1324,13 @@ header .homelink img { display: block; }
       document.body.insertBefore(bar, document.body.firstChild);
     }
     Array.prototype.forEach.call(document.querySelectorAll('header'), function (h) {
+      // 맨 위 "토론토영락교회 청년1부" 글자도 로고처럼 포털 첫 화면으로 (Step 11)
+      var t1 = h.querySelector('h1');
+      if (home && t1 && !t1.getAttribute('data-home')) {
+        t1.setAttribute('data-home', '1'); t1.setAttribute('role', 'link'); t1.setAttribute('tabindex', '0');
+        t1.title = '포털 첫 화면'; t1.style.cursor = 'pointer';
+        t1.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); t1.click(); } });
+      }
       var img = h.querySelector('img');
       if (home && img && !(img.parentNode && img.parentNode.className === 'homelink')) {
         var a = document.createElement('a');
@@ -1345,6 +1352,15 @@ header .homelink img { display: block; }
       }
     });
   }
+  /* 로고 · 제목 클릭 → 포털 첫 화면. 포털 페이지는 goPortalHome() 으로 그 자리에서, 그 밖의 페이지는 주소 이동 */
+  document.addEventListener('click', function (ev) {
+    var t = ev.target && ev.target.closest ? ev.target.closest('header .homelink, header h1[data-home]') : null;
+    if (!t) return;
+    var home = P()._home;
+    try { if (typeof window.goPortalHome === 'function' && window.goPortalHome()) { ev.preventDefault(); return; } } catch (e) {}
+    if (t.tagName === 'H1') { if (home) location.href = home; return; }
+    if (home && t.tagName === 'A' && !t.getAttribute('href')) location.href = home;
+  });
   /* 꼬리말 — 모든 페이지를 같은 모양으로 (주소 · 인스타 · 유튜브) */
   var IC = {
     phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg>',

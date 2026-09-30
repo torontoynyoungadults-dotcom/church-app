@@ -36,27 +36,27 @@ var UP_이름 = 0, UP_구분 = 1, UP_대상 = 2, UP_효과 = 3, UP_범위 = 4, U
  */
 function 권한카탈로그_() {
   return [
-    { key: 'leader',       area: '포털',        title: '셀모임 보고서',   enforced: true,  allow: true,  scope: '셀', help: '범위에 셀 이름(쉼표로 여러 개)을 적으면 그 셀만' },
-    { key: 'team',         area: '포털',        title: '사역 보고서',     enforced: true,  allow: true,  scope: '팀', help: '범위에 사역팀 이름(쉼표로 여러 개)을 적으면 그 팀만' },
+    { key: 'leader',       area: '포털',        title: '셀모임',          enforced: true,  allow: true,  scope: '셀', help: '범위에 셀 이름(쉼표로 여러 개)을 적으면 그 셀만' },
+    { key: 'team',         area: '포털',        title: '사역팀',          enforced: true,  allow: true,  scope: '팀', help: '범위에 사역팀 이름(쉼표로 여러 개)을 적으면 그 팀만' },
     { key: 'newfamily',    area: '포털',        title: '새가족 관리',     enforced: true,  allow: true,  scope: '',   help: '새가족 조회 · 배정 · 정착 추적' },
     { key: 'worship',      area: '포털',        title: '찬양방송팀 허브', enforced: true,  allow: true,  scope: '',   help: '콘티 · 악보 · 편성 (허용하면 고칠 수도 있습니다)' },
     { key: 'bulletinEdit', area: '포털',        title: '주보 편집',       enforced: true,  allow: true,  scope: '',   help: '임시저장까지 — 게시는 주보 게시자만' },
     { key: 'album',        area: '포털',        title: '포토 앨범',       enforced: false, allow: false, scope: '',   help: '교인은 기본으로 열려 있습니다' },
-    { key: 'expense',      area: '포털',        title: '지출환급신청서',  enforced: false, allow: false, scope: '',   help: '' },
+    { key: 'expense',      area: '포털',        title: '지출환급신청 (사역팀 안)', enforced: false, allow: false, scope: '',   help: '' },
     { key: 'mission',      area: '포털',        title: '선교팀 관리',     enforced: false, allow: false, scope: '',   help: '' },
-    { key: 'forms',        area: '포털',        title: '신청서 관리',     enforced: false, allow: false, scope: '',   help: '' },
+    { key: 'forms',        area: '포털',        title: '일반 신청서 관리', enforced: false, allow: false, scope: '',   help: '' },
     { key: 'minutes',      area: '포털',        title: '회의록 · 할 일',  enforced: false, allow: false, scope: '',   help: '' },
     { key: 'acct',         area: '포털',        title: '회계 관리',       enforced: false, allow: false, scope: '',   help: '' },
     { key: 'admin.cell',   area: '커미티 관리', title: '셀 관리',         enforced: false, allow: false, scope: '',   help: '' },
     { key: 'admin.team',   area: '커미티 관리', title: '사역팀 관리',     enforced: false, allow: false, scope: '',   help: '' },
     { key: 'admin.tr',     area: '커미티 관리', title: '제자훈련 관리',   enforced: false, allow: false, scope: '',   help: '' },
     { key: 'admin.dir',    area: '커미티 관리', title: '교적 관리',       enforced: false, allow: false, scope: '',   help: '' },
-    { key: 'admin.app',    area: '커미티 관리', title: '앱 기능 관리',    enforced: true,  allow: false, scope: '',   help: '권한 · 알림 · 메뉴 순서를 바꿉니다' }
+    { key: 'admin.app',    area: '커미티 관리', title: '앱 기능 관리',    enforced: true,  allow: false, scope: '',   help: '메뉴 순서 · AI · 일정 · 권한 · 설교 · 알림을 바꿉니다' }
   ];
 }
 
 /** 커미티 관리 화면의 칸 이름(포털관리메뉴_ 의 key) → 권한 메뉴 */
-var 관리메뉴권한키_ = { cell: 'admin.cell', nf: 'newfamily', team: 'admin.team', acct: 'acct', tr: 'admin.tr', mis: 'mission', dir: 'admin.dir', app: 'admin.app' };
+var 관리메뉴권한키_ = { cell: 'admin.cell', nf: 'newfamily', team: 'admin.team', acct: 'acct', tr: 'admin.tr', mis: 'mission', dir: 'admin.dir', app: 'admin.app', word: 'admin.app', push: 'admin.app' };   // Step 11: 설교 · 알림은 독립 메뉴지만 예전처럼 '앱 기능 관리' 권한을 따릅니다
 
 /** 예전 이름 · 별칭을 하나로 */
 function 권한키정리_(key) {

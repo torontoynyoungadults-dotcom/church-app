@@ -28,7 +28,8 @@
     "test:step7": "node scripts/test-step7.js && node scripts/browser/e2e-step7.js",
     "test:step8": "node scripts/test-step8.js",
     "test:step9": "node scripts/test-step9.js",
-    "test:step10": "node scripts/test-step10.js && node scripts/browser/e2e-step10.js"
+    "test:step10": "node scripts/test-step10.js && node scripts/browser/e2e-step10.js",
+    "test:step11": "node scripts/test-step11.js && node scripts/browser/e2e-step11.js"
   },
   "engines": {
     "node": ">=20"

@@ -373,7 +373,7 @@ body .toggle button .k,
 <div class="shell">
   <header>
     <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak Young Adults"></a>
-    <h1>셀모임 보고서</h1>
+    <h1>셀모임</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; CELL REPORT</p>
   </header>
 
@@ -967,6 +967,18 @@ function startForm() {
   el('cellFixed').textContent = single ? cells[0].name : '';
   showRoomLine();
   onContextChange();
+
+  /* 포털 '셀모임' 하위 메뉴로 들어오면 해당 패널을 한 번만 바로 엽니다 (?sub=members | proxy) */
+  if (PREFILL.sub && !startForm._subDone) {
+    startForm._subDone = true;
+    try {
+      if (PREFILL.sub === 'members' && el('dirToggle').style.display !== 'none' && el('dirPanel').style.display !== 'block') toggleDirectory();
+      if (PREFILL.sub === 'proxy' && el('dgToggle').style.display !== 'none' && el('dgForm').style.display !== 'block') {
+        toggleDgForm();
+        setTimeout(function () { var f = el('dgForm'); if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+      }
+    } catch (e) {}
+  }
 }
 
 /* ---------- 대리 작성자 ---------- */

@@ -285,7 +285,7 @@ body .fcard:hover,
 <div class="shell">
   <header>
     <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
-    <h1>신청서 관리</h1>
+    <h1>일반 신청서 관리</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; FORMS</p>
   </header>
   <div id="root"><div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div></div>
@@ -317,7 +317,7 @@ function typeOf(k) { var h = null; (D && D.types || []).forEach(function (t) { i
 
 function boot() {
   if (!TOKEN) {
-    el('root').innerHTML = '<div class="panel"><p class="msg err">포털에서 “신청서 관리” 로 들어와 주세요.</p>' +
+    el('root').innerHTML = '<div class="panel"><p class="msg err">포털에서 “일반 신청서 관리” 로 들어와 주세요.</p>' +
       '<a class="btn full" href="?page=portal">포털로 가기</a></div>';
     return;
   }

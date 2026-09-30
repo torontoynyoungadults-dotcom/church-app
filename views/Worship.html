@@ -277,31 +277,6 @@
   #tabs::-webkit-scrollbar { display: none; }
   #tabs button { flex: 1 0 auto; font-size: 14px !important; padding-left: 5px !important; padding-right: 5px !important; white-space: nowrap; }
 
-  /* 팀원 관리 버튼 */
-  #mgbar { display: flex; justify-content: flex-end; padding: 0 14px 8px; }
-  #mgbar:empty { display: none; }
-  .mgbtn {
-    display: inline-flex; align-items: center; gap: 6px; font-family: inherit; cursor: pointer;
-    font-size: 14px; font-weight: 750; color: #CFC8BE; background: var(--night-2);
-    border: 1px solid var(--hair-night); border-radius: 99px; padding: 7px 13px;
-  }
-  .mgbtn svg { width: 16px; height: 16px; }
-  .mgbtn.on { background: var(--tone); border-color: var(--tone); color: #fff; }
-  .tmcount { font-size: 14px; font-weight: 800; color: var(--tone); }
-  .tmrow { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--hair); }
-  .tmrow:first-of-type { border-top: none; }
-  .tmrow > .fc {
-    width: 40px; height: 40px; border-radius: 50%; flex: none; object-fit: cover; background: var(--canvas);
-    display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800;
-    color: var(--tone); border: 1px solid var(--hair);
-  }
-  .tmb { flex: 1; min-width: 0; }
-  .tmn { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
-  .tmr { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-  .rtag { font-size: 13px; font-weight: 750; color: var(--tone); background: var(--tone-soft); border-radius: 6px; padding: 2px 8px; }
-  .rtag.none { color: var(--ink-4); background: var(--canvas); }
-  .tmadd { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hair-2); }
-
   /* 공지사항 */
   .nt.pin { border: 1.5px solid rgba(var(--tone-rgb), .45) !important; }
   .nth { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
@@ -1066,7 +1041,6 @@ body .pe .fc,
       <button type="button" class="wkcal" onclick="openDatePick()" aria-label="달력에서 날짜 고르기" title="달력에서 고르기">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8.5 3.5v3M15.5 3.5v3"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg>
       </button></div>
-    <div id="mgbar"></div>
     <div class="tabs" id="tabs"></div>
     <div id="body"></div>
   </div>
@@ -1239,7 +1213,6 @@ function tab(t) {
   if (t === 'stats' && !SS.data) loadStats();
   if (t === 'archive' && !AR.data) loadArchive();
   if (t === 'notice' && !NT.list) loadNotices();
-  if (t === 'team' && !TM.data) loadTeamMgr();
   window.scrollTo(0, 0);
 }
 
@@ -1247,12 +1220,6 @@ function renderTabs() {
   el('tabs').innerHTML = TABS.map(function (x) {
     return '<button type="button" class="' + (TAB === x[0] ? 'on' : '') + '" onclick="tab(\'' + x[0] + '\')">' + x[1] + '</button>';
   }).join('');
-  // 팀장 · 커미티 — 팀원 관리
-  el('mgbar').innerHTML = (D.manage || []).length
-    ? '<button type="button" class="mgbtn' + (TAB === 'team' ? ' on' : '') + '" onclick="tab(\'team\')">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9.2 5 2.2 5 5.4"/></svg>' +
-        '팀원 관리</button>'
-    : '';
   el('weeks').parentNode.style.display = (TAB === 'plan') ? '' : 'none';
 }
 
@@ -1331,7 +1298,6 @@ function render() {
   else if (TAB === 'stats') html = statsTab();
   else if (TAB === 'archive') html = archiveTab();
   else if (TAB === 'notice') html = noticeTab();
-  else if (TAB === 'team') html = teamTab();
   // 듣고 있던 녹음은 화면을 다시 그려도 끊기지 않게 그대로 옮겨 붙입니다
   var playing = Array.prototype.filter.call(el('body').querySelectorAll('audio'), function (a) { return !a.paused; });
   el('body').innerHTML = html;
@@ -3460,74 +3426,6 @@ function saveNotice() {
 function dropNotice(id) {
   if (!confirm('이 글을 지울까요?')) return;
   callServer('removeWorshipNotice', [TOKEN, id], function (l) { NT.list = l; render(); }, fail);
-}
-
-/* ===================== 팀원 관리 (팀장 · 커미티) ===================== */
-
-var TM = { data: null };
-
-function loadTeamMgr() {
-  callServer('worshipTeams', [TOKEN], function (d) { TM.data = d; if (TAB === 'team') render(); }, function (e) {
-      if (TAB === 'team') el('body').innerHTML = '<div class="panel"><p class="empty">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>';
-    });
-}
-
-function teamTab() {
-  if (!TM.data) return '<div class="panel"><i class="skel line" style="width:50%;"></i><i class="skel line" style="width:85%;"></i></div>';
-  return '<datalist id="dirNames">' + TM.data.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>' +
-    TM.data.teams.map(function (t, ti) {
-      var used = t.members.map(function (m) { return m.role; });
-      return '<div class="panel"><div class="sechead"><span class="chip">' + esc(t.name) + '</span>' +
-          '<span class="tmcount">' + t.members.length + '명</span></div>' +
-        (t.leader ? '<p class="hint" style="margin-top:-4px;">팀장 ' + esc(t.leader) + '</p>' : '') +
-        t.members.map(function (m) {
-          var roles = RP.split(m.role);
-          return '<div class="tmrow">' + face(m.name) +
-            '<div class="tmb"><div class="tmn">' + esc(m.name) + (m.name === t.leader ? ' <span class="evtag">팀장</span>' : '') + '</div>' +
-              '<div class="tmr">' + (roles.length ? roles.map(function (r) { return '<span class="rtag">' + esc(r) + '</span>'; }).join('')
-                : '<span class="rtag none">역할 없음</span>') + '</div></div>' +
-            '<button class="btn mini" onclick="tmRole(' + ti + ',\'' + esc(jsq(m.name)) + '\')">역할</button>' +
-            '<button class="btn mini danger" onclick="tmDrop(' + ti + ',\'' + esc(jsq(m.name)) + '\')">빼기</button></div>';
-        }).join('') +
-        '<div class="tmadd"><div class="gl2" style="margin-top:4px;">팀원 추가</div>' +
-          '<input type="text" id="tmName' + ti + '" list="dirNames" placeholder="이름 (교적에서 찾기)" maxlength="30">' +
-          '<div class="gl2" style="margin:10px 0 6px;">역할 <span style="font-weight:500;letter-spacing:0;">— 여러 개 고를 수 있어요</span></div>' +
-          RP.html('tmRoles' + ti, '', RP.sugg(t.name, used)) +
-          '<button class="btn accent full" style="margin-top:12px;" onclick="tmAdd(' + ti + ')">팀에 추가</button>' +
-          '<p class="msg" id="tmMsg' + ti + '"></p></div>' +
-      '</div>';
-    }).join('') +
-    '<p class="fnote" style="padding:0 16px;">여기서 바꾼 역할(인도자 · 남싱 · 피아노 …)은 편성할 때 "이 포지션 담당" 으로 먼저 보입니다.</p>';
-}
-
-/** 팀원이 바뀌면 편성에서 쓰는 멤버 목록도 새로 받습니다 */
-function tmApply(d) {
-  TM.data = { teams: d.teams, names: d.names };
-  if (d.members) { D.members = d.members; FACE = null; }
-  if (ST.rows) ST.rows = ST.rows;           // 표는 그대로
-  if (TAB === 'team') render();
-}
-
-function tmAdd(ti) {
-  var t = TM.data.teams[ti], name = val('tmName' + ti);
-  if (!name) { say('tmMsg' + ti, '이름을 적어주세요.', 'err'); return; }
-  if (t.members.some(function (m) { return m.name === name; })) { say('tmMsg' + ti, '이미 팀에 있습니다. 역할을 바꾸려면 "역할" 을 눌러주세요.', 'err'); return; }
-  say('tmMsg' + ti, '추가하는 중…');
-  callServer('saveWorshipMember', [TOKEN, t.name, name, RP.val('tmRoles' + ti)], function (d) { tmApply(d); say('tmMsg' + ti, name + '님을 추가했습니다.', 'ok'); }, function (e) { say('tmMsg' + ti, e.message || '추가하지 못했습니다.', 'err'); });
-}
-
-function tmRole(ti, name) {
-  var t = TM.data.teams[ti];
-  var m = t.members.filter(function (x) { return x.name === name; })[0] || {};
-  RP.edit(name + ' · ' + t.name, m.role || '', RP.sugg(t.name, t.members.map(function (x) { return x.role; })), function (v, done) {
-    callServer('saveWorshipMember', [TOKEN, t.name, name, v], function (d) { done(); tmApply(d); }, function (e) { done(e.message || '저장하지 못했습니다.'); });
-  });
-}
-
-function tmDrop(ti, name) {
-  var t = TM.data.teams[ti];
-  if (!confirm(name + '님을 ' + t.name + '에서 뺄까요?')) return;
-  callServer('removeWorshipMember', [TOKEN, t.name, name], tmApply, fail);
 }
 </script>
 </body>

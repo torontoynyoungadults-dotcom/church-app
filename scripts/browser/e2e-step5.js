@@ -54,7 +54,7 @@ function makeList() {
   const loadAll = async () => { let last = -1, still = 0; for (let i = 0; i < 200; i++) { const n = await page.evaluate(() => { const m = document.querySelector('.dg-more'); if (m) m.scrollIntoView(); return m ? document.querySelectorAll('#dirList .dg-card').length : -2; }); if (n === -2) return; still = n === last ? still + 1 : 0; last = n; if (still >= 4) { await page.evaluate(() => { const b = document.querySelector('.dg-more button'); if (b) b.click(); }); still = 0; } await page.waitForTimeout(120); } };
 
   console.log('· 열기 · 첫 그리기');
-  await page.goto(BASE + '/?page=admin&key=ADM');
+  await page.goto(BASE + '/?page=admin&key=ADM#dir');   // Step 11: 옛 관리 첫 화면이 없어져서 영역(#dir)으로 바로 들어갑니다
   await L.waitTrue(page, () => document.getElementById('main').style.display !== 'none', null, 8000);
   await page.evaluate(() => go('dir'));
   check('결과 카드가 그려짐', await L.waitTrue(page, () => document.querySelectorAll('#dirList .dg-card').length > 0, null, 6000));

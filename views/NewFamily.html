@@ -402,6 +402,29 @@ body .stagehead.empty,
   body input:disabled, body select:disabled, body textarea:disabled {
     color: #CFC9C1 !important; opacity: 1 !important;
   }
+
+  /* 포털 화면 편집 */
+  .npgrid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 12px; align-items: start; padding: 0 4px; }
+  @media (max-width: 860px) { .npgrid { grid-template-columns: 1fr; } .npprev { order: -1; } }
+  .npprev { position: sticky; top: 8px; }
+  .nphd { display: flex; flex-direction: column; gap: 2px; margin: 0 12px 8px; }
+  .nphd b { color: #FFB185; font-size: 15px; }
+  .nphd span { color: #DCD7D0; font-size: 12.5px; }
+  .npframe { margin: 0 12px; border-radius: 26px; overflow: hidden; border: 1px solid rgba(255,255,255,.24); background: #14110f; box-shadow: 0 14px 40px rgba(0,0,0,.45); }
+  .npframe iframe { width: 100%; height: min(78vh, 760px); border: 0; display: block; background: transparent; }
+  .npw { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 8px 10px; margin-top: 8px; border-radius: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); }
+  .npw.off { opacity: .6; }
+  .npw .nwn { flex: 1; min-width: 0; }
+  .npw .nwn b { display: block; font-size: 15px; color: #fff; }
+  .npw .nwn small { display: block; font-size: 12.5px; color: #DCD7D0; line-height: 1.5; }
+  .npw button { min-width: 40px; min-height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.1); color: #fff; font-size: 16px; cursor: pointer; font-family: inherit; }
+  .npw button:disabled { opacity: .35; cursor: default; }
+  .npw .tg { min-width: 56px; font-size: 13px; font-weight: 800; }
+  .npw .tg.on { background: linear-gradient(135deg, #F26B21, #D2511F); border-color: #FFC9AB; }
+  .nplink { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 6px; margin-top: 8px; }
+  @media (max-width: 520px) { .nplink { grid-template-columns: 1fr; } }
+  .npbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .npbar .btn { flex: 1; min-width: 130px; min-height: 48px; }
 </style>
 <!--#include Theme-->
 </head>
@@ -429,6 +452,7 @@ body .stagehead.empty,
       <button type="button" id="ntb_stat" onclick="nfTab('stat')">진행 통계</button>
       <button type="button" id="ntb_track" onclick="nfTab('track')">정착 추적</button>
       <button type="button" id="ntb_staff" onclick="nfTab('staff')">팀원 · 설정</button>
+      <button type="button" id="ntb_portal" onclick="nfTab('portal')">포털 화면</button>
     </div>
 
     <!-- 진행 통계 -->
@@ -471,6 +495,17 @@ body .stagehead.empty,
         <p class="msg" id="staffMsg"></p>
       </div>
       <div id="notifyBox"></div>
+    </div>
+
+    <!-- 포털 화면 (새가족이 보는 첫 화면 편집) -->
+    <div id="pane_portal" style="display:none;">
+      <div class="npgrid">
+        <div class="npedit" id="npEdit"><div class="panel"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div></div>
+        <div class="npprev">
+          <div class="nphd"><b>미리보기</b><span>새가족이 실제로 보는 화면 · 편집 내용이 바로 반영됩니다</span></div>
+          <div class="npframe"><iframe id="npFrame" title="새가족 포털 미리보기" sandbox="allow-scripts allow-same-origin"></iframe></div>
+        </div>
+      </div>
     </div>
 
     <!-- 명단 -->
@@ -750,15 +785,127 @@ function setCellApp(name, box) {
 }
 
 /* 새가족 등록 알림 이메일 (커미티) */
+/* ===================== 포털 화면 편집 (새가족이 보는 첫 화면) ===================== */
+var NP = { cfg: null, defaults: null, catalog: [], loaded: false, ready: false, timer: null };
+
+function loadPortalEditor() {
+  if (NP.loaded) { drawPortalEditor(); return; }
+  callServer('newcomerPortalAdminInit', [TOKEN], function (r) {
+    NP.cfg = r.config; NP.defaults = r.defaults; NP.catalog = r.catalog || []; NP.loaded = true;
+    drawPortalEditor();
+    var f = el('npFrame');
+    if (!f.getAttribute('src')) {
+      window.addEventListener('message', function (ev) {
+        if (ev.origin !== location.origin) return;
+        if (ev.data && ev.data.type === 'nfready') { NP.ready = true; npPush(); }
+      });
+      f.setAttribute('src', '?page=portal&nfpreview=1&t=' + encodeURIComponent(TOKEN));
+    }
+  }, function (e) {
+    el('npEdit').innerHTML = '<div class="panel"><p class="msg err">' + esc((e && e.message) || '불러오지 못했습니다.') + '</p></div>';
+  });
+}
+
+function npInfo(id) { var r = null; NP.catalog.forEach(function (c) { if (c.id === id) r = c; }); return r || { name: id, help: '' }; }
+
+function drawPortalEditor() {
+  var c = NP.cfg, keep = document.activeElement && document.activeElement.id;
+  var ws = c.widgets.map(function (w, i) {
+    var inf = npInfo(w.id), fixed = !!inf.fixed;
+    return '<div class="npw' + (w.on ? '' : ' off') + '"><div class="nwn"><b>' + esc(inf.name) + '</b><small>' + esc(inf.help || '') + '</small></div>' +
+      '<button type="button" ' + (i === 0 ? 'disabled' : '') + ' onclick="npMove(' + i + ',-1)" aria-label="위로">↑</button>' +
+      '<button type="button" ' + (i === c.widgets.length - 1 ? 'disabled' : '') + ' onclick="npMove(' + i + ',1)" aria-label="아래로">↓</button>' +
+      (fixed ? '<button type="button" class="tg on" disabled>항상</button>'
+             : '<button type="button" class="tg' + (w.on ? ' on' : '') + '" onclick="npToggle(' + i + ')" aria-pressed="' + (w.on ? 'true' : 'false') + '">' + (w.on ? '켜짐' : '꺼짐') + '</button>') +
+      '</div>';
+  }).join('');
+  var noticeOn = c.widgets.some(function (w) { return w.id === 'notice' && w.on; });
+  var linksOn = c.widgets.some(function (w) { return w.id === 'links' && w.on; });
+  var links = (c.links || []).map(function (l, i) {
+    return '<div class="nplink"><input type="text" id="npLL' + i + '" maxlength="20" placeholder="이름" value="' + esc(l.label) + '" oninput="npRead()">' +
+      '<input type="text" id="npLU' + i + '" maxlength="300" placeholder="?page=bulletin 또는 https://…" value="' + esc(l.url) + '" oninput="npRead()">' +
+      '<button type="button" class="btn mini danger" onclick="npLinkDel(' + i + ')">빼기</button></div>';
+  }).join('');
+  el('npEdit').innerHTML =
+    '<div class="panel"><span class="chip">환영 카드 글</span>' +
+      '<div class="f"><label class="fl">인사 제목 <span style="font-weight:500;">— {name} 은 새가족 이름으로 바뀝니다</span></label>' +
+        '<input type="text" id="npTitle" maxlength="60" value="' + esc(c.title) + '" oninput="npRead()"></div>' +
+      '<div class="f"><label class="fl">안내 문구</label>' +
+        '<textarea id="npMsg" rows="3" maxlength="300" oninput="npRead()">' + esc(c.message) + '</textarea></div>' +
+      '<label class="lkchg" style="margin:0 0 8px;"><input type="checkbox" id="npStatus" ' + (c.showStatus ? 'checked' : '') + ' onchange="npRead()"><span>등록일 · 진행 상태 줄 보이기</span></label>' +
+      '<div class="f"><label class="fl">알림 카드 이름</label><input type="text" id="npTodos" maxlength="20" value="' + esc(c.todosTitle) + '" oninput="npRead()"></div>' +
+    '</div>' +
+    '<div class="panel"><span class="chip">위젯 순서 · 켜기/끄기</span>' +
+      '<p class="hint">화살표로 순서를 바꾸고, 새가족에게 보일 것만 켜 두세요. 내용이 없는 위젯(예: 셀이 아직 없는 "내 셀")은 저절로 숨습니다.</p>' + ws + '</div>' +
+    (noticeOn ? '<div class="panel"><span class="chip">안내 카드</span>' +
+      '<div class="f"><label class="fl">작은 이름표</label><input type="text" id="npNL" maxlength="20" placeholder="예: 공지" value="' + esc(c.notice.label) + '" oninput="npRead()"></div>' +
+      '<div class="f"><label class="fl">제목</label><input type="text" id="npNT" maxlength="60" value="' + esc(c.notice.title) + '" oninput="npRead()"></div>' +
+      '<div class="f"><label class="fl">내용</label><textarea id="npNB" rows="4" maxlength="600" oninput="npRead()">' + esc(c.notice.text) + '</textarea></div>' +
+      '<div class="f"><label class="fl">버튼 링크 (비우면 버튼 없음)</label><input type="text" id="npNU" maxlength="300" placeholder="?page=bulletin 또는 https://…" value="' + esc(c.notice.url) + '" oninput="npRead()"></div></div>' : '') +
+    (linksOn ? '<div class="panel"><span class="chip">바로가기 링크 (최대 6개)</span>' +
+      '<p class="hint">이 사이트 안 화면은 <b>?page=bulletin</b> · <b>?page=calendar</b> 처럼, 바깥 사이트는 https:// 로 적어주세요.</p>' + links +
+      (c.links.length < 6 ? '<button type="button" class="btn full" style="margin-top:10px;" onclick="npLinkAdd()">+ 링크 추가</button>' : '') + '</div>' : '') +
+    '<div class="panel"><div class="npbar">' +
+      '<button type="button" class="btn accent" id="npSave" onclick="npSave()">저장하기</button>' +
+      '<button type="button" class="btn" onclick="npReset()">기본값으로</button></div>' +
+      '<p class="msg" id="npMsgLine" role="status"></p>' +
+      '<p class="fnote">저장하면 새가족이 다음에 포털을 열 때부터 바뀐 화면이 보입니다. 미리보기는 저장 전에도 바로 바뀝니다.</p></div>';
+  if (keep && el(keep) && el(keep).focus) { try { el(keep).focus(); } catch (e) {} }
+}
+
+/** 입력칸의 값을 NP.cfg 로 읽고 미리보기를 갱신합니다 (다시 그리지는 않아 입력이 끊기지 않습니다) */
+function npRead() {
+  var c = NP.cfg, v = function (id) { var x = el(id); return x ? x.value : null; };
+  if (v('npTitle') !== null) c.title = v('npTitle');
+  if (v('npMsg') !== null) c.message = v('npMsg');
+  if (el('npStatus')) c.showStatus = el('npStatus').checked;
+  if (v('npTodos') !== null) c.todosTitle = v('npTodos');
+  if (el('npNT')) c.notice = { label: v('npNL'), title: v('npNT'), text: v('npNB'), url: v('npNU') };
+  if (el('npLL0') || (c.links || []).length) {
+    c.links = c.links.map(function (l, i) { return el('npLL' + i) ? { label: v('npLL' + i), url: v('npLU' + i) } : l; });
+  }
+  npPushSoon();
+}
+function npPushSoon() { clearTimeout(NP.timer); NP.timer = setTimeout(npPush, 250); }
+function npPush() {
+  var f = el('npFrame');
+  if (!NP.ready || !f || !f.contentWindow) return;
+  f.contentWindow.postMessage({ type: 'nfcfg', cfg: NP.cfg }, location.origin);
+}
+function npMove(i, d) {
+  var w = NP.cfg.widgets, j = i + d;
+  if (j < 0 || j >= w.length) return;
+  var t = w[i]; w[i] = w[j]; w[j] = t;
+  drawPortalEditor(); npPush();
+}
+function npToggle(i) { NP.cfg.widgets[i].on = !NP.cfg.widgets[i].on; drawPortalEditor(); npPush(); }
+function npLinkAdd() { npRead(); NP.cfg.links.push({ label: '', url: '' }); drawPortalEditor(); }
+function npLinkDel(i) { npRead(); NP.cfg.links.splice(i, 1); drawPortalEditor(); npPush(); }
+function npSay(t, k) { var m = el('npMsgLine'); if (m) { m.className = 'msg' + (k ? ' ' + k : ''); m.textContent = t; } }
+function npSave() {
+  npRead(); npSay('저장 중…');
+  el('npSave').disabled = true;
+  callServer('saveNewcomerPortalConfig', [TOKEN, NP.cfg], function (r) {
+    NP.cfg = r.config; drawPortalEditor(); npSay('저장했습니다. 새가족의 첫 화면에 반영됩니다.', 'ok'); npPush();
+  }, function (e) { el('npSave').disabled = false; npSay((e && e.message) || '저장하지 못했습니다.', 'err'); });
+}
+function npReset() {
+  if (!confirm('새가족 포털 화면을 기본값으로 되돌릴까요?')) return;
+  callServer('resetNewcomerPortalConfig', [TOKEN], function (r) {
+    NP.cfg = r.config; drawPortalEditor(); npSay('기본값으로 되돌렸습니다.', 'ok'); npPush();
+  }, function (e) { npSay((e && e.message) || '되돌리지 못했습니다.', 'err'); });
+}
+
 /* ---------- 탭 ---------- */
 var NFSUM = null;
 
 function nfTab(k) {
-  ['list', 'stat', 'track', 'staff'].forEach(function (x) {
+  ['list', 'stat', 'track', 'staff', 'portal'].forEach(function (x) {
     el('pane_' + x).style.display = (x === k) ? 'block' : 'none';
     el('ntb_' + x).className = (x === k) ? 'on' : '';
   });
   window.scrollTo(0, 0);
+  if (k === 'portal') { loadPortalEditor(); return; }
   if ((k === 'stat' || k === 'track' || k === 'staff') && !NFSUM) loadSummary();
   else if (k === 'stat') drawStats();
   else if (k === 'track') drawTrack();

@@ -1078,12 +1078,15 @@ body .mcardlink,
 </style>
 <link rel="stylesheet" href="/forms/forms.css?v=7">
 <link rel="stylesheet" href="/portal/portal-lux.css?v=9">
+<link rel="stylesheet" href="/portal/portal-step11.css?v=2">
 </head>
 <body>
 <div class="shell">
   <header>
-    <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
-    <h1><span>토론토영락교회</span> <span>청년1부</span></h1>
+    <a href="?page=portal" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
+    <h1 class="homelink-h1" title="포털 홈으로"><span>토론토영락교회</span> <span>청년1부</span></h1>
+    <button type="button" class="ynbell" id="bellBtn" style="display:none;" aria-label="알림 설정" aria-haspopup="dialog" aria-expanded="false" onclick="toggleBell(event)"></button>
+    <div class="bellpop" id="bellPop" style="display:none;" role="dialog" aria-label="푸시 알림 설정"></div>
     <p class="meta">YoungNak Church of Toronto &middot; Youngadults Group</p>
   </header>
 
@@ -1266,11 +1269,13 @@ body .mcardlink,
 
     <div id="todoBox"></div>
 
-    <a class="bulbtn in" href="?page=bulletin">
-      <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
-      <span class="bt"><b>주보보기</b></span><span class="ba">›</span>
-    </a>
-    <div id="sermonCardBox"></div>
+    <div class="pairrow" id="bulSerRow">
+      <a class="bulbtn in pairbul" href="?page=bulletin">
+        <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.8-1 5.5-.8 8 .9 2.5-1.7 5.2-1.9 8-.9V19c-2.8-1-5.5-.8-8 .9-2.5-1.7-5.2-1.9-8-.9z"/><path d="M12 6.4V19.9"/></svg></span>
+        <span class="bt"><b>주보보기</b><small>이번 주 예배 순서 · 광고</small></span><span class="ba">›</span>
+      </a>
+      <div id="sermonCardBox" class="pairser"></div>
+    </div>
     <div class="aibtns">
       <a class="bulbtn ai dev" id="btnDevotion" href="?page=devotion">
         <span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="M12 8c0-3 2.4-5 5.6-5C17.6 6 15.2 8 12 8z"/><path d="M12 11.5c0-2.6-2-4.4-4.8-4.4-.2 2.7 1.9 4.4 4.8 4.4z"/></svg></span>
@@ -1296,8 +1301,6 @@ body .mcardlink,
       </div>
     </div>
     <div id="cellAppBox"></div>
-    <div id="formsBox"></div>
-    <div id="pushBox"></div>
 
     <div id="calWrap" style="display:none;">
       <div class="calhead">
@@ -1320,8 +1323,9 @@ body .mcardlink,
     </div>
 
     <div id="menuWrap" style="display:none;">
-      <p class="seclabel">청년부 아카이브 &amp; 예배 관리</p>
+      <p class="seclabel">Teva Apps</p>
       <div class="tiles" id="menus"></div>
+      <div class="subpanel" id="subPanel" style="display:none;" role="region" aria-live="polite"></div>
     </div>
 
     <div id="adminWrap" style="display:none;">
@@ -1511,6 +1515,8 @@ function dropProfileCache() { try { sessionStorage.removeItem(PROFILE_CACHE_KEY)
    2) 이미 로그인한 적이 있으면 — 저장된 표로 확인하는 동안 "로그인 중" 을 보여줍니다
    3) 둘 다 아니면 로그인 화면 */
 function boot() {
+  // 새가족 포털 편집 미리보기 (새가족팀 · 커미티가 편집 화면 안에서 봅니다 — 로그인 · 저장 없음)
+  if (PREFILL.nfPreview) { startNfPreview(PREFILL.nfPreview); return; }
   // 구글로 로그인했는데 교적에 없는 계정 — 본인 확인(또는 로그인된 분이면 바로 연결)
   if (PREFILL.nfToken) NF_TOKEN = PREFILL.nfToken;
   if (PREFILL.link && PREFILL.intent === 'newcomer' && PREFILL.newcomer) {
@@ -1857,6 +1863,69 @@ function openNfHome() {
     forgetToken(); NF_TOKEN = ''; showLock(); say('gMsg', (e && e.message) || '다시 로그인해주세요.', 'err');
   });
 }
+/* 새가족 첫 화면의 기본 설정 — 서버(step11.js)가 주는 portalCfg 가 없을 때(예전 서버)도 예전 화면 그대로 */
+var NF_CFG_DEFAULT = {
+  title: '{name}님, 환영합니다', message: '새가족 교육(4주)을 마치면 셀(소그룹)에 참여하실 수 있습니다.', showStatus: true, todosTitle: '알림',
+  widgets: [{ id: 'welcome', on: true }, { id: 'notice', on: false }, { id: 'cellapp', on: true }, { id: 'mycell', on: true },
+            { id: 'todos', on: true }, { id: 'forms', on: true }, { id: 'links', on: false }, { id: 'edit', on: true }],
+  notice: { title: '', text: '', label: '', url: '' }, links: []
+};
+
+function nfLinkHref(u) {
+  u = String(u || '');
+  if (/^\?page=/.test(u) || /^https?:\/\//i.test(u)) return u;
+  return '';
+}
+
+/** 새가족 첫 화면 본문 — 실제 새가족 · 커미티의 "화면 보기" · 편집 미리보기가 모두 이 함수로 그립니다 (1:1) */
+function nfHomeHtml(h, ro) {
+  var cfg = h.portalCfg || NF_CFG_DEFAULT;
+  var ca = h.cellApp || {};
+  var widgets = (cfg.widgets && cfg.widgets.length) ? cfg.widgets : NF_CFG_DEFAULT.widgets;
+  var out = '';
+  widgets.forEach(function (w) {
+    if (!w.on && w.id !== 'welcome') return;
+    if (w.id === 'welcome') {
+      var hi = String(cfg.title || NF_CFG_DEFAULT.title).replace(/\{name\}/g, h.name || '');
+      out += '<div class="panel nfhome"><span class="chip">새가족</span>' +
+        '<div class="hi">' + esc(hi) + '</div>' +
+        '<div class="st">' + (cfg.showStatus === false ? '' : '새가족 등록일 ' + esc(h.joinedAt || '') + ' · ' + esc(h.status || '진행중') + '<br>') +
+        esc(cfg.message == null ? '' : cfg.message).replace(/\n/g, '<br>') + '</div></div>';
+    } else if (w.id === 'notice') {
+      var n = cfg.notice || {};
+      if (!n.title && !n.text) return;
+      var href = nfLinkHref(n.url);
+      out += '<div class="panel nfnotice"><span class="chip">' + esc(n.label || '안내') + '</span>' +
+        (n.title ? '<div class="nnt">' + esc(n.title) + '</div>' : '') +
+        (n.text ? '<div class="nnb">' + esc(n.text).replace(/\n/g, '<br>') + '</div>' : '') +
+        (href ? '<a class="btn accent full" href="' + esc(href) + '">자세히 보기</a>' : '') + '</div>';
+    } else if (w.id === 'cellapp') {
+      if (ca.state === 'open') out += cellAppBtn(ca, ro);
+    } else if (w.id === 'mycell') {
+      if (h.myCell) out += myCellHtml(h.myCell);
+    } else if (w.id === 'todos') {
+      out += '<div id="todoBoxNf"></div>';
+    } else if (w.id === 'forms') {
+      out += '<div id="formsBoxNf"></div>';
+    } else if (w.id === 'links') {
+      var ls = (cfg.links || []).filter(function (l) { return nfLinkHref(l.url); });
+      if (!ls.length) return;
+      out += '<div class="panel nflinks"><span class="chip">바로가기</span>' + ls.map(function (l) {
+        return '<a class="nflink" href="' + esc(nfLinkHref(l.url)) + '"><span>' + esc(l.label) + '</span><i>›</i></a>';
+      }).join('') + '</div>';
+    } else if (w.id === 'edit') {
+      out += '<div class="panel"><button class="btn full" ' + (ro ? 'disabled' : 'onclick="editNewcomer()"') + '>내 등록 정보 고치기</button></div>';
+    }
+  });
+  if (!ro) out += '<div class="panel" style="background:none!important;border:none!important;box-shadow:none!important;padding-top:0!important;"><p class="fnote" style="text-align:center;margin:0;"><a href="#" onclick="nfLogout();return false;">로그아웃</a></p></div>';
+  return out;
+}
+
+function nfFillBoxes(h) {
+  try { renderTodos(h, 'todoBoxNf'); } catch (e) {}
+  try { renderForms(h, 'formsBoxNf'); } catch (e) {}
+}
+
 function renderNfHome(h) {
   clearTimeout(_bootT);
   NF_HOME = h; NF_TOKEN = h.token; NF_MINE = h.mine; keepToken(NF_TOKEN);
@@ -1865,31 +1934,73 @@ function renderNfHome(h) {
   el('lock').style.display = 'block';
   lockPanels('nfHome');
   var pb = document.querySelector('#lock .prebtns'); if (pb) { pb.style.display = ''; var nfb = pb.querySelector('.nf'); if (nfb) nfb.style.display = 'none'; }
-  var ca = h.cellApp || {};
-  el('nfHome').innerHTML = '<div class="panel nfhome"><span class="chip">새가족</span>' +
-    '<div class="hi">' + esc(h.name) + '님, 환영합니다</div>' +
-    '<div class="st">새가족 등록일 ' + esc(h.joinedAt || '') + ' · ' + esc(h.status || '진행중') + '<br>새가족 교육(4주)을 마치면 셀(소그룹)에 참여하실 수 있습니다.</div></div>' +
-    (ca.state === 'open' ? cellAppBtn(ca) : '') +
-    (h.myCell ? myCellHtml(h.myCell) : '') +
-    '<div id="todoBoxNf"></div>' +
-    '<div id="formsBoxNf"></div>' +
-    '<div class="panel"><button class="btn full" onclick="editNewcomer()">내 등록 정보 고치기</button>' +
-    '<p class="fnote" style="text-align:center;margin-top:12px;"><a href="#" onclick="nfLogout();return false;">로그아웃</a></p></div>';
-  try { renderTodos(h, 'todoBoxNf'); } catch (e) {}
-  try { renderForms(h, 'formsBoxNf'); } catch (e) {}
+  el('nfHome').innerHTML = nfHomeHtml(h, false);
+  nfFillBoxes(h);
+  try { renderPush(); } catch (e) {}
 }
-function nfLogout() { forgetToken(); NF_TOKEN = ''; NF_HOME = null; PREFILL.link = ''; showLock(); }
+
+/** 커미티 — 새가족 "화면 보기". 새가족이 보는 첫 화면을 같은 함수로 그리고, 눌러서 바뀌는 것은 모두 잠급니다 */
+function renderNfView(res) {
+  var h = res.home || {};
+  el('entering').style.display = 'none';
+  el('main').style.display = 'none';
+  el('lock').style.display = 'block';
+  lockPanels('nfHome');
+  var pb = document.querySelector('#lock .prebtns'); if (pb) pb.style.display = 'none';
+  el('nfHome').innerHTML =
+    '<div class="asview nfasview"><span><b>' + esc(res.viewAs || h.name || '') + '</b> 새가족이 실제로 보는 화면입니다 — <b>보기 전용</b> (누르거나 저장할 수 없습니다)</span>' +
+    '<button class="btn mini" onclick="viewAs(\'\')">내 화면으로</button></div>' +
+    '<div class="nfro" inert>' + nfHomeHtml(h, true) + '</div>';
+  nfFillBoxes(h);
+  try { renderPush(); } catch (e) {}
+}
+
+/** "내 화면으로" — 새가족 화면을 닫고 원래 포털로 */
+function leaveNfView() {
+  el('lock').style.display = 'none';
+  lockPanels('gbox');
+  el('main').style.display = 'block';
+}
+
+/* 편집 미리보기 — NewFamily 의 "포털 화면" 탭 안의 iframe 이 이 페이지를 ?nfpreview=1 로 엽니다.
+   실제 새가족 화면과 같은 함수(nfHomeHtml)로 그리고, 편집 중인 설정(cfg)은 postMessage 로 받습니다. */
+var NF_PREVIEW = null;
+function startNfPreview(pv) {
+  NF_PREVIEW = pv;
+  document.body.classList.add('nfpreview');
+  clearTimeout(_bootT);
+  el('entering').style.display = 'none';
+  drawNfPreview(pv.cfg);
+  window.addEventListener('message', function (ev) {
+    if (ev.origin !== location.origin) return;
+    var d = ev.data;
+    if (d && d.type === 'nfcfg' && d.cfg) drawNfPreview(d.cfg);
+  });
+  try { parent.postMessage({ type: 'nfready' }, location.origin); } catch (e) {}
+}
+function drawNfPreview(cfg) {
+  var h = NF_PREVIEW.home; h.portalCfg = cfg;
+  VIEW = 'preview'; VIEW_KIND = 'newcomer';                 // 눌러서 바뀌는 동작을 막는 보기 전용 상태
+  el('main').style.display = 'none';
+  el('lock').style.display = 'block';
+  lockPanels('nfHome');
+  var pb = document.querySelector('#lock .prebtns'); if (pb) pb.style.display = 'none';
+  el('nfHome').innerHTML = '<div class="nfro" inert>' + nfHomeHtml(h, true) + '</div>';
+  nfFillBoxes(h);
+}
+
+function nfLogout() { forgetToken(); NF_TOKEN = ''; NF_HOME = null; PREFILL.link = ''; showLock(); try { renderPush(); } catch (e) {} }
 
 /* ---------- 셀 신청 및 교적확인 ---------- */
 
 var CA = null, CA_PICK = {}, CA_FROM = '';
-function cellAppBtn(ca) {
+function cellAppBtn(ca, ro) {
   var ic = '<span class="bi"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2.5 19c.5-3 2.7-4.7 5.5-4.7s5 1.7 5.5 4.7M12.5 15.2c1-.6 2.1-.9 3.5-.9 2.8 0 5 1.7 5.5 4.7"/></svg></span>';
   if (ca.state === 'locked') {
     return '<button type="button" class="cabtn locked" onclick="alert(\'지금은 셀 신청이 닫혀 있습니다.\\n관리 메뉴의 “셀 신청 · 편성” 에서 열 수 있습니다. (커미티에게만 보이는 버튼입니다)\')">' + ic +
       '<span class="bt"><b>\uD83D\uDD12 셀 신청 및 교적확인</b><small>닫혀 있음 · 커미티에게만 보입니다</small></span><span class="ba">›</span></button>';
   }
-  return '<button type="button" class="cabtn" onclick="openCellApp()">' + ic +
+  return '<button type="button" class="cabtn" ' + (ro ? 'tabindex="-1"' : 'onclick="openCellApp()"') + '>' + ic +
     '<span class="bt"><b>셀 신청 및 교적확인</b><small>' + esc(ca.year) + ' · ' +
       (ca.submitted ? '신청 완료 (' + (ca.submitted.join === 'Yes' ? '셀 참여' : '셀 참여 안 함') + ') — 눌러서 고치기' : '신청을 받고 있습니다') + '</small></span><span class="ba">›</span></button>';
 }
@@ -1901,9 +2012,11 @@ function myCellHtml(c) {
 function renderCellApp(res) {
   var box = el('cellAppBox');
   if (!box) return;
-  if (VIEW || !res) { box.innerHTML = ''; return; }
+  if (!res) { box.innerHTML = ''; return; }
   var ca = res.cellApp || {};
-  box.innerHTML = (ca.state === 'open' || ca.state === 'locked' ? cellAppBtn(ca) : '') + (res.myCell ? myCellHtml(res.myCell) : '');
+  var ro = !!VIEW;                      // 다른 분 화면 보기 — 그분에게 보이는 그대로 그리되 눌리지 않게
+  box.innerHTML = (ca.state === 'open' || ca.state === 'locked' ? cellAppBtn(ca, ro) : '') + (res.myCell ? myCellHtml(res.myCell) : '');
+  if (ro) box.setAttribute('inert', ''); else box.removeAttribute('inert');
 }
 
 /* ---------- 내 할 일 ---------- */
@@ -1913,13 +2026,28 @@ var TODOS = [], TODO_ALL = false;
 /** 홈 화면 앱 아이콘에 숫자 뱃지를 맞춰 줍니다 (지원 기기만) */
 function 뱃지맞추기_(n) { try { if (window.YNBadge) window.YNBadge.set(n); } catch (e) {} }
 
+/* 알림(예전 "내 할 일") — 접었다 펴는 아코디언. 급한 게 있으면 처음부터 펴 둡니다 */
+var TODO_OPEN = null;          // null = 아직 정하지 않음 (급한 것이 있으면 폄), true/false = 사람이 누른 대로
+function todoOpenNow(급한) {
+  if (TODO_OPEN !== null) return TODO_OPEN;
+  try { var v = sessionStorage.getItem('ynTodoOpen'); if (v === '1' || v === '0') return v === '1'; } catch (e) {}
+  return 급한 > 0;
+}
+function toggleTodos(boxId) {
+  var cur = todoOpenNow(0);
+  var box = el(boxId || 'todoBox');
+  if (box) { var h = box.querySelector('.todoacc-h'); if (h) cur = h.getAttribute('aria-expanded') === 'true'; }
+  TODO_OPEN = !cur;
+  try { sessionStorage.setItem('ynTodoOpen', TODO_OPEN ? '1' : '0'); } catch (e) {}
+  renderTodos((boxId === 'todoBoxNf' ? NF_HOME : SELF) || { todos: TODOS }, boxId);
+}
+
 function renderTodos(res, boxId) {
   var box = el(boxId || 'todoBox');
   if (!box) return;
-  if (!boxId && VIEW) { box.innerHTML = ''; return; }
   var list = (res && res.todos) || [];
   TODOS = list;
-  if (!list.length) { box.innerHTML = ''; 뱃지맞추기_(0); return; }
+  if (!list.length) { box.innerHTML = ''; if (!VIEW) 뱃지맞추기_(0); return; }
 
   var order = { urgent: 0, notice: 1, warn: 2, info: 3, ok: 4 };
   var sorted = list.slice().sort(function (a, b) {
@@ -1927,37 +2055,46 @@ function renderTodos(res, boxId) {
   });
   var show = TODO_ALL ? sorted : sorted.slice(0, 4);
   var 급한 = list.filter(function (t) { return t.tone === 'urgent' || t.tone === 'warn'; }).length;
-  뱃지맞추기_(list.length);
+  if (!VIEW) 뱃지맞추기_(list.length);
+  var open = todoOpenNow(급한);
+  var idArg = "'" + (boxId || 'todoBox') + "'";
+  var title = (boxId === 'todoBoxNf' && NF_HOME && NF_HOME.portalCfg && NF_HOME.portalCfg.todosTitle) || '알림';
 
   box.innerHTML =
-    '<div class="todo">' +
-      '<div class="todoh"><b>내 할 일</b>' +
-        (급한 ? '<span class="n">' + 급한 + '</span>' : '') +
-        '<span class="sp"></span>' +
-        (sorted.length > 4 ? '<button onclick="TODO_ALL=!TODO_ALL;renderTodos(SELF||NF_HOME,\'' + (boxId || 'todoBox') + '\')">' +
-          (TODO_ALL ? '접기' : '전체 ' + sorted.length + '개 보기') + '</button>' : '') +
-      '</div>' +
-      show.map(todoItem).join('') +
+    '<div class="todo todoacc' + (open ? ' open' : '') + '">' +
+      '<button type="button" class="todoacc-h" aria-expanded="' + (open ? 'true' : 'false') + '" onclick="toggleTodos(' + idArg + ')">' +
+        '<span class="tab-ic" aria-hidden="true">🔔</span>' +
+        '<b>' + esc(title) + '</b>' +
+        '<span class="n' + (급한 ? '' : ' calm') + '">' + list.length + '</span>' +
+        '<span class="sp"></span><span class="chev" aria-hidden="true">▾</span>' +
+      '</button>' +
+      (open
+        ? '<div class="todoacc-b">' + show.map(todoItem).join('') +
+          (sorted.length > 4 ? '<button type="button" class="todomore" onclick="TODO_ALL=!TODO_ALL;renderTodos(' + (boxId === 'todoBoxNf' ? 'NF_HOME' : 'SELF') + ',' + idArg + ')">' +
+            (TODO_ALL ? '접기' : '전체 ' + sorted.length + '개 보기') + '</button>' : '') + '</div>'
+        : '') +
     '</div>';
 }
 
 function todoItem(t) {
   // 회의에서 맡은 일 — 여기서 바로 "다 했어요" 를 누를 수 있습니다
   var meetId = (t.kind === 'meet' && t.id.indexOf('meet-') === 0) ? t.id.slice(5) : '';
+  var ro = !!VIEW;             // 다른 분 화면 보기 — 그분의 알림을 그대로 보여 주되 눌러서 바꾸는 동작은 막습니다
   var inner =
-    (meetId
+    (meetId && !ro
       ? '<button class="tick" title="다 했어요" onclick="doneMeetTask(event,\'' + jsq(meetId) + '\')"></button>'
       : '<span class="tic">' + (t.icon || '•') + '</span>') +
     '<span class="tib"><span class="tit">' + esc(t.title) + '</span>' +
       (t.sub ? '<span class="tis">' + esc(t.sub) + '</span>' : '') +
       (t.step ? '<span class="tstep">' + stepBars(t.step) + '</span>' : '') +
     '</span>' +
-    (t.url || t.id.indexOf('cellapp-') === 0 || t.id.indexOf('form-') === 0
+    (!ro && (t.url || t.id.indexOf('cellapp-') === 0 || t.id.indexOf('form-') === 0)
       ? '<span class="tigo">›</span>' : '') +
-    (t.del ? '<button class="tix" title="모두에게서 이 공지를 내립니다" onclick="dropNotice(event,\'' + jsq(t.del) + '\')">×</button>'
+    (ro ? '' : t.del ? '<button class="tix" title="모두에게서 이 공지를 내립니다" onclick="dropNotice(event,\'' + jsq(t.del) + '\')">×</button>'
      : t.hideable ? '<button class="tix" title="이 알림 치우기" onclick="hideTodoItem(event,\'' + jsq(t.id) + '\')">×</button>' : '');
 
   var cls = 'ti ' + (t.tone === 'notice' ? 'tnotice' : (t.tone || 'info'));
+  if (ro) return '<div class="' + cls + ' ro">' + inner + '</div>';
   // 신청서 · 셀 신청은 포털 안에서 열립니다
   if (t.id.indexOf('form-') === 0) {
     return '<a class="' + cls + '" href="#" onclick="openFormPage(\'' + jsq(t.id.slice(5)) + '\');return false;">' + inner + '</a>';
@@ -2024,26 +2161,34 @@ function hideTodoItem(ev, id) {
 var FORMS = [], FM = null, FM_FROM = 'main', FM_ANS = {}, FM_BUSY = 0;
 var FM_MOUNT = {};   // Step 6: 고르기 · 여러 개 고르기 · 별점 문항의 화면 부품 (FormsCore.mountQuestion)
 
+/** 신청서 한 줄 — 새가족 첫 화면처럼 목록으로 보여 줄 때 */
+function formRowHtml(f) {
+  var done = !!f.submitted;
+  var sub = done
+    ? ('신청 완료' + (f.editable && f.open ? ' · 눌러서 고치기' : ''))
+    : (f.open ? (f.desc ? f.desc.split('\n')[0].slice(0, 40) : '눌러서 신청하기') : f.why);
+  return '<a class="fmbtn' + (done ? ' done' : '') + (f.open ? '' : ' shut') + '" href="#" ' +
+    (VIEW ? 'onclick="return false;"' : 'onclick="openFormPage(\'' + jsq(f.id) + '\');return false;"') + '>' +
+    '<span class="fi">' + (done ? '✔' : '📝') + '</span>' +
+    '<span class="ft"><b>' + esc(f.title) + '</b><small>' + esc(sub) +
+    (f.count != null ? ' · ' + f.count + '명 신청' : '') +
+    (f.closeAt && f.open ? ' · ~' + esc(f.closeAt) : '') + '</small></span>' +
+    '<span class="fa">›</span></a>';
+}
+
+/** 신청서 — 메인 포털에서는 Teva Apps 격자 안의 타일로, 새가족 첫 화면(boxId)에서는 예전 목록으로 */
 function renderForms(res, boxId) {
-  var box = el(boxId || 'formsBox');
-  if (!box) return;
-  if (!boxId && VIEW) { box.innerHTML = ''; return; }
   var list = (res && res.forms && res.forms.list) || [];
+  if (!boxId) {
+    FORMS = list;
+    renderMenus();                       // 타일 격자를 신청서까지 포함해 다시 그립니다
+    return;
+  }
+  var box = el(boxId);
+  if (!box) return;
   FORMS = list;
   if (!list.length) { box.innerHTML = ''; return; }
-  box.innerHTML = list.map(function (f) {
-    var done = !!f.submitted;
-    var sub = done
-      ? ('신청 완료' + (f.editable && f.open ? ' · 눌러서 고치기' : ''))
-      : (f.open ? (f.desc ? f.desc.split('\n')[0].slice(0, 40) : '눌러서 신청하기') : f.why);
-    return '<a class="fmbtn' + (done ? ' done' : '') + (f.open ? '' : ' shut') + '" href="#" ' +
-      'onclick="openFormPage(\'' + jsq(f.id) + '\');return false;">' +
-      '<span class="fi">' + (done ? '✔' : '📝') + '</span>' +
-      '<span class="ft"><b>' + esc(f.title) + '</b><small>' + esc(sub) +
-      (f.count != null ? ' · ' + f.count + '명 신청' : '') +
-      (f.closeAt && f.open ? ' · ~' + esc(f.closeAt) : '') + '</small></span>' +
-      '<span class="fa">›</span></a>';
-  }).join('');
+  box.innerHTML = list.map(formRowHtml).join('');
 }
 
 function fmToken() { return NF_TOKEN && !TOKEN ? NF_TOKEN : TOKEN; }
@@ -2293,53 +2438,107 @@ function afterForm() {
   else if (NF_TOKEN) openNfHome();
 }
 
-/* ---------- 알림(푸시) 켜기 ---------- */
+/* ---------- 알림(푸시) 켜기 — 오른쪽 위 벨(🔔) ---------- */
+/* 예전에는 화면 가운데 큰 배너였습니다. 이제 ↻ 새로고침 옆의 벨 하나에 켜기 · 끄기 · 상태가 모여 있습니다. */
+
+var BELL_SVG = {
+  on: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3.2a5.5 5.5 0 0 0-5.5 5.5c0 4.7-1.9 6-2.7 7.1h16.4c-.8-1.1-2.7-2.4-2.7-7.1A5.5 5.5 0 0 0 12 3.2z"/><path d="M9.8 19.2a2.3 2.3 0 0 0 4.4 0" fill="none" stroke-linecap="round"/></svg>',
+  off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a5.5 5.5 0 0 0-5.5 5.5c0 4.7-1.9 6-2.7 7.1h16.4c-.8-1.1-2.7-2.4-2.7-7.1A5.5 5.5 0 0 0 12 3.2z"/><path d="M9.8 19.2a2.3 2.3 0 0 0 4.4 0"/></svg>',
+  denied: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a5.5 5.5 0 0 0-5.5 5.5c0 4.7-1.9 6-2.7 7.1h16.4c-.8-1.1-2.7-2.4-2.7-7.1A5.5 5.5 0 0 0 12 3.2z"/><path d="M9.8 19.2a2.3 2.3 0 0 0 4.4 0"/><path d="M4 4l16 16"/></svg>'
+};
+
+function bellSet(kind, title, small, action) {
+  var b = el('bellBtn'), pop = el('bellPop');
+  if (!b || !pop) return;
+  b.style.display = '';
+  b.className = 'ynbell ' + kind;
+  b.innerHTML = BELL_SVG[kind === 'on' ? 'on' : (kind === 'denied' ? 'denied' : 'off')] + (kind === 'on' ? '<i class="bdot"></i>' : '');
+  b.title = title;
+  pop.innerHTML = '<div class="bp-h"><span class="bp-ic ' + kind + '">' + BELL_SVG[kind === 'on' ? 'on' : (kind === 'denied' ? 'denied' : 'off')] + '</span>' +
+    '<div class="bp-t"><b>' + esc(title) + '</b><small>' + small + '</small></div></div>' +
+    (action ? '<button type="button" class="bp-btn ' + (kind === 'on' ? 'off' : 'on') + '" id="bellAct" onclick="' + action.fn + '">' + esc(action.label) + '</button>' : '') +
+    '<p class="msg bp-msg" id="pushMsg" role="status"></p>';
+}
 
 function renderPush() {
-  var box = el('pushBox');
-  if (!box) return;
-  if (VIEW) { box.innerHTML = ''; return; }          // 커미티가 남의 화면을 볼 때는 숨깁니다
+  var b = el('bellBtn');
+  if (!b) return;
   var P = window.YNPush;
-  if (!P) { box.innerHTML = ''; return; }
+  // 로그인 전 · 남의 화면 보기 · 지원하지 않는 브라우저에서는 벨을 숨깁니다
+  if (VIEW || !caToken() || !P) { b.style.display = 'none'; closeBell(); return; }
   var st = P.state();
-  if (st === 'unsupported') { box.innerHTML = ''; return; }
+  if (st === 'unsupported') { b.style.display = 'none'; closeBell(); return; }
 
   if (st === 'needsHome') {
-    box.innerHTML = '<div class="pushcard"><div class="pi">🔔</div>' +
-      '<div class="pt"><b>알림을 받으시려면</b>' +
-      '<small>아이폰은 <b>공유 버튼 → 홈 화면에 추가</b> 를 한 뒤, 홈 화면 아이콘으로 열면 알림을 켤 수 있습니다.</small></div></div>';
+    bellSet('off', '알림을 받으시려면', '아이폰은 <b>공유 버튼 → 홈 화면에 추가</b> 를 한 뒤, 홈 화면 아이콘으로 열면 알림을 켤 수 있습니다.', null);
     return;
   }
   if (st === 'denied') {
-    box.innerHTML = '<div class="pushcard"><div class="pi">🔕</div>' +
-      '<div class="pt"><b>알림이 차단되어 있습니다</b>' +
-      '<small>브라우저 설정에서 이 사이트의 알림을 허용으로 바꿔주세요.</small></div></div>';
+    bellSet('denied', '알림이 차단되어 있습니다', '브라우저 설정에서 이 사이트의 알림을 <b>허용</b>으로 바꿔주세요.', null);
     return;
   }
   P.subscribed(function (on) {
-    box.innerHTML = '<div class="pushcard' + (on ? ' on' : '') + '"><div class="pi">' + (on ? '🔔' : '🔔') + '</div>' +
-      '<div class="pt"><b>' + (on ? '이 기기로 알림을 받고 있습니다' : '알림 켜기') + '</b>' +
-      '<small>' + (on ? '셀보고 · 주보 · 공지 알림이 이 기기로 옵니다.'
-                      : '셀보고 독려, 새 주보, 공지를 휴대폰 알림으로 받아보세요.') + '</small></div>' +
-      '<button class="pb" onclick="' + (on ? 'pushOff()' : 'pushOn()') + '">' + (on ? '끄기' : '켜기') + '</button></div>' +
-      '<p class="msg" id="pushMsg" style="margin:-6px 16px 12px;"></p>';
+    if (on) bellSet('on', '알림 켜짐', '셀보고 · 주보 · 공지 알림이 이 기기로 옵니다.', { fn: 'pushOff()', label: '이 기기 알림 끄기' });
+    else bellSet('off', '알림 꺼짐', '셀보고 독려, 새 주보, 공지를 휴대폰 알림으로 받아보세요.', { fn: 'pushOn()', label: '알림 켜기' });
   });
 }
 
+function toggleBell(ev) {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  var pop = el('bellPop'), b = el('bellBtn');
+  var open = pop.style.display === 'none';
+  pop.style.display = open ? 'block' : 'none';
+  b.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) renderPush();
+}
+function closeBell() {
+  var pop = el('bellPop'), b = el('bellBtn');
+  if (pop) pop.style.display = 'none';
+  if (b) b.setAttribute('aria-expanded', 'false');
+}
+document.addEventListener('click', function (e) {
+  var pop = el('bellPop');
+  if (!e.target || !document.body.contains(e.target)) return;   // 팝오버가 다시 그려지며 사라진 버튼을 누른 경우는 '바깥 클릭'이 아님
+  if (pop && pop.style.display !== 'none' && !pop.contains(e.target) && !(el('bellBtn') && el('bellBtn').contains(e.target))) closeBell();
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeBell(); });
+
 function pushOn() {
   say('pushMsg', '알림을 켜는 중…');
+  var a = el('bellAct'); if (a) a.disabled = true;
   window.YNPush.enable(caToken(), function () {
     renderPush();
-    setTimeout(function () { say('pushMsg', '알림을 켰습니다.', 'ok'); }, 60);
-  }, function (e) { say('pushMsg', (e && e.message) || '알림을 켜지 못했습니다.', 'err'); });
+    setTimeout(function () { say('pushMsg', '알림을 켰습니다.', 'ok'); }, 80);
+  }, function (e) { if (a) a.disabled = false; say('pushMsg', (e && e.message) || '알림을 켜지 못했습니다.', 'err'); });
 }
 
 function pushOff() {
   say('pushMsg', '끄는 중…');
+  var a = el('bellAct'); if (a) a.disabled = true;
   window.YNPush.disable(caToken(), function () {
     renderPush();
-    setTimeout(function () { say('pushMsg', '이 기기 알림을 껐습니다.'); }, 60);
-  }, function (e) { say('pushMsg', (e && e.message) || '끄지 못했습니다.', 'err'); });
+    setTimeout(function () { say('pushMsg', '이 기기 알림을 껐습니다.'); }, 80);
+  }, function (e) { if (a) a.disabled = false; say('pushMsg', (e && e.message) || '끄지 못했습니다.', 'err'); });
+}
+
+/* ---------- 로고 · 제목을 누르면 항상 포털 첫 화면 ---------- */
+/* Theme 의 헤더 클릭(로고 · "토론토영락교회 청년1부")이 이 함수를 부릅니다. 포털 안의 다른 화면(내 정보 · 신청서 · 셀 신청)도 닫습니다. */
+function goPortalHome() {
+  try { closeBell(); closeSermonModal(); qsCloseModal(); } catch (e) {}
+  var fm = el('fmWrap'), ca = el('caWrap');
+  if (fm) { fm.style.display = 'none'; fm.innerHTML = ''; }
+  if (ca) { ca.style.display = 'none'; }
+  FM = null;
+  if (TOKEN && ME) {                        // 로그인한 상태 — 그 자리에서 첫 화면
+    el('lock').style.display = 'none';
+    el('main').style.display = 'block';
+    showProfile(false);
+    SUB_OPEN = ''; drawSubPanel();
+    window.scrollTo(0, 0);
+    return true;
+  }
+  if (NF_TOKEN && NF_HOME) { openNfHome(); window.scrollTo(0, 0); return true; }
+  return false;                             // 로그인 전이면 Theme 가 주소로 이동합니다
 }
 
 function caToken() { return NF_TOKEN && !TOKEN ? NF_TOKEN : TOKEN; }
@@ -2372,14 +2571,28 @@ function caPick(b) {
   var box = b.parentNode; CA_PICK[box.getAttribute('data-k')] = b.getAttribute('data-v');
   [].slice.call(box.children).forEach(function (x) { x.className = x === b ? 'on' : ''; });
 }
+/** 헌금봉투번호 신청 — 눌린 상태를 눈에 보이게 (체크 → 발급 조건 펼침, 조건 확인 → 강조) */
+function caEnvToggle() {
+  var on = el('caEnv').checked;
+  el('caEnvLab').classList.toggle('on', on);
+  el('caEnvMore').style.display = on ? 'block' : 'none';
+  if (!on && el('caEnvAgree')) { el('caEnvAgree').checked = false; caEnvAgreeToggle(); }
+}
+function caEnvAgreeToggle() {
+  var lab = el('caEnvAgreeLab'); if (lab) lab.classList.toggle('on', !!el('caEnvAgree').checked);
+}
 function paintCellApp() {
   var f = CA.form, pr = CA.promise, a = f.address || {};
   var env;
   if (f.envelopeNo) env = '<div class="envbox">헌금봉투번호: <b>' + esc(f.envelopeNo) + '</b></div>';
   else if (f.envelopeRequest && f.envelopeRequest.status === '발급중') env = '<div class="envbox">헌금봉투번호를 <b>신청하셨습니다</b>. 회계팀이 발급하면 알려드립니다.</div>';
-  else env = '<div class="envbox"><label><input type="checkbox" id="caEnv" onchange="el(\'caEnvMore\').style.display=this.checked?\'block\':\'none\'"> 헌금봉투번호가 없습니다 — 신청하기</label>' +
-    '<div id="caEnvMore" style="display:none;margin-top:8px;">발급 조건<ul style="margin:4px 0 8px;padding-left:18px;">' + (CA.envelopeRules || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' +
-    '<label><input type="checkbox" id="caEnvAgree"> 위 조건을 확인했습니다</label><p class="fnote">신청하면 회계팀에 알림이 갑니다.</p></div></div>';
+  else env = '<div class="envbox">' +
+    '<label class="envreq" id="caEnvLab" for="caEnv"><input type="checkbox" id="caEnv" onchange="caEnvToggle()">' +
+      '<span class="envtick" aria-hidden="true"></span>' +
+      '<span class="envtxt"><b>헌금봉투번호 신청하기</b><small>헌금봉투번호가 없는 분만 체크해 주세요</small></span></label>' +
+    '<div id="caEnvMore" style="display:none;margin-top:10px;"><div class="envrules">발급 조건<ul>' + (CA.envelopeRules || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' +
+    '<label class="agree" id="caEnvAgreeLab" for="caEnvAgree"><input type="checkbox" id="caEnvAgree" onchange="caEnvAgreeToggle()"><span class="box"></span><span class="lbl">위 조건을 확인했습니다</span></label>' +
+    '<p class="fnote">신청하면 회계팀에 알림이 갑니다.</p></div></div>';
   var bap = CA.options.baptized;
   el('caWrap').innerHTML = '<div class="panel caform"><span class="chip">셀 신청 및 교적확인 · ' + esc(CA.year) + '</span>' +
     '<p class="hint">교적에 등록된 정보를 확인하고, 바뀐 부분은 고쳐 주세요. 제출하면 교적에 바로 반영됩니다.' +
@@ -2498,6 +2711,7 @@ function doLogout() {
   el('asBox').innerHTML = '';
   PREFILL.err = '';
   showLock();
+  try { renderPush(); } catch (e) {}
   topMsg('로그아웃했습니다. 다시 들어오시려면 아래에서 로그인해 주세요.');
   window.scrollTo(0, 0);
 }
@@ -2553,9 +2767,11 @@ function paint(res) {
   try { renderPush(); } catch (e) {}
   openDeepLinkedForm();
   if (!VIEW) followDeepLink();
-  if (!VIEW) renderProfile();
-  el('meBtn').style.display = VIEW ? 'none' : '';
+  editing = false;
+  renderProfile();                                                            // 다른 분 화면에서도 그분의 "내 정보 관리"를 보기 전용으로
+  el('meBtn').style.display = '';
   if (el('notesBtn')) el('notesBtn').style.display = VIEW ? 'none' : '';      // 내 설교 노트는 내 계정 것이라 다른 분 화면에서는 숨김
+  var ai = document.querySelector('.aibtns'); if (ai) ai.classList.toggle('solo', !!VIEW);
   var qs = document.querySelector('.qsearch');
   if (qs) qs.style.display = (VIEW || !CAL_COM) ? 'none' : '';
   renderAdmin();
@@ -2568,6 +2784,8 @@ function paint(res) {
 function renderSermonCard() {
   var box = el('sermonCardBox');
   if (!box) return;
+  var row = el('bulSerRow');
+  if (row) row.classList.toggle('solo', !(SERMON && SERMON.id));       // 설교가 없으면 주보 버튼이 한 줄을 다 씁니다
   if (!SERMON || !SERMON.id) { box.innerHTML = ''; return; }
   var thumb = 'https://img.youtube.com/vi/' + encodeURIComponent(SERMON.id) + '/hqdefault.jpg';
   box.innerHTML =
@@ -2837,13 +3055,19 @@ function toggleAs() {
 
 function viewAs(name, kind) {
   name = String(name || '').trim();
-  if (!name) { VIEW = ''; VIEW_KIND = ''; NEWCOMER = null; CAL_CACHE = {}; paint(SELF); window.scrollTo(0, 0); return; }
+  if (!name) {
+    var wasNf = VIEW_KIND === 'newcomer';
+    VIEW = ''; VIEW_KIND = ''; NEWCOMER = null; CAL_CACHE = {}; FORMS = (SELF && SELF.forms && SELF.forms.list) || [];
+    if (wasNf) leaveNfView();
+    paint(SELF); window.scrollTo(0, 0); return;
+  }
   var nf = kind === 'newcomer';
   var box = el('asBox');
   var old = el('asMsg'); if (old) old.remove();
   box.insertAdjacentHTML('beforeend', '<p class="fnote" id="asMsg" style="padding:0 16px;">' + esc(name) + (nf ? ' 새가족' : '님') + ' 화면을 불러오는 중…</p>');
   callServer(nf ? 'portalViewAsNewcomer' : 'portalViewAs', [TOKEN, name], function (res) {
     VIEW = name; VIEW_KIND = nf ? 'newcomer' : ''; NEWCOMER = res.newcomer || null; VIEW_NOLINK = !!res.noLink;
+    if (nf && res.home) { renderNfView(res); window.scrollTo(0, 0); return; }     // 새가족이 실제로 보는 화면 그대로
     paint(res); window.scrollTo(0, 0);
   }, function (e) { var m = el('asMsg'); if (m) m.textContent = e.message || '불러오지 못했습니다.'; });
 }
@@ -3019,18 +3243,70 @@ function tileBadge(key) {
   return n ? '<span class="tbadge">' + (n > 9 ? '9+' : n) + '</span>' : '';
 }
 
-/** 맡고 계신 일 — 작은 타일 (한 줄에 3개) */
+/** 신청서 타일 — 열려 있는 신청서를 Teva Apps 격자 안에서 바로 엽니다 */
+function formTileHtml(f) {
+  var done = !!f.submitted;
+  var ro = !!VIEW;
+  var note = done ? '신청 완료' : (f.open ? (f.closeAt ? '~' + f.closeAt : '신청 받는 중') : (f.why || '닫힘'));
+  return '<a class="tile form' + (done ? ' done' : '') + (f.open ? '' : ' shut') + (ro ? ' ro' : '') + '" href="#" ' +
+    (ro ? 'onclick="roTap();return false;"' : 'onclick="openFormPage(\'' + jsq(f.id) + '\');return false;"') +
+    ' title="' + esc(f.title) + '">' +
+    '<span class="ticon">' + (done
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h8.5L19 7v13.5H7z"/><path d="M15 3.5V7.5h4"/><path d="M10 12h6M10 15.5h6"/></svg>') + '</span>' +
+    '<span class="tt">' + esc(f.title) + '</span>' +
+    '<span class="td">' + esc(note) + '</span></a>';
+}
+
+var SUB_OPEN = '';
+/** 하위 메뉴가 있는 타일 — 누르면 아래에 세부 메뉴 카드가 펼쳐집니다 */
+function toggleSubs(key) {
+  SUB_OPEN = (SUB_OPEN === key) ? '' : key;
+  drawSubPanel();
+  var t = document.querySelectorAll('#menus .tile.hassubs');
+  Array.prototype.forEach.call(t, function (x) {
+    var on = x.getAttribute('data-key') === SUB_OPEN;
+    x.classList.toggle('open', on); x.setAttribute('aria-expanded', on ? 'true' : 'false');
+  });
+}
+function drawSubPanel() {
+  var box = el('subPanel'); if (!box) return;
+  var m = null; MENUS.forEach(function (x) { if (x.key === SUB_OPEN) m = x; });
+  if (!m || !m.subs || !m.subs.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var ro = VIEW && VIEW_NOLINK;
+  box.innerHTML = '<div class="sph"><b>' + esc(m.title) + '</b><button type="button" class="spx" onclick="toggleSubs(\'\')" aria-label="닫기">&times;</button></div>' +
+    m.subs.map(function (sm) {
+      var ext = /[?&]page=expense/.test(sm.url || '');
+      return '<a class="subrow" ' + (ro ? 'onclick="roTap()"' : 'href="' + esc(sm.url) + '"') + '>' +
+        '<span class="sr-b"><b>' + esc(sm.title) + '</b><small>' + esc(sm.desc || '') + '</small></span>' +
+        '<span class="sr-go">' + (ext ? '바로 이동 ↗' : '›') + '</span></a>';
+    }).join('');
+  box.style.display = 'block';
+}
+
+/** 맡고 계신 일 + 신청서 — Teva Apps 격자 (한 줄에 3개) */
 function renderMenus() {
-  el('menuWrap').style.display = MENUS.length ? 'block' : 'none';
-  if (!MENUS.length) return;
-  el('menus').innerHTML = MENUS.map(function (m) {
+  var forms = FORMS || [];
+  var any = MENUS.length || forms.length;
+  el('menuWrap').style.display = any ? 'block' : 'none';
+  if (!any) { el('menus').innerHTML = ''; drawSubPanel(); return; }
+  var tiles = MENUS.map(function (m) {
     var ro = VIEW && VIEW_NOLINK;
     var title = m.title, desc = m.desc;
+    var has = m.subs && m.subs.length;
+    if (has) {
+      return '<button type="button" class="tile ' + esc(m.key) + ' hassubs' + (SUB_OPEN === m.key ? ' open' : '') + (ro ? ' ro' : '') + (VIEW && !ro ? ' as' : '') +
+        '" data-key="' + esc(m.key) + '" aria-expanded="' + (SUB_OPEN === m.key ? 'true' : 'false') + '" onclick="toggleSubs(\'' + jsq(m.key) + '\')" title="' + esc(desc) + '">' +
+        tileBadge(m.key) + tileIcon(m.key) + '<span class="tt">' + esc(title) + '</span>' +
+        (m.note ? '<span class="td">' + esc(m.note) + '</span>' : '<span class="td">' + m.subs.length + '개 메뉴 ▾</span>') + '</button>';
+    }
     return '<a class="tile ' + esc(m.key) + (ro ? ' ro' : '') + (VIEW && !ro ? ' as' : '') + '"' +
       (ro ? ' onclick="roTap()"' : ' href="' + esc(m.url) + '"') + ' title="' + esc(desc) + '">' +
       tileBadge(m.key) + tileIcon(m.key) + '<span class="tt">' + esc(title) + '</span>' +
       (m.note ? '<span class="td">' + esc(m.note) + '</span>' : '') + '</a>';
-  }).join('');
+  });
+  el('menus').innerHTML = tiles.concat(forms.map(formTileHtml)).join('');
+  drawSubPanel();
 }
 
 /** 커미티 · 새가족팀 · 회계팀 — 맡은 영역의 숫자를 한눈에 */
@@ -3194,6 +3470,12 @@ function renderProfile() {
     '<div style="margin-top:16px;"><button class="btn accent full" onclick="openEdit()">내 정보 수정</button></div>' +
     '<p class="fnote" style="margin-top:10px;">' +
       '🔒 표시된 칸은 커미티만 바꿀 수 있습니다. 바뀐 내용이 있으면 커미티에 말씀해 주세요.</p>';
+  // 다른 분 화면 보기 — 그분의 "내 정보 관리"를 그대로 보여 주되 수정 · 사진 · 신청은 막습니다
+  var pf = el('profile');
+  if (VIEW) {
+    pf.setAttribute('inert', '');
+    pf.insertAdjacentHTML('afterbegin', '<p class="viewnote"><b>' + esc(ME.name) + '</b>님의 내 정보 화면 — 보기 전용입니다.</p>');
+  } else pf.removeAttribute('inert');
 }
 
 /* ---------- 헌금봉투번호 신청 ---------- */

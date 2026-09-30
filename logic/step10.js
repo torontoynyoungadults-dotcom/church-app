@@ -180,8 +180,13 @@ function portalViewAsNewcomer(token, name) {
   menus.forEach(function (m) { m.url = ''; });                  // 새가족은 포털에 들어오지 않으므로 열리는 링크는 없습니다
 
   var phone = nf.phone || String(nf.contact || '');
+  // Step 11 — 새가족이 실제로 보는 첫 화면(newcomerHome)을 그대로 실어 보냅니다. 표(token)는 화면에 보내지 않습니다.
+  var home = null;
+  try { if (nf.email) home = newcomerHome(새가족토큰_(nf.email)); } catch (e) { home = null; }
+  if (!home) home = 새가족홈대체11_(nf);
+  home.token = '';
   return {
-    token: '', viewAs: name, viewKind: 'newcomer', noLink: true,
+    token: '', viewAs: name, viewKind: 'newcomer', noLink: true, home: home,
     me: {
       name: nf.name, engName: '', phone: phone, email: nf.email || '', kakao: nf.kakao || '',
       address: '', envelopeNo: '', joinedAt: nf.joinedAt || '', memberSince: '',

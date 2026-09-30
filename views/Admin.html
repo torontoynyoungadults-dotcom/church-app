@@ -177,12 +177,6 @@
   .nftxt.warn { color: #A82F16; }
   .nftxt.warn b { background: #FBE2DB; color: #A82F16; }
 
-  /* ===== 메뉴 (첫 화면) ===== */
-  .homehello {
-    color: #B8B2A9; font-size: 15px; text-align: center; margin: 2px 0 16px; letter-spacing: -0.01em;
-  }
-  .hgrid { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 0 12px 14px; }
-  @media (min-width: 560px) { .hgrid { grid-template-columns: 1fr 1fr; } }
   /* 셀모임 자료 사진 — 보고서 상세에서 좌/중앙/우 배치대로 보여줍니다 */
   .mediaview { margin-top: 10px; overflow: hidden; }
   .mediaview img { max-width: 100%; border-radius: 12px; margin-bottom: 8px; display: block; }
@@ -190,41 +184,6 @@
   .mediaview img.mv-right { float: right; max-width: 48%; margin-left: 10px; }
   .mediaview img.mv-center { margin-left: auto; margin-right: auto; }
   .mediaview::after { content: ''; display: block; clear: both; }
-
-  /* ⚙️ 앱 기능 관리 — 안에 여러 도구를 접었다 폈다 */
-  details.appsub { margin: 0 12px 14px; border: 1px solid var(--hair-2); border-radius: 16px; overflow: hidden; background: var(--card); }
-  details.appsub > summary { list-style: none; cursor: pointer; padding: 15px 16px; font-size: 15px; font-weight: 800; color: var(--ink-1); display: flex; align-items: center; }
-  details.appsub > summary::-webkit-details-marker { display: none; }
-  details.appsub > summary::after { content: '›'; margin-left: auto; font-size: 20px; color: var(--ink-3); transform: rotate(90deg); transition: transform .15s; }
-  details.appsub[open] > summary::after { transform: rotate(-90deg); }
-  details.appsub[open] > summary { border-bottom: 1px solid var(--hair-2); }
-  details.appsub > summary ~ * { margin-left: 0; margin-right: 0; }
-  details.appsub > .panel, details.appsub > div.panel { margin: 12px; }
-  details.appsub > div#aiAdmin, details.appsub > div#pushAdmin, details.appsub > div#permAdmin { padding: 0 0 4px; }
-  .hcard {
-    --c: var(--tone); --cs: var(--tone-soft);
-    position: relative; text-align: left; font-family: inherit; cursor: pointer;
-    background: #F4F2EE; border: 1px solid rgba(26,25,23,.08); border-radius: 20px;
-    padding: 18px 44px 16px 18px; color: #1A1917; display: grid;
-    grid-template-columns: 46px 1fr; grid-template-rows: auto auto auto; column-gap: 14px; row-gap: 2px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.18); transition: transform .12s, box-shadow .15s;
-    overflow: hidden;
-  }
-  .hcard:before {
-    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c);
-  }
-  a.hcard { text-decoration: none; }
-  .hcard:active { transform: scale(.985); }
-  .hcard:hover { box-shadow: 0 6px 22px rgba(0,0,0,.26); }
-  .hcard.cell { --c: #C4431A; --cs: rgba(196,67,26,.12); }
-  .hcard.nf   { --c: #2A8C94; --cs: rgba(42,140,148,.14); }
-  .hcard.team { --c: #2E9A4B; --cs: rgba(46,154,75,.13); }
-  .hcard.dir  { --c: #4A52BE; --cs: rgba(74,82,190,.13); }
-  .hcard.tr   { --c: #1F6FEB; --cs: rgba(31,111,235,.12); }
-  .hcard.acct { --c: #A8751F; --cs: rgba(168,117,31,.15); }
-  .hcard.mis  { --c: #2E7D6B; --cs: rgba(46,125,107,.14); }
-  .hcard.wor  { --c: #6C4FD3; --cs: rgba(108,79,211,.14); }
-  .hcard.cal  { --c: #7A4FB5; --cs: rgba(122,79,181,.13); }
 
   /* 회계팀 전용 모드 — 메뉴로 돌아가는 길을 감춥니다 */
   body[data-scope="acct"] .backbtn { visibility: hidden; }
@@ -445,28 +404,13 @@
     #printArea .sign th { border: none; background: none; width: auto; padding-left: 0; }
     @page { margin: 14mm; }
   }
-  .hicon {
-    grid-row: 1 / span 3; width: 46px; height: 46px; border-radius: 14px;
-    background: var(--cs); color: var(--c); display: flex; align-items: center; justify-content: center;
-  }
-  .hicon svg { width: 25px; height: 25px; }
-  .htitle { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.45; }
-  .hdesc { font-size: 13.5px; color: #55504A; }
-  .hstat { font-size: 13.5px; color: #4A4640; margin-top: 7px; line-height: 1.65; min-height: 19px; }
-  .hstat b { color: var(--c); font-weight: 800; font-variant-numeric: tabular-nums; }
-  .hstat em { font-style: normal; font-weight: 800; color: #fff; background: var(--c); border-radius: 99px; padding: 1px 8px; }
-  .hstat .skel { display: block; height: 11px; margin: 4px 0 0; }
-  .harrow {
-    position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
-    font-size: 26px; color: #C4BEB5; line-height: 1;
-  }
 
   /* ===== 영역 상단 바 ===== */
-  body:not([data-sec="home"]) header { padding: 20px 22px 12px !important; }
-  body:not([data-sec="home"]) header img { height: 26px !important; margin-bottom: 8px !important; }
-  body:not([data-sec="home"]) header h1 { font-size: 19px !important; color: #E3DFD9 !important; }
-  body:not([data-sec="home"]) header .meta,
-  body:not([data-sec="home"]) header:after { display: none; }
+  body[data-sec] header { padding: 20px 22px 12px !important; }
+  body[data-sec] header img { height: 26px !important; margin-bottom: 8px !important; }
+  body[data-sec] header h1 { font-size: 19px !important; color: #E3DFD9 !important; }
+  body[data-sec] header .meta,
+  body[data-sec] header:after { display: none; }
   /* 시트 새로고침 버튼 (머리말 안) */
   .refbtn { display: inline-flex; align-items: center; gap: 6px; margin: 10px auto 0; padding: 7px 13px;
     background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.22); border-radius: 999px;
@@ -488,7 +432,7 @@
   }
   .secspace { width: 82px; flex: none; }
   .secbar .backbtn { width: 82px; justify-content: center; flex: none; }
-  .hstat .nw, .sub .nw { white-space: nowrap; }
+  .sub .nw { white-space: nowrap; }
   .subtabs { margin-bottom: 14px !important; }
 
   /* ===== 기간 선택 ===== */
@@ -521,19 +465,8 @@
   .calbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .calym { flex: 1; text-align: center; font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
   .calpanel { padding: 14px 9px 12px !important; }
-  .calpanel .calbar, .calpanel #calWho, .calpanel #hcalWho { padding: 0 5px; }
+  .calpanel .calbar, .calpanel #calWho { padding: 0 5px; }
   .calpanel .calform { margin: 0 3px 12px; }
-  .homecap {
-    display: flex; align-items: center; gap: 8px; margin: 4px 18px 9px;
-  }
-  .homecap span {
-    flex: 1; font-size: 12.5px; color: #837D75; font-weight: 800; letter-spacing: .14em;
-  }
-  .homecap button {
-    background: none; border: none; color: #B8B2A9; font-family: inherit; font-size: 13.5px;
-    font-weight: 700; cursor: pointer; padding: 4px 2px;
-  }
-  #homeCal { margin: 0 12px 22px; }
 
   /* ===== 교적 ===== */
   .dirsearch { display: flex; gap: 7px; }
@@ -628,6 +561,36 @@
   .dgadm-r span { flex: 1; min-width: 0; color: var(--ink-3); font-size: 13px; }
   .dgadm .addrow select { flex: 1; min-width: 0; }
   .dgadm .addrow input[type=date] { flex: 1.25; min-width: 0; }
+
+/* ===== 알림 미리보기 모달 ===== */
+.pvrow{display:flex;gap:8px;flex-wrap:wrap;}
+.pvrow .btn{flex:1;min-width:140px;}
+.pvBack{position:fixed;inset:0;z-index:300;background:rgba(6,6,8,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;padding:14px;}
+.pvBack.on{display:flex;}
+.pvBox{width:100%;max-width:880px;max-height:94vh;overflow:auto;background:rgba(24,24,28,.96);border:1px solid rgba(255,255,255,.14);
+  border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.6);padding:18px 18px 16px;color:#F4F1EC;}
+.pvHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+.pvHead b{font-size:17px;}
+.pvX{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;border-radius:10px;width:38px;height:38px;font-size:18px;cursor:pointer;}
+.pvGrid{display:grid;grid-template-columns:1fr 1.5fr;gap:14px;}
+@media(max-width:720px){.pvGrid{grid-template-columns:1fr;}}
+.pvCol h4{margin:0 0 8px;font-size:13px;color:#FF9A6B;letter-spacing:.04em;}
+.pvPhone{background:linear-gradient(160deg,#3a3a44,#1b1b22);border-radius:20px;padding:16px 12px;min-height:170px;}
+.pvBanner{background:rgba(245,245,247,.94);color:#111;border-radius:16px;padding:11px 13px;box-shadow:0 6px 20px rgba(0,0,0,.35);}
+.pvBanner .top{display:flex;align-items:center;gap:7px;font-size:11.5px;color:#555;margin-bottom:4px;}
+.pvBanner .ic{width:20px;height:20px;border-radius:5px;background:#EE5622;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+.pvBanner .tt{font-size:14px;font-weight:800;line-height:1.4;}
+.pvBanner .bd{font-size:13px;line-height:1.5;color:#333;margin-top:2px;}
+.pvCnt{font-size:11px;color:#9A958C;margin-top:8px;}
+.pvMail{border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:#E9E6E0;}
+.pvMailHead{background:rgba(0,0,0,.35);color:#E8E4DD;font-size:12.5px;padding:9px 12px;line-height:1.6;}
+.pvMail iframe{width:100%;height:520px;border:0;background:#E9E6E0;display:block;}
+.pvEdit{margin-bottom:12px;padding:12px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);}
+.pvEdit label{display:block;font-size:12px;color:#CFC9BF;margin:0 0 4px;}
+.pvEdit input,.pvEdit textarea{width:100%;box-sizing:border-box;background:rgba(0,0,0,.35);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:9px 11px;font:inherit;font-size:14px;margin-bottom:8px;}
+.pvFoot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;}
+.pvFoot .btn{min-width:120px;}
 </style>
 <!--#include Theme-->
 <style>
@@ -647,7 +610,6 @@ input[type=text], input[type=email], input[type=tel], input[type=date], input[ty
 input:focus, select:focus, textarea:focus { border-color: #F26B21 !important; box-shadow: 0 0 0 3px rgba(242,107,33,.14) !important; outline: none !important; }
 .menucard, .secard, a.tile, .home .card { border-radius: 14px !important; }
 header h1 { color: #F26B21 !important; }
-.hcard, .hcard.cell, .hcard.nf, .hcard.team, .hcard.dir, .hcard.tr, .hcard.acct, .hcard.mis, .hcard.wor, .hcard.cal, .hcard.push { --c: #D2511F !important; --cs: rgba(242,107,33,.12) !important; }
 /* 알림 관리 */
 .pkrow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hair-2); flex-wrap: wrap; }
 .noteBox { flex-basis: 100%; margin-top: 4px; padding: 10px; background: var(--panel-2, #F6F3EE); border-radius: 10px; }
@@ -770,132 +732,41 @@ header h1 { color: #F26B21 !important; }
     </button>
   </header>
 
-  <!-- ===================== 메뉴 (첫 화면) ===================== -->
-  <div id="home" class="section">
-    <div id="homeCalWrap">
-      <div class="homecap"><span>커미티 일정</span><button type="button" onclick="go('cal')">일정 관리 &rsaquo;</button></div>
-      <div class="panel calpanel" id="homeCal">
-        <div class="calbar">
-          <button class="btn mini" onclick="calMove(-1,'home')">&lsaquo;</button>
-          <span class="calym" id="hcalYm"></span>
-          <button class="btn mini" onclick="calMove(1,'home')">&rsaquo;</button>
-          <button class="btn mini accent" onclick="calNew('home')">＋ 일정</button>
-        </div>
-        <p class="sub" id="hcalWho" style="margin:-4px 0 12px;"></p>
-        <div id="hcalForm" class="calform" style="display:none;"></div>
-        <div id="hcalBody"><i class="skel line" style="width:60%;"></i><i class="skel line" style="width:40%;"></i></div>
-        <p class="msg" id="hcalMsg" style="padding:0 5px;"></p>
-      </div>
-    </div>
-    <p class="homehello">어떤 영역을 관리할까요?</p>
-    <div class="hgrid">
-      <button type="button" class="hcard cell" onclick="go('cell')">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.6c2.9.2 5 2.2 5 5.4"/></svg></span>
-        <span class="htitle">셀 (소그룹) 관리</span>
-        <span class="hdesc">출석 · 보고서 · 셀 편성</span>
-        <span class="hstat" id="hs_cell"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </button>
-      <button type="button" class="hcard nf" onclick="go('nf')">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V11"/><path d="M12 11c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5z"/><path d="M12 14c0-3-2.3-5-5.5-5-.2 3.1 2.2 5 5.5 5z"/></svg></span>
-        <span class="htitle">새가족 관리</span>
-        <span class="hdesc">4주 과정 · 셀 배정 · 정착</span>
-        <span class="hstat" id="hs_nf"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </button>
-      <button type="button" class="hcard team" onclick="go('team')">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.4l-5.1 2.7 1-5.6-4.1-4 5.7-.8z"/></svg></span>
-        <span class="htitle">사역팀 관리</span>
-        <span class="hdesc">팀 보고서 · 팀원 현황</span>
-        <span class="hstat" id="hs_team"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </button>
-      <button type="button" class="hcard tr" onclick="go('tr')">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2.5 8.5 12 13l9.5-4.5L12 4z"/><path d="M6 10.6V15c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.4"/><path d="M20.5 9v5"/></svg></span>
-        <span class="htitle">제자훈련 관리</span>
-        <span class="hdesc">출석 체크 · 수료 관리</span>
-        <span class="hstat" id="hs_tr"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </button>
-      <button type="button" class="hcard mis" onclick="go('mis')">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.6 3.6 5.5 3.6 8.5s-1.2 5.9-3.6 8.5c-2.4-2.6-3.6-5.5-3.6-8.5s1.2-5.9 3.6-8.5z"/></svg></span>
-        <span class="htitle">선교팀 관리</span>
-        <span class="hdesc">팀 편성 · 서류 · 항공 일정</span>
-        <span class="hstat" id="hs_mis"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </button>
-      <a class="hcard wor" id="hc_wor" href="#" target="_blank" rel="noopener">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18V6.2l9-1.8V16"/><circle cx="7" cy="18" r="2.5"/><circle cx="16" cy="16" r="2.5"/><path d="M9.5 9.6l9-1.8"/></svg></span>
-        <span class="htitle">찬양방송팀 허브</span>
-        <span class="hdesc">주일 편성 · 콘티 · 악보</span>
-        <span class="hstat" id="hs_wor"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </a>
-      <button type="button" class="hcard cal" onclick="go('cal')">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8.5 3.5v3M15.5 3.5v3"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg></span>
-        <span class="htitle">일정 관리</span>
-        <span class="hdesc">청년부 행사 · 커미티 일정</span>
-        <span class="hstat" id="hs_cal"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </button>
-      <button type="button" class="hcard acct" onclick="go('acct')">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 14.5h4"/><path d="M16.5 14.5h.8"/></svg></span>
-        <span class="htitle">회계 관리</span>
-        <span class="hdesc">지출 신청 · 환급 · Cheque</span>
-        <span class="hstat" id="hs_acct"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </button>
-      <button type="button" class="hcard dir" onclick="go('dir')">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="17" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M7.6 17c.7-2.1 2.4-3.3 4.4-3.3s3.7 1.2 4.4 3.3"/></svg></span>
-        <span class="htitle">교적 관리</span>
-        <span class="hdesc">전체 교인 검색 · 정보 수정</span>
-        <span class="hstat" id="hs_dir"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </button>
-      <button type="button" class="hcard push" onclick="go('push')">
-        <span class="hicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8.5a6 6 0 10-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5z"/><path d="M13.7 19a2 2 0 01-3.4 0"/></svg></span>
-        <span class="htitle">알림 관리</span>
-        <span class="hdesc">푸시 알림 켜고 끄기 · 직접 보내기</span>
-        <span class="hstat" id="hs_push"><i class="skel line" style="width:70%;"></i></span>
-        <span class="harrow">&rsaquo;</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- ===================== ⚙️ 앱 기능 관리 — 알림 · 일정 · AI/설교 · 권한 · 메뉴 순서를 한 화면에 ===================== -->
+  <!-- ===================== ⚙️ 앱 기능 관리 — 메뉴 순서 · AI 설정 · 일정 관리 · 권한 관리 (탭) ===================== -->
   <div id="sec_app" class="section" style="display:none;">
     <div class="secbar">
       <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
       <span class="sectitle">⚙️ 앱 기능 관리</span>
       <span class="secspace"></span>
     </div>
-
-    <div class="panel">
-      <span class="chip">메뉴 순서 변경</span>
-      <p class="hint">▲▼ 로 순서를 바꾸면 청년부 포털 첫 화면과 커미티 관리툴 메뉴가 그 순서로 보입니다. 저장하면 바로 반영됩니다.</p>
-      <div id="menuOrderBox"><p class="empty">불러오는 중…</p></div>
+    <div class="tabs subtabs" role="tablist">
+      <button type="button" id="st_app_menu" onclick="go('app','menu')">메뉴 순서</button>
+      <button type="button" id="st_app_ai" onclick="go('app','ai')">AI 설정</button>
+      <button type="button" id="st_app_sched" onclick="go('app','sched')">일정 관리</button>
+      <button type="button" id="st_app_perm" onclick="go('app','perm')">권한 관리</button>
     </div>
 
-    <details class="appsub" id="appsub_word" ontoggle="if(this.open&&!wordLoaded){wordLoaded=true;loadWordAdmin();}">
-      <summary>📖 말씀 관리</summary>
-      <div id="wordAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
-    </details>
-
-    <details class="appsub" id="appsub_ai" ontoggle="if(this.open&&!aiLoaded){aiLoaded=true;loadAiAdmin();}">
-      <summary>🤖 AI 관리</summary>
-      <div id="aiAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
-    </details>
-
-    <details class="appsub" id="appsub_cal">
-      <summary>📅 일정 관리</summary>
+    <div id="sub_app_menu" class="subpane">
       <div class="panel">
+        <span class="chip">메뉴 순서 변경</span>
+        <p class="hint">▲▼ 로 순서를 바꾸면 청년부 포털 첫 화면(Teva Apps)과 커미티 관리툴 메뉴가 그 순서로 보입니다. 저장하면 바로 반영됩니다.</p>
+        <div id="menuOrderBox"><p class="empty">불러오는 중…</p></div>
+      </div>
+    </div>
+
+    <div id="sub_app_ai" class="subpane" style="display:none;">
+      <div id="aiAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
+    </div>
+
+    <div id="sub_app_sched" class="subpane" style="display:none;">
+      <div class="panel">
+        <span class="chip">일정 관리</span>
         <p class="hint">주간 · 월간 일정을 만들고 고치는 화면은 화면이 커서 따로 열립니다.</p>
         <button class="btn accent full" onclick="go('cal')">일정 관리 화면 열기</button>
       </div>
-    </details>
+    </div>
 
-    <details class="appsub" id="appsub_perm" ontoggle="if(this.open&&!permLoaded){permLoaded=true;loadPermAdmin();}">
-      <summary>🔒 권한 관리</summary>
+    <div id="sub_app_perm" class="subpane" style="display:none;">
       <div class="panel">
         <span class="chip">사람에게 역할 주기</span>
         <p class="hint">교회에 이미 등록된 분에게 특정 메뉴 권한을 주려면 <b>교적 관리</b> 화면에서 그 분을 찾아 "포털 역할"에서
@@ -904,12 +775,36 @@ header h1 { color: #F26B21 !important; }
         <button class="btn" onclick="go('dir')">교적 관리로 가기</button>
       </div>
       <div id="permAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
-    </details>
+    </div>
+  </div>
 
-    <details class="appsub" id="appsub_push" ontoggle="if(this.open&&!pushLoaded){pushLoaded=true;loadPushAdmin();}">
-      <summary>🔔 알림 관리</summary>
-      <div id="pushAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
-    </details>
+  <!-- ===================== 📖 설교 · 말씀 관리 (독립 메뉴) ===================== -->
+  <div id="sec_word" class="section" style="display:none;">
+    <div class="secbar">
+      <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
+      <span class="sectitle">📖 설교 · 말씀 관리</span>
+      <span class="secspace"></span>
+    </div>
+    <div id="wordAdmin"><div class="panel"><p class="empty">불러오는 중…</p></div></div>
+  </div>
+
+  <!-- ===================== 🔔 알림 · 이메일 관리 (독립 메뉴) ===================== -->
+  <div id="sec_push" class="section" style="display:none;">
+    <div class="secbar">
+      <button type="button" class="backbtn" onclick="backToPortal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>포털</span></button>
+      <span class="sectitle">🔔 알림 · 이메일 관리</span>
+      <span class="secspace"></span>
+    </div>
+    <div class="tabs subtabs" role="tablist">
+      <button type="button" id="st_push_send" onclick="go('push','send')">보내기</button>
+      <button type="button" id="st_push_auto" onclick="go('push','auto')">자동 알림</button>
+      <button type="button" id="st_push_due" onclick="go('push','due')">마감일 · 공지</button>
+      <button type="button" id="st_push_dev" onclick="go('push','dev')">알림 켠 기기</button>
+    </div>
+    <div id="sub_push_send" class="subpane"><div id="pa_send"><div class="panel"><p class="empty">불러오는 중…</p></div></div></div>
+    <div id="sub_push_auto" class="subpane" style="display:none;"><div id="pa_auto"></div></div>
+    <div id="sub_push_due" class="subpane" style="display:none;"><div id="pa_due"></div></div>
+    <div id="sub_push_dev" class="subpane" style="display:none;"><div id="pa_dev"></div></div>
   </div>
 
   <!-- ===================== 셀 (소그룹) 관리 ===================== -->
@@ -1639,25 +1534,27 @@ function fail(e) { alert(e && e.message ? e.message : '처리에 실패했습니
 /* 모든 영역을 청년부 주황 하나로 — 주보 편집기와 같은 모양 */
 var YN_ORANGE = ['#D2511F', '210,81,31'];
 var SEC_TONE = {
-  home: YN_ORANGE, cell: YN_ORANGE, nf: YN_ORANGE, team: YN_ORANGE, tr: YN_ORANGE,
-  dir: YN_ORANGE, acct: YN_ORANGE, mis: YN_ORANGE, cal: YN_ORANGE, push: YN_ORANGE, ai: YN_ORANGE,
-  perm: YN_ORANGE, app: YN_ORANGE
+  cell: YN_ORANGE, nf: YN_ORANGE, team: YN_ORANGE, tr: YN_ORANGE,
+  dir: YN_ORANGE, acct: YN_ORANGE, mis: YN_ORANGE, cal: YN_ORANGE, push: YN_ORANGE,
+  word: YN_ORANGE, app: YN_ORANGE
 };
 /* 탭을 더 붙이려면 여기에 이름을 더하고 sub_<sec>_<이름> / st_<sec>_<이름> 를 만들면 됩니다 */
 var SEC_SUBS = {
   cell: ['summary', 'report', 'manage'], nf: ['status', 'track', 'staff'],
   team: ['summary', 'report', 'manage'], tr: ['check', 'status', 'manage'],
-  acct: ['expense', 'entry', 'budget', 'envelope', 'summary']
+  acct: ['expense', 'entry', 'budget', 'envelope', 'summary'],
+  app: ['menu', 'ai', 'sched', 'perm'],                 // 앱 기능 관리 — 메뉴 순서 · AI 설정 · 일정 관리 · 권한 관리
+  push: ['send', 'auto', 'due', 'dev']                   // 알림 · 이메일 관리 — 독립 메뉴
 };
-var SECTIONS = ['home', 'cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal', 'app'];
-var curSec = 'home';
-var curSub = { cell: 'summary', nf: 'status', team: 'summary', tr: 'check', acct: 'expense' };
+var SECTIONS = ['cell', 'nf', 'team', 'tr', 'mis', 'acct', 'dir', 'cal', 'app', 'word', 'push'];
+var curSec = '';
+var curSub = { cell: 'summary', nf: 'status', team: 'summary', tr: 'check', acct: 'expense', app: 'menu', push: 'send' };
 var dirLoaded = false, trLoaded = false, acctLoaded = false, misLoaded = false, calLoaded = false, pushLoaded = false, aiLoaded = false, permLoaded = false, appLoaded = false, wordLoaded = false;
 
 /** 화면 전환 — 메뉴 / 각 영역 / 서브 탭 */
 function go(sec, sub, fromHistory) {
-  if (!SEC_TONE[sec]) sec = 'home';
   if (SCOPE === 'acct') sec = 'acct';   // 회계팀에게는 회계 영역만 보입니다
+  else if (!SEC_TONE[sec]) { backToPortal(); return; }   // 옛 관리 첫 화면은 없어졌습니다 — 메뉴는 포털(Teva Apps)에서 고릅니다
   if (SEC_SUBS[sec]) {
     if (!sub || SEC_SUBS[sec].indexOf(sub) === -1) sub = curSub[sec];
     curSub[sec] = sub;
@@ -1668,7 +1565,7 @@ function go(sec, sub, fromHistory) {
   root.setProperty('--orange', t[0]); root.setProperty('--tone-rgb', t[1]);
 
   SECTIONS.forEach(function (k) {
-    var box = el(k === 'home' ? 'home' : 'sec_' + k);
+    var box = el('sec_' + k);
     if (box) box.style.display = (k === sec) ? 'block' : 'none';
   });
   if (SEC_SUBS[sec]) {
@@ -1687,15 +1584,22 @@ function go(sec, sub, fromHistory) {
   if (sec === 'acct' && !acctLoaded) { acctLoaded = true; loadExpenses(); loadBudgets(); loadEnvelopes(); loadExpenseOpen(); }
   if (sec === 'mis' && !misLoaded) { misLoaded = true; loadMissions(); }
   if (sec === 'cal' && !calLoaded) { calLoaded = true; loadCal('sec'); }
-  if (sec === 'app' && !appLoaded) { appLoaded = true; loadAppAdmin(); }
+  if (sec === 'app') {
+    if (sub === 'menu' && !appLoaded) { appLoaded = true; loadAppAdmin(); }
+    if (sub === 'ai' && !aiLoaded) { aiLoaded = true; loadAiAdmin(); }
+    if (sub === 'perm' && !permLoaded) { permLoaded = true; loadPermAdmin(); }
+  }
+  if (sec === 'word' && !wordLoaded) { wordLoaded = true; loadWordAdmin(); }
+  if (sec === 'push' && !pushLoaded) { pushLoaded = true; loadPushAdmin(); }
+  if (sec === 'cal') loadCalIds();
 
   if (curSec !== sec) window.scrollTo(0, 0);
   curSec = sec;
 
   if (!fromHistory) {
     try {
-      var h = sec === 'home' ? '' : sec + (sub ? '-' + sub : '');
-      // 기록을 쌓지 않고 바꿔치기만 합니다 — 뒤로가기를 누르면 관리 첫 화면이 아니라 포털로 돌아갑니다
+      var h = sec + (sub ? '-' + sub : '');
+      // 기록을 쌓지 않고 바꿔치기만 합니다 — 뒤로가기를 누르면 포털로 돌아갑니다
       history.replaceState({ sec: sec, sub: sub }, '', location.pathname + location.search + (h ? '#' + h : ''));
     } catch (e) {}
   }
@@ -1760,7 +1664,7 @@ function toggleNote(key) {
 function noteEditor(k) {
   var p = NOTE_PREVIEW[k.key];
   return '<div class="noteBox">' +
-    '<label class="fl">알림 끝에 붙는 안내 문구 (선택)</label>' +
+    '<label class="fl">이메일 카드에 붙는 안내 문구 (선택 · 푸시에는 붙지 않습니다)</label>' +
     '<textarea id="note_' + esc(k.key) + '" rows="2" maxlength="300" placeholder="예: 문의는 청년부 커미티에게 연락 주세요.">' + esc(k.note || '') + '</textarea>' +
     '<div class="noteRow">' +
       '<button class="btn mini" onclick="saveNote(\'' + esc(k.key) + '\')">저장</button>' +
@@ -1778,9 +1682,108 @@ function saveNote(key) {
   }, function (e) { say('noteMsg_' + key, e.message || '저장하지 못했습니다.', 'err'); });
 }
 
+/* ===================== 알림 미리보기 (앱 푸시 + HTML 이메일) ===================== */
+
+var PV = { open: false, kind: '', timer: null, seq: 0 };
+
+function pvClose() { PV.open = false; var b = el('pvBack'); if (b) b.classList.remove('on'); }
+
+function pvShell() {
+  var b = el('pvBack');
+  if (b) return b;
+  b = document.createElement('div');
+  b.id = 'pvBack'; b.className = 'pvBack';
+  b.innerHTML = '<div class="pvBox" role="dialog" aria-modal="true" aria-label="알림 미리보기">' +
+    '<div class="pvHead"><b>👁 알림 미리보기</b><button type="button" class="pvX" onclick="pvClose()" aria-label="닫기">✕</button></div>' +
+    '<div id="pvEdit"></div>' +
+    '<div class="pvGrid">' +
+      '<div class="pvCol"><h4>📱 앱 푸시 알림</h4><div class="pvPhone"><div id="pvPush"></div></div><div class="pvCnt" id="pvCnt"></div></div>' +
+      '<div class="pvCol"><h4>✉️ HTML 이메일</h4><div class="pvMail"><div class="pvMailHead" id="pvMailHead"></div>' +
+        '<iframe id="pvMailFrame" title="이메일 미리보기" sandbox=""></iframe></div></div>' +
+    '</div>' +
+    '<p class="msg" id="pvMsg" style="margin-top:10px;"></p>' +
+    '<div class="pvFoot" id="pvFoot"></div></div>';
+  b.addEventListener('click', function (e) { if (e.target === b) pvClose(); });
+  document.body.appendChild(b);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && PV.open) pvClose(); });
+  return b;
+}
+
+/** 지금 폼 값 (공지 보내기) 또는 종류별 안내 문구를 서버에 보내 미리보기를 받아 그립니다 */
+function pvRender() {
+  var mine = ++PV.seq;
+  var spec = { kind: PV.kind };
+  if (PV.kind) {
+    var nt = el('pvNote'); if (nt) spec.note = nt.value;
+  } else {
+    spec.title = (el('pvTitle') || {}).value || '';
+    spec.body = (el('pvBody') || {}).value || '';
+    spec.url = (el('pgUrl') || {}).value || '';
+  }
+  say('pvMsg', '', '');
+  callServer('notificationPreview', [KEY, spec], function (p) {
+    if (mine !== PV.seq) return;              // 더 최근 요청이 있으면 버립니다
+    el('pvPush').innerHTML = '<div class="pvBanner"><div class="top"><span class="ic">청</span><span>' + esc(p.push.app) + '</span><span style="margin-left:auto;">지금</span></div>' +
+      '<div class="tt">' + esc(p.push.title) + '</div><div class="bd">' + esc(p.push.body) + '</div></div>';
+    el('pvCnt').textContent = '푸시는 짧게 — 제목 ' + p.push.chars.title + '/40자 · 본문 ' + p.push.chars.body + '/100자 (긴 내용은 이메일 · 포털 공지에)';
+    el('pvMailHead').innerHTML = '<b>보낸 사람</b> ' + esc(p.email.from) + '<br><b>제목</b> ' + esc(p.email.subject);
+    el('pvMailFrame').srcdoc = p.email.html;
+  }, function (e) { if (mine === PV.seq) say('pvMsg', (e && e.message) || '미리보기를 만들지 못했습니다.', 'err'); });
+}
+
+function pvSoon() { clearTimeout(PV.timer); PV.timer = setTimeout(pvRender, 350); }
+
+function pvOpen(kind, editHtml, footHtml) {
+  pvShell();
+  PV.open = true; PV.kind = kind;
+  el('pvEdit').innerHTML = editHtml;
+  el('pvFoot').innerHTML = footHtml + '<button type="button" class="btn" onclick="pvClose()">닫기</button>';
+  el('pvBack').classList.add('on');
+  ['pvTitle', 'pvBody', 'pvNote'].forEach(function (id) { var x = el(id); if (x) x.addEventListener('input', pvSoon); });
+  pvRender();
+}
+
+/** 공지 보내기 폼의 내용을 미리봅니다 — 미리보기 안에서 고치면 폼에도 반영됩니다 */
+function previewNotice() {
+  var t = (el('pgTitle') || {}).value || '', b = (el('pgBody') || {}).value || '';
+  if (!t.trim() && !b.trim()) { say('pgMsg', '제목이나 내용을 먼저 적어주세요.', 'err'); return; }
+  pvOpen('',
+    '<div class="pvEdit"><label for="pvTitle">제목 (여기서 고치면 위 폼에도 반영됩니다)</label>' +
+    '<input type="text" id="pvTitle" maxlength="100" value="' + esc(t) + '">' +
+    '<label for="pvBody">내용</label><textarea id="pvBody" rows="3" maxlength="2000">' + esc(b) + '</textarea></div>',
+    '<button type="button" class="btn accent" onclick="pvUseAndSend()">이대로 보내기</button>');
+  var mirror = function () { el('pgTitle').value = el('pvTitle').value; el('pgBody').value = el('pvBody').value; };
+  el('pvTitle').addEventListener('input', mirror); el('pvBody').addEventListener('input', mirror);
+}
+
+function pvUseAndSend() { pvClose(); sendPushMsg(); }
+
+/** 알림 종류(셀보고 독려 등)의 샘플 · 안내 문구를 미리봅니다 */
+function previewKind(key) {
+  var k = null; ((PUSHA && PUSHA.kinds) || []).forEach(function (x) { if (x.key === key) k = x; });
+  if (!k) return;
+  var live = el('note_' + key);
+  var note = live ? live.value : (k.note || '');
+  pvOpen(key,
+    '<div class="pvEdit"><b style="font-size:14px;">' + esc(k.name) + '</b> <span style="color:#9A958C;font-size:12px;">— 예시 내용입니다</span>' +
+    '<label for="pvNote" style="margin-top:8px;">이메일 카드에 붙는 안내 문구 (푸시에는 붙지 않습니다)</label>' +
+    '<textarea id="pvNote" rows="2" maxlength="300">' + esc(note) + '</textarea></div>',
+    '<button type="button" class="btn accent" onclick="pvSaveNote()">이 문구 저장</button>');
+}
+
+function pvSaveNote() {
+  var key = PV.kind, v = (el('pvNote') || {}).value || '';
+  callServer('saveNotifyNote', [KEY, key, v], function () {
+    ((PUSHA && PUSHA.kinds) || []).forEach(function (x) { if (x.key === key) x.note = v; });
+    delete NOTE_PREVIEW[key];
+    say('pvMsg', '저장했습니다.', 'ok');
+    drawPushAdmin(PUSHA);
+  }, function (e) { say('pvMsg', (e && e.message) || '저장하지 못했습니다.', 'err'); });
+}
+
 function loadPushAdmin() {
   callServer('pushAdminInit', [KEY], drawPushAdmin, function (e) {
-    el('pushAdmin').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>';
+    el('pa_send').innerHTML = '<div class="panel"><p class="msg err">' + esc(e.message || '불러오지 못했습니다.') + '</p></div>';
   });
 }
 
@@ -1798,7 +1801,8 @@ function drawPushAdmin(r) {
         '<button type="button" class="tgl sm' + (k.on ? ' on' : '') + '" onclick="togglePush(\'' + esc(k.key) + '\',' + (k.on ? 'false' : 'true') + ')"><span></span></button>' +
         '<span class="tglab">메일</span>' +
         '<button type="button" class="tgl sm' + (k.mail ? ' on' : '') + '" onclick="toggleMail(\'' + esc(k.key) + '\',' + (k.mail ? 'false' : 'true') + ')"><span></span></button>' +
-        '<button type="button" class="btn mini" onclick="toggleNote(\'' + esc(k.key) + '\')">' + (open ? '닫기' : '문구 · 미리보기') + '</button>' +
+        '<button type="button" class="btn mini" onclick="toggleNote(\'' + esc(k.key) + '\')">' + (open ? '닫기' : '문구') + '</button>' +
+        '<button type="button" class="btn mini" onclick="previewKind(\'' + esc(k.key) + '\')">👁 미리보기</button>' +
       '</div>' +
       (open ? noteEditor(k) : '') +
       '</div>';
@@ -1860,7 +1864,8 @@ function drawPushAdmin(r) {
       }).join('')
     : '<p class="empty">아직 알림을 켠 분이 없습니다. 포털 첫 화면에서 각자 "알림 켜기" 를 누르면 여기에 나옵니다.</p>';
 
-  el('pushAdmin').innerHTML =
+  var PN = {};
+  PN['now'] =
     '<div class="panel"><span class="chip">지금 바로 보내기</span>' +
       '<p class="hint">정해진 시각을 기다리지 않고 지금 보냅니다.</p>' +
       '<div class="nowgrid">' +
@@ -1870,7 +1875,8 @@ function drawPushAdmin(r) {
         '<button class="btn" onclick="nowSend(\'team\',\'nudge\')">안 낸 팀장에게<br><b>독촉</b></button>' +
       '</div>' +
       '<p class="msg" id="nowMsg"></p>' +
-    '</div>' +
+    '</div>';
+  PN['sched'] =
     '<div class="panel"><span class="chip">보내는 요일 · 시각</span>' +
       '<p class="hint">자동으로 나가는 알림의 시각입니다. 전체를 잠시 멈추려면 아래 스위치를 끄세요.</p>' +
       sched +
@@ -1878,12 +1884,14 @@ function drawPushAdmin(r) {
         '<div class="pkt"><b>자동 발송 전체</b><small>방학 기간에는 꺼두셔도 됩니다</small></div>' +
         '<button type="button" class="tgl' + (r.reminderOn ? ' on' : '') + '" onclick="toggleReminder(' + (r.reminderOn ? 'false' : 'true') + ')"><span></span></button>' +
       '</div>' +
-    '</div>' +
+    '</div>';
+  PN['kinds'] =
     '<div class="panel"><span class="chip">알림 종류</span>' +
       '<p class="hint">푸시는 휴대폰 알림, 메일은 교적 이메일로 함께 보냅니다.</p>' +
       kinds +
       (r.ready ? '' : '<p class="msg" style="margin-top:10px;">알림 열쇠는 처음 보낼 때 저절로 만들어집니다.</p>') +
-    '</div>' +
+    '</div>';
+  PN['notice'] =
     '<div class="panel"><span class="chip">공지 보내기</span>' +
       '<div class="f"><label class="fl">받는 사람</label>' +
         '<select id="pgTarget">' + targetOptions + '</select></div>' +
@@ -1909,10 +1917,13 @@ function drawPushAdmin(r) {
         '<span>휴대폰 알림으로 보내기</span></label>' +
       '<label class="lkchg" style="margin:0 0 12px;"><input type="checkbox" id="pgMail">' +
         '<span>이메일로도 보내기<em>교적에 이메일이 있는 분에게만 갑니다</em></span></label>' +
-      '<button class="btn accent full" onclick="sendPushMsg()">보내기</button>' +
+      '<div class="pvrow"><button class="btn full" type="button" onclick="previewNotice()">👁 미리보기 (푸시 · 이메일)</button>' +
+      '<button class="btn accent full" type="button" onclick="sendPushMsg()">보내기</button></div>' +
       '<p class="msg" id="pgMsg"></p>' +
-    '</div>' +
-    '<div class="panel"><span class="chip">포털에 올라간 공지</span>' + notices + '</div>' +
+    '</div>';
+  PN['list'] =
+    '<div class="panel"><span class="chip">포털에 올라간 공지</span>' + notices + '</div>';
+  PN['due'] =
     '<div class="panel"><span class="chip">마감일 · 제출 독촉</span>' +
       '<p class="hint">마감 7일 전 · 3일 전 · 당일에 알리고, 지나면 3일마다 독촉합니다.</p>' +
       '<div class="frow" style="display:flex;gap:8px;flex-wrap:wrap;">' +
@@ -1933,8 +1944,13 @@ function drawPushAdmin(r) {
       '<button class="btn accent full" onclick="saveDue()">마감일 정하기</button>' +
       '<p class="msg" id="duMsg"></p>' +
       '<div style="margin-top:14px;">' + dls + '</div>' +
-    '</div>' +
+    '</div>';
+  PN['dev'] =
     '<div class="panel"><span class="chip">알림을 켠 분들 (' + (r.total || 0) + '대)</span>' + people + '</div>';
+  el('pa_send').innerHTML = PN.now + PN.notice;
+  el('pa_auto').innerHTML = PN.sched + PN.kinds;
+  el('pa_due').innerHTML = PN.list + PN.due;
+  el('pa_dev').innerHTML = PN.dev;
 
   var sel = el('pgTarget');
   sel.onchange = function () { el('pgNamesBox').style.display = sel.value === '__names' ? 'block' : 'none'; };
@@ -2202,10 +2218,9 @@ function saveMenuOrderKind(kind) {
 
 /* ===================== 일정 (구글 캘린더) ===================== */
 
-/* 달력이 두 곳에 있습니다 — 첫 화면(커미티 일정)과 일정 관리 화면(공개 · 커미티) */
+/* 달력은 일정 관리 화면(공개 · 리더 · 커미티) 한 곳에만 있습니다 */
 var CAL_CACHE = {};
 var CALV = {
-  home: { scope: '커미티', ym: '', edit: null, p: 'hcal' },
   sec:  { scope: '공개',   ym: '', edit: null, p: 'cal' }
 };
 /* 공개는 포털과 같은 주황, 커미티는 보라 */
@@ -2311,8 +2326,8 @@ function calFormHtml(v) {
 /* 저장하면 두 달력(첫 화면 · 일정 관리)을 모두 새로 그립니다 */
 function calRefresh(scope) {
   Object.keys(CAL_CACHE).forEach(function (k) { if (k.indexOf(scope + '|') === 0) delete CAL_CACHE[k]; });
-  ['home', 'sec'].forEach(function (v) {
-    if (CALV[v].scope === scope && (v === 'home' || calLoaded)) loadCal(v);
+  ['sec'].forEach(function (v) {
+    if (CALV[v].scope === scope && calLoaded) loadCal(v);
   });
 }
 
@@ -2357,12 +2372,12 @@ function showCalMsg(v, t, k) { var m = el(cid(v, 'Msg')); if (!m) return; m.clas
 window.addEventListener('popstate', function (e) {
   var st = e && e.state;
   if (st && st.sec) go(st.sec, st.sub, true);
-  else go('home', '', true);
+  else backToPortal();
 });
 
 function startFromHash() {
   var h = String(location.hash || '').replace(/^#/, '').split('-');
-  go(h[0] || 'home', h[1] || '', true);
+  go(h[0] || '', h[1] || '', true);
 }
 
 /* ---------- Summary ---------- */
@@ -3953,7 +3968,7 @@ function newCohort() {
   var start = prompt('시작일을 적어주세요. (예: 2027-03-03)', '');
   if (!start) return;
   callServer('saveDiscipleshipCohort', [KEY, { name: name, start: start, weeks: 9, passRate: 80 }],
-    function (d) { TR = d; rememberPhotos(d.list); renderTraining(); drawCohorts(); loadHomeStats(); },
+    function (d) { TR = d; rememberPhotos(d.list); renderTraining(); drawCohorts(); },
     function (e) { alert(e.message || '만들지 못했습니다.'); });
 }
 
@@ -4163,7 +4178,7 @@ function feeOf(name) { return TR.list.filter(function (m) { return m.name === na
 function toggleFee(name) {
   var m = feeOf(name);
   el('trFeeMsg').textContent = '저장하는 중…';
-  callServer('setDiscipleshipFee', [KEY, name, !m.feePaid, ''], function (d) { el('trFeeMsg').textContent = ''; trAfterSave(d); loadHomeStats(); }, function (e) { el('trFeeMsg').textContent = e.message || '저장 실패'; });
+  callServer('setDiscipleshipFee', [KEY, name, !m.feePaid, ''], function (d) { el('trFeeMsg').textContent = ''; trAfterSave(d); }, function (e) { el('trFeeMsg').textContent = e.message || '저장 실패'; });
 }
 
 function addTrMember() {
@@ -4172,13 +4187,13 @@ function addTrMember() {
   el('trAddMsg').textContent = '추가하는 중…';
   callServer('addDiscipleshipMember', [KEY, name, TR_COH], function (d) {
       el('trAddMsg').textContent = ''; el('trNew').value = ''; el('trPick').value = '';
-      trAfterSave(d); loadHomeStats();
+      trAfterSave(d);
     }, function (e) { el('trAddMsg').textContent = e.message || '추가 실패'; });
 }
 
 function removeTrMember(name) {
   if (!confirm(name + '님을 제자훈련 명단에서 빼고 출석 기록도 지울까요?')) return;
-  callServer('removeDiscipleshipMember', [KEY, name, TR_COH], function (d) { trAfterSave(d); loadHomeStats(); }, function (e) { alert(e.message || '삭제 실패'); });
+  callServer('removeDiscipleshipMember', [KEY, name, TR_COH], function (d) { trAfterSave(d); }, function (e) { alert(e.message || '삭제 실패'); });
 }
 
 function saveTrConfig() {
@@ -4191,7 +4206,7 @@ function saveTrConfig() {
       passRate: el('trPass').value
     }], function (d) {
       el('trCfgMsg').textContent = '저장했습니다.';
-      trWeek = ''; TR = d; trAfterSave(d); drawCohorts(); loadHomeStats();
+      trWeek = ''; TR = d; trAfterSave(d); drawCohorts();
     }, function (e) { el('trCfgMsg').textContent = e.message || '저장하지 못했습니다.'; });
 }
 
@@ -5210,63 +5225,21 @@ function saveAcctCfg() {
     }, function (e) { el('acctMsg').textContent = e.message || '저장하지 못했습니다.'; });
 }
 
-/* ==================== 메뉴 카드 요약 ==================== */
+/* ==================== 일정 관리 — 연결된 캘린더 ID 표시 ==================== */
 
-function loadHomeStats() {
+var calIdsLoaded = false;
+function loadCalIds() {
+  if (calIdsLoaded) return;
+  calIdsLoaded = true;
   callServer('getHomeStats', [KEY], function (h) {
-      function nw(s) { return '<span class="nw">' + s + '</span>'; }
-      el('hs_cell').innerHTML = [nw('<b>' + h.cell.count + '</b>개 셀'),
-        nw('출석률 <b>' + (h.cell.rate === null ? '–' : h.cell.rate + '%') + '</b>'),
-        nw('이번 주 제출 <b>' + h.cell.submitted + '/' + h.cell.count + '</b>')].join(' · ');
-      el('hs_nf').innerHTML = [nw('과정 중 <b>' + h.newFamily.active + '</b>명'),
-        h.newFamily.ready ? nw('<em>배정 대기 ' + h.newFamily.ready + '명</em>') : nw('배정 대기 0명'),
-        nw('정착 추적 <b>' + h.newFamily.settled + '</b>명')].join(' · ');
-      el('hs_team').innerHTML = [nw('<b>' + h.team.count + '</b>개 팀'),
-        nw('보고 <b>' + h.team.reported + '/' + h.team.count + '</b>'),
-        nw('팀원 <b>' + h.team.members + '</b>명')].join(' · ');
-      el('hs_tr').innerHTML = h.training.total
-        ? [nw('<b>' + h.training.total + '</b>명'),
-           nw(h.training.week + '/' + h.training.weeks + '주차'),
-           nw('평균 출석 <b>' + (h.training.avg === null ? '–' : h.training.avg + '%') + '</b>'),
-           nw('회비 <b>' + h.training.feePaid + '/' + h.training.total + '</b>')].join(' · ')
-        : '아직 등록된 훈련 인원이 없습니다';
-      el('hs_dir').innerHTML = [nw('전체 <b>' + h.directory.total + '</b>명'),
-        nw('셀 소속 <b>' + h.directory.withCell + '</b>명'),
-        nw('소속 셀 없음 <b>' + h.directory.noCell + '</b>명')].join(' · ');
-      el('hs_mis').innerHTML = h.mission && h.mission.total
-        ? [nw('<b>' + h.mission.total + '</b>개 팀'),
-           nw('준비중 <b>' + h.mission.active + '</b>'),
-           h.mission.gaps ? nw('<em>필수 역할 비어있음 ' + h.mission.gaps + '</em>') : nw('역할 충족')].join(' · ')
-        : '등록된 선교팀이 없습니다';
-      if (h.calendar) {
-        el('hs_cal').innerHTML = h.calendar.publicOk || h.calendar.committeeOk
-          ? [nw('공개 ' + (h.calendar.publicOk ? '<b>연결됨</b>' : '미연결')),
-             nw('리더 ' + (h.calendar.leaderOk ? '<b>연결됨</b>' : '미연결')),
-             nw('커미티 ' + (h.calendar.committeeOk ? '<b>연결됨</b>' : '미연결'))].join(' · ')
-          : '구글 캘린더를 연결해주세요';
-        el('calId공개').textContent = h.calendar.publicId || '— 설정 탭 · 공개캘린더ID';
-        el('calId커미티').textContent = h.calendar.committeeId || '— 설정 탭 · 커미티캘린더ID';
-        el('calId리더').textContent = h.calendar.leaderId || '— 설정 탭 · 리더캘린더ID';
-      }
-      if (h.worship) {
-        el('hc_wor').href = h.worship.url;
-        el('hs_wor').innerHTML = [nw('이번 주 편성 <b>' + h.worship.filled + '/' + h.worship.need + '</b>'),
-          nw('콘티 <b>' + h.worship.songs + '</b>곡'),
-          nw('결단 <b>' + (h.worship.finals || 0) + '</b>곡')].join(' · ');
-      }
-      el('hs_acct').innerHTML = h.expense.total
-        ? [nw('신청 <b>' + h.expense.total + '</b>건'),
-           h.expense.open ? nw('<em>처리 중 ' + h.expense.open + '건</em>') : nw('처리 중 0건'),
-           nw('미지급 <b>' + exShort(h.expense.outstanding) + '</b>')].join(' · ')
-        : '아직 들어온 지출 신청이 없습니다';
-    }, function () {
-      ['cell', 'nf', 'team', 'tr', 'mis', 'wor', 'cal', 'acct', 'dir'].forEach(function (k) {
-        var x = el('hs_' + k); if (x) x.textContent = '';
-      });
-    });
+    if (!h || !h.calendar) return;
+    el('calId공개').textContent = h.calendar.publicId || '— 설정 탭 · 공개캘린더ID';
+    el('calId커미티').textContent = h.calendar.committeeId || '— 설정 탭 · 커미티캘린더ID';
+    el('calId리더').textContent = h.calendar.leaderId || '— 설정 탭 · 리더캘린더ID';
+  }, function () { calIdsLoaded = false; });
 }
 
-/* 나머지 영역은 첫 화면이 뜬 뒤 조용히 미리 불러와 둡니다 */
+/* 나머지 영역은 화면이 뜬 뒤 조용히 미리 불러와 둡니다 */
 function prefetchRest() {
   if (!nfLoaded) { nfLoaded = true; loadNewFamily(); }
   setTimeout(function () { if (!teamLoaded) { teamLoaded = true; loadTeams(); } }, 400);
@@ -5293,9 +5266,9 @@ function bootAll() {
     return;
   }
 
+  // 옛 관리 첫 화면은 없어졌습니다 — 주소에 영역(#cell 등)이 없으면 포털(Teva Apps)로 보냅니다
+  if (!SEC_TONE[String(location.hash || '').replace(/^#/, '').split('-')[0]]) { backToPortal(); return; }
   startFromHash();
-  loadHomeStats();
-  loadCal('home');
 
   // 셀 영역은 가장 자주 쓰므로 바로 불러옵니다
   callServer('getAdminBootstrap', [KEY], function (b) {

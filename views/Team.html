@@ -289,7 +289,7 @@
 <div class="shell">
   <header>
     <a href="/" class="homelink" title="포털 홈으로"><img src="/logo.png" alt="Youngnak"></a>
-    <h1>팀 보고서 및 팀 관리</h1>
+    <h1>사역팀</h1>
     <p class="meta">YNTORONTO &nbsp;·&nbsp; MINISTRY</p>
   </header>
 
@@ -593,6 +593,7 @@ function start() {
       TEAMS.map(function (t, i) { return '<option value="' + i + '">' + esc(t.name) + '</option>'; }).join('');
   }
   onTeamChange();
+  if (PREFILL.sub === 'members' && !start._subDone) { start._subDone = true; try { showTab('mem'); } catch (e) {} }   // 포털 '사역팀 › 팀원 관리'
 }
 
 function onTeamChange() {
