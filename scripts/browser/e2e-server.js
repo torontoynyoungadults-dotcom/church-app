@@ -6,9 +6,11 @@ const ROOT = path.join(__dirname, '..', '..');
 const USERS = { tokA: { name: 'Alice', canEdit: true, canLead: true, committee: false, admin: false }, tokB: { name: 'Bob', canEdit: false, canLead: false }, tokC: { name: 'Carol', canEdit: true, canLead: true } };
 const store = { team: {}, mine: {}, saves: [], calls: [], callLog: [], follow: {} };
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.json': 'application/json' };
-const pdf = mkpdf(SAMPLE), pdfMulti = mkpdf(MULTI);
+const MK = require('./mksheet');
+const pdf = mkpdf(SAMPLE), pdfMulti = mkpdf(MULTI), pdfLead = MK.mkSheetPdf(MK.layout().prims);
+let scanPng = null;
 function harness() {
-  const scripts = ['formb', 'wakelock', 'metro', 'pitch', 'lyrics', 'ytplayer', 'rt', 'anno', 'practice-panels', 'practice', 'stats'].map((n) => `<script src="/worship/${n}.js"></script>`).join('\n');
+  const scripts = ['formb', 'wakelock', 'metro', 'pitch', 'harmony-core', 'omr', 'harmony-ui', 'lyrics', 'ytplayer', 'rt', 'anno', 'practice-panels', 'practice', 'stats'].map((n) => `<script src="/worship/${n}.js"></script>`).join('\n');
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/worship/hub.css"><style>body{margin:0;background:#222;color:#eee;font-family:sans-serif}</style>
 <script src="/socket.io/socket.io.js"></script>${scripts}
 <script>
@@ -28,6 +30,8 @@ window.OPEN = function (o) {
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x'); const p = u.pathname;
   if (p === '/h.html') { res.setHeader('content-type', MIME['.html']); return res.end(harness()); }
+  if (p.startsWith('/sheet/') && p.indexOf('SCAN') >= 0 && scanPng) { res.setHeader('content-type', 'image/png'); return res.end(scanPng); }
+  if (p.startsWith('/sheet/') && p.indexOf('LEAD') >= 0) { res.setHeader('content-type', 'application/pdf'); return res.end(pdfLead); }
   if (p.startsWith('/sheet/')) { res.setHeader('content-type', 'application/pdf'); return res.end(p.indexOf('MULTI') >= 0 ? pdfMulti : pdf); }
   if (p === '/__store') { res.setHeader('content-type', 'application/json'); return res.end(JSON.stringify(store)); }
   if (p.startsWith('/api/') && req.method === 'POST') {
@@ -56,5 +60,5 @@ const rt = realtime.attach(server, {
   saveAnno: (f, s, items, by) => { store.team[f + '|' + s] = items; store.saves.push({ f, s, n: items.length }); },
   log: () => {},
 }, { limits: { saveDelayMs: 600, saveGapMs: 100 } });
-module.exports = { server, rt, store, start: (port) => new Promise((r) => server.listen(port, () => r(server.address().port))) };
+module.exports = { server, rt, store, setScan: (b) => { scanPng = b; }, start: (port) => new Promise((r) => server.listen(port, () => r(server.address().port))) };
 if (require.main === module) module.exports.start(process.env.PORT || 4177).then((p) => console.log('listening', p));

@@ -641,6 +641,13 @@
       return { destroy: function () { try { pr.destroy(); } catch (e) {} } };
     } });
 
+    /* ------------------------------------------------------------ 화음 (코드 인식 · 키 바꾸기 · 알토/테너 덧그리기 — Step 13) */
+    tabs.push({ id: 'harmony', icon: '🎶', label: '화음', build: function (host) {
+      if (!need('화음 · 코드 변환', root.YNHarmonyUI && root.YNHarmony && root.YNOmr, host)) return;
+      var ui = root.YNHarmonyUI.mount(host, P); if (!ui) return;
+      return { onShow: function () { ui.onShow(); }, destroy: function () { try { ui.destroy(); } catch (e) {} } };
+    } });
+
     /* (가사 추출은 Step 2.8 에서 허브 화면의 "가사 도구"(방송팀 요청 바로 위)로 옮겼습니다 — public/worship/hubtools.js) */
 
     /* ------------------------------------------------------------ 함께 (페이지 컨트롤 · 클릭 컨트롤 · 동기화 끄기) */
