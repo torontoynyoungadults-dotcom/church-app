@@ -255,7 +255,7 @@
     var cv = o.canvas, host = o.host, ctx = cv.getContext('2d');
     var S = { layers: { team: new Map(), mine: new Map() }, vis: { team: true, mine: true }, page: 1, tool: 'none', color: PALETTE[0], hlColor: HL_COLORS[0],
       pw: 0.003, hw: 0.02, sym: 'sharp', fboxTag: 'V',  symSize: 0.032, textSize: 0.024, font: 'sans', layer: 'team', W: 1, H: 1, dpr: 1, cur: null, live: new Map(), hist: [], redo: [],
-      sawPen: false, penT: 0, sel: null, fboxSize: 0.028, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
+      sawPen: !!o.sawPen, penT: 0, penTap: true, prevDraw: 'pen', tapDown: null, tapLast: null, seq: 0, sel: null, fboxSize: 0.028, penMode: 'auto', straight: false, me: o.me || '', canEdit: !!o.canEdit, editor: null, raf: 0, dead: false, liveTimer: 0 };
     function say(t, bad) { try { if (o.onMessage) o.onMessage(t, !!bad); } catch (e) {} }
     function changed() { try { if (o.onChange) o.onChange(); } catch (e) {} }
 
@@ -332,7 +332,7 @@
     function canModify(layer, it) { return layer === 'mine' || mine(it) || S.canEdit; }
     function put(layer, it, notify) { S.layers[layer].set(it.id, it); if (notify !== false) { try { o.onAdd && o.onAdd(layer, it); } catch (e) {} } invalidate(); changed(); }
     function take(layer, id, notify) { var it = S.layers[layer].get(id); if (!it) return null; S.layers[layer].delete(id); if (notify !== false) { try { o.onDel && o.onDel(layer, id); } catch (e) {} } invalidate(); changed(); return it; }
-    function record(op) { S.hist.push(op); if (S.hist.length > 200) S.hist.shift(); S.redo = []; }
+    function record(op) { S.seq++; S.hist.push(op); if (S.hist.length > 200) S.hist.shift(); S.redo = []; }
     function addLocal(layer, it) { it.by = S.me; it.ts = Date.now(); put(layer, it); record({ op: 'add', layer: layer, item: it }); return it; }
 
     function undo() {
@@ -403,16 +403,48 @@
         moved: false, editOnTap: !!editOnTap, wasSel: was, locked: !canModify(g.layer, g.item), warned: false };
       invalidate(); changed();
     }
+    /* ---- 펜 ↔ 지우개 빠른 전환 (Step 2.15) ----
+       웹 페이지(사파리 포함)는 애플 펜슬의 하드웨어 "더블탭"을 받을 수 없습니다 — 그 신호는 네이티브 앱(UIPencilInteraction)에만 전달됩니다.
+       그래서 페이지 안에서 받을 수 있는 신호로 같은 일을 합니다:
+         ① 펜 끝으로 같은 자리를 빠르게 두 번 톡톡 (펜 · 형광펜 ↔ 지우개)  ② 펜 옆 버튼(서피스 펜 · S펜 · 와콤 등) 누르기  ③ 펜의 지우개 쪽 끝(잡고 있는 동안만 지우개)
+         ④ 도구 막대의 단추 · E 키(지우개) 는 기존 그대로.
+       첫 번째 톡으로 찍힌 점(또는 지워진 것)은 두 번째 톡이 확인되는 순간 자동으로 되돌립니다. */
+    var TAP_MS = 380, TAP_PX = 34;
+    function swapPenEraser(via) {
+      var from = S.tool, to = from === 'eraser' ? (S.prevDraw || 'pen') : (from === 'pen' || from === 'hl') ? 'eraser' : '';
+      if (!to) return false;
+      if (from !== 'eraser') S.prevDraw = from;
+      if (o.onToolSwap) { try { o.onToolSwap(to, from, via || 'tap'); } catch (x) {} } else api.setTool(to);
+      return true;
+    }
+    /** 펜 입력의 빠른 전환 처리 — 처리했으면 true (그 입력으로는 그리기를 시작하지 않음) */
+    function penGesture(e) {
+      if (!S.penTap) return false;
+      var t = S.tool; if (t !== 'pen' && t !== 'hl' && t !== 'eraser') return false;
+      if ((e.buttons & 2) || e.button === 2) { S.tapLast = null; return swapPenEraser('barrel'); }        // 펜 옆 버튼
+      var L = S.tapLast, now = Date.now(); S.tapLast = null;
+      if (L && now - L.t < TAP_MS && Math.hypot(e.clientX - L.x, e.clientY - L.y) < TAP_PX && S.seq === L.after && t === L.tool) {
+        var n = L.after - L.before;                                                                       // 첫 번째 톡이 남긴 흔적만큼 되돌림
+        while (n-- > 0 && S.hist.length) { if (!undo()) break; }
+        return swapPenEraser('tap');
+      }
+      return false;
+    }
     function onDown(e) {
       if (!drawing() || S.dead) return;
-      if (e.pointerType === 'pen') { if (!S.sawPen) { S.sawPen = true; refreshTouch(); } }
+      if (e.pointerType === 'pen') { if (!S.sawPen) { S.sawPen = true; refreshTouch(); try { o.onPenSeen && o.onPenSeen(); } catch (x) {} } }
       else if (e.pointerType === 'touch' && (S.penMode === 'always' || (S.penMode === 'auto' && S.sawPen) || Date.now() - S.penT < 700 || ((e.width || 0) > 40 || (e.height || 0) > 40))) return;      // 손바닥 · 손가락은 무시 (펜만 그림) — 펜이 화면 위에 있거나(700ms) 닿는 면이 넓은(손바닥) 터치는 항상 무시
       else if (e.pointerType === 'mouse' && e.button !== 0) return;
       if (S.cur) { S.cur = null; invalidate(); return; }                                                                // 두 번째 손가락 = 그리기 취소 (확대 동작)
+      if (e.pointerType === 'pen' && penGesture(e)) { e.preventDefault(); return; }                                    // 펜 더블탭 · 옆 버튼 = 펜 ↔ 지우개
       if (S.editor) { closeEditor(true); }
       if (S.layer === 'team' && o.teamBlocked && o.teamBlocked()) { say(o.teamBlocked(), true); return; }
       e.preventDefault();
       try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+      if (e.pointerType === 'pen' && S.penTap && (S.tool === 'pen' || S.tool === 'hl' || S.tool === 'eraser')) S.tapDown = { t: Date.now(), x: e.clientX, y: e.clientY, seq: S.seq };
+      if (e.pointerType === 'pen' && S.penTap && (e.button === 5 || (e.buttons & 32)) && (S.tool === 'pen' || S.tool === 'hl')) {     // 지우개 쪽 끝: 잡고 있는 동안만 지우개
+        var pe = norm(e); S.tapDown = null; S.cur = { kind: 'erase', ptr: e.pointerId, touch: false }; eraseAt(pe.x * S.W, pe.y * S.H); return;
+      }
       var p = norm(e), touch = e.pointerType === 'touch';
       if (S.tool !== 'select' && S.tool !== 'text' && S.tool !== 'chord' && S.sel) { S.sel = null; changed(); }
       if (S.tool === 'select') {
@@ -494,6 +526,11 @@
         addLocal(S.layer, fb);
       } else if (c.kind === 'sym') { var s = c.item; if (s.w2 == null) delete s.w2; if (s.f == null) delete s.f; addLocal(S.layer, s); }
       else if (c.kind === 'textpos') { openEditor(c.x, c.y); }
+      if (S.tapDown && e.pointerType === 'pen') {                                                                        // 펜으로 짧게 톡 친 것을 기억 (두 번째 톡이 오면 전환)
+        var d0 = S.tapDown; S.tapDown = null;
+        if (e.type === 'pointerup' && Date.now() - d0.t < 260 && Math.hypot(e.clientX - d0.x, e.clientY - d0.y) < 10 && (c.kind === 'pen' || c.kind === 'hl' || c.kind === 'erase')) S.tapLast = { t: Date.now(), x: d0.x, y: d0.y, before: d0.seq, after: S.seq, tool: S.tool };
+        else S.tapLast = null;
+      }
       invalidate();
     }
 
@@ -605,6 +642,9 @@
       setLayer: function (ly) { if (ly === 'team' || ly === 'mine') S.layer = ly; },
       setVisible: function (ly, on) { S.vis[ly] = !!on; invalidate(); },
       setPenMode: function (m) { S.penMode = m === 'always' || m === 'off' ? m : 'auto'; refreshTouch(); },
+      setPenTap: function (on) { S.penTap = !!on; S.tapLast = null; S.tapDown = null; }, penTap: function () { return !!S.penTap; },
+      swapPenEraser: function () { return swapPenEraser('button'); },
+      setSawPen: function (b) { S.sawPen = !!b; refreshTouch(); },
       setStraight: function (b) { S.straight = !!b; },
       setPerms: function (me, canEdit) { S.me = me || S.me; S.canEdit = !!canEdit; },
       setItems: function (ly, items) { var m = new Map(); (items || []).forEach(function (i) { if (i && i.id) m.set(i.id, i); }); S.layers[ly] = m; S.hist = S.hist.filter(function (h) { return h.layer !== ly; }); invalidate(); changed(); },
