@@ -1,0 +1,15 @@
+p='scripts/test-hub5.js'
+t=open(p,encoding='utf8').read()
+add='''  /* ---------------------------------------------------------------- F */
+  section('F. 서버 파일 문법 — 워커(별도 스레드)까지 (Render 시작 실패 방지)');
+  {
+    const cp = require('child_process'), fsx = require('fs'), pth = require('path');
+    const root = pth.join(__dirname, '..');
+    const files = ['server.js'].concat(fsx.readdirSync(pth.join(root, 'lib')).filter((f) => /\\.js$/.test(f)).map((f) => 'lib/' + f), fsx.readdirSync(pth.join(root, 'logic')).filter((f) => /\\.js$/.test(f)).map((f) => 'logic/' + f));
+    const bad = files.filter((f) => cp.spawnSync(process.execPath, ['--check', pth.join(root, f)]).status !== 0);
+    eq(bad, [], '모든 서버 파일이 문법 오류 없이 읽힘 (' + files.length + '개)');
+  }
+'''
+key="  process.exit(T.summary() ? 0 : 1);"
+assert t.count(key)==1
+open(p,'w',encoding='utf8').write(t.replace(key,add+key))
