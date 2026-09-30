@@ -822,3 +822,15 @@ body.ht-lock { overflow: hidden; }
 .pv:not(.pv-tablet):not(.pv-compact) .pv-formbadge { top: 10px; justify-content: flex-end; padding-right: 14px; }
 .pv:not(.pv-tablet):not(.pv-compact) .pv-fb-in { flex-wrap: wrap; row-gap: 2px; max-width: 216px; white-space: normal; border-radius: 16px; overflow: visible; }
 .pv:not(.pv-tablet):not(.pv-compact).pv-toolshide .pv-formbadge { justify-content: center; padding-right: 0; }
+
+
+/* ===== Step 3.2 — 오프라인 표시줄 ===== */
+.offpill { position: fixed; left: 50%; top: max(10px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 2147483000;
+  display: none; align-items: center; gap: 8px; max-width: min(92vw, 640px); padding: 8px 14px; border-radius: 999px;
+  background: rgba(28, 22, 18, .82); color: #fff; font: 600 12.5px/1.35 -apple-system, "Segoe UI", sans-serif; text-align: left;
+  border: 1px solid rgba(255, 138, 61, .55); box-shadow: 0 6px 22px rgba(0, 0, 0, .45);
+  -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%); pointer-events: none; }
+.offpill.on { display: flex; }
+.offpill i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #FF8A3D; box-shadow: 0 0 0 3px rgba(255, 138, 61, .25); }
+.offpill.sync i { background: #7BD88F; box-shadow: 0 0 0 3px rgba(123, 216, 143, .25); animation: offblink 1s ease-in-out infinite; }
+@keyframes offblink { 50% { opacity: .35; } }

@@ -63,34 +63,34 @@ const INIT = (noWake) => `(() => {
     check('다시 보이면 곧바로 다시 잡음', await ev(pa, (n) => window.__wl.req > n && window.__pv.P.wake().mode === 'api', r0), await ev(pa, () => window.__wl)); }
 
   /* ============================================================ 2. 무음 모드 오디오 + 메트로놈 빠른 버튼 (컴퓨터) */
-  console.log('2. 메트로놈 빠른 버튼 · 무음 모드 오디오 (컴퓨터 화면)');
-  check('악보 화면 위에 메트로놈 빠른 버튼이 있음', await ev(pa, () => !!document.querySelector('.pv-mq') && getComputedStyle(document.querySelector('.pv-mq')).display !== 'none'));
-  check('버튼이 화면 안에 보이고 (스크롤 없이) 다른 것에 가려지지 않음', await ev(pa, () => { const b = document.querySelector('.pv-mq-go').getBoundingClientRect(), x = b.x + b.width / 2, y = b.y + b.height / 2; const t = document.elementFromPoint(x, y); return b.width > 30 && b.height > 30 && b.top >= 0 && b.bottom <= innerHeight && b.right <= innerWidth && !!t && !!t.closest('.pv-mq'); }));
-  check('빠른 버튼이 사이드 패널 탭을 가리지 않음', await ev(pa, () => { const m = document.querySelector('.pv-mq').getBoundingClientRect(), s = document.querySelector('.pv-side').getBoundingClientRect(); return m.right <= s.left + 1 || s.width < 5; }));
-  check('BPM 표시 (곡 BPM 120)', await ev(pa, () => document.querySelector('.pv-mq-bpm b').textContent === '120'), await ev(pa, () => document.querySelector('.pv-mq-bpm b').textContent));
+  console.log('2. 메트로놈 · 콜아웃 (위 도크 맨 앞) · 무음 모드 오디오 (컴퓨터 화면)   [Step 2.15: 예전 떠 있던 빠른 버튼은 도크 맨 앞 라이브 컨트롤로 옮겨짐]');
+  check('도크 맨 앞에 메트로놈 · 콜아웃 라이브 컨트롤이 있음', await ev(pa, () => { const t = document.querySelector('.pv-tools'), l = t && t.querySelector('.pv-live'); return !!l && t.firstChild === l && getComputedStyle(l).display !== 'none' && !!l.querySelector('.pv-lv-go') && !!l.querySelector('.pv-lv-tts'); }));
+  check('도크가 보일 때는 예전 떠 있는 빠른 버튼을 감춤 (같은 기능이 두 곳에 겹치지 않게)', await ev(pa, () => { const m = document.querySelector('.pv-mq'); return !m || getComputedStyle(m).display === 'none'; }));
+  check('버튼이 화면 안에 보이고 (스크롤 없이) 다른 것에 가려지지 않음', await ev(pa, () => { const b = document.querySelector('.pv-lv-go').getBoundingClientRect(), x = b.x + b.width / 2, y = b.y + b.height / 2; const t = document.elementFromPoint(x, y); return b.width > 30 && b.height > 30 && b.top >= 0 && b.bottom <= innerHeight && b.right <= innerWidth && !!t && !!t.closest('.pv-live'); }));
+  check('BPM 표시 (곡 BPM 120)', await ev(pa, () => document.querySelector('.pv-lv-bpm b').textContent === '120'), await ev(pa, () => document.querySelector('.pv-lv-bpm b').textContent));
   check('시작 전에는 audioSession 을 건드리지 않음 · 소리 없는 <audio> 도 없음', await ev(pa, () => window.__as.type === 'auto' && !window.__media.some((m) => m.ev === 'play' && m.tag === 'AUDIO')));
-  await pa.click('.pv-mq-go');
-  check('시작: 버튼이 ■ 로 바뀜', await L.waitTrue(pa, () => document.querySelector('.pv-mq-go').textContent === '■' && document.querySelector('.pv-mq-go').classList.contains('on'), null, 3000));
+  await pa.click('.pv-lv-go');
+  check('시작: 버튼이 ■ (멈춤 표시) 로 바뀜', await L.waitTrue(pa, () => document.querySelector('.pv-lv-go').classList.contains('on') && document.querySelector('.pv-lv-go').getAttribute('aria-pressed') === 'true' && !!document.querySelector('.pv-lv-go rect'), null, 3000));
   check('무음 모드 대책 ①: audioSession.type = "playback"', await ev(pa, () => window.__as.type === 'playback'), await ev(pa, () => window.__as.type));
   check('무음 모드 대책 ②: 소리 없는 <audio> 를 반복(loop) 재생', await ev(pa, () => window.__media.some((m) => m.ev === 'play' && m.tag === 'AUDIO' && m.loop && m.src === 'blob:')), await ev(pa, () => window.__media));
   check('소리 없는 wav 는 올바른 WAV 파일 (RIFF · 1초)', await ev(pa, async () => { const a = [...document.querySelectorAll('audio')]; const u = window.YNMetro && window.YNMetro.Media.el && window.YNMetro.Media.el.src; if (!u) return false; const b = new Uint8Array(await (await fetch(u)).arrayBuffer()); return String.fromCharCode(...b.slice(0, 4)) === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WAVE' && b.length === 44 + 16000 && b.slice(44).every((x) => x === 0); }));
   check('메트로놈이 실제로 돌아감 (딸깍 예약됨)', await L.waitTrue(pa, () => window.__osc.made >= 4, null, 3000), await ev(pa, () => window.__osc));
   check('패널 시작 버튼도 같은 상태 (■ 멈춤)', await ev(pa, () => { const b = document.querySelector('[data-role="toggle"]'); return !b || /멈춤/.test(b.textContent); }) );
-  check('빠른 버튼의 BPM 점이 박마다 깜빡임 (클래스가 바뀜)', await L.waitTrue(pa, () => /b[01]/.test(document.querySelector('.pv-mq-dot').className), null, 2000));
+  check('빠른 버튼의 BPM 점이 박마다 깜빡임 (클래스가 바뀜)', await L.waitTrue(pa, () => /b[01]/.test(document.querySelector('.pv-lv-dot').className), null, 2000));
   await sleep(1500);
-  await pa.click('.pv-mq-go');
-  check('멈춤: 버튼이 ▶ 로 돌아옴', await L.waitTrue(pa, () => document.querySelector('.pv-mq-go').textContent === '▶', null, 3000));
+  await pa.click('.pv-lv-go');
+  check('멈춤: 버튼이 ▶ 로 돌아옴', await L.waitTrue(pa, () => !document.querySelector('.pv-lv-go').classList.contains('on') && !!document.querySelector('.pv-lv-go polygon'), null, 3000));
   check('멈추면 소리 없는 <audio> 도 멈춤 (배터리)', await L.waitTrue(pa, () => window.__media.filter((m) => m.tag === 'AUDIO').slice(-1)[0].ev === 'pause', null, 2000), await ev(pa, () => window.__media));
   await sleep(700);
   { const o = await ev(pa, () => window.__osc);
     check('다 울린 딸깍 소리 노드는 바로 끊어짐 (disconnect 횟수 ≈ 만든 수)', o.made >= 6 && o.disc >= o.made - 3, o); }
-  await pa.click('.pv-mq-bpm');
+  await pa.click('.pv-lv-bpm');
   check('BPM 을 누르면 메트로놈 패널이 열림', await L.waitTrue(pa, () => !!document.querySelector('.pv-tabbtn[data-tab="metro"].on'), null, 2000));
   check('패널 메트로놈 탭: 시작 버튼이 맨 위(BPM 입력칸보다 위)에 있음', await ev(pa, () => { const g = document.querySelector('[data-role="toggle"]').getBoundingClientRect(), b = document.querySelector('[data-role="bpm"]').getBoundingClientRect(); return g.top < b.top; }));
   await pa.evaluate(() => { document.querySelector('[data-o="mq"]').click(); });
-  check('설정에서 빠른 버튼을 끌 수 있음 (기억됨)', await ev(pa, () => getComputedStyle(document.querySelector('.pv-mq')).display === 'none' && localStorage.getItem('yn.pv.mq') === '0'));
+  check('설정에서 (폰 · 전체화면용) 빠른 버튼을 끌 수 있음 (기억됨)', await ev(pa, () => getComputedStyle(document.querySelector('.pv-mq')).display === 'none' && localStorage.getItem('yn.pv.mq') === '0'));
   await pa.evaluate(() => { document.querySelector('[data-o="mq"]').click(); });
-  check('다시 켜면 나타남', await ev(pa, () => getComputedStyle(document.querySelector('.pv-mq')).display !== 'none' && localStorage.getItem('yn.pv.mq') === '1'));
+  check('다시 켜면 기억됨 (도크가 보이는 화면에서는 여전히 감춤)', await ev(pa, () => localStorage.getItem('yn.pv.mq') === '1'));
 
   /* ============================================================ 3. 성능: 쪽 그림 저장소 */
   console.log('3. 성능 — 쪽 그림 저장소 · 다시 그리기 묶기');

@@ -326,7 +326,9 @@
           '<p class="pv-help">"이 곡에 계속"은 다음 주에 같은 악보를 열어도 남아 있고, "이 날짜만"은 이번 예배에서만 보입니다.</p></div>' +
         '<div class="pv-sec"><h4>보이기</h4><label class="pv-chk"><input type="checkbox" data-vis="mine" checked> 내 필기 보이기</label><label class="pv-chk"><input type="checkbox" data-vis="team" checked> 팀 필기 보이기</label>' +
           '<label class="pv-chk"><input type="checkbox" data-o="straight"> 형광펜을 반듯한 직선으로</label>' +
-          '<label class="pv-chk pv-penrow">펜 입력 <select data-o="pen"><option value="auto">자동 (펜이 감지되면 손가락 무시)</option><option value="always">항상 펜만 (손바닥 방지)</option><option value="off">손가락도 그림</option></select></label></div>' +
+          '<label class="pv-chk pv-penrow">펜 입력 <select data-o="pen"><option value="auto">자동 (펜이 감지되면 손가락 무시)</option><option value="always">항상 펜만 (손바닥 방지)</option><option value="off">손가락도 그림</option></select></label>' +
+          '<label class="pv-chk"><input type="checkbox" data-o="pentap" checked> 펜 끝으로 같은 자리를 두 번 톡 → 펜 ↔ 지우개 전환</label>' +
+          '<p class="pv-help">웹 페이지는 애플 펜슬의 하드웨어 더블탭을 받을 수 없어, 펜 끝으로 두 번 톡 치는 것(또는 펜 옆 버튼)으로 대신합니다. 두 손가락은 화면 밀기 · 확대 · 축소에 쓰이고, 펜슬을 쓰는 중에는 손가락 · 손바닥으로는 그려지지 않습니다.</p></div>' +
         '<div class="pv-sec"><h4>지우기</h4><div class="pv-row"><button class="pv-btn2" data-a="mine">현재 페이지 내 필기 지우기</button>' + (P.canEdit ? '<button class="pv-btn2 warn" data-a="all">현재 페이지 모두 지우기</button>' : '') + '</div><p class="pv-help">지운 뒤에도 화면 왼쪽(위)의 ↶ 로 되돌릴 수 있습니다.</p></div>' +
         '<div class="pv-sec"><h4>저장</h4><div class="pv-save" data-role="save"></div><div class="pv-row"><button class="pv-btn2" data-a="save">지금 저장</button></div></div>' +
         '<div class="pv-sec"><h4>내보내기 · 인쇄 (필기 포함)</h4><div class="pv-row"><button class="pv-btn2" data-a="png">현재 페이지 그림(PNG)</button><button class="pv-btn2" data-a="pdf">전체 PDF</button><button class="pv-btn2" data-a="print">인쇄</button></div></div>' +
@@ -344,6 +346,7 @@
         if (st.minePending) t.push('내 필기 저장 대기 ' + st.minePending + '건');
         t.push(st.savedAt ? '마지막 저장 ' + hhmm(st.savedAt) : '아직 저장한 기록 없음');
         host.querySelector('[data-role="save"]').innerHTML = t.map(function (x) { return '<div>' + h(x) + '</div>'; }).join('');
+        host.querySelector('[data-o="pen"]').value = P.penMode(); host.querySelector('[data-o="pentap"]').checked = P.penTap();
         host.querySelector('[data-o="lefty"]').checked = P.hand() === 'left'; host.querySelector('[data-o="mineonly"]').checked = P.getLayer() === 'mine';
       }
       host.addEventListener('click', function (e) {
@@ -360,7 +363,8 @@
       host.addEventListener('change', function (e) {
         var t = e.target; if (t.dataset.vis) an().setVisible(t.dataset.vis, t.checked);
         else if (t.dataset.o === 'straight') an().setStraight(t.checked);
-        else if (t.dataset.o === 'pen') an().setPenMode(t.value);
+        else if (t.dataset.o === 'pen') P.setPenModePref(t.value);
+        else if (t.dataset.o === 'pentap') P.setPenTap(t.checked);
         else if (t.dataset.o === 'lefty') P.setHand(t.checked ? 'left' : 'right');
         else if (t.dataset.o === 'mineonly') P.setLayer(t.checked ? 'mine' : 'team');
       });

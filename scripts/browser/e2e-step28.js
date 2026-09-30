@@ -28,7 +28,7 @@ const fake = global.__fake;
 
   console.log('· 문구 · 배치');
   check('"세션 / 연습 시작" 버튼 (연습 모드 문구 없음)', await page.evaluate(() => /세션 \/ 연습 시작/.test(document.body.innerText) && !/연습 모드/.test(document.body.innerText)));
-  check('가사 패널이 방송팀 요청 바로 위 (녹음 · 결단찬양 다음)', await page.evaluate(() => { const ps = Array.from(document.querySelectorAll('#body .panel, #body .mdbox, #body > *')); const ly = document.querySelector('#lyPanel'), md = document.querySelector('.mdbox'); return !!ly && !!md && !!(ly.compareDocumentPosition(md) & Node.DOCUMENT_POSITION_FOLLOWING) && ly.nextElementSibling === md; }));
+  check('가사 패널이 페이지 맨 아래 (방송팀 요청 · 녹음 · 결단찬양보다 뒤) — Step 2.15', await page.evaluate(() => { const ly = document.querySelector('#lyPanel'), md = document.querySelector('.mdbox'); const ps = Array.from(document.querySelectorAll('#body > .panel, #body > .mdbox')); return !!ly && ps[ps.length - 1] === ly && (!md || !!(md.compareDocumentPosition(ly) & Node.DOCUMENT_POSITION_FOLLOWING)); }));
 
   console.log('· 링크 자동걸기');
   check('링크 자동걸기 버튼', await page.evaluate(() => !!document.querySelector('#autoBtn') && /링크 자동걸기/.test(document.querySelector('#autoBtn').textContent)));

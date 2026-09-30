@@ -11,6 +11,11 @@
   }
 
   function callServer(name, args, onOk, onFail) {
+    /* 오프라인 저장소(offline.js)가 있으면: 밀린 내 필기를 먼저 보내고, 인터넷이 끊겼을 때 마지막으로 받은 콘티 · 필기를 대신 보여 줍니다 */
+    var O = window.YNOff, pre = null;
+    try { pre = O && O.before ? O.before(name, args) : null; } catch (e) { pre = null; }
+    if (pre) { pre.then(function () { send(); }, function () { send(); }); } else send();
+    function send() {
     var fail = function (e) {
       if (onFail) onFail(e);
       else if (window.console) console.error('[' + name + ']', e);
@@ -28,12 +33,28 @@
         }
       });
     }).then(function (d) {
-      if (d && d.ok) { if (onOk) onOk(d.result); }
+      if (d && d.ok) {
+        try { if (O) { O.store(name, args, d.result); if (name === 'worshipAnnoSaveMine') O.clearSave(args); } } catch (e) {}
+        if (onOk) onOk(d.result);
+      }
       else fail(asError(d && d.error, '처리하지 못했습니다.'));
     }, function (e) {
+      var net = false; try { net = !!(O && O.isNetworkError(e)); } catch (x) {}
+      if (net && O) {                                                                     // 인터넷 문제일 때만 (서버가 거절한 것은 그대로 오류)
+        if (name === 'worshipAnnoSaveMine') {                                             // 내 필기 → 기기에 보관, 연결되면 자동 저장
+          O.queueSave(name, args).then(function (ok) { if (ok && onOk) onOk({ offline: true }); else fail(asError(e, '서버에 연결하지 못했습니다.')); });
+          return;
+        }
+        O.fallback(name, args).then(function (hit) {
+          if (hit && onOk) { try { window.__OFFLINE_AT__ = hit.at; } catch (x) {} onOk(hit.result); }
+          else fail(asError(navigator.onLine === false ? new Error('인터넷 연결을 확인해주세요.') : e, '서버에 연결하지 못했습니다.'));
+        });
+        return;
+      }
       if (typeof navigator !== 'undefined' && navigator.onLine === false) e = new Error('인터넷 연결을 확인해주세요.');
       fail(asError(e, '서버에 연결하지 못했습니다.'));
     });
+    }
   }
 
   window.callServer = callServer;

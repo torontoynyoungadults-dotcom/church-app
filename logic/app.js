@@ -6060,7 +6060,7 @@ function worshipStats(token) {
 
 function worshipHub(token, date) {
   var w = 찬양권한_(token);
-  var dates = 주일목록_(3, 8);
+  var dates = 주일목록_(13, 8);           // 지난 3개월(13주) ~ 앞으로 8주 — 더 먼 날짜는 달력으로 고릅니다
   var thisWeek = ymd_(이번주기준_());
   var nextWeek = ymd_(다가오는주일_());     // 주일이 지나면 다음 주일을 먼저 보여드립니다
   date = 예배키_(date || nextWeek);

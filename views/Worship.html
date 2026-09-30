@@ -1038,6 +1038,10 @@ body .pe .fc,
 
   <div id="app" style="display:none;">
     <div class="wkbar"><div class="weeks" id="weeks"></div>
+      <button type="button" class="wktoday" id="wkToday" onclick="goUpcoming()" aria-label="오늘 · 다음 주일 예배로 돌아가기" title="다음 주일 예배로 바로 가기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg>
+        <span>다음 주일</span>
+      </button>
       <button type="button" class="wkcal" onclick="openDatePick()" aria-label="달력에서 날짜 고르기" title="달력에서 고르기">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8.5 3.5v3M15.5 3.5v3"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg>
       </button></div>
@@ -1112,6 +1116,14 @@ function ico(k, cls) {
 setTimeout(function () { if (!TOKEN) showLock('포털에서 다시 들어와 주세요.'); else boot(); }, 0);
 
 function boot() {
+  // 인터넷이 끊긴 채 열었다면 기기에 마지막으로 받아 둔 콘티를 먼저 씁니다 (페이지와 함께 보관된 것보다 새로운 경우가 많음)
+  if (window.YNOff && navigator.onLine === false) {
+    YNOff.fallback('worshipHub', [TOKEN, '']).then(function (hit) { if (hit && hit.result) start(hit.result); else boot2(); }, boot2);
+    return;
+  }
+  boot2();
+}
+function boot2() {
   // 페이지와 함께 온 첫 화면 자료가 있으면 서버를 다시 부르지 않고 바로 그립니다
   if (PREFILL.hub) { start(PREFILL.hub); return; }
   if (PREFILL.hubErr) { showLock(PREFILL.hubErr); return; }
@@ -1127,6 +1139,51 @@ function start(d) {
   CACHE[DATE] = d.week;
   W = d.week;
   renderWeeks(); renderTabs(); render();
+  offlineInit();
+}
+
+/* ---------- 오프라인 (Step 3.2) ----------
+   · 마지막으로 받은 콘티 · 이번 주 전후 몇 주 · 악보 파일을 기기에 보관해 두고, 인터넷이 끊기면 그것으로 보여 줍니다.
+   · 내 필기는 기기에 먼저 저장했다가 연결되면 자동으로 서버에 올립니다. */
+var OFFW = false;
+function offBanner(s) {
+  var b = el('offBanner');
+  if (!b) { b = document.createElement('div'); b.id = 'offBanner'; b.className = 'offpill'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
+  var pend = s.pending ? ' · 저장 대기 필기 ' + s.pending + '건' : '';
+  if (!s.online) { b.className = 'offpill on'; b.innerHTML = '<i></i>오프라인 — 저장해 둔 콘티 · 악보를 보여 드립니다. 필기는 기기에 저장되고 연결되면 자동으로 올라갑니다' + pend; }
+  else if (s.pending) { b.className = 'offpill on sync'; b.innerHTML = '<i></i>연결됨 — 기기에 저장해 둔 필기를 올리는 중' + pend; }
+  else { b.className = 'offpill'; b.textContent = ''; }
+}
+function offlineInit() {
+  if (!window.YNOff) return;
+  try { YNOff.on(offBanner); offBanner(YNOff.state()); YNOff.recount(); } catch (e) {}
+  if (OFFW) return; OFFW = true;
+  if (navigator.onLine === false) return;
+  try { YNOff.store('worshipHub', [TOKEN, ''], D); } catch (e) {}                              // 첫 화면 자료도 기기에 보관 (서버를 다시 부르지 않고 그린 경우)
+  setTimeout(offlineWarm, 2500);
+}
+/** 이번 주 · 다음 주일들 · 지난 주의 콘티와 악보를 미리 받아 둡니다 (데이터 절약 모드에서는 악보만 건너뜀) */
+function offlineWarm() {
+  try {
+    if (!window.YNOff || !D || navigator.onLine === false) return;
+    var today = String(D.today || ''), ds = (D.weeks || []).map(function (x) { return String(x.date); }).filter(function (x) { return /^\d{4}-\d\d-\d\d$/.test(x); }).sort();
+    var up = 0; while (up < ds.length && ds[up] < today) up++;
+    var pick = ds.slice(Math.max(0, up - 1), up + 3);
+    if (DATE && pick.indexOf(DATE) < 0 && /^\d{4}-\d\d-\d\d$/.test(DATE)) pick.unshift(DATE);
+    YNOff.warmAssets();
+    pick.reduce(function (p, date) {
+      return p.then(function () {
+        return new Promise(function (done) {
+          var use = function (w) {
+            var ids = (w.sheets || []).concat(w.finalSheets || []).map(function (f) { return f && f.id; }).filter(Boolean);
+            YNOff.precacheSheets(ids).then(function () { setTimeout(done, 250); }, function () { done(); });
+          };
+          if (CACHE[date]) { YNOff.store('getWorshipWeek', [TOKEN, date], CACHE[date]); use(CACHE[date]); return; }
+          callServer('getWorshipWeek', [TOKEN, date], function (w) { CACHE[w.date] = w; use(w); }, function () { done(); });
+        });
+      });
+    }, Promise.resolve());
+  } catch (e) { /* 미리 받기는 덤 — 실패해도 화면은 그대로 */ }
 }
 
 /* ---------- 달력에서 날짜 고르기 ---------- */
@@ -1186,6 +1243,7 @@ function goWeek(date) {
   }
   DATE = date; openPos = ''; songEdit = null; BULK = {}; whenEdit = false; verseEdit = false; plEdit = false; EVEDIT = null; REC_KIND = '';
   if (TAB !== 'plan') { TAB = 'plan'; renderTabs(); }
+  ensureWeek(date);
   renderWeeks();
   window.scrollTo(0, 0);
   if (CACHE[date]) { W = CACHE[date]; render(); return; }
@@ -1239,6 +1297,28 @@ function renderWeeks() {
   }).join('');
   var on = el('weeks').querySelector('.wk.on');
   if (on && on.scrollIntoView) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  var tb = el('wkToday');
+  if (tb) { var here = String(DATE) === upcomingKey(); tb.classList.toggle('here', here); tb.setAttribute('aria-pressed', here ? 'true' : 'false'); }
+}
+
+/** 다음 주일 예배의 키 — 서버가 준 값이 (화면을 오래 켜 둬서) 지났으면 오늘 이후 첫 일요일로 다시 계산 */
+function upcomingKey() {
+  var t = ymdOf(new Date()), n = (D && D.nextWeek) || '';
+  if (n && n >= t) return n;
+  var d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+  return ymdOf(d);
+}
+/** "다음 주일" 버튼 — 어느 날짜를 보고 있든 곧바로 다가오는 주일 예배로 */
+function goUpcoming() {
+  if (!D) return;
+  goWeek(upcomingKey());
+}
+/** 주차 줄에 없는 날짜(달력으로 멀리 간 경우)도 줄에 끼워 넣어 앞뒤로 이어서 넘길 수 있게 합니다 */
+function ensureWeek(key) {
+  if (!D || isEv(key) || !/^\d{4}-\d{2}-\d{2}$/.test(String(key))) return;
+  if (D.weeks.some(function (w) { return w.date === key; })) return;
+  D.weeks.push({ date: key, day: key, filled: 0, need: needCount(), off: 0 });
+  D.weeks.sort(function (a, b) { return a.day === b.day ? (a.event ? 1 : -1) : a.day.localeCompare(b.day); });
 }
 
 function needCount() { return D.positions.filter(function (p) { return !p.multi && !p.optional; }).length; }
@@ -1369,11 +1449,6 @@ function planTab() {
       (D.canEdit ? '<div class="editline"><button class="btn mini" onclick="verseEdit=true;render();">' +
         (pp.verse || pp.verseTitle ? '수정' : '말씀 적기') + '</button></div>' : '');
 
-  var offbar = (W.off || []).length
-    ? '<div class="unav"><b>UNAVAILABLE</b>' +
-      W.off.map(function (x) { return esc(x.name) + (x.reason && x.reason !== '불가' ? ' (' + esc(x.reason) + ')' : ''); }).join(' · ') + '</div>'
-    : '';
-
   var ses = W.session;
   var title = ev ? '<span class="evtag">' + esc(ev.kind) + '</span>' + esc(ev.name) + (ses ? ' · ' + esc(ses.label) : '') : fmtDate(W.date) + ' 주일';
   var sesBar = (ev && (ev.sessions || []).length)
@@ -1383,22 +1458,35 @@ function planTab() {
       }).join('') + '</div>'
     : '';
 
-  return '<div class="panel"><span class="chip">' + title + '</span>' + sesBar + when +
+  return startBar() +
+    '<div class="panel"><span class="chip">' + title + '</span>' + sesBar + when +
       '<p class="msg" id="paperMsg"></p></div>' +
     '<div class="panel"><span class="chip">' + (ev ? '말씀' : '이 주의 말씀') + '</span>' + verse + '</div>' +
-    startBar() +
     '<div class="panel"><span class="chip">' + (ev ? '편성' : '주일 편성') + '</span>' +
       '<div class="lineup2">' + lineupHtml(off) + '</div>' +
       (D.canEdit ? '<p class="fnote">줄을 눌러 사람을 넣고 빼세요. 바로 저장됩니다.</p>' : '') +
-      '<p class="msg" id="planMsg"></p>' + offbar + '</div>';
+      '<p class="msg" id="planMsg"></p></div>';
 }
 
 /** 연주 시작 — 이 주의 말씀과 주일 편성 사이에 두어 바로 눌러 들어가게 합니다 (악보가 없으면 안내만) */
 function startBar() {
   var n = (W.sheets || []).length + (W.finalSheets || []).length;
   return '<div class="panel pvstart">' + (n
-    ? '<button type="button" class="pvgo pvstartbtn" onclick="openPractice(\'\')" title="세션 / 연습 · 필기 · 메트로놈 화면을 엽니다">▶ 세션 / 연습 시작 <small>악보 ' + n + '개 · 필기 · 메트로놈 · 함께 보기</small></button>'
+    ? '<button type="button" class="pvgo pvstartbtn" onclick="openPractice(\'\')" title="세션 / 연습 · 필기 · 메트로놈 화면을 엽니다">▶ 세션 / 연습 시작 <small>악보 ' + n + '개 · 필기 · 메트로놈 · 함께 보기</small></button>' +
+      '<label class="pvauto" title="켜 두면 세션을 시작할 때 드라이브 녹음 폴더에서 이 주의 연습 · 예배 녹음을 찾아 자동으로 링크합니다 (기본 켬)"><input type="checkbox" id="autoRecChk"' + (autoRecOn() ? ' checked' : '') + ' onchange="autoRecSet(this.checked)"><span>자동 녹음 링크</span></label>'
     : '<p class="fnote" style="margin:0;">악보를 올리면 여기에 <b>연주 시작</b> 버튼이 나타납니다.</p>') + '</div>';
+}
+
+/** 자동 녹음 링크 — 세션 시작 때 링크 자동걸기를 저절로 돌립니다 (기본 켬, 이 기기에 기억). 같은 예배는 10분에 한 번만. */
+var AUTO_AT = {};
+function autoRecOn() { try { return localStorage.getItem('yn.wh.autorec') !== '0'; } catch (e) { return true; } }
+function autoRecSet(on) { try { localStorage.setItem('yn.wh.autorec', on ? '1' : '0'); } catch (e) { /* 저장이 막혀도 이번 화면에서는 동작 */ } }
+function autoRecStart() {
+  if (!autoRecOn() || AUTO.busy || !navigator.onLine) return;
+  var now = Date.now();
+  if (AUTO_AT[DATE] && now - AUTO_AT[DATE] < 600000) return;
+  AUTO_AT[DATE] = now;
+  autoLinkRecs();
 }
 
 /** 세션 사이 이동 (같은 행사 안) */
@@ -1446,7 +1534,7 @@ function luRow(p, off) {
   var kn = known();
   var people = picked.length
     ? picked.map(function (n) {
-        return '<span class="pe' + (off[n] ? ' off' : (kn[n] ? '' : ' guest')) + '" title="' + esc(n) + '">' + face(n) + esc(shortName(n)) + '</span>';
+        return '<span class="pe' + (kn[n] ? '' : ' guest') + '" title="' + esc(n) + '">' + face(n) + esc(shortName(n)) + '</span>';
       }).join('')
     : '<span class="pe none">' + (p.optional ? '선택' : '미정') + '</span>';
   var tag = D.canEdit ? 'button' : 'div';
@@ -1689,37 +1777,24 @@ function sendWorshipNotifyBtn(what) {
   }, function (e) { say('wnMsg_' + what, e.message || '보내지 못했습니다.', 'err'); });
 }
 
+/** 예배콘티 — 콘티 → 결단찬양 → 악보 → 녹음 → 방송팀 요청 → 댓글 → (맨 아래) 가사 */
 function setTab() {
-  return playlistBox() +
-    '<div class="panel"><span class="chip">콘티</span>' + soloSummary() + songList('콘티', W.songs) + notifyBtn('setlist') + '</div>' +
-    '<div class="panel"><span class="chip">악보</span>' + fileList('콘티', W.sheets) + notifyBtn('sheet') + '</div>' +
+  return '<div class="panel"><span class="chip">콘티</span>' + soloSummary() + songList('콘티', W.songs) + notifyBtn('setlist') + '</div>' +
+    respBox() +
+    '<div class="panel"><span class="chip">악보</span>' + fileList('콘티', W.sheets) +
+      '<div class="sect" style="margin-top:16px;">결단찬양 악보</div>' + fileList('결단', W.finalSheets) +
+      notifyBtn('sheet') + '</div>' +
     recBox() +
-    '<div class="panel"><span class="chip">결단찬양</span>' +
-      '<p class="hint">목사님께서 주시는 결단찬양입니다.</p>' +
-      songList('결단', W.finals) +
-      '<div style="height:13px;"></div>' +
-      '<div class="sect" style="margin-top:0;">결단찬양 악보</div>' +
-      fileList('결단', W.finalSheets) + '</div>' +
-    lyricsBox() +
     mediaBox() +
-    commentBox();
+    commentBox() +
+    lyricsBox();
 }
 
-function playlistBox() {
-  var url = W.paper.playlist;
-  if (plEdit) {
-    return '<div class="panel"><span class="chip">유튜브 재생목록</span>' +
-      '<div class="f"><label>재생목록 주소</label>' +
-        '<input type="text" id="plUrl" value="' + esc(url) + '" placeholder="https://youtube.com/playlist?list=..."></div>' +
-      '<div class="addrow"><button class="btn" style="flex:1;" onclick="plEdit=false;render();">취소</button>' +
-      '<button class="btn accent" style="flex:2;" onclick="savePaper()">저장</button></div></div>';
-  }
-  return '<div class="panel"><span class="chip">유튜브 재생목록</span>' +
-    '<div class="plbar">' + ico('play', 'pi') +
-      (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener">이 주일 전체 재생목록 열기</a>'
-           : '<span class="none">아직 등록된 재생목록이 없습니다.</span>') +
-      (D.canEdit ? '<button class="btn mini" onclick="plEdit=true;render();">' + (url ? '수정' : '등록') + '</button>' : '') +
-    '</div><p class="msg" id="setMsg"></p></div>';
+/** 결단찬양 (Response Song) — 콘티 바로 아래, 악보 바로 위 */
+function respBox() {
+  return '<div class="panel respp"><span class="chip">결단찬양<span class="enchip">Response Song</span></span>' +
+    '<p class="hint">목사님께서 주시는 결단찬양입니다.</p>' +
+    songList('결단', W.finals) + '</div>';
 }
 
 function songList(kind, list) {
@@ -1966,13 +2041,11 @@ function fileList(kind, list) {
     return '<div class="fileitem card"><span class="ic">' + (pdf ? 'PDF' : 'IMG') + '</span>' +
       '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a>' +
       '<span class="by">' + esc(f.by) + '</span>' +
-      '<button type="button" class="pvgo mini" onclick="openPractice(\'' + esc(jsq(f.id)) + '\')" title="세션 / 연습 시작">🎼 세션 / 연습 시작</button>' +
       (D.canEdit ? '<button class="btn mini danger" onclick="dropSheet(\'' + esc(jsq(f.id)) +
         '\')">삭제</button>' : '') + '</div>';
   }).join('') : '<p class="empty">올라온 악보가 없습니다.</p>';
 
   return rows +
-    (list.length ? '<button type="button" class="pvgo" style="margin-top:10px;" onclick="openPractice(\'\')">🎼 세션 / 연습 시작 (필기 · 메트로놈 · 송폼)</button>' : '') +
     (D.canEdit
       ? '<button type="button" class="pickbtn" style="margin-top:10px;" onclick="pickFile(\'' + kind + '\')">' +
         '＋ 악보 올리기 (PDF · 사진)</button>'
@@ -1997,6 +2070,7 @@ function openPractice(fid) {
     start: fid || (files[0] && files[0].id), canEdit: !!D.canEdit, callServer: callServer
   });
   if (!api) return;
+  try { autoRecStart(); } catch (e) { /* 자동 녹음 링크가 안 돼도 세션은 그대로 */ }
 }
 
 /** 송폼 입력칸 옆에 "눌러서 만드는" 도구를 붙입니다 (입력칸은 그대로 — 저장은 기존 방식) */
@@ -3062,16 +3136,23 @@ function songSheet(c) {
 
 /* ===================== 아카이브 — 지난 콘티 · 악보 한곳에 ===================== */
 
-var AR = { data: null, view: 'date', q: '', year: '', more: 30, songs: null, range: 'recent' };
-var AR_RANGES = [['up', '다가오는 예배'], ['recent', '최근 3개월'], ['older', '그 이전'], ['all', '전체']];
+var AR = { data: null, view: 'date', q: '', year: '', more: 30, songs: null, range: 'now' };
+var AR_RANGES = [['now', '최근 3개월 + 다음 주일'], ['up', '다가오는 예배'], ['recent', '최근 3개월'], ['older', '그 이전'], ['all', '전체']];
 
 /** 오늘에서 3개월 전 (yyyy-mm-dd) */
 function arCut() {
   var t = dt(AR.data.today); t.setMonth(t.getMonth() - 3);
   return t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2);
 }
+/** 오늘 다음에 오는 첫 예배 날짜 ("다음 주일") — 기본 보기에 함께 넣습니다 */
+function arNext() {
+  var today = AR.data.today, best = '';
+  AR.data.days.forEach(function (d) { if (d.date > today && (!best || d.date < best)) best = d.date; });
+  return best;
+}
 function arInRange(d) {
   var today = AR.data.today, cut = arCut();
+  if (AR.range === 'now') return (d.date <= today && d.date >= cut) || d.date === arNext();
   if (AR.range === 'up') return d.date > today;
   if (AR.range === 'recent') return d.date <= today && d.date >= cut;
   if (AR.range === 'older') return d.date < cut;
